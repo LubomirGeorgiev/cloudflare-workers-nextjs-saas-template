@@ -3,7 +3,6 @@ import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { headers } from "next/headers";
 
-// eslint-disable-next-line import/no-cycle
 import { getUserFromDB } from "@/utils/auth";
 import { getIP } from "./get-IP";
 

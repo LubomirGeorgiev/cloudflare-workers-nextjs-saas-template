@@ -22,7 +22,6 @@ function getLocalD1DB() {
   }
 }
 
-// eslint-disable-next-line
 export default defineConfig({
   out: './src/db/migrations',
   schema: './src/db/schema.ts',
