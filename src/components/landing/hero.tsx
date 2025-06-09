@@ -1,12 +1,28 @@
 import { Button } from "@/components/ui/button";
 import { GITHUB_REPO_URL } from "@/constants";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import ShinyButton from "@/components/ui/shiny-button";
 import { getTotalUsers } from "@/utils/stats";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import enCommon from "../../../locales/en/common.json";
+import jaCommon from "../../../locales/ja/common.json";
+
+const translations: Record<string, Record<string, string>> = {
+  en: enCommon,
+  ja: jaCommon,
+};
+
+function translate(locale: string, key: string, fallback: string): string {
+  return translations[locale]?.[key] || fallback;
+}
 
 export function Hero() {
+  const router = useRouter();
+  const locale = router.locale || router.defaultLocale || "en";
+  const heroTitle = translate(locale, "heroTitle", "Production-Ready SaaS Template");
+
   return (
     <div className="relative isolate pt-14 dark:bg-gray-900">
       <div className="pt-20 pb-24 sm:pt-20 sm:pb-32 lg:pb-40">
@@ -21,7 +37,7 @@ export function Hero() {
               </Suspense>
             </div>
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent">
-              Production-Ready SaaS Template
+              {heroTitle}
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
               A modern, open-source template for building SaaS applications with Next.js 15,
