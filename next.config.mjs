@@ -11,6 +11,10 @@ const nextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  i18n: {
+    locales: ['en', 'ja'],
+    defaultLocale: 'ja',
+  },
   eslint: {
     ignoreDuringBuilds: process.env.SKIP_LINTER === 'true'
   },
