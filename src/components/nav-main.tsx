@@ -21,6 +21,7 @@ import {
 import Link from "next/link"
 import type { Route } from "next"
 import type { NavMainItem } from "./app-sidebar"
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 type Props = {
   items: NavMainItem[]
@@ -99,6 +100,9 @@ export function NavMain({
           )
         })}
       </SidebarMenu>
+      <div className="mt-auto p-4">
+        <LanguageSwitcher />
+      </div>
     </SidebarGroup>
   )
 }
