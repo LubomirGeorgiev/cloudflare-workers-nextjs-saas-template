@@ -3,7 +3,7 @@
 import { requireVerifiedEmail } from "@/utils/auth";
 import {
   getCreditTransactions,
-  updateUserCredits,
+  addUserCredits,
   logTransaction,
   getCreditPackage,
 } from "@/utils/credits";
@@ -12,6 +12,7 @@ import { getStripe } from "@/lib/stripe";
 import { MAX_TRANSACTIONS_PER_PAGE, CREDITS_EXPIRATION_YEARS } from "@/constants";
 import ms from "ms";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { updateAllSessionsOfUser } from "@/utils/kv-session";
 
 // Action types
 type GetTransactionsInput = {
@@ -130,7 +131,7 @@ export async function confirmPayment({ packageId, paymentIntentId }: PurchaseCre
       }
 
       // Add credits and log transaction
-      await updateUserCredits(session.user.id, creditPackage.credits);
+      await addUserCredits(session.user.id, creditPackage.credits);
       await logTransaction({
         userId: session.user.id,
         amount: creditPackage.credits,
@@ -139,6 +140,9 @@ export async function confirmPayment({ packageId, paymentIntentId }: PurchaseCre
         expirationDate: new Date(Date.now() + ms(`${CREDITS_EXPIRATION_YEARS} years`)),
         paymentIntentId: paymentIntent?.id
       });
+
+      // Update all KV sessions to reflect the new credit balance
+      await updateAllSessionsOfUser(session.user.id);
 
       return { success: true };
     } catch (error) {
