@@ -32,7 +32,7 @@ type Props = {
 export function NavProjects({
   projects,
 }: Props) {
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
@@ -41,7 +41,10 @@ export function NavProjects({
         {projects.map((item) => (
           <SidebarMenuItem key={item.title}>
             <SidebarMenuButton asChild>
-              <a href={item.url}>
+              <a
+                href={item.url}
+                onClick={() => setOpenMobile(false)}
+              >
                 {item?.icon && <item.icon />}
                 <span>{item.title}</span>
               </a>

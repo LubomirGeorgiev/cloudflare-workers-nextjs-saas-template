@@ -63,7 +63,7 @@ export interface KVSession {
  * IF YOU MAKE ANY CHANGES TO THE KVSESSION TYPE ABOVE, YOU NEED TO INCREMENT THIS VERSION.
  * THIS IS HOW WE TRACK WHEN WE NEED TO UPDATE THE SESSIONS IN THE KV STORE.
  */
-export const CURRENT_SESSION_VERSION = 2;
+export const CURRENT_SESSION_VERSION = 3;
 
 export async function getKV() {
   const { env } = getCloudflareContext();

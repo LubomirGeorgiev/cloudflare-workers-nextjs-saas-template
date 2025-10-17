@@ -38,7 +38,7 @@ import ThemeSwitch from "./theme-switch"
 export function NavUser() {
   const { session, isLoading } = useSessionStore();
   const { signOut } = useSignOut();
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
 
   if (isLoading) {
@@ -85,7 +85,10 @@ export function NavUser() {
               <div className="grid flex-1 gap-0.5 text-left text-sm leading-tight">
                 <span className="font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                <Badge variant="secondary" className="w-fit text-[10px]" onClick={() => router.push('/dashboard/billing')}>
+                <Badge variant="secondary" className="w-fit text-[10px]" onClick={() => {
+                  setOpenMobile(false)
+                  router.push('/dashboard/billing')
+                }}>
                   {user.currentCredits} credits
                 </Badge>
               </div>
@@ -119,11 +122,17 @@ export function NavUser() {
               </ThemeSwitch>
             </div>
             <DropdownMenuGroup>
-              <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/settings')}>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                setOpenMobile(false)
+                router.push('/settings')
+              }}>
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/dashboard/billing')}>
+              <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                setOpenMobile(false)
+                router.push('/dashboard/billing')
+              }}>
                 <CreditCard />
                 Billing
               </DropdownMenuItem>
@@ -135,6 +144,7 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
+                setOpenMobile(false)
                 signOut().then(() => {
                   router.push('/')
                 })

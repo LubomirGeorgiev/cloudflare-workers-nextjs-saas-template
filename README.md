@@ -2,7 +2,7 @@
 
 [![.github/workflows/deploy.yml](https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template/actions/workflows/deploy.yml/badge.svg)](https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template/actions/workflows/deploy.yml)
 
-# [Live Demo](https://nextjs-saas-template.agenticdev.agency/sign-up)
+# [Live Demo](https://nextjs-saas-template.lubomirgeorgiev.com/sign-up)
 # [Github Repo](https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template)
 
 This is a SaaS template for Cloudflare Workers. It uses the [OpenNext](https://opennext.js.org/cloudflare) framework to build a SaaS application.
@@ -114,6 +114,9 @@ Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overv
 
 ## Planned features (TODO):
 
+- [ ] Add an eslint rule to check for unused imports and exports
+- [ ] Add an eslint rule to check for unused variables and functions
+- [ ] Upgrade to Tailwind 4 and fix the errors and visual regressions. Already started here https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template/tree/tailwind-4-upgrade
 - [ ] Update Meta SEO tags 🔍
 - [ ] Dynamic OpenGraph images 📸
 - [ ] sitemap.xml 📄
@@ -121,7 +124,6 @@ Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overv
 - [ ] Multi-language support (i18n) 🌐
 - [ ] Notifications 🔔
 - [ ] Webhooks 🔗
-- [ ] Track bundle size with https://www.npmjs.com/package/webpack-bundle-analyzer 📊
 
 # Running it locally
 
@@ -138,7 +140,7 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 
 ## Things to change and customize before deploying to production
 1. Go to `src/constants.ts` and update it with your project details
-2. Update the documentation in `./cursor-docs` with your project details so that Cursor AI can give you better suggestions
+2. Update `.cursor/rules/001-main-project-context.mdc` with your project specification so that Cursor AI can give you better suggestions
 3. Update the footer in `src/components/footer.tsx` with your project details and links
 4. Optional: Update the color palette in `src/app/globals.css`
 5. Update the metadata in `src/app/layout.tsx` with your project details

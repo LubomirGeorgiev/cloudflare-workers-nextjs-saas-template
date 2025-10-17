@@ -16,6 +16,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import type { Route } from "next"
@@ -28,6 +29,8 @@ type Props = {
 export function NavMain({
   items,
 }: Props) {
+  const { setOpenMobile } = useSidebar()
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -38,7 +41,10 @@ export function NavMain({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.title}>
-                  <Link href={item.url as Route}>
+                  <Link
+                    href={item.url as Route}
+                    onClick={() => setOpenMobile(false)}
+                  >
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
@@ -69,11 +75,17 @@ export function NavMain({
                       <SidebarMenuSubItem key={subItem.title}>
                         <SidebarMenuSubButton asChild>
                           {subItem.url.startsWith('/') ? (
-                            <Link href={subItem.url as Route}>
+                            <Link
+                              href={subItem.url as Route}
+                              onClick={() => setOpenMobile(false)}
+                            >
                               <span>{subItem.title}</span>
                             </Link>
                           ) : (
-                            <a href={subItem.url}>
+                            <a
+                              href={subItem.url}
+                              onClick={() => setOpenMobile(false)}
+                            >
                               <span>{subItem.title}</span>
                             </a>
                           )}

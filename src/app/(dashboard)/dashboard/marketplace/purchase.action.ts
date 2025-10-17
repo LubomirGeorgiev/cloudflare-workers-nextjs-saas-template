@@ -9,6 +9,7 @@ import { getDB } from "@/db";
 import { purchasedItemsTable, PURCHASABLE_ITEM_TYPE } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog";
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 
 const purchaseSchema = z.object({
   itemId: z.string(),
@@ -20,6 +21,13 @@ export const purchaseAction = createServerAction()
   .handler(async ({ input }) => {
     return withRateLimit(
       async () => {
+        if (DISABLE_CREDIT_BILLING_SYSTEM) {
+          throw new ZSAError(
+            "INSUFFICIENT_CREDITS",
+            "Marketplace is not available when credit billing is disabled"
+          );
+        }
+
         const session = await getSessionFromCookie();
 
         if (!session) {
@@ -45,19 +53,6 @@ export const purchaseAction = createServerAction()
           );
         }
 
-        // Check if user has enough credits
-        const hasCredits = await hasEnoughCredits({
-          userId: session.userId,
-          requiredCredits: itemDetails.credits,
-        });
-
-        if (!hasCredits) {
-          throw new ZSAError(
-            "INSUFFICIENT_CREDITS",
-            "You don't have enough credits to purchase this item"
-          );
-        }
-
         const db = getDB();
 
         // Check if user already owns the item
@@ -76,14 +71,27 @@ export const purchaseAction = createServerAction()
           );
         }
 
-        // Use credits first
+        // Check if user has enough credits
+        const hasCredits = await hasEnoughCredits({
+          userId: session.userId,
+          requiredCredits: itemDetails.credits,
+        });
+
+        if (!hasCredits) {
+          throw new ZSAError(
+            "INSUFFICIENT_CREDITS",
+            "You don't have enough credits to purchase this item"
+          );
+        }
+
+        // Use credits
         await consumeCredits({
           userId: session.userId,
           amount: itemDetails.credits,
           description: `Purchased ${input.itemType.toLowerCase()}: ${itemDetails.name}`,
         });
 
-        // Then add item to user's purchased items
+        // Add item to user's purchased items
         await db.insert(purchasedItemsTable).values({
           userId: session.userId,
           itemType: input.itemType,

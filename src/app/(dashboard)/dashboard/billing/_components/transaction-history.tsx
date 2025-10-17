@@ -17,6 +17,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { useTransactionStore } from "@/state/transaction";
+import { useQueryState } from "nuqs";
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 
 type TransactionData = Awaited<ReturnType<typeof getTransactions>>
 
@@ -27,14 +29,14 @@ function isTransactionExpired(transaction: TransactionData["transactions"][numbe
 export function TransactionHistory() {
   const [data, setData] = useState<TransactionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useQueryState("page", { defaultValue: "1" });
   const refreshTrigger = useTransactionStore((state) => state.refreshTrigger);
 
   useEffect(() => {
     const fetchTransactions = async () => {
       setIsLoading(true);
       try {
-        const result = await getTransactions({ page });
+        const result = await getTransactions({ page: parseInt(page) });
         setData(result);
       } catch (error) {
         console.error("Failed to fetch transactions:", error);
@@ -45,6 +47,14 @@ export function TransactionHistory() {
 
     fetchTransactions();
   }, [page, refreshTrigger]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage.toString());
+  };
+
+  if (DISABLE_CREDIT_BILLING_SYSTEM) {
+    return null;
+  }
 
   if (isLoading) {
     return (
@@ -187,8 +197,8 @@ export function TransactionHistory() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
+              onClick={() => handlePageChange(Math.max(1, parseInt(page) - 1))}
+              disabled={parseInt(page) === 1}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -198,8 +208,8 @@ export function TransactionHistory() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage((p) => Math.min(data?.pagination.pages ?? 1, p + 1))}
-              disabled={page === (data?.pagination.pages ?? 1)}
+              onClick={() => handlePageChange(Math.min(data?.pagination.pages ?? 1, parseInt(page) + 1))}
+              disabled={parseInt(page) === (data?.pagination.pages ?? 1)}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

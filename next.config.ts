@@ -1,13 +1,12 @@
+import type { NextConfig } from "next";
+
 import withBundleAnalyzer from '@next/bundle-analyzer';
 import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
 
 // added by create cloudflare to enable calling `getCloudflareContext()` in `next dev`
 initOpenNextCloudflareForDev();
 
-
-// TODO cache-control headers don't work for static files
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   experimental: {
     typedRoutes: true,
   },

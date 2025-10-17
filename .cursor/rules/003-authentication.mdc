@@ -1,0 +1,20 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Authentication Guidelines
+
+## Authentication Stack
+
+The authentication logic is in `src/utils/auth.ts` and `src/utils/kv-session.ts` and is based on Lucia Auth.
+
+## Server Components
+
+If we want to access the session in a server component, we need to use the `getSessionFromCookie` function in `src/utils/auth.ts`.
+
+## Client Components
+
+If we want to access the session in a client component, we can get it from `const session = useSessionStore();` in `src/state/session.ts`.
+

@@ -1,0 +1,18 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Database Patterns
+
+The database schema is in `src/db/schema.ts`.
+
+## Drizzle ORM Guidelines
+
+- Never use Drizzle ORM Transactions since Cloudflare D1 doesn't support them.
+- When inserting or updating items with Drizzle ORM never pass an id since we autogenerate it in the schema.
+- When using `db.insert().values()` never pass and id because we autogenerate them.
+
+## Migration Workflow
+
+Never generate SQL migration files. Instead after making changes to `./src/db/migrations` you should run `pnpm db:generate [MIGRATION_NAME]` to generate the migrations.

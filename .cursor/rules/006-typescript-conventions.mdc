@@ -1,0 +1,22 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# TypeScript Usage
+
+## Type Definitions
+
+- Use TypeScript for all code; prefer interfaces over types.
+- Avoid enums; use maps instead.
+- Use functional components with TypeScript interfaces.
+
+## Naming Conventions
+
+- Use lowercase with dashes for directories (e.g., components/auth-wizard).
+- Favor named exports for components.
+
+## Syntax and Formatting
+
+- Use declarative JSX.
+- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.

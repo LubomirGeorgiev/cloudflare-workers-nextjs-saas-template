@@ -49,3 +49,4 @@ dist
 !.dev.vars.example
 !.env*example
 *.log
+backups

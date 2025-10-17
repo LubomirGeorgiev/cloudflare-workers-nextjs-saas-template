@@ -27,6 +27,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { useSessionStore } from "@/state/session"
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
 
 export type NavItem = {
   title: string
@@ -94,11 +95,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "/dashboard/teams" as Route,
         icon: Users,
       },
-      {
+      ...(!DISABLE_CREDIT_BILLING_SYSTEM ? [{
         title: "Marketplace",
-        url: "/dashboard/marketplace",
+        url: "/dashboard/marketplace" as Route,
         icon: ShoppingCart,
-      },
+      }] : []),
       {
         title: "Billing",
         url: "/dashboard/billing",

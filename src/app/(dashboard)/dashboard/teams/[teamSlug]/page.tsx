@@ -66,7 +66,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
   // Check if user is authenticated
   const session = await getSessionFromCookie();
   if (!session) {
-    redirect("/auth/login?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
+    redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
   }
 
   // Check team membership using the new function

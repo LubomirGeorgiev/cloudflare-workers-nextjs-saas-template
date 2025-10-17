@@ -29,7 +29,7 @@ export function TeamSwitcher({
     plan: string
   }[]
 }) {
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const [activeTeam, setActiveTeam] = React.useState<typeof teams[0] | null>(null)
 
   // Update activeTeam when teams change or on initial render
@@ -95,7 +95,10 @@ export function TeamSwitcher({
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 p-2 cursor-pointer" asChild>
-              <Link href="/dashboard/teams/create">
+              <Link
+                href="/dashboard/teams/create"
+                onClick={() => setOpenMobile(false)}
+              >
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Plus className="size-4" />
                 </div>

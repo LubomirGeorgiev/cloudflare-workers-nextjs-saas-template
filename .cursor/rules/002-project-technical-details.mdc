@@ -1,0 +1,225 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Project Technical Details
+
+> **Note**: This project is based on an open source Next.js SaaS template for Cloudflare Workers. You can find the original template at: https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template
+
+## Cloudflare Stack
+
+You are also excellent at Cloudflare Workers and other tools like D1 serverless database and KV. You can suggest usage of new tools (changes in wrangler.jsonc file) to add more primitives like:
+- R2: File storage
+- KV: Key-value storage
+  - Always use the existing KV namespace in `wrangler.jsonc` don't ever create new ones.
+- AI: AI multimodal inference
+- others primitives in `wrangler.jsonc`
+- After adding a new primitive to `wrangler.jsonc`, always run `pnpm run cf-typegen` to generate the new types.
+
+## Package Management
+
+In the terminal, you are also an expert at suggesting wrangler commands
+ - Always use pnpm to install dependencies.
+
+## Migration Commands
+
+Never generate SQL migration files. Instead after making changes to `./src/db/migrations` you should run `pnpm db:generate [MIGRATION_NAME]` to generate the migrations.
+
+## Tech Stack Overview
+
+### Frontend
+- Next.js 15 (App Router)
+- React Server Components
+- TypeScript
+- Tailwind CSS
+- Shadcn UI (Built on Radix UI)
+- Lucide Icons
+- NUQS for URL state management
+- Zustand for client state
+
+### Backend (Cloudflare Workers with OpenNext)
+- DrizzleORM
+- Cloudflare D1 (SQLite Database)
+- Cloudflare KV (Session/Cache Storage)
+- Cloudflare R2 (File Storage)
+- OpenNext for SSR/Edge deployment
+
+### Authentication & Authorization
+- Lucia Auth (User Management)
+- KV-based session management
+- CUID2 for ID generation
+- Team-based multi-tenancy
+
+## Project Structure
+
+```
+├── src/                          # Source directory
+│   ├── actions/                  # Server actions
+│   │   ├── credits.action.ts
+│   │   ├── sign-out.action.ts
+│   │   ├── team-actions.ts
+│   │   ├── team-membership-actions.ts
+│   │   └── team-role-actions.ts
+│   ├── app/                      # Next.js App Router
+│   │   ├── (admin)/              # Admin routes
+│   │   │   └── admin/
+│   │   │       ├── _actions/     # Admin-specific actions
+│   │   │       ├── _components/  # Admin-specific components
+│   │   │       └── users/        # User management
+│   │   ├── (auth)/               # Auth-related routes
+│   │   │   ├── _components/      # Auth components (SSO buttons, etc.)
+│   │   │   ├── sign-in/          # Sign in functionality
+│   │   │   ├── sign-up/          # Sign up functionality
+│   │   │   ├── forgot-password/  # Password reset request
+│   │   │   ├── reset-password/   # Password reset completion
+│   │   │   ├── passkey/          # Passkey/WebAuthn authentication
+│   │   │   ├── sso/              # SSO authentication
+│   │   │   │   └── google/       # Google OAuth
+│   │   │   ├── team-invite/      # Team invitation acceptance
+│   │   │   └── verify-email/     # Email verification
+│   │   ├── (dashboard)/          # Dashboard and app features
+│   │   │   ├── dashboard/        # Main dashboard
+│   │   │   └── layout.tsx
+│   │   ├── (legal)/              # Legal pages (terms, privacy)
+│   │   ├── (marketing)/          # Landing pages and marketing
+│   │   ├── (settings)/           # User settings pages
+│   │   │   └── settings/
+│   │   │       ├── profile/      # Profile settings
+│   │   │       └── sessions/     # Session management
+│   │   ├── teams/                # Team management
+│   │   │   ├── [teamSlug]/       # Team-specific routes (dynamic)
+│   │   │   │   ├── members/      # Team member management
+│   │   │   │   ├── settings/     # Team settings
+│   │   │   │   └── billing/      # Team billing
+│   │   │   └── create/           # Team creation
+│   │   ├── dashboard/            # Additional dashboard routes
+│   │   │   └── billing/          # User billing
+│   │   ├── api/                  # API routes
+│   │   │   ├── auth/             # Auth API endpoints
+│   │   │   └── get-session/      # Session retrieval
+│   │   └── globals.css           # Global styles
+│   ├── components/               # React components
+│   │   ├── landing/              # Landing page components
+│   │   ├── teams/                # Team-related components
+│   │   └── ui/                   # Shadcn UI components
+│   ├── db/                       # Database related code
+│   │   ├── migrations/           # Database migrations
+│   │   └── schema.ts             # DrizzleORM schema
+│   ├── hooks/                    # Custom React hooks
+│   │   ├── useMediaQuery.ts
+│   │   └── useSignOut.ts
+│   ├── icons/                    # Custom icon components
+│   ├── layouts/                  # Layout components
+│   ├── lib/                      # Library utilities
+│   │   ├── sso/                  # SSO integrations
+│   │   ├── stripe.ts             # Stripe integration
+│   │   ├── try-catch.ts          # Error handling utilities
+│   │   └── utils.ts              # General utilities
+│   ├── react-email/              # Email templates with react-email
+│   │   ├── reset-password.tsx
+│   │   ├── verify-email.tsx
+│   │   └── team-invite.tsx
+│   ├── schemas/                  # Zod validation schemas
+│   ├── server/                   # Server-side utilities
+│   │   ├── team-members.ts
+│   │   ├── team-roles.ts
+│   │   └── teams.ts
+│   ├── state/                    # Client state management (Zustand)
+│   │   ├── config.ts
+│   │   ├── nav.ts
+│   │   ├── session.ts
+│   │   └── transaction.ts
+│   ├── utils/                    # Core utilities
+│   │   ├── auth.ts               # Authentication logic
+│   │   ├── auth-utils.ts         # Auth helper utilities
+│   │   ├── credits.ts            # Credit system utilities
+│   │   ├── email.tsx             # Email sending utilities
+│   │   ├── kv-session.ts         # Session handling with KV
+│   │   ├── team-auth.ts          # Team authorization utilities
+│   │   ├── rate-limit.ts         # Rate limiting
+│   │   ├── webauthn.ts           # WebAuthn/Passkey utilities
+│   │   └── with-kv-cache.ts      # KV caching utilities
+│   ├── constants.ts              # Application constants
+│   ├── flags.ts                  # Feature flags
+│   └── types.ts                  # Type definitions
+├── public/                       # Static assets
+├── scripts/                      # Build and deployment scripts
+└── .wrangler/                    # Cloudflare Workers config
+```
+
+## Development Status
+
+### Completed Features ✅
+- Infrastructure setup (Next.js, Cloudflare Workers, D1, KV)
+- Authentication system (Lucia Auth)
+- User management and settings
+- Session management with KV storage
+- Dashboard layout with navigation
+- Password reset flow
+- Email system with templates
+- Security enhancements (rate limiting, input sanitization)
+- Credit-based billing system
+- Stripe payment processing
+- Multi-tenancy implementation
+- Team management with roles and permissions
+- Admin dashboard
+
+### In Progress
+- Real-time updates
+- Analytics dashboard
+- File upload system with R2
+- Audit logging
+
+### Key Features
+
+#### User Management
+- Authentication (Lucia Auth)
+- User profiles and settings
+- Session management
+- Admin panel with user/credit/transaction management
+- Team management with role-based permissions
+
+#### Multi-Tenancy
+- Teams and organizations
+- Role-based access control (system and custom roles)
+- Fine-grained permissions with JSON storage
+- Team invitations and onboarding
+- Team settings and management
+
+#### Billing & Subscriptions
+- Credit-based billing system
+- Credit packages and pricing
+- Credit usage tracking
+- Transaction history
+- Monthly credit refresh
+- Stripe payment processing
+
+## Development Guidelines
+
+### Code Style
+- Functional components with TypeScript
+- Server Components by default, 'use client' only when needed
+- Modular file structure with clear separation of concerns
+- Form validation with Zod schemas
+- State management:
+  - Server state with React Server Components
+  - Client state with Zustand where needed
+  - URL state with NUQS
+- Cloudflare bindings accessed through getCloudflareContext
+
+### Database Schema
+- User table with CUID2 based IDs and timestamps
+- Session storage in KV with secure management
+- Team, team membership, and team invitation tables
+- Team role table with JSON permissions
+- Credit and transaction tables
+- Resource tables
+
+### Security & Performance
+- Edge computing with Cloudflare Workers
+- React Server Components for performance
+- Session-based auth with KV storage
+- Rate limiting for API endpoints
+- Input validation and sanitization
+- Efficient data fetching and asset optimization

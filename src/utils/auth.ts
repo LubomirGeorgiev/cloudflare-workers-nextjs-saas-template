@@ -3,7 +3,6 @@ import "server-only";
 import { ROLES_ENUM, userTable, teamMembershipTable, SYSTEM_ROLES_ENUM, teamRoleTable, TEAM_PERMISSIONS } from "@/db/schema";
 import { init } from "@paralleldrive/cuid2";
 import { encodeHexLowerCase } from "@oslojs/encoding"
-import { sha256 } from "@oslojs/crypto/sha2"
 import ms from "ms"
 import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
@@ -59,6 +58,11 @@ const createId = init({
 
 export function generateSessionToken(): string {
   return createId();
+}
+
+async function generateSessionId(token: string): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return encodeHexLowerCase(new Uint8Array(hashBuffer));
 }
 
 function encodeSessionCookie(userId: string, token: string): string {
@@ -147,7 +151,7 @@ export async function createSession({
   authenticationType,
   passkeyCredentialId
 }: CreateSessionParams): Promise<KVSession> {
-  const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
+  const sessionId = await generateSessionId(token);
   const expiresAt = new Date(Date.now() + getSessionLength());
 
   const user = await getUserFromDB(userId);
@@ -189,7 +193,7 @@ export async function createAndStoreSession(
 }
 
 async function validateSessionToken(token: string, userId: string): Promise<SessionValidationResult | null> {
-  const sessionId = encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
+  const sessionId = await generateSessionId(token);
 
   const session = await getKVSession(sessionId, userId);
 
