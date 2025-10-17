@@ -78,7 +78,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@next/bundle-analyzer": "^15.5.5",
+    "@next/bundle-analyzer": "^15.5.6",
     "@simplewebauthn/types": "^12.0.0",
     "@tailwindcss/postcss": "^4.1.7",
     "@tailwindcss/typography": "^0.5.19",
@@ -87,7 +87,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.5",
-    "eslint": "^9",
+    "eslint": "^9.38.0",
     "eslint-config-next": "15.4.6",
     "postcss": "^8",
     "react-email": "3.0.6",
