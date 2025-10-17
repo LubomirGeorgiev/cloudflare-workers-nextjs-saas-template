@@ -169,8 +169,6 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => {
                 const href = getRowHref?.(row.original)
 
-                console.log('---href', href)
-
                 return (
                   <TableRow
                     key={row.id}

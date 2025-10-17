@@ -54,7 +54,6 @@ type Data = {
   projects: NavItem[]
 }
 
-// TODO Add a theme switcher
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { session } = useSessionStore();
   const [formattedTeams, setFormattedTeams] = useState<Data['teams']>([]);

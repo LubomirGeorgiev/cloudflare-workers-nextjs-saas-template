@@ -6,6 +6,9 @@ import {
   ChevronsUpDown,
   CreditCard,
   LogOut,
+  Moon,
+  Sun,
+  Monitor,
 } from "lucide-react"
 
 import {
@@ -20,7 +23,11 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -33,13 +40,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 import useSignOut from "@/hooks/useSignOut"
 import { useRouter } from "next/navigation"
 import { useSessionStore } from "@/state/session"
-import ThemeSwitch from "./theme-switch"
+import { useTheme } from "next-themes"
 
 export function NavUser() {
   const { session, isLoading } = useSessionStore();
   const { signOut } = useSignOut();
   const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
+  const { setTheme } = useTheme()
 
   if (isLoading) {
     return (
@@ -116,11 +124,6 @@ export function NavUser() {
                 </div>
               </div>
             </DropdownMenuLabel>
-            <div className="px-2">
-              <ThemeSwitch className="w-full my-3">
-                Change theme
-              </ThemeSwitch>
-            </div>
             <DropdownMenuGroup>
               <DropdownMenuItem className="cursor-pointer" onClick={() => {
                 setOpenMobile(false)
@@ -141,7 +144,34 @@ export function NavUser() {
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Sun className="h-4 w-4" />
+                Change theme
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setTheme("system")}>
+                    <Monitor className="h-4 w-4" />
+                    System default
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("light")}>
+                    <Sun className="h-4 w-4" />
+                    Light
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("dark")}>
+                    <Moon className="h-4 w-4" />
+                    Dark
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+
+            <DropdownMenuSeparator />
+
             <DropdownMenuItem
               onClick={() => {
                 setOpenMobile(false)
@@ -149,7 +179,7 @@ export function NavUser() {
                   router.push('/')
                 })
               }}
-              className="cursor-pointer"
+              className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
             >
               <LogOut />
               Log out
