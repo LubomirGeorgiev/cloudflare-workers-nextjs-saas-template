@@ -398,9 +398,23 @@ async function checkWithMailcheck(email: string): Promise<ValidatorResult> {
  *
  * @throws {ZSAError} If email is disposable or if all services fail
  */
-export async function canSignUp({ email }: { email: string }): Promise<void> {
+export async function canSignUp(
+  {
+    email,
+    skipDisposableEmailCheck = false
+  }:
+  {
+    email: string,
+    skipDisposableEmailCheck?: boolean
+  }): Promise<void> {
   // Skip disposable email check in development
   if (!isProd) {
+    return;
+  }
+
+  // TODO In the future we will add checks for banned emails here
+
+  if (skipDisposableEmailCheck) {
     return;
   }
 
