@@ -30,4 +30,8 @@ export const PASSKEY_AUTHENTICATOR_IDS = {
   "b78a0a55-6ef8-d246-a042-ba0f6d55050c": "LastPass",
   "de503f9c-21a4-4f76-b4b7-558eb55c6f89": "Devolutions",
   "22248c4c-7a12-46e2-9a41-44291b373a4d": "LogMeOnce",
+  "a10c6dd9-465e-4226-8198-c7c44b91c555": "Kaspersky Password Manager",
+  "d350af52-0351-4ba2-acd3-dfeeadc3f764": "pwSafe",
+  "d3452668-01fd-4c12-926c-83a4204853aa": "Microsoft Password Manager",
+  "6d212b28-a2c1-4638-b375-5932070f62e9": "initial"
 }
