@@ -2,7 +2,7 @@
 
 import { createServerAction, ZSAError } from "zsa";
 import { z } from "zod";
-import { acceptTeamInvitation, cancelTeamInvitation, getTeamInvitations, getTeamMembers, inviteUserToTeam, removeTeamMember, updateTeamMemberRole, getPendingInvitationsForCurrentUser } from "@/server/team-members";
+import { acceptTeamInvitation, cancelTeamInvitation, getTeamInvitations, getTeamMembers, inviteUserToTeam, removeTeamMember, updateTeamMemberRole, getPendingInvitationsForCurrentUser } from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
 // Invite user schema

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { getSessionFromCookie } from "@/utils/auth";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { Alert } from "@heroui/react";
-import { getTeamMembers } from "@/server/team-members";
+import { getTeamMembers } from "@/lib/teams/team-members";
 import {
   Table,
   TableBody,

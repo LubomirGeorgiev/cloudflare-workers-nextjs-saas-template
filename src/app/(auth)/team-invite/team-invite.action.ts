@@ -3,7 +3,7 @@
 import "server-only";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { createServerAction, ZSAError } from "zsa";
-import { acceptTeamInvitation } from "@/server/team-members";
+import { acceptTeamInvitation } from "@/lib/teams/team-members";
 import { getSessionFromCookie } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
