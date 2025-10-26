@@ -64,6 +64,13 @@
       "when": 1747391678728,
       "tag": "0008_add_multi_tenancy",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1761509196986,
+      "tag": "0009_add_cms_tables",
+      "breakpoints": true
     }
   ]
 }
