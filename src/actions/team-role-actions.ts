@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createTeamRole, deleteTeamRole, getTeamRoles, updateTeamRole } from "@/server/team-roles";
+import { createTeamRole, deleteTeamRole, getTeamRoles, updateTeamRole } from "@/lib/teams/team-roles";
 import { ZSAError, createServerAction } from "zsa";
 
 // Create role schema

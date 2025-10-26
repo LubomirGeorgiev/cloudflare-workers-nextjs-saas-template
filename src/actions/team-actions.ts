@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createTeam, deleteTeam, getTeam, getUserTeams, updateTeam } from "@/server/teams";
+import { createTeam, deleteTeam, getTeam, getUserTeams, updateTeam } from "@/lib/teams/teams";
 import { ZSAError, createServerAction } from "zsa";
 
 // Update team schema
