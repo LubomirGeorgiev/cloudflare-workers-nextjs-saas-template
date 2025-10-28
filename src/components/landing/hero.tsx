@@ -28,11 +28,11 @@ export function Hero() {
               Cloudflare Workers, and everything you need to launch quickly.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-4 md:gap-x-6">
-              <a href={GITHUB_REPO_URL} target="_blank">
-                <Button size="lg" className="rounded-full">
+              <Button size="lg" className="rounded-full" asChild>
+                <a href={GITHUB_REPO_URL} target="_blank">
                   View on GitHub
-                </Button>
-              </a>
+                </a>
+              </Button>
               <Link href="/sign-in">
                 <Button variant="outline" size="lg" className="rounded-full">
                   Try Demo
