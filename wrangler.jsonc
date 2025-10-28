@@ -88,5 +88,11 @@
             "binding": "NEXT_INC_CACHE_KV",
             "id": "e922d6e22f4a46b6a92be653e90c6ca1"
         }
+    ],
+    "r2_buckets": [
+        {
+            "binding": "NEXT_INC_CACHE_R2_BUCKET",
+            "bucket_name": "cloudflare-workers-nextjs-saas-template"
+        }
     ]
   }
