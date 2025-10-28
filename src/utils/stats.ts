@@ -2,7 +2,7 @@ import "server-only";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { withKVCache, CACHE_KEYS } from "./with-kv-cache";
-import { GITHUB_REPO_URL } from "@/constants";
+import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 
 export async function getTotalUsers() {
   return withKVCache(
@@ -33,7 +33,12 @@ export async function getGithubStars() {
 
   return withKVCache(
     async () => {
-      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: {
+          "User-Agent": `cloudflare-workers-nextjs-saas-template (${SITE_DOMAIN})`,
+        },
+      });
+
       if (!response.ok) return null;
 
       const data = (await response.json()) as {
@@ -48,4 +53,3 @@ export async function getGithubStars() {
     }
   );
 }
-
