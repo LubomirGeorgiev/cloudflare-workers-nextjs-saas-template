@@ -1,9 +1,10 @@
 import "server-only";
 import { getDB } from "@/db";
-import { TEAM_PERMISSIONS, teamRoleTable } from "@/db/schema";
+import { TEAM_PERMISSIONS, teamRoleTable, teamMembershipTable } from "@/db/schema";
 import { ZSAError } from "zsa";
 import { eq, and, not } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
+import { updateAllSessionsOfUser } from "@/utils/kv-session";
 
 /**
  * Get all custom roles for a team
@@ -157,6 +158,19 @@ export async function updateTeamRole({
     })
     .where(eq(teamRoleTable.id, roleId));
 
+  // Update sessions for all users with this role
+  const membersWithRole = await db.query.teamMembershipTable.findMany({
+    where: and(
+      eq(teamMembershipTable.teamId, teamId),
+      eq(teamMembershipTable.roleId, roleId),
+      eq(teamMembershipTable.isSystemRole, 0)
+    ),
+  });
+
+  for (const member of membersWithRole) {
+    await updateAllSessionsOfUser(member.userId);
+  }
+
   return {
     id: roleId,
     name: data.name || role.name,
@@ -199,9 +213,23 @@ export async function deleteTeamRole({
     throw new ZSAError("FORBIDDEN", "This role cannot be deleted");
   }
 
+  // Get all users with this role before deleting it
+  const membersWithRole = await db.query.teamMembershipTable.findMany({
+    where: and(
+      eq(teamMembershipTable.teamId, teamId),
+      eq(teamMembershipTable.roleId, roleId),
+      eq(teamMembershipTable.isSystemRole, 0)
+    ),
+  });
+
   // Delete the role
   await db.delete(teamRoleTable)
     .where(eq(teamRoleTable.id, roleId));
+
+  // Update sessions for all users who had this role
+  for (const member of membersWithRole) {
+    await updateAllSessionsOfUser(member.userId);
+  }
 
   return { success: true };
 }
