@@ -2,7 +2,7 @@ import "server-only";
 import { eq, sql, desc, and, lt, isNull, gt, or, asc } from "drizzle-orm";
 import { getDB } from "@/db";
 import { userTable, creditTransactionTable, CREDIT_TRANSACTION_TYPE, purchasedItemsTable } from "@/db/schema";
-import { updateAllSessionsOfUser, KVSession } from "./kv-session";
+import { updateAllSessionsOfUser, updateKVSession, KVSession } from "./kv-session";
 import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS, DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 
 export type CreditPackage = typeof CREDIT_PACKAGES[number];
@@ -18,8 +18,22 @@ function shouldRefreshCredits(session: KVSession, currentTime: Date): boolean {
   }
 
   // Calculate the date exactly one month after the last refresh
-  const oneMonthAfterLastRefresh = new Date(session.user.lastCreditRefreshAt);
-  oneMonthAfterLastRefresh.setMonth(oneMonthAfterLastRefresh.getMonth() + 1);
+  // Using a more reliable approach to avoid edge cases with setMonth()
+  const lastRefresh = new Date(session.user.lastCreditRefreshAt);
+  const year = lastRefresh.getFullYear();
+  const month = lastRefresh.getMonth();
+  const day = lastRefresh.getDate();
+
+  // Calculate one month later, handling edge cases (e.g., Jan 31 + 1 month = Feb 28/29)
+  let oneMonthAfterLastRefresh = new Date(year, month + 1, day);
+
+  // If the day changed (e.g., Jan 31 -> Mar 3 instead of Feb 28), use last day of target month
+  if (oneMonthAfterLastRefresh.getDate() !== day) {
+    oneMonthAfterLastRefresh = new Date(year, month + 2, 0); // Last day of target month
+  }
+
+  // Preserve the original time of day
+  oneMonthAfterLastRefresh.setHours(lastRefresh.getHours(), lastRefresh.getMinutes(), lastRefresh.getSeconds(), lastRefresh.getMilliseconds());
 
   // Only refresh if we've passed the one month mark
   return currentTime >= oneMonthAfterLastRefresh;
@@ -149,14 +163,33 @@ export async function addFreeMonthlyCreditsIfNeeded(session: KVSession): Promise
       },
     });
 
+    // Convert DB date string to Date object to ensure consistent type handling
+    const dbLastRefreshAt = user?.lastCreditRefreshAt
+      ? new Date(user.lastCreditRefreshAt)
+      : null;
+
     // This should prevent race conditions between multiple sessions
-    if (!shouldRefreshCredits({ ...session, user: { ...session.user, lastCreditRefreshAt: user?.lastCreditRefreshAt ?? null } }, currentTime)) {
+    if (!shouldRefreshCredits({ ...session, user: { ...session.user, lastCreditRefreshAt: dbLastRefreshAt } }, currentTime)) {
+      // KV session is out of sync with DB - update it to prevent this check on next request
+      await updateKVSession(session.id, session.userId, new Date(session.expiresAt));
       return user?.currentCredits ?? 0;
     }
 
-    // Calculate one month ago from current time (using calendar month logic)
-    const oneMonthAgo = new Date(currentTime);
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    // Calculate one month ago from current time
+    // Using a more reliable approach to avoid edge cases with setMonth()
+    const year = currentTime.getFullYear();
+    const month = currentTime.getMonth();
+    const day = currentTime.getDate();
+
+    let oneMonthAgo = new Date(year, month - 1, day);
+
+    // Handle edge cases (e.g., Mar 31 - 1 month should be Feb 28/29, not Mar 3)
+    if (oneMonthAgo.getDate() !== day) {
+      oneMonthAgo = new Date(year, month, 0); // Last day of previous month
+    }
+
+    // Preserve the original time of day
+    oneMonthAgo.setHours(currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds(), currentTime.getMilliseconds());
 
     // Update last refresh date FIRST to act as a distributed lock
     // This prevents race conditions where multiple requests try to add credits simultaneously

@@ -145,6 +145,8 @@ export async function updateTeam({
 
   const db = getDB();
 
+  let updateData: typeof data & { slug?: string } = data;
+
   // If name is being updated, check if we need to update the slug
   if (data.name) {
     const currentTeam = await db.query.teamTable.findFirst({
@@ -179,24 +181,26 @@ export async function updateTeam({
         throw new ZSAError("ERROR", "Could not generate a unique slug for the team");
       }
 
-      // Update team with new slug
-      await db.update(teamTable)
-        .set({
-          ...data,
-          slug: newSlug,
-        })
-        .where(eq(teamTable.id, teamId));
-
-      return { ...data, slug: newSlug };
+      // Add slug to update data
+      updateData = { ...data, slug: newSlug };
     }
   }
 
-  // Update team without changing slug
+  // Update team
   await db.update(teamTable)
-    .set(data)
+    .set(updateData)
     .where(eq(teamTable.id, teamId));
 
-  return data;
+  // Update sessions for all team members
+  const members = await db.query.teamMembershipTable.findMany({
+    where: eq(teamMembershipTable.teamId, teamId),
+  });
+
+  for (const member of members) {
+    await updateAllSessionsOfUser(member.userId);
+  }
+
+  return updateData;
 }
 
 /**

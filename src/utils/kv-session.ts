@@ -119,8 +119,11 @@ export async function createKVSession({
   // Check if user has reached the session limit
   const existingSessions = await getAllSessionIdsOfUser(userId);
 
-  // If user has MAX_SESSIONS_PER_USER or more sessions, delete the oldest one
+  // Calculate how many sessions we need to delete to make room for the new one
   if (existingSessions.length >= MAX_SESSIONS_PER_USER) {
+    // We need to delete enough sessions to get below the limit after adding the new one
+    const sessionsToDelete = existingSessions.length - MAX_SESSIONS_PER_USER + 1;
+
     // Sort sessions by expiration time (oldest first)
     const sortedSessions = [...existingSessions].sort((a, b) => {
       // If a session has no expiration, treat it as oldest
@@ -129,11 +132,16 @@ export async function createKVSession({
       return a.absoluteExpiration.getTime() - b.absoluteExpiration.getTime();
     });
 
-    // Delete the oldest session
-    const oldestSessionKey = sortedSessions?.[0]?.key;
-    const oldestSessionId = oldestSessionKey?.split(':')?.[2]; // Extract sessionId from key
+    // Delete the oldest sessions
+    for (let i = 0; i < sessionsToDelete; i++) {
+      const sessionKey = sortedSessions[i]?.key;
+      if (!sessionKey) continue;
 
-    await deleteKVSession(oldestSessionId, userId);
+      const sessionId = sessionKey.split(':')[2];
+      if (!sessionId) continue;
+
+      await deleteKVSession(sessionId, userId);
+    }
   }
 
   await kv.put(
@@ -178,18 +186,25 @@ export async function getKVSession(sessionId: string, userId: string): Promise<K
   return session;
 }
 
-export async function updateKVSession(sessionId: string, userId: string, expiresAt: Date): Promise<KVSession | null> {
+export async function updateKVSession(
+  sessionId: string,
+  userId: string,
+  expiresAt: Date,
+  userData?: KVSessionUser,
+  teams?: KVSession['teams']
+): Promise<KVSession | null> {
   const session = await getKVSession(sessionId, userId);
   if (!session) return null;
 
-  const updatedUser = await getUserFromDB(userId);
+  // Only fetch user data if not provided
+  const updatedUser = userData ?? await getUserFromDB(userId);
 
   if (!updatedUser) {
     throw new Error("User not found");
   }
 
-  // Get updated teams data with permissions
-  const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
+  // Only fetch teams data if not provided
+  const teamsWithPermissions = teams ?? await getUserTeamsWithPermissions(userId);
 
   const updatedSession: KVSession = {
     ...session,
@@ -285,11 +300,6 @@ export async function getAllSessionIdsOfUser(userId: string) {
  */
 export async function updateAllSessionsOfUser(userId: string) {
   const sessions = await getAllSessionIdsOfUser(userId);
-  const kv = await getKV();
-
-  if (!kv) {
-    throw new Error("Can't connect to KV store");
-  }
 
   const newUserData = await getUserFromDB(userId);
 
@@ -299,24 +309,13 @@ export async function updateAllSessionsOfUser(userId: string) {
   const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
 
   for (const sessionObj of sessions) {
-    const session = await kv.get(sessionObj.key);
-    if (!session) continue;
-
-    const sessionData = JSON.parse(session) as KVSession;
+    // Extract sessionId from key (format: "session:userId:sessionId")
+    const sessionId = sessionObj.key.split(':')[2];
+    if (!sessionId) continue;
 
     // Only update non-expired sessions
     if (sessionObj.absoluteExpiration && sessionObj.absoluteExpiration.getTime() > Date.now()) {
-      const ttlInSeconds = Math.floor((sessionObj.absoluteExpiration.getTime() - Date.now()) / 1000);
-
-      await kv.put(
-        sessionObj.key,
-        JSON.stringify({
-          ...sessionData,
-          user: newUserData,
-          teams: teamsWithPermissions,
-        }),
-        { expirationTtl: ttlInSeconds }
-      );
+      await updateKVSession(sessionId, userId, sessionObj.absoluteExpiration, newUserData, teamsWithPermissions);
     }
   }
 }

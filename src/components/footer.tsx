@@ -6,6 +6,7 @@ import { Button } from "./ui/button";
 import AgenticDevStudioLogo from "./agenticdev-studio-logo";
 import { getGithubStars } from "@/utils/stats";
 import { Suspense } from "react";
+import { StarIcon } from "@heroicons/react/24/solid";
 
 export function Footer() {
   return (
@@ -110,16 +111,23 @@ async function GithubButton() {
   const starsCount = await getGithubStars();
 
   return (
-    <Button variant="outline" size="sm" className="w-full md:w-auto h-9" asChild>
+    <Button variant="outline" size="lg" className="w-full" asChild>
       <a
         href={GITHUB_REPO_URL!}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-center space-x-2"
       >
-        <GithubIcon className="h-4 w-4" />
-        <span className="whitespace-nowrap">
-          {starsCount ? `Fork on Github (${starsCount} Stars)` : "Fork on Github"}
+        <GithubIcon className="h-6! w-6!" />
+        <span className="whitespace-nowrap inline-flex items-center justify-center">
+          {starsCount ? (
+            <>
+              <span>Fork on Github - <span className="text-yellow-500 font-bold text-[20px]">{starsCount}</span></span>
+              <StarIcon className="ml-1 text-yellow-500 h-[24px]! w-[24px]!" />
+            </>
+          ) : (
+            "Fork on Github"
+          )}
         </span>
       </a>
     </Button>
@@ -137,7 +145,7 @@ function GithubButtonFallback() {
         className="flex items-center justify-center space-x-2"
       >
         <GithubIcon className="h-4 w-4" />
-        <span className="whitespace-nowrap">Fork on Github</span>
+        <span className="whitespace-nowrap inline-flex items-center gap-1">Fork on Github</span>
       </a>
     </Button>
   );
