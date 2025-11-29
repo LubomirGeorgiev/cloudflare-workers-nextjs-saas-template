@@ -159,33 +159,42 @@ export const completePasskeyRegistrationAction = createServerAction()
         );
       }
 
-      // Generate verification token
-      const { env } = getCloudflareContext();
-      const verificationToken = createId();
-      const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS * 1000);
+      // In development mode, auto-verify email
+      const isProd = process.env.NODE_ENV === "production";
+      if (!isProd) {
+        // Auto-verify email in development
+        await db.update(userTable)
+          .set({ emailVerified: new Date() })
+          .where(eq(userTable.id, user.id));
+      } else {
+        // Generate verification token for production
+        const { env } = getCloudflareContext();
+        const verificationToken = createId();
+        const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS * 1000);
 
-      if (!env?.NEXT_INC_CACHE_KV) {
-        throw new Error("Can't connect to KV store");
-      }
-
-      // Save verification token in KV with expiration
-      await env.NEXT_INC_CACHE_KV.put(
-        getVerificationTokenKey(verificationToken),
-        JSON.stringify({
-          userId: user.id,
-          expiresAt: expiresAt.toISOString(),
-        }),
-        {
-          expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
+        if (!env?.NEXT_INC_CACHE_KV) {
+          throw new Error("Can't connect to KV store");
         }
-      );
 
-      // Send verification email
-      await sendVerificationEmail({
-        email: user.email,
-        verificationToken,
-        username: user.firstName || user.email,
-      });
+        // Save verification token in KV with expiration
+        await env.NEXT_INC_CACHE_KV.put(
+          getVerificationTokenKey(verificationToken),
+          JSON.stringify({
+            userId: user.id,
+            expiresAt: expiresAt.toISOString(),
+          }),
+          {
+            expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
+          }
+        );
+
+        // Send verification email
+        await sendVerificationEmail({
+          email: user.email,
+          verificationToken,
+          username: user.firstName || user.email,
+        });
+      }
 
       // Create a session
       const sessionToken = generateSessionToken();

@@ -13,6 +13,7 @@ import {
   SquareTerminal,
   CreditCard,
   Users,
+  FileText,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -94,6 +95,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         title: "Teams",
         url: "/dashboard/teams" as Route,
         icon: Users,
+      },
+      {
+        title: "Blog Posts",
+        url: "/dashboard/blog-posts" as Route,
+        icon: FileText,
       },
       ...(!DISABLE_CREDIT_BILLING_SYSTEM ? [{
         title: "Marketplace",

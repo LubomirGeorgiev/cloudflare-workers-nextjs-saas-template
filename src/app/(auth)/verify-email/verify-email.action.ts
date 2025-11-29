@@ -10,6 +10,8 @@ import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { verifyEmailSchema } from "@/schemas/verify-email.schema";
 import { createServerAction, ZSAError } from "zsa";
+import { getSessionFromCookie } from "@/utils/auth";
+import isProd from "@/utils/is-prod";
 
 export const verifyEmailAction = createServerAction()
   .input(verifyEmailSchema)
@@ -19,19 +21,55 @@ export const verifyEmailAction = createServerAction()
         const { env } = getCloudflareContext();
 
         if (!env?.NEXT_INC_CACHE_KV) {
+          // In development, try to verify by session as fallback
+          if (!isProd) {
+            console.warn("⚠️ KV store not available. Attempting development mode fallback...");
+            const session = await getSessionFromCookie();
+            
+            if (session && session.user && !session.user.emailVerified) {
+              const db = getDB();
+              await db.update(userTable)
+                .set({ emailVerified: new Date() })
+                .where(eq(userTable.id, session.user.id));
+              
+              await updateAllSessionsOfUser(session.user.id);
+              console.warn("✅ Email verified using development mode fallback");
+              return { success: true };
+            }
+          }
           throw new Error("Can't connect to KV store");
         }
 
-        const verificationTokenStr = await env.NEXT_INC_CACHE_KV.get(getVerificationTokenKey(input.token));
-
-        if (!env?.NEXT_INC_CACHE_KV) {
-          throw new Error("Can't connect to KV store");
-        }
+        const tokenKey = getVerificationTokenKey(input.token);
+        const verificationTokenStr = await env.NEXT_INC_CACHE_KV.get(tokenKey);
 
         if (!verificationTokenStr) {
+          // In development, provide helpful error message
+          if (!isProd) {
+            console.error(`❌ Token not found in KV. Key: ${tokenKey}`);
+            console.error("💡 Make sure you:");
+            console.error("   1. Copied the FULL link from the console (including ?token=...)");
+            console.error("   2. Used a FRESH link (click 'Resend verification email' if needed)");
+            console.error("   3. The link hasn't expired (tokens expire in 24 hours)");
+            
+            // Try development fallback
+            const session = await getSessionFromCookie();
+            if (session && session.user && !session.user.emailVerified) {
+              console.warn("⚠️ Attempting development mode fallback...");
+              const db = getDB();
+              await db.update(userTable)
+                .set({ emailVerified: new Date() })
+                .where(eq(userTable.id, session.user.id));
+              
+              await updateAllSessionsOfUser(session.user.id);
+              console.warn("✅ Email verified using development mode fallback");
+              return { success: true };
+            }
+          }
+          
           throw new ZSAError(
             "NOT_FOUND",
-            "Verification token not found or expired"
+            "Verification token not found or expired. Please request a new verification email."
           );
         }
 

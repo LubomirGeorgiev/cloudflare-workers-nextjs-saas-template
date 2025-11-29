@@ -153,7 +153,17 @@ export async function sendPasswordResetEmail({
   const resetUrl = `${SITE_URL}/reset-password?token=${resetToken}`;
 
   if (!isProd) {
-    console.warn('\n\n\nPassword reset url: ', resetUrl)
+    console.warn('\n\n\n');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('🔑 PASSWORD RESET LINK (Development Mode)');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('');
+    console.warn('🔗 Copy this link to reset your password:');
+    console.warn('');
+    console.warn(`   ${resetUrl}`);
+    console.warn('');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('\n\n');
 
     return
   }
@@ -194,7 +204,17 @@ export async function sendVerificationEmail({
   const verificationUrl = `${SITE_URL}/verify-email?token=${verificationToken}`;
 
   if (!isProd) {
-    console.warn('\n\n\nVerification url: ', verificationUrl)
+    console.warn('\n\n\n');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('📧 EMAIL VERIFICATION LINK (Development Mode)');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('');
+    console.warn('🔗 Copy this link to verify your email:');
+    console.warn('');
+    console.warn(`   ${verificationUrl}`);
+    console.warn('');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('\n\n');
 
     return
   }
@@ -237,7 +257,22 @@ export async function sendTeamInvitationEmail({
   const inviteUrl = `${SITE_URL}/team-invite?token=${invitationToken}`;
 
   if (!isProd) {
-    console.warn('\n\n\nTeam invitation url: ', inviteUrl)
+    console.warn('\n\n\n');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('👥 TEAM INVITATION LINK (Development Mode)');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('');
+    console.warn(`📧 Inviting: ${email}`);
+    console.warn(`🏢 Team: ${teamName}`);
+    console.warn(`👤 Inviter: ${inviterName}`);
+    console.warn('');
+    console.warn('🔗 Copy this link to accept the invitation:');
+    console.warn('');
+    console.warn(`   ${inviteUrl}`);
+    console.warn('');
+    console.warn('═══════════════════════════════════════════════════════════');
+    console.warn('\n\n');
+
     return
   }
 

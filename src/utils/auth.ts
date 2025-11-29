@@ -295,6 +295,11 @@ export const requireVerifiedEmail = cache(async ({
     throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
   }
 
+  // In development mode, skip email verification requirement
+  if (!isProd) {
+    return session;
+  }
+
   if (!session?.user?.emailVerified) {
     if (doNotThrowError) {
       return null;

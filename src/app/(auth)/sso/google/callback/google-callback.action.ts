@@ -124,7 +124,7 @@ export const googleSSOCallbackAction = createServerAction()
             .set({
               googleAccountId,
               avatar: existingUserWithEmail.avatar || avatarUrl,
-              emailVerified: existingUserWithEmail.emailVerified || (claims?.email_verified ? new Date() : null),
+              emailVerified: existingUserWithEmail.emailVerified || (process.env.NODE_ENV !== "production" ? new Date() : (claims?.email_verified ? new Date() : null)),
             })
             .where(eq(userTable.id, existingUserWithEmail.id))
             .returning();
@@ -141,7 +141,7 @@ export const googleSSOCallbackAction = createServerAction()
             lastName: claims.family_name || null,
             avatar: avatarUrl,
             email,
-            emailVerified: claims?.email_verified ? new Date() : null,
+            emailVerified: process.env.NODE_ENV !== "production" ? new Date() : (claims?.email_verified ? new Date() : null),
             signUpIpAddress: await getIP(),
           })
           .returning();

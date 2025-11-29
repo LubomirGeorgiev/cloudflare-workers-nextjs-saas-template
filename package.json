@@ -14,7 +14,7 @@
     "preview": "pnpm run opennext:build && opennextjs-cloudflare preview",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate --name",
-    "db:migrate:dev": "wrangler d1 migrations apply $(node scripts/get-db-name.mjs) --local",
+    "db:migrate:dev": "node scripts/migrate-dev.mjs",
     "d1:cache:clean": "wrangler d1 execute $(node scripts/get-db-name.mjs) --command \"DELETE FROM tags; DELETE FROM revalidations\" --remote",
     "email:dev": "email dev -d src/react-email -p 3001",
     "list:kv": "wrangler kv key list --namespace-id=$(node scripts/get-kv-id.mjs) --remote | jq '[.[].name]' > kv.log",

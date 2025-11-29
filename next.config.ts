@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
   },
   typescript: {
     ignoreBuildErrors: process.env.SKIP_LINTER === 'true'
-  }
+  },
+  // Disable middleware to avoid dynamic require issues in Cloudflare Workers
+  skipMiddlewareUrlNormalize: true,
 };
 
 export default process.env.ANALYZE === 'true'
