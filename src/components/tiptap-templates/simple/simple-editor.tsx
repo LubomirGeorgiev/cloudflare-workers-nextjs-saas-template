@@ -18,6 +18,8 @@ import { Table } from "@tiptap/extension-table/table"
 import { TableRow } from "@tiptap/extension-table/row"
 import { TableCell } from "@tiptap/extension-table/cell"
 import { TableHeader } from "@tiptap/extension-table/header"
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
+import { common, createLowlight } from "lowlight"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -48,7 +50,7 @@ import { HeadingDropdownMenu } from "@/components/tiptap-ui/heading-dropdown-men
 import { ImageUploadButton } from "@/components/tiptap-ui/image-upload-button"
 import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
-import { CodeBlockButton } from "@/components/tiptap-ui/code-block-button"
+import { CodeBlockButton, CodeBlockLanguageSelector } from "@/components/tiptap-ui/code-block-button"
 import { HorizontalRuleButton } from "@/components/tiptap-ui/horizontal-rule-button"
 import { TableButton } from "@/components/tiptap-ui/table-button"
 import { TableDropdownMenu } from "@/components/tiptap-ui/table-dropdown-menu"
@@ -116,6 +118,7 @@ const MainToolbarContent = ({
         />
         <BlockquoteButton />
         <CodeBlockButton />
+        <CodeBlockLanguageSelector />
         <HorizontalRuleButton />
       </ToolbarGroup>
 
@@ -213,10 +216,16 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
     extensions: [
       StarterKit.configure({
         horizontalRule: false,
+        codeBlock: false, // Disable default CodeBlock to use CodeBlockLowlight
         link: {
           openOnClick: false,
           enableClickSelection: true,
         },
+      }),
+      CodeBlockLowlight.configure({
+        lowlight: createLowlight(common),
+        enableTabIndentation: true,
+        tabSize: 2,
       }),
       HorizontalRule,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
@@ -255,7 +264,7 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
   // Update editor content when prop changes
   useEffect(() => {
     if (editor && content && JSON.stringify(editor.getJSON()) !== JSON.stringify(content)) {
-      editor.commands.setContent(content as string)
+      editor.commands.setContent(content)
     }
   }, [editor, content])
 

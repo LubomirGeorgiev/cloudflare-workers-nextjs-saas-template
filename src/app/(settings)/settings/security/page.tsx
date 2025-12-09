@@ -63,13 +63,10 @@ export default async function SecurityPage() {
   });
 
   return (
-    <div className="container max-w-4xl space-y-8">
-      <PasskeysList
-        passkeys={passkeysWithParsedUA}
-        currentPasskeyId={session.passkeyCredentialId ?? null}
-        email={session.user.email}
-      />
-    </div>
-  );
+    <PasskeysList
+      passkeys={passkeysWithParsedUA}
+      currentPasskeyId={session.passkeyCredentialId ?? null}
+      email={session.user.email}
+    />
+  )
 }
-

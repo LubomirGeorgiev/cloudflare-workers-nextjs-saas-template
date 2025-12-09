@@ -254,13 +254,16 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
   }, [searchValue, hasExactMatch, isCreatingTag, handleCreateTag]);
 
   const onSubmit = async (data: CmsEntryFormData) => {
+    // Serialize content to prevent Next.js from converting attrs to functions
+    const serializedContent = JSON.parse(JSON.stringify(data.content));
+
     if (mode === "create") {
       await createEntry({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         collection: collection as any,
         title: data.title,
         slug: data.slug,
-        content: data.content,
+        content: serializedContent,
         fields: {},
         status: data.status,
         tagIds: data.tagIds || [],
@@ -272,7 +275,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
         id: entry.id,
         title: data.title,
         slug: data.slug,
-        content: data.content,
+        content: serializedContent,
         fields: {},
         status: data.status,
         tagIds: data.tagIds || [],

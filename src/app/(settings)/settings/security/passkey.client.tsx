@@ -177,7 +177,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
         ))}
 
         {passkeys.length === 0 && (
-          <div className="text-center text-muted-foreground">
+          <div className="text-center text-muted-foreground mt-10">
             No passkeys found. Add a passkey to enable passwordless authentication.
           </div>
         )}
