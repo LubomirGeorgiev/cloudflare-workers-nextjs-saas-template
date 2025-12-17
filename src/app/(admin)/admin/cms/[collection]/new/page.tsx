@@ -17,7 +17,6 @@ export default async function NewEntryPage({
 
   const { collection } = await params;
 
-  // Validate collection exists
   const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
   if (!collectionConfig) {
     return redirect("/admin/cms");
@@ -25,8 +24,8 @@ export default async function NewEntryPage({
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <CmsEntryForm 
-        collection={collection} 
+      <CmsEntryForm
+        collection={collection}
         mode="create"
         pageTitle={`Create ${collectionConfig.labels.singular}`}
         pageSubtitle={`Add a new ${collectionConfig.labels.singular.toLowerCase()} to your collection`}

@@ -211,6 +211,7 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, 
 - Only add comments for non-trivial logic, edge cases, workarounds, or business rules that aren't immediately clear from the code itself.
 - Comments should explain "why" something is done, not "what" is being done (the code should be self-documenting for the "what").
 - Avoid redundant comments like `// Set user name` above `user.name = name`.
+- TODO comments are intentional reminders for future work. Only remove a TODO comment if you have implemented the described feature or fix and verified that it works correctly.
 
 ### Function Guidelines
 

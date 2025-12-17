@@ -20,7 +20,6 @@ export default async function CollectionPage({
 
   const { collection } = await params;
 
-  // Validate collection exists
   const collectionConfig = cmsConfig.collections[collection];
   if (!collectionConfig) {
     return redirect("/admin/cms");

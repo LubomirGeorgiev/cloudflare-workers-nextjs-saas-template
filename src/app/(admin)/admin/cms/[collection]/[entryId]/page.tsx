@@ -17,14 +17,12 @@ export default async function EditEntryPage({
 
   const { collection, entryId } = await params;
 
-  // Validate collection exists
   const collectionConfig = cmsConfig.collections[collection as keyof typeof cmsConfig.collections];
 
   if (!collectionConfig) {
     return redirect("/admin/cms");
   }
 
-  // Get the entry
   const entry = await getCmsEntryById({
     id: entryId,
     includeRelations: {
@@ -37,9 +35,9 @@ export default async function EditEntryPage({
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <CmsEntryForm 
-        collection={collection} 
-        mode="edit" 
+      <CmsEntryForm
+        collection={collection}
+        mode="edit"
         entry={entry}
         pageTitle={`Edit ${collectionConfig.labels.singular}`}
         pageSubtitle={entry.title}

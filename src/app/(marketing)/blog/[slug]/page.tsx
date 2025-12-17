@@ -48,7 +48,6 @@ export async function generateMetadata({
   // with Cloudflare Workers AI to automatically regenerate it on every update
   const htmlContent = renderCmsContent(entry.content)
 
-  // Remove HTML tags and get plain text
   const plainText = htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const description = plainText.length > 160
     ? plainText.substring(0, 157) + '...'
@@ -74,7 +73,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
   const db = getDB()
 
-  // Fetch the blog entry by slug
   const entry = await db
     .select({
       id: cmsEntryTable.id,

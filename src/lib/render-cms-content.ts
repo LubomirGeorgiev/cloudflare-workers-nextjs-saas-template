@@ -26,19 +26,15 @@ const lowlight = createLowlight(common)
  * Can be used for any CMS content (blog posts, pages, documentation, etc.)
  */
 export function renderCmsContent(content: JSONContent): string {
-  // First, render the Tiptap content to HTML
   const htmlContent = renderToHTMLString({
     extensions: getTiptapBaseExtensions(),
     content,
   })
 
-  // Post-process the HTML to add syntax highlighting
-  // Match code blocks with language classes
   let processedHtml = htmlContent.replace(
     /<pre><code class="language-(\w+)">([\s\S]*?)<\/code><\/pre>/g,
     (match, language, code) => {
       try {
-        // Decode HTML entities in the code
         const decodedCode = code
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
@@ -46,15 +42,12 @@ export function renderCmsContent(content: JSONContent): string {
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
 
-        // Highlight the code using lowlight
         const result = lowlight.highlight(language, decodedCode)
 
-        // Convert lowlight's AST to HTML with hljs classes
         const highlightedCode = astToHtml(result.children as LowlightASTNode[])
 
         return `<pre><code class="language-${language}">${highlightedCode}</code></pre>`
       } catch (error) {
-        // If highlighting fails, return the original code
         console.error(`Failed to highlight ${language} code:`, error)
         return match
       }
@@ -66,14 +59,13 @@ export function renderCmsContent(content: JSONContent): string {
   processedHtml = processedHtml.replace(
     /(<a[^>]*\srel=")([^"]*)(")/g,
     (match, prefix, relValue, suffix) => {
-      // Remove nofollow and noreferrer, keep only noopener for security
+      // Keep only noopener for security
       const cleanedRel = relValue
         .split(/\s+/)
         .filter((attr: string) => attr && attr !== 'nofollow' && attr !== 'noreferrer')
         .join(' ')
         .trim()
 
-      // If rel becomes empty after removing nofollow/noreferrer, remove the attribute entirely
       if (!cleanedRel) {
         return match.replace(/\s*rel="[^"]*"/, '')
       }
@@ -81,7 +73,6 @@ export function renderCmsContent(content: JSONContent): string {
     }
   )
 
-  // Remove class=null (without quotes) from links
   processedHtml = processedHtml.replace(/\sclass=null\b/g, '')
 
   return processedHtml

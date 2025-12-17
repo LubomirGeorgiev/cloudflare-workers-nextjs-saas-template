@@ -150,7 +150,6 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     },
   ], [collection, setDeleteEntryId]);
 
-  // Load entries on mount and when filters change
   useEffect(() => {
     listEntries({
       collection,
@@ -163,7 +162,6 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
   const handleDelete = async (id: string) => {
     const [, error] = await deleteEntry({ id });
     if (!error) {
-      // Refresh the list
       listEntries({
         collection,
         status: statusFilter,

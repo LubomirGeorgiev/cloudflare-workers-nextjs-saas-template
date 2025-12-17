@@ -227,7 +227,6 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
     },
   })
 
-  // Update editor content when prop changes
   useEffect(() => {
     if (editor && content && JSON.stringify(editor.getJSON()) !== JSON.stringify(content)) {
       editor.commands.setContent(content)

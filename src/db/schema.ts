@@ -4,6 +4,7 @@ import { type InferSelectModel } from "drizzle-orm";
 
 import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS } from "@/app/enums";
+import type { JSONContent } from "@tiptap/core"
 
 export const ROLES_ENUM = {
   ADMIN: 'admin',
@@ -210,9 +211,7 @@ export const teamTable = sqliteTable("team", {
   slug: text({ length: 255 }).notNull().unique(),
   description: text({ length: 1000 }),
   avatarUrl: text({ length: 600 }),
-  // Settings could be stored as JSON
   settings: text({ length: 10000 }),
-  // Optional billing-related fields
   billingEmail: text({ length: 255 }),
   planId: text({ length: 100 }),
   planExpiresAt: integer({ mode: "timestamp" }),
@@ -227,9 +226,7 @@ export const teamMembershipTable = sqliteTable("team_membership", {
   id: text().primaryKey().$defaultFn(() => `tmem_${createId()}`).notNull(),
   teamId: text().notNull().references(() => teamTable.id),
   userId: text().notNull().references(() => userTable.id),
-  // This can be either a system role or a custom role ID
   roleId: text().notNull(),
-  // Flag to indicate if this is a system role
   isSystemRole: integer().default(1).notNull(),
   invitedBy: text().references(() => userTable.id),
   invitedAt: integer({ mode: "timestamp" }),
@@ -250,11 +247,8 @@ export const teamRoleTable = sqliteTable("team_role", {
   teamId: text().notNull().references(() => teamTable.id),
   name: text({ length: 255 }).notNull(),
   description: text({ length: 1000 }),
-  // Store permissions as a JSON array of permission keys
   permissions: text({ mode: 'json' }).notNull().$type<string[]>(),
-  // A JSON field for storing UI-specific settings like color, icon, etc.
   metadata: text({ length: 5000 }),
-  // Optional flag to mark some roles as non-editable
   isEditable: integer().default(1).notNull(),
 }, (table) => ([
   index('team_role_team_id_idx').on(table.teamId),
@@ -268,9 +262,7 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
   id: text().primaryKey().$defaultFn(() => `tinv_${createId()}`).notNull(),
   teamId: text().notNull().references(() => teamTable.id),
   email: text({ length: 255 }).notNull(),
-  // This can be either a system role or a custom role ID
   roleId: text().notNull(),
-  // Flag to indicate if this is a system role
   isSystemRole: integer().default(1).notNull(),
   token: text({ length: 255 }).notNull().unique(),
   invitedBy: text().notNull().references(() => userTable.id),
@@ -310,7 +302,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   id: text().primaryKey().$defaultFn(() => `cms_ent_${createId()}`).notNull(),
   collection: text().notNull(),
   title: text().notNull(),
-  content: text({ mode: 'json' }).notNull(),
+  content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
   fields: text({ mode: 'json' }).notNull(),
   slug: text().notNull(),
   status: text({
@@ -355,9 +347,7 @@ export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   id: text().primaryKey().$defaultFn(() => `cms_em_${createId()}`).notNull(),
   entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
   mediaId: text().notNull().references(() => cmsMediaTable.id, { onDelete: 'cascade' }),
-  // Optional: track the order/position of media within an entry
   position: integer(),
-  // Optional: caption or description specific to this usage
   caption: text(),
 }, (table) => ([
   // Index for finding all media in an entry

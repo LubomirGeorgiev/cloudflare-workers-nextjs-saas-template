@@ -44,7 +44,6 @@ export function TagForm({ mode, tag }: TagFormProps) {
 
   const isPending = isCreating || isUpdating || isDeleting;
 
-  // Auto-generate slug from name
   const handleNameChange = (value: string) => {
     setName(value);
     if (mode === "create" && !isSlugManuallyEdited) {
