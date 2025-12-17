@@ -336,81 +336,85 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3 space-y-6">
-            <Card>
-            <CardHeader>
-              <CardTitle>Basic Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          <div className="contents lg:flex lg:flex-col lg:col-span-3 lg:gap-6">
+            <div className="order-1">
+              <Card>
+              <CardHeader>
+                <CardTitle>Basic Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="Enter a compelling title..."
+                          className="text-lg"
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleTitleChange(e.target.value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="slug"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL Slug *</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="url-friendly-slug"
+                          onChange={(e) => {
+                            field.onChange(e);
+                            handleSlugChange(e.target.value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        This will be used in the URL. Auto-generated from title, but you can customize it.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+            </div>
+
+            <div className="order-3">
               <FormField
                 control={form.control}
-                name="title"
+                name="content"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Title *</FormLabel>
+                    <FormLabel>Content</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Enter a compelling title..."
-                        className="text-lg"
-                        onChange={(e) => {
-                          field.onChange(e);
-                          handleTitleChange(e.target.value);
-                        }}
-                      />
+                      <div className="relative">
+                        <SimpleEditor
+                          content={field.value}
+                          onChange={(newContent) => field.onChange(newContent)}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="slug"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL Slug *</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="url-friendly-slug"
-                        onChange={(e) => {
-                          field.onChange(e);
-                          handleSlugChange(e.target.value);
-                        }}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      This will be used in the URL. Auto-generated from title, but you can customize it.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          <FormField
-            control={form.control}
-            name="content"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Content</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <SimpleEditor
-                      content={field.value}
-                      onChange={(newContent) => field.onChange(newContent)}
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            </div>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 order-2 lg:order-2">
             <Card>
             <CardHeader>
               <CardTitle>Publishing</CardTitle>
