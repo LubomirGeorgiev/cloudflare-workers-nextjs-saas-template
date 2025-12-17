@@ -37,16 +37,26 @@
     z-index: 10;
     width: 100%;
     min-height: var(--tt-toolbar-height);
+    // height: fit-content;
+    max-height: none;
     background: var(--tt-toolbar-bg-color);
     border-bottom: 1px solid var(--tt-toolbar-border-color);
     padding: 0.25rem 0.5rem;
     flex-wrap: wrap;
     row-gap: 0.25rem;
+    align-items: flex-start;
+    align-content: flex-start;
+    overflow: visible;
 
     // Hide separators where wrapping occurs
     // The gap property provides spacing instead
     > .tiptap-separator {
       display: none;
+    }
+
+    // Ensure toolbar groups align properly when wrapping
+    > .tiptap-toolbar-group {
+      align-items: center;
     }
   }
 

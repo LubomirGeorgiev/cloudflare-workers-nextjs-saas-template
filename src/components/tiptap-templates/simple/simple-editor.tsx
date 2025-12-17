@@ -61,7 +61,6 @@ import { LinkIcon } from "@/components/tiptap-icons/link-icon"
 
 // --- Hooks ---
 import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
-import { useWindowSize } from "@/hooks/use-window-size"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
 // --- Components ---
@@ -181,7 +180,6 @@ const MobileToolbarContent = ({
 
 export function SimpleEditor({ content, onChange, editable = true }: SimpleEditorProps) {
   const isMobile = useIsBreakpoint()
-  const { height } = useWindowSize()
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
   )
@@ -233,7 +231,7 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
     }
   }, [editor, content])
 
-  const rect = useCursorVisibility({
+  useCursorVisibility({
     editor,
     overlayHeight: toolbarRef.current?.getBoundingClientRect().height ?? 0,
   })
@@ -247,16 +245,9 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
   return (
     <div className="simple-editor-wrapper">
       <EditorContext.Provider value={{ editor }}>
-        {/* TODO We need to make the toolbar sticky to the top of the screen */}
         <Toolbar
           ref={toolbarRef}
-          style={{
-            ...(isMobile
-              ? {
-                  bottom: `calc(100% - ${height - rect.y}px)`,
-                }
-              : {}),
-          }}
+          variant="fixed"
         >
           {mobileView === "main" ? (
             <MainToolbarContent

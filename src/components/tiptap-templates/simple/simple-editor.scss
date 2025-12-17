@@ -57,9 +57,18 @@ body,
 .simple-editor-wrapper {
   width: 100%;
   min-height: 400px;
-  overflow: auto;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+  border: 1px solid var(--tt-toolbar-border-color);
+  border-radius: var(--tt-radius-lg);
+
+  // Ensure toolbar doesn't shrink in flex container
+  > .tiptap-toolbar {
+    flex-shrink: 0;
+  }
 }
 
 .simple-editor-content {
@@ -69,6 +78,7 @@ body,
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-height: 0;
 }
 
 .simple-editor-content .tiptap.ProseMirror.simple-editor {
