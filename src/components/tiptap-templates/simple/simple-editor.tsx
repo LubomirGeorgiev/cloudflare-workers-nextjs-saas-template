@@ -4,22 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
-import { StarterKit } from "@tiptap/starter-kit"
-import { Image } from "@tiptap/extension-image"
-import { TaskItem, TaskList } from "@tiptap/extension-list"
-import { TextAlign } from "@tiptap/extension-text-align"
-import { Typography } from "@tiptap/extension-typography"
-import { Highlight } from "@tiptap/extension-highlight"
-import { Subscript } from "@tiptap/extension-subscript"
-import { Superscript } from "@tiptap/extension-superscript"
 import { Selection } from "@tiptap/extensions"
 import { Markdown } from "@tiptap/markdown"
-import { Table } from "@tiptap/extension-table/table"
-import { TableRow } from "@tiptap/extension-table/row"
-import { TableCell } from "@tiptap/extension-table/cell"
-import { TableHeader } from "@tiptap/extension-table/header"
-import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
-import { common, createLowlight } from "lowlight"
 
 // --- UI Primitives ---
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -32,7 +18,6 @@ import {
 
 // --- Tiptap Node ---
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
-import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss"
 import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss"
@@ -84,6 +69,7 @@ import { ThemeToggle } from "@/components/tiptap-templates/simple/theme-toggle"
 
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
+import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions"
 
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
@@ -214,37 +200,17 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
       },
     },
     extensions: [
-      StarterKit.configure({
-        horizontalRule: false,
-        codeBlock: false, // Disable default CodeBlock to use CodeBlockLowlight
-        link: {
-          openOnClick: false,
-          enableClickSelection: true,
+      ...getTiptapBaseExtensions({
+        starterKitConfig: {
+          link: {
+            openOnClick: false,
+            enableClickSelection: true,
+          },
         },
       }),
-      CodeBlockLowlight.configure({
-        lowlight: createLowlight(common),
-        enableTabIndentation: true,
-        tabSize: 2,
-      }),
-      HorizontalRule,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Highlight.configure({ multicolor: true }),
-      Image,
-      Typography,
-      Superscript,
-      Subscript,
       Selection,
       Markdown,
       PasteMarkdown,
-      Table.configure({
-        resizable: true,
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
       ImageUploadNode.configure({
         accept: "image/*",
         maxSize: MAX_FILE_SIZE,
@@ -282,6 +248,7 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
   return (
     <div className="simple-editor-wrapper">
       <EditorContext.Provider value={{ editor }}>
+        {/* TODO We need to make the toolbar sticky to the top of the screen */}
         <Toolbar
           ref={toolbarRef}
           style={{
