@@ -93,6 +93,7 @@
     "slugify": "^1.6.6",
     "sonner": "^1.7.1",
     "stripe": "^17.7.0",
+    "superjson": "^2.2.6",
     "tailwind-merge": "^2.6.0",
     "ua-parser-js": "^2.0.0",
     "usehooks-ts": "^3.1.0",

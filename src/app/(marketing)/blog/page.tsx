@@ -1,12 +1,8 @@
 import "server-only"
-import { getDB } from "@/db"
-import { cmsEntryTable } from "@/db/schema"
-import { CMS_ENTRY_STATUS } from "@/app/enums"
-import { eq, and, desc } from "drizzle-orm"
-import { cmsConfig } from "@/../cms.config"
 import Link from "next/link"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
+import { getCmsCollection } from "@/lib/cms/cms-repository"
 
 export const metadata: Metadata = {
   title: "Blog",
@@ -14,25 +10,9 @@ export const metadata: Metadata = {
 }
 
 export default async function BlogPage() {
-  const db = getDB()
-
-  const blogEntries = await db
-    .select({
-      id: cmsEntryTable.id,
-      title: cmsEntryTable.title,
-      slug: cmsEntryTable.slug,
-      createdAt: cmsEntryTable.createdAt,
-      updatedAt: cmsEntryTable.updatedAt,
-      fields: cmsEntryTable.fields,
-    })
-    .from(cmsEntryTable)
-    .where(
-      and(
-        eq(cmsEntryTable.collection, cmsConfig.collections.blog.slug),
-        eq(cmsEntryTable.status, CMS_ENTRY_STATUS.PUBLISHED)
-      )
-    )
-    .orderBy(desc(cmsEntryTable.createdAt))
+  const blogEntries = await getCmsCollection({
+    collectionSlug: 'blog',
+  })
 
   return (
     <div className="container mx-auto py-12">

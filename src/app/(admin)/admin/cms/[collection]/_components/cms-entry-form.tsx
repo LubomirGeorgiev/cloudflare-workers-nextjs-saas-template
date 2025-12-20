@@ -32,12 +32,16 @@ import { MultiSelect, type MultiSelectRef } from "@/components/ui/multi-select";
 import type { MultiSelectOption } from "@/components/ui/multi-select";
 import { SimpleEditor } from "@/components/tiptap-templates/simple/simple-editor";
 import { Loader2, Save, Plus, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { generateSlug } from "@/utils/slugify";
 import type { CmsTag } from "@/db/schema";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import useBeforeUnload from "@/hooks/use-before-unload";
+import type { DefineCmsCollection } from "@/lib/cms/cms-models";
+import { SITE_URL } from "@/constants";
+import { Route } from "next";
 
 const CMS_ENTRY_STATUS_CONFIG = [
   {
@@ -63,9 +67,10 @@ type CmsEntryFormProps = {
   entry?: GetCmsCollectionResult;
   pageTitle: string;
   pageSubtitle: string;
+  collectionConfig?: DefineCmsCollection;
 };
 
-export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle }: CmsEntryFormProps) {
+export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle, collectionConfig }: CmsEntryFormProps) {
   const router = useRouter();
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
@@ -253,6 +258,11 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
     );
   }, [searchValue, hasExactMatch, isCreatingTag, handleCreateTag]);
 
+  const currentSlug = form.watch("slug");
+  const previewUrl = collectionConfig?.previewUrl && currentSlug
+    ? collectionConfig.previewUrl.replace("{slug}", currentSlug) as Route
+    : null;
+
   const onSubmit = async (data: CmsEntryFormData) => {
     // Serialize content to prevent Next.js from converting attrs to functions
     const serializedContent = JSON.parse(JSON.stringify(data.content));
@@ -339,57 +349,57 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
           <div className="contents lg:flex lg:flex-col lg:col-span-3 lg:gap-6">
             <div className="order-1">
               <Card>
-              <CardHeader>
-                <CardTitle>Basic Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Title *</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="Enter a compelling title..."
-                          className="text-lg"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            handleTitleChange(e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <CardHeader>
+                  <CardTitle>Basic Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Enter a compelling title..."
+                            className="text-lg"
+                            onChange={(e) => {
+                              field.onChange(e);
+                              handleTitleChange(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="slug"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL Slug *</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          placeholder="url-friendly-slug"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            handleSlugChange(e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        This will be used in the URL. Auto-generated from title, but you can customize it.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+                  <FormField
+                    control={form.control}
+                    name="slug"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL Slug *</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="url-friendly-slug"
+                            onChange={(e) => {
+                              field.onChange(e);
+                              handleSlugChange(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          This will be used in the URL. Auto-generated from title, but you can customize it.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
             </div>
 
             <div className="order-3">
@@ -416,128 +426,138 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
 
           <div className="space-y-6 order-2 lg:order-2">
             <Card>
-            <CardHeader>
-              <CardTitle>Publishing</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {CMS_ENTRY_STATUS_CONFIG.map((status) => (
-                          <SelectItem key={status.value} value={status.value}>
-                            <div className="flex items-center gap-2">
-                              <div className={`h-2 w-2 rounded-full ${status.color}`} />
-                              <span>{status.label}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Control the visibility of this entry
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Tags</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="tagIds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Tags</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        ref={multiSelectRef}
-                        options={tagOptions}
-                        onValueChange={field.onChange}
-                        defaultValue={field.value || []}
-                        placeholder="Select tags..."
-                        variant="default"
-                        maxCount={3}
-                        disabled={isLoadingTags || isCreatingTag}
-                        className="w-full"
-                        searchable={true}
-                        onSearchChange={setSearchValue}
-                        emptyIndicator={emptyIndicator}
-                        resetOnDefaultValueChange={true}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Type to search or create new tags.{" "}
-                      <a
-                        href="/admin/cms/tags"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-foreground"
-                      >
-                        Manage tags
-                      </a>
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          {mode === "edit" && entry && (
-            <Card>
               <CardHeader>
-                <CardTitle>Entry Information</CardTitle>
+                <CardTitle>Publishing</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Created:</span>
-                  <p className="font-medium">
-                    {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {new Date(entry.createdAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Last Updated:</span>
-                  <p className="font-medium">
-                    {formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true })}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {new Date(entry.updatedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {CMS_ENTRY_STATUS_CONFIG.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              <div className="flex items-center gap-2">
+                                <div className={`h-2 w-2 rounded-full ${status.color}`} />
+                                <span>{status.label}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Control the visibility of this entry
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardContent>
             </Card>
-          )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Tags</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="tagIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select Tags</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          ref={multiSelectRef}
+                          options={tagOptions}
+                          onValueChange={field.onChange}
+                          defaultValue={field.value || []}
+                          placeholder="Select tags..."
+                          variant="default"
+                          maxCount={3}
+                          disabled={isLoadingTags || isCreatingTag}
+                          className="w-full"
+                          searchable={true}
+                          onSearchChange={setSearchValue}
+                          emptyIndicator={emptyIndicator}
+                          resetOnDefaultValueChange={true}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Type to search or create new tags.{" "}
+                        <a
+                          href="/admin/cms/tags"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-foreground"
+                        >
+                          Manage tags
+                        </a>
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {mode === "edit" && entry && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Entry Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Created:</span>
+                    <p className="font-medium">
+                      {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(entry.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Last Updated:</span>
+                    <p className="font-medium">
+                      {formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true })}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(entry.updatedAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  {previewUrl && (
+                    <div>
+                      <span className="text-muted-foreground mr-2">Preview:</span>
+                      <div>
+                        <Link href={previewUrl} target="_blank" rel="noopener noreferrer">
+                        {SITE_URL}{previewUrl}
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </form>

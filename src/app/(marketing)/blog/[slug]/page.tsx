@@ -1,12 +1,7 @@
-import { getDB } from "@/db"
-import { cmsEntryTable } from "@/db/schema"
-import { CMS_ENTRY_STATUS } from "@/app/enums"
-import { eq, and } from "drizzle-orm"
-import { cmsConfig } from "@/../cms.config"
 import { notFound } from "next/navigation"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
-import { renderCmsContent } from "@/lib/render-cms-content"
+import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss"
 
@@ -20,23 +15,11 @@ export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params
-  const db = getDB()
 
-  const entry = await db
-    .select({
-      title: cmsEntryTable.title,
-      content: cmsEntryTable.content,
-      fields: cmsEntryTable.fields,
-    })
-    .from(cmsEntryTable)
-    .where(
-      and(
-        eq(cmsEntryTable.collection, cmsConfig.collections.blog.slug),
-        eq(cmsEntryTable.slug, slug),
-        eq(cmsEntryTable.status, CMS_ENTRY_STATUS.PUBLISHED)
-      )
-    )
-    .get()
+  const entry = await getCmsEntryBySlug({
+    collectionSlug: 'blog',
+    slug,
+  })
 
   if (!entry) {
     return {
@@ -46,9 +29,7 @@ export async function generateMetadata({
 
   // TODO We need to have a meta description field in the cms_entries table and integrate
   // with Cloudflare Workers AI to automatically regenerate it on every update
-  const htmlContent = renderCmsContent(entry.content)
-
-  const plainText = htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  const plainText = entry.renderedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
   const description = plainText.length > 160
     ? plainText.substring(0, 157) + '...'
     : plainText
@@ -71,33 +52,15 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
-  const db = getDB()
 
-  const entry = await db
-    .select({
-      id: cmsEntryTable.id,
-      title: cmsEntryTable.title,
-      content: cmsEntryTable.content,
-      createdAt: cmsEntryTable.createdAt,
-      updatedAt: cmsEntryTable.updatedAt,
-      fields: cmsEntryTable.fields,
-    })
-    .from(cmsEntryTable)
-    .where(
-      and(
-        eq(cmsEntryTable.collection, cmsConfig.collections.blog.slug),
-        eq(cmsEntryTable.slug, slug),
-        eq(cmsEntryTable.status, CMS_ENTRY_STATUS.PUBLISHED)
-      )
-    )
-    .get()
+  const entry = await getCmsEntryBySlug({
+    collectionSlug: 'blog',
+    slug,
+  })
 
   if (!entry) {
     notFound()
   }
-
-  // TODO Cache this in Cloudflare KV
-  const htmlContent = renderCmsContent(entry.content)
 
   return (
     <div className="container mx-auto py-12">
@@ -118,7 +81,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
         <div
           className="tiptap ProseMirror blog-content"
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
+          dangerouslySetInnerHTML={{ __html: entry.renderedContent }}
         />
       </article>
     </div>

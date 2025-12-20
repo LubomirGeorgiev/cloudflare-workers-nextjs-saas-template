@@ -5,6 +5,8 @@ import { type InferSelectModel } from "drizzle-orm";
 import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import type { JSONContent } from "@tiptap/core"
+import { CmsEntryStatus } from "@/lib/cms/cms-repository";
+import type { CollectionsUnion } from "../../cms.config";
 
 export const ROLES_ENUM = {
   ADMIN: 'admin',
@@ -300,14 +302,14 @@ const cmsEntryStatusTuple = Object.values(CMS_ENTRY_STATUS) as [string, ...strin
 export const cmsEntryTable = sqliteTable("cms_entry", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `cms_ent_${createId()}`).notNull(),
-  collection: text().notNull(),
+  collection: text().$type<CollectionsUnion>().notNull(),
   title: text().notNull(),
   content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
   fields: text({ mode: 'json' }).notNull(),
   slug: text().notNull(),
   status: text({
     enum: cmsEntryStatusTuple,
-  }).default(CMS_ENTRY_STATUS.DRAFT).notNull(),
+  }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(),
   createdBy: text().notNull().references(() => userTable.id),
 }, (table) => ([
   // Index for filtering by collection (most common query)

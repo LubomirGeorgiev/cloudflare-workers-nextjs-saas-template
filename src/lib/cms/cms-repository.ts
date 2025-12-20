@@ -2,13 +2,16 @@ import "server-only";
 
 import { cache } from "react";
 import { eq, and, desc, count } from "drizzle-orm";
+import type { JSONContent } from "@tiptap/core";
 
 import { getDB } from "@/db"
-import { cmsConfig } from "@/../cms.config";
+import { cmsConfig, CollectionsUnion } from "@/../cms.config";
 import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, type CmsEntry, type CmsTag } from "@/db/schema";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { renderCmsContent } from "@/lib/render-cms-content";
+import { withKVCache } from "@/utils/with-kv-cache";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-// TODO Implement KV cache for CMS entries
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Add version history
@@ -16,23 +19,44 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 // TODO Uploading images from the editor and a dedicated media collection admin page
 
 // Extend CMS_ENTRY_STATUS with 'all' option for queries
-type CmsEntryStatus = typeof CMS_ENTRY_STATUS[keyof typeof CMS_ENTRY_STATUS];
+export type CmsEntryStatus = typeof CMS_ENTRY_STATUS[keyof typeof CMS_ENTRY_STATUS];
 
-/**
- * Options for including related data in CMS queries
- */
+function getCmsEntryCacheKey({
+  collectionSlug,
+  slug,
+  status,
+}: {
+  collectionSlug: CollectionsUnion;
+  slug: string;
+  status?: CmsEntryStatus | 'all';
+}): string {
+  const base = `cms:entry:${collectionSlug}:${slug}`;
+  return status ? `${base}:${status}` : base;
+}
+
+async function invalidateCmsEntryCache({
+  collectionSlug,
+  slug,
+}: {
+  collectionSlug: CollectionsUnion;
+  slug: string;
+}): Promise<void> {
+  const { env } = await getCloudflareContext({ async: true });
+  const kv = env.NEXT_INC_CACHE_KV;
+
+  if (!kv) {
+    return;
+  }
+
+  const prefix = getCmsEntryCacheKey({ collectionSlug, slug });
+  const keys = await kv.list({ prefix });
+
+  await Promise.all(keys.keys.map(key => kv.delete(key.name)));
+}
+
 type CmsIncludeRelations = {
-  /**
-   * Include the user who created the entry
-   */
   createdByUser?: boolean;
-  /**
-   * Include associated media files
-   */
   media?: boolean;
-  /**
-   * Include associated tags
-   */
   tags?: boolean;
 };
 
@@ -76,7 +100,7 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   return relations;
 }
 
-type GetCmsCollectionParams<T extends keyof typeof cmsConfig.collections> = {
+type GetCmsCollectionParams<T extends CollectionsUnion> = {
   collectionSlug: T;
   /**
    * Filter by status. Defaults to 'published' only.
@@ -152,7 +176,7 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
   }
 
   const whereConditions = [
-    eq(cmsEntryTable.collection, collection.slug),
+    eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
   ];
 
   if (status !== 'all') {
@@ -197,7 +221,7 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
   }
 
   const whereConditions = [
-    eq(cmsEntryTable.collection, collection.slug),
+    eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
   ];
 
   if (status !== 'all') {
@@ -248,6 +272,86 @@ export const getCmsEntryById = cache(async ({
   return entry as GetCmsCollectionResult | null;
 });
 
+type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = {
+  collectionSlug: T;
+  slug: string;
+  status?: CmsEntryStatus | 'all';
+  includeRelations?: CmsIncludeRelations;
+};
+
+type GetCmsEntryBySlugResult = Omit<GetCmsCollectionResult, 'content'> & {
+  renderedContent: string;
+};
+
+/**
+ * Get a single CMS entry by slug (for public-facing pages like blog posts)
+ *
+ * This method automatically renders the content using renderCmsContent and caches
+ * the result in Cloudflare KV for performance.
+ *
+ * @example
+ * // Get a published blog post by slug
+ * const post = await getCmsEntryBySlug({
+ *   collectionSlug: 'blog',
+ *   slug: 'my-first-post',
+ *   includeRelations: { createdByUser: true, tags: true }
+ * });
+ */
+export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collections>({
+  collectionSlug,
+  slug,
+  status = CMS_ENTRY_STATUS.PUBLISHED,
+  includeRelations,
+}: GetCmsEntryBySlugParams<T>): Promise<GetCmsEntryBySlugResult | null> {
+  const collection = cmsConfig.collections[collectionSlug];
+  if (!collection) {
+    throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+  }
+
+  const cacheKey = getCmsEntryCacheKey({
+    collectionSlug: collection.slug as CollectionsUnion,
+    slug,
+    status,
+  });
+
+  return withKVCache(
+    async () => {
+      const db = getDB();
+
+      const whereConditions = [
+        eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
+        eq(cmsEntryTable.slug, slug),
+      ];
+
+      if (status !== 'all') {
+        whereConditions.push(eq(cmsEntryTable.status, status));
+      }
+
+      const entry = await db.query.cmsEntryTable.findFirst({
+        where: and(...whereConditions),
+        with: buildCmsRelationsQuery(includeRelations),
+      });
+
+      if (!entry) {
+        return null;
+      }
+
+      const renderedContent = renderCmsContent(entry.content as JSONContent);
+
+      const { content: _content, ...entryWithoutContent } = entry as GetCmsCollectionResult;
+
+      return {
+        ...entryWithoutContent,
+        renderedContent,
+      };
+    },
+    {
+      key: cacheKey,
+      ttl: '7 days',
+    }
+  );
+}
+
 type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
   collectionSlug: T;
   slug: string;
@@ -255,7 +359,7 @@ type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
   /**
    * The main content of the entry (e.g., rich text, markdown, etc.)
    */
-  content: unknown;
+  content: JSONContent;
   /**
    * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
    */
@@ -299,7 +403,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
     where: and(
-      eq(cmsEntryTable.collection, collection.slug),
+      eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
       eq(cmsEntryTable.slug, slug)
     ),
   });
@@ -309,7 +413,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   }
 
   const [newEntry] = await db.insert(cmsEntryTable).values({
-    collection: collection.slug,
+    collection: collection.slug as CollectionsUnion,
     slug,
     title,
     content,
@@ -337,7 +441,7 @@ type UpdateCmsEntryParams = {
   /**
    * The main content of the entry (e.g., rich text, markdown, etc.)
    */
-  content?: unknown;
+  content?: JSONContent;
   /**
    * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
    */
@@ -416,6 +520,17 @@ export async function updateCmsEntry({
     }
   }
 
+  const oldSlug = existingEntry.slug;
+  const newSlug = slug ?? oldSlug;
+  const collectionSlug = existingEntry.collection;
+
+  const slugsToInvalidate = new Set([oldSlug, newSlug]);
+  await Promise.all(
+    Array.from(slugsToInvalidate).map(slugToInvalidate =>
+      invalidateCmsEntryCache({ collectionSlug, slug: slugToInvalidate })
+    )
+  );
+
   return updatedEntry || null;
 }
 
@@ -445,9 +560,14 @@ export async function deleteCmsEntry({
     throw new Error(`Entry with id "${id}" not found`);
   }
 
+  const collectionSlug = existingEntry.collection;
+  const slug = existingEntry.slug;
+
   await db.delete(cmsEntryMediaTable).where(eq(cmsEntryMediaTable.entryId, id));
 
   await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, id));
+
+  await invalidateCmsEntryCache({ collectionSlug, slug });
 }
 
 // Tag Management Functions

@@ -5,6 +5,7 @@ export type DefineCmsCollection = {
     plural: string;
   };
   fields?: Record<string, unknown>;
+  previewUrl?: string;
 };
 
 export type DefineCmsConfig = {

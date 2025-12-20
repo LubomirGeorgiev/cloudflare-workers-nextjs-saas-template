@@ -29,6 +29,7 @@ export default async function NewEntryPage({
         mode="create"
         pageTitle={`Create ${collectionConfig.labels.singular}`}
         pageSubtitle={`Add a new ${collectionConfig.labels.singular.toLowerCase()} to your collection`}
+        collectionConfig={collectionConfig}
       />
     </div>
   );

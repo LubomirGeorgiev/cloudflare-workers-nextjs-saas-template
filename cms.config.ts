@@ -10,6 +10,7 @@ const blogCollection = {
     singular: "Blog",
     plural: "Blogs",
   },
+  previewUrl: "/blog/{slug}",
 } satisfies DefineCmsCollection;
 
 export const cmsConfig = {
