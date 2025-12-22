@@ -305,8 +305,9 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   collection: text().$type<CollectionsUnion>().notNull(),
   title: text().notNull(),
   content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
-  fields: text({ mode: 'json' }).notNull(),
+  fields: text({ mode: 'json' }).default('{}').notNull(),
   slug: text().notNull(),
+  seoDescription: text(),
   status: text({
     enum: cmsEntryStatusTuple,
   }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(),

@@ -4,14 +4,21 @@ import {
 } from "@/lib/cms/cms-models";
 import z from "zod";
 
+const blogFieldsSchema = z.object({
+  excerpt: z.string().max(200).optional(),
+});
+
+export type BlogFields = z.infer<typeof blogFieldsSchema>;
+
 const blogCollection = {
   slug: "blog",
   labels: {
     singular: "Blog",
     plural: "Blogs",
   },
-  previewUrl: "/blog/{slug}",
-} satisfies DefineCmsCollection;
+  fieldsSchema: blogFieldsSchema,
+  previewUrl: (slug: string) => `/blog/${slug}`,
+} satisfies DefineCmsCollection<typeof blogFieldsSchema>;
 
 export const cmsConfig = {
   collections: {
@@ -21,5 +28,5 @@ export const cmsConfig = {
 
 export type CollectionsUnion = keyof typeof cmsConfig.collections;
 
-export const collectionSlugs = Object.keys(cmsConfig.collections)
-export const zodCollectionEnum = z.enum(collectionSlugs as [CollectionsUnion, ...CollectionsUnion[]])
+export const collectionSlugs = Object.keys(cmsConfig.collections) as [CollectionsUnion, ...CollectionsUnion[]];
+export const zodCollectionEnum = z.enum(collectionSlugs);

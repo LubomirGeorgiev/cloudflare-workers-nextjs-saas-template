@@ -11,7 +11,10 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { renderCmsContent } from "@/lib/render-cms-content";
 import { withKVCache } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 
+// TODO Add tags list to blog posts
+// TODO Add authors to blog posts
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Add version history
@@ -364,6 +367,10 @@ type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
    * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
    */
   fields: unknown;
+  /**
+   * SEO meta description (max 160 characters). If not provided, will be auto-generated using AI.
+   */
+  seoDescription?: string;
   status?: CmsEntryStatus;
   createdBy: string;
   tagIds?: string[];
@@ -390,6 +397,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   title,
   content,
   fields,
+  seoDescription,
   status = CMS_ENTRY_STATUS.DRAFT,
   createdBy,
   tagIds,
@@ -399,6 +407,35 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   const collection = cmsConfig.collections[collectionSlug];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+  }
+
+  // Validate fields using Zod schema if provided
+  let validatedFields = fields;
+  if (collection.fieldsSchema) {
+    const parseResult = collection.fieldsSchema.safeParse(fields);
+    if (!parseResult.success) {
+      throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    }
+    validatedFields = parseResult.data;
+  }
+
+  // Auto-generate SEO description if not provided
+  let finalSeoDescription = seoDescription;
+  if (!finalSeoDescription || finalSeoDescription.trim() === '') {
+    const htmlContent = renderCmsContent(content);
+    const generatedDescription = await generateSeoDescription({
+      title,
+      htmlContent,
+      collectionSlug: collection.slug as CollectionsUnion,
+    });
+    if (generatedDescription) {
+      finalSeoDescription = generatedDescription;
+    }
+  }
+
+  // Validate SEO description length
+  if (finalSeoDescription && finalSeoDescription.length > 160) {
+    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${finalSeoDescription.length})`);
   }
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
@@ -417,7 +454,8 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     slug,
     title,
     content,
-    fields,
+    fields: validatedFields,
+    seoDescription: finalSeoDescription,
     status,
     createdBy,
   }).returning();
@@ -446,6 +484,10 @@ type UpdateCmsEntryParams = {
    * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
    */
   fields?: unknown;
+  /**
+   * SEO meta description (max 160 characters). If not provided and content/title changed, will be auto-generated using AI.
+   */
+  seoDescription?: string;
   status?: CmsEntryStatus;
   tagIds?: string[];
 };
@@ -469,6 +511,7 @@ export async function updateCmsEntry({
   title,
   content,
   fields,
+  seoDescription,
   status,
   tagIds,
 }: UpdateCmsEntryParams): Promise<CmsEntry | null> {
@@ -480,6 +523,59 @@ export async function updateCmsEntry({
 
   if (!existingEntry) {
     throw new Error(`Entry with id "${id}" not found`);
+  }
+
+  const collection = cmsConfig.collections[existingEntry.collection as keyof typeof cmsConfig.collections];
+  if (!collection) {
+    throw new Error(`Collection "${existingEntry.collection}" not found in CMS config`);
+  }
+
+  // Use provided fields or keep existing ones (don't merge to allow field deletion)
+  const finalFields = fields !== undefined ? fields : existingEntry.fields;
+
+  // Validate fields using Zod schema if provided
+  let validatedFields = finalFields;
+  if (collection.fieldsSchema) {
+    const parseResult = collection.fieldsSchema.safeParse(finalFields);
+    if (!parseResult.success) {
+      throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    }
+    validatedFields = parseResult.data;
+  }
+
+  // Determine final SEO description
+  let finalSeoDescription = seoDescription;
+
+  // Auto-generate SEO description if:
+  // 1. Not explicitly provided (undefined)
+  // 2. Content or title changed
+  // 3. Current description is empty
+  const finalTitle = title ?? existingEntry.title;
+  const finalContent = content ?? existingEntry.content;
+  const contentOrTitleChanged = content !== undefined || title !== undefined;
+  const shouldGenerateSeo =
+    finalSeoDescription === undefined &&
+    contentOrTitleChanged &&
+    (!existingEntry.seoDescription || existingEntry.seoDescription.trim() === '');
+
+  if (shouldGenerateSeo) {
+    const htmlContent = renderCmsContent(finalContent as JSONContent);
+    const generatedDescription = await generateSeoDescription({
+      title: finalTitle,
+      htmlContent,
+      collectionSlug: existingEntry.collection,
+    });
+    if (generatedDescription) {
+      finalSeoDescription = generatedDescription;
+    }
+  } else if (finalSeoDescription === undefined) {
+    // Keep existing SEO description if not provided and nothing changed
+    finalSeoDescription = existingEntry.seoDescription ?? undefined;
+  }
+
+  // Validate SEO description length
+  if (finalSeoDescription && finalSeoDescription.length > 160) {
+    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${finalSeoDescription.length})`);
   }
 
   if (slug && slug !== existingEntry.slug) {
@@ -501,7 +597,8 @@ export async function updateCmsEntry({
       slug: slug,
       title: title,
       content: content,
-      fields: fields,
+      fields: validatedFields,
+      seoDescription: finalSeoDescription,
       status: status,
     })
     .where(eq(cmsEntryTable.id, id))

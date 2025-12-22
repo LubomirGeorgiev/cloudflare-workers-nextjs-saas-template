@@ -1,11 +1,13 @@
-export type DefineCmsCollection = {
+import type { z } from "zod";
+
+export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAny> = {
   slug: string;
   labels: {
     singular: string;
     plural: string;
   };
-  fields?: Record<string, unknown>;
-  previewUrl?: string;
+  fieldsSchema?: TFieldsSchema;
+  previewUrl?: (slug: string) => string;
 };
 
 export type DefineCmsConfig = {

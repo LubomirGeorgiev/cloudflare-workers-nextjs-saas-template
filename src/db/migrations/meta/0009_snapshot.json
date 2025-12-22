@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c5120853-4c4c-4efa-9fc7-6025d653e0a2",
+  "id": "d20df8bd-f76a-4bfd-aadd-8355098ecd48",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -179,13 +179,21 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'{}'"
         },
         "slug": {
           "name": "slug",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "seoDescription": {
+          "name": "seoDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "status": {

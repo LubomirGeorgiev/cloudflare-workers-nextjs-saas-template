@@ -27,12 +27,13 @@ export async function generateMetadata({
     }
   }
 
-  // TODO We need to have a meta description field in the cms_entries table and integrate
-  // with Cloudflare Workers AI to automatically regenerate it on every update
-  const plainText = entry.renderedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-  const description = plainText.length > 160
-    ? plainText.substring(0, 157) + '...'
-    : plainText
+  // Use seoDescription if available, otherwise fallback to generated description from content
+  const description = entry.seoDescription || (() => {
+    const plainText = entry.renderedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    return plainText.length > 160
+      ? plainText.substring(0, 157) + '...'
+      : plainText
+  })()
 
   return {
     title: entry.title,

@@ -7,11 +7,14 @@ const baseCmsEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),
   slug: z.string().min(1, "Slug is required"),
   content: z.any(),
+  seoDescription: z.string().max(160, "SEO description must be 160 characters or less").optional(),
   status: cmsEntryStatusEnum.default("draft"),
   tagIds: z.array(z.string()).optional(),
 });
 
-export const cmsEntryFormSchema = baseCmsEntrySchema;
+export const cmsEntryFormSchema = baseCmsEntrySchema.extend({
+  fields: z.record(z.any()).optional(),
+});
 
 export const createCmsEntrySchema = baseCmsEntrySchema.extend({
   collection: zodCollectionEnum,

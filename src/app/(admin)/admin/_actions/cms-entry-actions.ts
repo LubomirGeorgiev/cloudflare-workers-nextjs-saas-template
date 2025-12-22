@@ -11,7 +11,10 @@ import {
   createCmsEntry,
   updateCmsEntry,
   deleteCmsEntry,
+  getCmsEntryById,
 } from "@/lib/cms/cms-repository";
+import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
+import { renderCmsContent } from "@/lib/render-cms-content";
 
 const listStatusEnum = z.enum([...cmsEntryStatusEnum.options, "all"]);
 
@@ -62,6 +65,7 @@ export const createCmsEntryAction = createServerAction()
       slug: input.slug,
       content: input.content,
       fields: input.fields,
+      seoDescription: input.seoDescription,
       status: input.status,
       createdBy: session.userId,
       tagIds: input.tagIds,
@@ -81,6 +85,7 @@ export const updateCmsEntryAction = createServerAction()
       slug: input.slug,
       content: input.content,
       fields: input.fields,
+      seoDescription: input.seoDescription,
       status: input.status,
       tagIds: input.tagIds,
     });
@@ -100,4 +105,33 @@ export const deleteCmsEntryAction = createServerAction()
     await deleteCmsEntry({ id: input.id });
 
     return { success: true };
+  });
+
+export const generateSeoDescriptionAction = createServerAction()
+  .input(
+    z.object({
+      id: z.string().min(1, "Entry ID is required"),
+    })
+  )
+  .handler(async ({ input }) => {
+    await requireAdmin();
+
+    const entry = await getCmsEntryById({ id: input.id });
+
+    if (!entry) {
+      throw new ZSAError("NOT_FOUND", "Entry not found");
+    }
+
+    const htmlContent = renderCmsContent(entry.content);
+    const description = await generateSeoDescription({
+      title: entry.title,
+      htmlContent,
+      collectionSlug: entry.collection,
+    });
+
+    if (!description) {
+      throw new ZSAError("INTERNAL_SERVER_ERROR", "Failed to generate SEO description");
+    }
+
+    return { description };
   });

@@ -41,7 +41,6 @@ export default async function EditEntryPage({
         entry={entry}
         pageTitle={`Edit ${collectionConfig.labels.singular}`}
         pageSubtitle={entry.title}
-        collectionConfig={collectionConfig}
       />
     </div>
   );

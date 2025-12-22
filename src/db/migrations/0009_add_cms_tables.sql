@@ -22,8 +22,9 @@ CREATE TABLE `cms_entry` (
 	`collection` text NOT NULL,
 	`title` text NOT NULL,
 	`content` text NOT NULL,
-	`fields` text NOT NULL,
+	`fields` text DEFAULT '{}' NOT NULL,
 	`slug` text NOT NULL,
+	`seoDescription` text,
 	`status` text DEFAULT 'draft' NOT NULL,
 	`createdBy` text NOT NULL,
 	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action

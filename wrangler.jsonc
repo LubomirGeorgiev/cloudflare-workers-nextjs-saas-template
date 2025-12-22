@@ -33,6 +33,11 @@
      */
     "placement": { "mode": "smart" },
 
+
+    "ai": {
+      "binding": "AI"
+    },
+
     /**
      * Bindings
      * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

@@ -313,6 +313,10 @@ export const requireAdmin = cache(async ({
 } = {}) => {
   const session = await getSessionFromCookie();
 
+  if (!session && doNotThrowError) {
+    return null;
+  }
+
   if (!session) {
     throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
   }

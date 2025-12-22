@@ -6,7 +6,7 @@ import { useServerAction } from "zsa-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
-import { createCmsEntryAction, updateCmsEntryAction } from "../../../_actions/cms-entry-actions";
+import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionAction } from "../../../_actions/cms-entry-actions";
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
 import { cmsEntryFormSchema, type CmsEntryFormData } from "@/schemas/cms-entry.schema";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MultiSelect, type MultiSelectRef } from "@/components/ui/multi-select";
 import type { MultiSelectOption } from "@/components/ui/multi-select";
 import { SimpleEditor } from "@/components/tiptap-templates/simple/simple-editor";
-import { Loader2, Save, Plus, ArrowLeft } from "lucide-react";
+import { Loader2, Save, Plus, ArrowLeft, WandSparkles } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import { toast } from "sonner";
 import { generateSlug } from "@/utils/slugify";
@@ -39,9 +46,11 @@ import type { CmsTag } from "@/db/schema";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import useBeforeUnload from "@/hooks/use-before-unload";
-import type { DefineCmsCollection } from "@/lib/cms/cms-models";
 import { SITE_URL } from "@/constants";
 import { Route } from "next";
+import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
+import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
+import { CmsDynamicField } from "./cms-dynamic-field";
 
 const CMS_ENTRY_STATUS_CONFIG = [
   {
@@ -67,13 +76,36 @@ type CmsEntryFormProps = {
   entry?: GetCmsCollectionResult;
   pageTitle: string;
   pageSubtitle: string;
-  collectionConfig?: DefineCmsCollection;
 };
 
-export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle, collectionConfig }: CmsEntryFormProps) {
+export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle }: CmsEntryFormProps) {
+  const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
   const router = useRouter();
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
+
+  // Get field configurations from the Zod schema
+  const collectionDefinition = cmsConfig.collections[collection as CollectionsUnion];
+  const customFields = useMemo(() => {
+    if (!collectionDefinition?.fieldsSchema) {
+      return [];
+    }
+    return zodSchemaToFieldConfigs(collectionDefinition.fieldsSchema);
+  }, [collectionDefinition]);
+
+  // Initialize default field values
+  const defaultFieldValues = useMemo(() => {
+    const fields: Record<string, unknown> = (entry?.fields as Record<string, unknown>) || {};
+
+    // Set default values for any missing fields
+    for (const field of customFields) {
+      if (!(field.name in fields) && field.defaultValue !== undefined) {
+        fields[field.name] = field.defaultValue;
+      }
+    }
+
+    return fields;
+  }, [customFields, entry?.fields]);
 
   const form = useForm<CmsEntryFormData>({
     resolver: zodResolver(cmsEntryFormSchema),
@@ -81,8 +113,10 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
       title: entry?.title || "",
       slug: entry?.slug || "",
       content: entry?.content || { type: "doc", content: [] },
-      status: entry?.status,
+      seoDescription: entry?.seoDescription || "",
+      status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
       tagIds: entry?.tags?.map((t) => t.tag.id) || [],
+      fields: defaultFieldValues,
     },
   });
 
@@ -118,6 +152,11 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
 
   const { execute: loadTags, isPending: isLoadingTags } = useServerAction(listCmsTagsAction);
   const { execute: createTag, isPending: isCreatingTag } = useServerAction(createCmsTagAction);
+  const { execute: generateSeoDescription, isPending: isGeneratingSeo } = useServerAction(generateSeoDescriptionAction, {
+    onError: (error) => {
+      toast.error(error.err?.message || "Failed to generate SEO description");
+    },
+  });
 
   const isPending = isCreating || isUpdating;
 
@@ -169,6 +208,26 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
       isSlugManuallyEditedRef.current = true;
     }
   };
+
+  const handleGenerateSeoDescription = useCallback(async () => {
+    if (!entry?.id) {
+      toast.error("Please save the entry first before generating SEO description");
+      return;
+    }
+
+    const [data, error] = await generateSeoDescription({
+      id: entry.id,
+    });
+
+    if (error) {
+      return;
+    }
+
+    if (data?.description) {
+      form.setValue("seoDescription", data.description);
+      toast.success("SEO description generated successfully");
+    }
+  }, [entry?.id, generateSeoDescription, form]);
 
   const tagOptions: MultiSelectOption[] = useMemo(
     () =>
@@ -259,13 +318,56 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
   }, [searchValue, hasExactMatch, isCreatingTag, handleCreateTag]);
 
   const currentSlug = form.watch("slug");
-  const previewUrl = collectionConfig?.previewUrl && currentSlug
-    ? collectionConfig.previewUrl.replace("{slug}", currentSlug) as Route
+  const previewUrl = currentSlug?.trim() && collectionConfig.previewUrl
+    ? (collectionConfig.previewUrl(currentSlug) as Route)
     : null;
 
   const onSubmit = async (data: CmsEntryFormData) => {
     // Serialize content to prevent Next.js from converting attrs to functions
     const serializedContent = JSON.parse(JSON.stringify(data.content));
+
+    // Clean up custom fields before submitting
+    // Build a complete fields object with all defined fields from the schema
+    const cleanedFields: Record<string, unknown> = {};
+
+    // Process all fields defined in the schema
+    for (const fieldConfig of customFields) {
+      const value = data.fields?.[fieldConfig.name];
+
+      if (fieldConfig.type === "number") {
+        // Convert empty string or NaN to undefined, otherwise parse as number
+        const strValue = String(value);
+        if (strValue === "" || strValue === "NaN" || value === undefined) {
+          // Only include if not optional, otherwise omit
+          if (fieldConfig.required) {
+            cleanedFields[fieldConfig.name] = undefined;
+          }
+        } else {
+          const numValue = Number(value);
+          cleanedFields[fieldConfig.name] = isNaN(numValue) ? undefined : numValue;
+        }
+      } else if (fieldConfig.type === "date") {
+        // Convert empty string to undefined, otherwise ensure it's a Date object
+        if (value === "" || value === null || value === undefined) {
+          // Only include if not optional, otherwise omit
+          if (fieldConfig.required) {
+            cleanedFields[fieldConfig.name] = undefined;
+          }
+        } else {
+          cleanedFields[fieldConfig.name] = value instanceof Date ? value : new Date(value as string);
+        }
+      } else {
+        // For string/textarea, omit empty strings for optional fields
+        if (value === "" || value === undefined) {
+          // Only include if not optional, otherwise omit
+          if (fieldConfig.required) {
+            cleanedFields[fieldConfig.name] = undefined;
+          }
+        } else {
+          cleanedFields[fieldConfig.name] = value;
+        }
+      }
+    }
 
     if (mode === "create") {
       await createEntry({
@@ -274,7 +376,8 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
         title: data.title,
         slug: data.slug,
         content: serializedContent,
-        fields: {},
+        fields: cleanedFields,
+        seoDescription: data.seoDescription,
         status: data.status,
         tagIds: data.tagIds || [],
       });
@@ -286,7 +389,8 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
         title: data.title,
         slug: data.slug,
         content: serializedContent,
-        fields: {},
+        fields: cleanedFields,
+        seoDescription: data.seoDescription,
         status: data.status,
         tagIds: data.tagIds || [],
       });
@@ -398,9 +502,72 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="seoDescription"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SEO Description</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Textarea
+                              {...field}
+                              placeholder="Enter SEO meta description (max 160 characters)..."
+                              className="pr-10"
+                              maxLength={160}
+                              rows={3}
+                            />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-2 top-2 h-8 w-8"
+                                    onClick={handleGenerateSeoDescription}
+                                    disabled={isGeneratingSeo || !entry?.id}
+                                  >
+                                    {isGeneratingSeo ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <WandSparkles className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Auto-generate SEO description using AI</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </FormControl>
+                        <FormDescription>
+                          Meta description for search engines (max 160 characters). Leave empty to auto-generate on save.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </div>
+
+            {customFields.length > 0 && (
+              <div className="order-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Custom Fields</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {customFields.map((field) => (
+                      <CmsDynamicField key={field.name} field={field} />
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             <div className="order-3">
               <FormField
@@ -549,7 +716,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle,
                     <div>
                       <span className="text-muted-foreground mr-2">Preview:</span>
                       <div>
-                        <Link href={previewUrl} target="_blank" rel="noopener noreferrer">
+                        <Link href={previewUrl} className="underline" target="_blank" rel="noopener noreferrer">
                         {SITE_URL}{previewUrl}
                         </Link>
                       </div>

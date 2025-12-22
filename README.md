@@ -128,11 +128,12 @@ Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overv
 # Running it locally
 
 1. `pnpm install`
-2.  Copy `.dev.vars.example` to `.dev.vars` and fill in the values.
-3.  Copy `.env.example` to `.env` and fill in the values.
-4. `pnpm db:migrate:dev` - Creates a local SQLite database and applies migrations
-5. `pnpm dev`
-6.  Open http://localhost:3000
+2. `pnpx wrangler login` - Login to your Cloudflare account to use Cloudflare AI while testing locally.
+3.  Copy `.dev.vars.example` to `.dev.vars` and fill in the values.
+4.  Copy `.env.example` to `.env` and fill in the values.
+5. `pnpm db:migrate:dev` - Creates a local SQLite database and applies migrations
+6. `pnpm dev`
+7.  Open http://localhost:3000
 
 ## Changes to wrangler.jsonc
 
