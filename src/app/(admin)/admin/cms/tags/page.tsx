@@ -68,10 +68,10 @@ export default async function TagsPage() {
               tags.map((tag) => (
                 <TableRow key={tag.id}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
+                    <Link href={`/admin/cms/tags/${tag.id}`} className="flex items-center gap-2">
                       <Tag className="h-4 w-4 text-muted-foreground" />
                       {tag.name}
-                    </div>
+                    </Link>
                   </TableCell>
                   <TableCell>{tag.slug}</TableCell>
                   <TableCell>

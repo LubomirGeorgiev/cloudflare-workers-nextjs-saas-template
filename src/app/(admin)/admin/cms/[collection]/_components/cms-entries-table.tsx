@@ -29,20 +29,9 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { type GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { type CollectionsUnion } from "@/../cms.config";
 
-type StatusFilter = "all" | "draft" | "published" | "archived";
+import { getStatusBadgeVariant, getStatusConfig } from "@/lib/cms/cms-entry-status-config";
 
-const getStatusBadgeVariant = (status: string) => {
-  switch (status) {
-    case "published":
-      return "default";
-    case "draft":
-      return "secondary";
-    case "archived":
-      return "outline";
-    default:
-      return "secondary";
-  }
-};
+type StatusFilter = "all" | "draft" | "published" | "archived";
 
 export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -67,11 +56,17 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => (
-        <Badge variant={getStatusBadgeVariant(row.original.status)}>
-          {row.original.status}
-        </Badge>
-      ),
+      cell: ({ row }) => {
+        const statusConfig = getStatusConfig(row.original.status);
+        return (
+          <Badge variant={getStatusBadgeVariant(row.original.status)}>
+            <div className="flex items-center gap-2">
+              {statusConfig && <div className={`h-2 w-2 rounded-full ${statusConfig.color}`} />}
+              <span>{statusConfig?.label || row.original.status}</span>
+            </div>
+          </Badge>
+        );
+      },
     },
     {
       id: "tags",

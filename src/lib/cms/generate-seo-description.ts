@@ -3,22 +3,24 @@ import "server-only";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { CollectionsUnion } from "@/../cms.config";
 import { CMS_SEO_DESCRIPTION_AI_MODEL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/constants";
+import type { JSONContent } from "@tiptap/core";
+import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
 
 type GenerateSeoDescriptionParams = {
   title: string;
-  htmlContent: string;
+  content: JSONContent;
   collectionSlug: CollectionsUnion;
 };
 
 /**
- * Generate an SEO description using Cloudflare AI based on the entry's title and HTML content
+ * Generate an SEO description using Cloudflare AI based on the entry's title and JSON content
  *
- * @param params - Object containing title, htmlContent, and collectionSlug
+ * @param params - Object containing title, content (TipTap JSON), and collectionSlug
  * @returns A generated SEO description (max 160 characters) or null if AI is not available
  */
 export async function generateSeoDescription({
   title,
-  htmlContent,
+  content,
   collectionSlug,
 }: GenerateSeoDescriptionParams): Promise<string | null> {
   try {
@@ -29,19 +31,22 @@ export async function generateSeoDescription({
       return null;
     }
 
-    // Extract first 1000 characters of HTML content for context
-    // This gives the AI enough context while staying within token limits
-    const contentPreview = htmlContent.slice(0, 1000).trim();
+    // Extract plain text from TipTap JSON content
+    const plainText = extractTextFromContent(content);
 
-    const prompt = `Generate a concise SEO meta description (maximum 160 characters) for a ${collectionSlug} entry with the following title and HTML content preview:
+    // Extract first 1000 characters for context
+    // This gives the AI enough context while staying within token limits
+    const contentPreview = plainText.slice(0, 1000).trim();
+
+    const prompt = `Generate a concise SEO meta description (maximum 160 characters) for a ${collectionSlug} entry with the following title and content preview:
 
 Title: "${title}"
 Website Name: "${SITE_NAME}"
 Website URL: "${SITE_URL}"
 Website SEO Description: "${SITE_DESCRIPTION}"
 
-HTML Content Preview:
-\`\`\`html
+Content Preview:
+\`\`\`markdown
 ${contentPreview}
 \`\`\`
 

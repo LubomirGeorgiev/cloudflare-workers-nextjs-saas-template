@@ -7,8 +7,9 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { CloseIcon } from "@/components/tiptap-icons/close-icon"
 import "@/components/tiptap-node/image-upload-node/image-upload-node.scss"
 import { focusNextNode, isValidPosition } from "@/lib/tiptap-utils"
+import { MediaLibraryPicker } from "./media-library-picker"
 
-export interface FileItem {
+interface FileItem {
   /**
    * Unique identifier for the file item
    */
@@ -39,7 +40,7 @@ export interface FileItem {
   abortController?: AbortController
 }
 
-export interface UploadOptions {
+interface UploadOptions {
   /**
    * Maximum allowed file size in bytes
    */
@@ -437,6 +438,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
   const { accept, limit, maxSize } = props.node.attrs
   const inputRef = useRef<HTMLInputElement>(null)
   const extension = props.extension
+  const [mode, setMode] = useState<"upload" | "library">("upload")
 
   const uploadOptions: UploadOptions = {
     maxSize,
@@ -483,6 +485,38 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
     }
   }
 
+  const handleSelectFromLibrary = (
+    url: string,
+    alt?: string,
+    width?: number,
+    height?: number
+  ) => {
+    const pos = props.getPos()
+
+    if (isValidPosition(pos)) {
+      const imageNode = {
+        type: extension.options.type,
+        attrs: {
+          ...extension.options,
+          src: url,
+          alt: alt || "Selected image",
+          title: alt || "Selected image",
+          ...(width && { width }),
+          ...(height && { height }),
+        },
+      }
+
+      props.editor
+        .chain()
+        .focus()
+        .deleteRange({ from: pos, to: pos + props.node.nodeSize })
+        .insertContentAt(pos, imageNode)
+        .run()
+
+      focusNextNode(props.editor)
+    }
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) {
@@ -493,7 +527,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
   }
 
   const handleClick = () => {
-    if (inputRef.current && fileItems.length === 0) {
+    if (inputRef.current && fileItems.length === 0 && mode === "upload") {
       inputRef.current.value = ""
       inputRef.current.click()
     }
@@ -508,9 +542,48 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
       onClick={handleClick}
     >
       {!hasFiles && (
-        <ImageUploadDragArea onFile={handleUpload}>
-          <DropZoneContent maxSize={maxSize} limit={limit} />
-        </ImageUploadDragArea>
+        <div className="tiptap-image-upload-container">
+          {/* Mode Tabs */}
+          <div className="tiptap-image-upload-tabs">
+            <button
+              type="button"
+              className={`tiptap-image-upload-tab ${mode === "upload" ? "active" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMode("upload")
+              }}
+            >
+              Upload New
+            </button>
+            <button
+              type="button"
+              className={`tiptap-image-upload-tab ${mode === "library" ? "active" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMode("library")
+              }}
+            >
+              Choose from Library
+            </button>
+          </div>
+
+          {/* Upload Mode */}
+          {mode === "upload" && (
+            <ImageUploadDragArea onFile={handleUpload}>
+              <DropZoneContent maxSize={maxSize} limit={limit} />
+            </ImageUploadDragArea>
+          )}
+
+          {/* Library Mode */}
+          {mode === "library" && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <MediaLibraryPicker
+                onSelect={handleSelectFromLibrary}
+                onCancel={() => setMode("upload")}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {hasFiles && (

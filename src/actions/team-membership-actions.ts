@@ -9,6 +9,7 @@ import {
   getPendingInvitationsForCurrentUser
 } from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { requireVerifiedEmail } from "@/utils/auth";
 
 // Invite user schema
 const inviteUserSchema = z.object({
@@ -35,6 +36,12 @@ export const inviteUserAction = createServerAction()
   .handler(async ({ input }) => {
     return withRateLimit(
       async () => {
+        const session = await requireVerifiedEmail();
+
+        if (!session) {
+          throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+        }
+
         try {
           const result = await inviteUserToTeam(input);
           return { success: true, data: result };
@@ -61,6 +68,12 @@ export const inviteUserAction = createServerAction()
 export const removeTeamMemberAction = createServerAction()
   .input(removeMemberSchema)
   .handler(async ({ input }) => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       await removeTeamMember(input);
       return { success: true };
@@ -84,6 +97,12 @@ export const removeTeamMemberAction = createServerAction()
 export const acceptInvitationAction = createServerAction()
   .input(invitationTokenSchema)
   .handler(async ({ input }) => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const result = await acceptTeamInvitation(input.token);
       return { success: true, data: result };
@@ -106,6 +125,12 @@ export const acceptInvitationAction = createServerAction()
  */
 export const getPendingInvitationsForCurrentUserAction = createServerAction()
   .handler(async () => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const invitations = await getPendingInvitationsForCurrentUser();
       return { success: true, data: invitations };

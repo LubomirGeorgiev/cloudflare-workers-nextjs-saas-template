@@ -51,24 +51,7 @@ import { Route } from "next";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
-
-const CMS_ENTRY_STATUS_CONFIG = [
-  {
-    value: CMS_ENTRY_STATUS.DRAFT,
-    label: 'Draft',
-    color: 'bg-gray-500',
-  },
-  {
-    value: CMS_ENTRY_STATUS.PUBLISHED,
-    label: 'Published',
-    color: 'bg-green-500',
-  },
-  {
-    value: CMS_ENTRY_STATUS.ARCHIVED,
-    label: 'Archived',
-    color: 'bg-orange-500',
-  },
-] as const;
+import { CMS_ENTRY_STATUS_CONFIG } from "@/lib/cms/cms-entry-status-config";
 
 type CmsEntryFormProps = {
   collection: string;
@@ -581,6 +564,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                         <SimpleEditor
                           content={field.value}
                           onChange={(newContent) => field.onChange(newContent)}
+                          collection={collection}
                         />
                       </div>
                     </FormControl>

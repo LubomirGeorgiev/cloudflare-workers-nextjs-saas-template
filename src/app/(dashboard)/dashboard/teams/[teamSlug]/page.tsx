@@ -7,7 +7,7 @@ import { TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { Alert } from "@heroui/react";
 import { getTeamMembers } from "@/lib/teams/team-members";
@@ -51,6 +51,11 @@ export async function generateMetadata({ params }: TeamPageProps) {
 }
 
 export default async function TeamDashboardPage({ params }: TeamPageProps) {
+  const session = await getSessionFromCookie();
+  if (!session) {
+    redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
+  }
+
   const { teamSlug } = await params;
   const db = getDB();
 
@@ -61,12 +66,6 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
   if (!team) {
     notFound();
-  }
-
-  // Check if user is authenticated
-  const session = await getSessionFromCookie();
-  if (!session) {
-    redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
   }
 
   // Check team membership using the new function

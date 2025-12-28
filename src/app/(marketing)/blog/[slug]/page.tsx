@@ -2,8 +2,9 @@ import { notFound } from "next/navigation"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
 import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
-
-import "@/components/tiptap-templates/simple/cms-content-styles.scss"
+import { CmsContentRenderer } from "@/components/cms-content-renderer"
+import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
+import type { JSONContent } from "@tiptap/core"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -27,13 +28,7 @@ export async function generateMetadata({
     }
   }
 
-  // Use seoDescription if available, otherwise fallback to generated description from content
-  const description = entry.seoDescription || (() => {
-    const plainText = entry.renderedContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-    return plainText.length > 160
-      ? plainText.substring(0, 157) + '...'
-      : plainText
-  })()
+  const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
 
   return {
     title: entry.title,
@@ -80,9 +75,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           </div>
         </header>
 
-        <div
+        <CmsContentRenderer
+          content={entry.content as JSONContent}
           className="tiptap ProseMirror blog-content"
-          dangerouslySetInnerHTML={{ __html: entry.renderedContent }}
         />
       </article>
     </div>

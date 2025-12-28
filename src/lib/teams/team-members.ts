@@ -1,7 +1,7 @@
 import "server-only";
 import { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM, teamInvitationTable, teamMembershipTable, userTable, teamRoleTable, teamTable } from "@/db/schema";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
 import { ZSAError } from "zsa";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, and, isNull, count } from "drizzle-orm";
@@ -139,7 +139,7 @@ export async function inviteUserToTeam({
   // Check if user has permission to invite members
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.INVITE_MEMBERS);
 
-  const session = await getSessionFromCookie();
+  const session = await requireVerifiedEmail();
 
   if (!session) {
     throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");

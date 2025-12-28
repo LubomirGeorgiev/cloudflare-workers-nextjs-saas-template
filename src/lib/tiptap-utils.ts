@@ -12,6 +12,7 @@ import {
   type Editor,
   type NodeWithPos,
 } from "@tiptap/react"
+import { uploadImageAction } from "@/actions/upload-image.action"
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -352,14 +353,16 @@ export function selectionWithinConvertibleTypes(
 }
 
 /**
- * Handles image upload with progress tracking and abort capability
+ * Handles image upload to R2 with progress tracking and abort capability
  * @param file The file to upload
+ * @param collection The CMS collection slug for organizing images
  * @param onProgress Optional callback for tracking upload progress
  * @param abortSignal Optional AbortSignal for cancelling the upload
  * @returns Promise resolving to the URL of the uploaded image
  */
 export const handleImageUpload = async (
   file: File,
+  collection: string,
   onProgress?: (event: { progress: number }) => void,
   abortSignal?: AbortSignal
 ): Promise<string> => {
@@ -374,17 +377,41 @@ export const handleImageUpload = async (
     )
   }
 
-  // For demo/testing: Simulate upload progress. In production, replace the following code
-  // with your own upload implementation.
-  for (let progress = 0; progress <= 100; progress += 10) {
+  // Check if upload was cancelled before starting
+  if (abortSignal?.aborted) {
+    throw new Error("Upload cancelled")
+  }
+
+  try {
+    // Simulate progress at start
+    onProgress?.({ progress: 10 })
+
+    // Execute the upload action
+    const [result, error] = await uploadImageAction({ file, collection })
+
+    // Check if upload was cancelled during execution
     if (abortSignal?.aborted) {
       throw new Error("Upload cancelled")
     }
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    onProgress?.({ progress })
-  }
 
-  return "/images/tiptap-ui-placeholder-image.jpg"
+    if (error) {
+      throw new Error(error.message || "Failed to upload image")
+    }
+
+    if (!result?.url) {
+      throw new Error("No URL returned from upload")
+    }
+
+    // Report completion
+    onProgress?.({ progress: 100 })
+
+    return result.url
+  } catch (error) {
+    if (abortSignal?.aborted) {
+      throw new Error("Upload cancelled")
+    }
+    throw error
+  }
 }
 
 type ProtocolOptions = {

@@ -20,6 +20,7 @@ import {
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss"
 import "@/components/tiptap-node/code-block-node/code-block-node.scss"
+import "@/components/tiptap-templates/simple/code-highlighting.scss"
 import "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss"
 import "@/components/tiptap-node/list-node/list-node.scss"
 import "@/components/tiptap-node/image-node/image-node.scss"
@@ -77,6 +78,11 @@ type SimpleEditorProps = {
   content?: unknown
   onChange?: (content: unknown) => void
   editable?: boolean
+  /**
+   * CMS collection slug for organizing uploaded images
+   * Example: "blog", "products", etc.
+   */
+  collection?: string
 }
 
 const MainToolbarContent = ({
@@ -178,7 +184,7 @@ const MobileToolbarContent = ({
   </>
 )
 
-export function SimpleEditor({ content, onChange, editable = true }: SimpleEditorProps) {
+export function SimpleEditor({ content, onChange, editable = true, collection = "default" }: SimpleEditorProps) {
   const isMobile = useIsBreakpoint()
   const [mobileView, setMobileView] = useState<"main" | "highlighter" | "link">(
     "main"
@@ -213,7 +219,8 @@ export function SimpleEditor({ content, onChange, editable = true }: SimpleEdito
         accept: "image/*",
         maxSize: MAX_FILE_SIZE,
         limit: 3,
-        upload: handleImageUpload,
+        upload: (file, onProgress, abortSignal) =>
+          handleImageUpload(file, collection, onProgress, abortSignal),
         onError: (error) => console.error("Upload failed:", error),
       }),
     ],

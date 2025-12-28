@@ -27,3 +27,15 @@ export const FREE_MONTHLY_CREDITS = CREDIT_PACKAGES[0].credits * 0.1;
 export const MAX_TRANSACTIONS_PER_PAGE = 10;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
 export const CMS_SEO_DESCRIPTION_AI_MODEL = '@cf/meta/llama-3.2-3b-instruct' as const satisfies keyof AiModels;
+
+// CMS Image Upload Configuration
+export const CMS_IMAGES_BASE_PATH = "cms-images" as const;
+export const CMS_IMAGES_API_ROUTE = `/api/${CMS_IMAGES_BASE_PATH}` as const;
+export const CMS_IMAGE_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const CMS_ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+] as const;

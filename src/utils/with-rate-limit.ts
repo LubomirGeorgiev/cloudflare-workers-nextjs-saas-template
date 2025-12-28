@@ -117,4 +117,9 @@ export const RATE_LIMITS = {
     limit: 5,
     windowInSeconds: Math.floor(ms("1 hour") / 1000),
   },
+  UPLOAD: {
+    identifier: "upload",
+    limit: 30,
+    windowInSeconds: Math.floor(ms("5 minutes") / 1000),
+  },
 } as const;

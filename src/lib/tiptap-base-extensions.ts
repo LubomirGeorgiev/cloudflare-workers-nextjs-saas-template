@@ -15,7 +15,8 @@ import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
 import { common, createLowlight } from "lowlight"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
 
-const sharedLowlight = createLowlight(common)
+// Shared lowlight instance used across all extensions and renderers
+export const sharedLowlight = createLowlight(common)
 
 type LowlightInstance = ReturnType<typeof createLowlight>
 

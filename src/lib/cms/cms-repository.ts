@@ -8,10 +8,10 @@ import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
 import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, type CmsEntry, type CmsTag } from "@/db/schema";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { renderCmsContent } from "@/lib/render-cms-content";
 import { withKVCache } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
+import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
@@ -282,15 +282,13 @@ type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = {
   includeRelations?: CmsIncludeRelations;
 };
 
-type GetCmsEntryBySlugResult = Omit<GetCmsCollectionResult, 'content'> & {
-  renderedContent: string;
-};
+type GetCmsEntryBySlugResult = GetCmsCollectionResult;
 
 /**
  * Get a single CMS entry by slug (for public-facing pages like blog posts)
  *
- * This method automatically renders the content using renderCmsContent and caches
- * the result in Cloudflare KV for performance.
+ * Returns the raw JSON content for rendering with CmsContentRenderer component.
+ * Results are cached in Cloudflare KV for performance.
  *
  * @example
  * // Get a published blog post by slug
@@ -339,14 +337,7 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
         return null;
       }
 
-      const renderedContent = renderCmsContent(entry.content as JSONContent);
-
-      const { content: _content, ...entryWithoutContent } = entry as GetCmsCollectionResult;
-
-      return {
-        ...entryWithoutContent,
-        renderedContent,
-      };
+      return entry as GetCmsCollectionResult;
     },
     {
       key: cacheKey,
@@ -422,10 +413,9 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   // Auto-generate SEO description if not provided
   let finalSeoDescription = seoDescription;
   if (!finalSeoDescription || finalSeoDescription.trim() === '') {
-    const htmlContent = renderCmsContent(content);
     const generatedDescription = await generateSeoDescription({
       title,
-      htmlContent,
+      content,
       collectionSlug: collection.slug as CollectionsUnion,
     });
     if (generatedDescription) {
@@ -468,6 +458,12 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
       }))
     );
   }
+
+  // Sync media relationships based on content
+  await syncEntryMediaRelationships({
+    entryId: newEntry.id,
+    content,
+  });
 
   return newEntry;
 }
@@ -559,10 +555,9 @@ export async function updateCmsEntry({
     (!existingEntry.seoDescription || existingEntry.seoDescription.trim() === '');
 
   if (shouldGenerateSeo) {
-    const htmlContent = renderCmsContent(finalContent as JSONContent);
     const generatedDescription = await generateSeoDescription({
       title: finalTitle,
-      htmlContent,
+      content: finalContent as JSONContent,
       collectionSlug: existingEntry.collection,
     });
     if (generatedDescription) {
@@ -615,6 +610,14 @@ export async function updateCmsEntry({
         }))
       );
     }
+  }
+
+  // Sync media relationships if content changed
+  if (content !== undefined) {
+    await syncEntryMediaRelationships({
+      entryId: id,
+      content,
+    });
   }
 
   const oldSlug = existingEntry.slug;

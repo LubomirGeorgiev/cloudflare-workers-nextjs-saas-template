@@ -1,4 +1,4 @@
-'use server'
+"use server";
 
 import { createServerAction, ZSAError } from "zsa";
 import { z } from "zod";

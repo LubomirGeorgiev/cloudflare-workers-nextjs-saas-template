@@ -345,6 +345,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
 ]));
 
 // Junction table for many-to-many relationship between entries and media
+// TODO Add a featured image field to the cms_entry table
 export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `cms_em_${createId()}`).notNull(),

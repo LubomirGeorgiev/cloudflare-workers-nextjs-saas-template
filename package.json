@@ -74,6 +74,8 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.44.6",
+    "file-type": "^21.1.1",
+    "image-size": "^2.0.2",
     "ipaddr.js": "^2.2.0",
     "lodash.throttle": "^4.1.1",
     "lowlight": "^3.3.0",

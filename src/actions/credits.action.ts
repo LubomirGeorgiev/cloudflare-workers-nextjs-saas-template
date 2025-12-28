@@ -1,4 +1,4 @@
-'use server';
+"use server";
 
 import { requireVerifiedEmail } from "@/utils/auth";
 import {
@@ -31,6 +31,12 @@ type PurchaseCreditsInput = {
 
 export async function getTransactions({ page, limit = MAX_TRANSACTIONS_PER_PAGE }: GetTransactionsInput) {
   return withRateLimit(async () => {
+    const session = await requireVerifiedEmail();
+
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
     if (page < 1 || limit < 1) {
       throw new Error("Invalid page or limit");
     }
@@ -41,12 +47,6 @@ export async function getTransactions({ page, limit = MAX_TRANSACTIONS_PER_PAGE 
 
     if (!limit) {
       limit = MAX_TRANSACTIONS_PER_PAGE;
-    }
-
-    const session = await requireVerifiedEmail();
-
-    if (!session?.user?.id) {
-      throw new Error("Unauthorized");
     }
 
     const result = await getCreditTransactions({

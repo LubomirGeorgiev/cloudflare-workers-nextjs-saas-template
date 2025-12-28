@@ -14,7 +14,6 @@ import {
   getCmsEntryById,
 } from "@/lib/cms/cms-repository";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
-import { renderCmsContent } from "@/lib/render-cms-content";
 
 const listStatusEnum = z.enum([...cmsEntryStatusEnum.options, "all"]);
 
@@ -122,10 +121,9 @@ export const generateSeoDescriptionAction = createServerAction()
       throw new ZSAError("NOT_FOUND", "Entry not found");
     }
 
-    const htmlContent = renderCmsContent(entry.content);
     const description = await generateSeoDescription({
       title: entry.title,
-      htmlContent,
+      content: entry.content,
       collectionSlug: entry.collection,
     });
 

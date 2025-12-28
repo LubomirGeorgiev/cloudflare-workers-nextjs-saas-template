@@ -6,6 +6,8 @@ import {
   Users,
   Shield,
   FileText,
+  Image,
+  Tags,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -20,6 +22,7 @@ import {
   SidebarRail,
   SidebarGroup,
 } from "@/components/ui/sidebar"
+import { cmsConfig } from "@/../cms.config"
 
 type NavItem = {
   title: string
@@ -32,6 +35,15 @@ type NavMainItem = NavItem & {
   items?: NavItem[]
 }
 
+// Dynamically generate CMS collection nav items
+const cmsCollectionItems: NavItem[] = Object.entries(cmsConfig.collections).map(
+  ([slug, collection]) => ({
+    title: collection.labels.plural,
+    url: `/admin/cms/${slug}` as Route,
+    icon: FileText,
+  })
+);
+
 const adminNavItems: NavMainItem[] = [
   {
     title: "Users",
@@ -43,6 +55,20 @@ const adminNavItems: NavMainItem[] = [
     title: "CMS",
     url: "/admin/cms",
     icon: FileText,
+    isActive: true,
+    items: [
+      ...cmsCollectionItems,
+      {
+        title: "Media Library",
+        url: "/admin/cms/media",
+        icon: Image,
+      },
+      {
+        title: "Tags",
+        url: "/admin/cms/tags",
+        icon: Tags,
+      },
+    ],
   },
 ]
 

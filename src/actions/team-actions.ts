@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createTeam, getUserTeams } from "@/lib/teams/teams";
 import { ZSAError, createServerAction } from "zsa";
+import { requireVerifiedEmail } from "@/utils/auth";
 
 const createTeamSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
@@ -12,6 +13,12 @@ const createTeamSchema = z.object({
 export const createTeamAction = createServerAction()
   .input(createTeamSchema)
   .handler(async ({ input }) => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const result = await createTeam(input);
       return { success: true, data: result };
@@ -34,6 +41,12 @@ export const createTeamAction = createServerAction()
  */
 export const getUserTeamsAction = createServerAction()
   .handler(async () => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const teams = await getUserTeams();
       return { success: true, data: teams };
