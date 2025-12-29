@@ -68,6 +68,7 @@ export const createCmsEntryAction = createServerAction()
       status: input.status,
       createdBy: session.userId,
       tagIds: input.tagIds,
+      featuredImageId: input.featuredImageId,
     });
 
     return newEntry;
@@ -87,6 +88,7 @@ export const updateCmsEntryAction = createServerAction()
       seoDescription: input.seoDescription,
       status: input.status,
       tagIds: input.tagIds,
+      featuredImageId: input.featuredImageId,
     });
 
     if (!updatedEntry) {

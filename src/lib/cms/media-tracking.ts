@@ -1,29 +1,31 @@
 import "server-only";
 import { getDB } from "@/db";
 import { cmsEntryMediaTable, cmsMediaTable } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 
 /**
  * Extract media IDs from TipTap content
  * Parses the content JSON and finds all image nodes with our media URLs
  */
-export function extractMediaIdsFromContent(content: unknown): string[] {
+function extractMediaIdsFromContent(content: unknown): string[] {
   if (!content || typeof content !== "object") {
     return [];
   }
 
   const mediaIds = new Set<string>();
 
-  function traverse(node: any) {
+  function traverse(node: unknown) {
     if (!node || typeof node !== "object") return;
 
-    // Check if this is an image node with our media URL
-    if (node.type === "image" && node.attrs?.src) {
-      const src = node.attrs.src as string;
+    const nodeObj = node as Record<string, unknown>;
 
-      // Check if it's one of our media URLs (e.g., /api/cms-images/cms-images/...)
-      if (src.startsWith(CMS_IMAGES_API_ROUTE)) {
+    // Check if this is an image node with our media URL
+    if (nodeObj.type === "image" && nodeObj.attrs && typeof nodeObj.attrs === "object") {
+      const attrs = nodeObj.attrs as Record<string, unknown>;
+      const src = attrs.src;
+
+      if (typeof src === "string" && src.startsWith(CMS_IMAGES_API_ROUTE)) {
         // Extract the R2 key from the URL
         const r2Key = src.replace(`${CMS_IMAGES_API_ROUTE}/`, "");
         mediaIds.add(r2Key);
@@ -31,8 +33,8 @@ export function extractMediaIdsFromContent(content: unknown): string[] {
     }
 
     // Recursively traverse content array
-    if (Array.isArray(node.content)) {
-      node.content.forEach(traverse);
+    if (Array.isArray(nodeObj.content)) {
+      nodeObj.content.forEach(traverse);
     }
   }
 
@@ -44,7 +46,7 @@ export function extractMediaIdsFromContent(content: unknown): string[] {
 /**
  * Get media IDs from R2 keys by looking them up in the database
  */
-export async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<string[]> {
+async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<string[]> {
   if (bucketKeys.length === 0) return [];
 
   const db = getDB();
@@ -60,13 +62,16 @@ export async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<str
 /**
  * Sync media relationships for a CMS entry
  * Removes old relationships and creates new ones based on current content
+ * Featured image is inserted first with position -1 to distinguish it from content images
  */
 export async function syncEntryMediaRelationships({
   entryId,
   content,
+  featuredImageId,
 }: {
   entryId: string;
   content: unknown;
+  featuredImageId?: string | null;
 }): Promise<void> {
   const db = getDB();
 
@@ -74,21 +79,40 @@ export async function syncEntryMediaRelationships({
   const bucketKeys = extractMediaIdsFromContent(content);
 
   // Get actual media IDs from the database
-  const mediaIds = await getMediaIdsByBucketKeys(bucketKeys);
+  const contentMediaIds = await getMediaIdsByBucketKeys(bucketKeys);
 
   // Delete existing relationships for this entry
   await db
     .delete(cmsEntryMediaTable)
     .where(eq(cmsEntryMediaTable.entryId, entryId));
 
+  // Prepare relationships array
+  const relationships: Array<{
+    entryId: string;
+    mediaId: string;
+    position: number;
+  }> = [];
+
+  // Insert featured image FIRST with position -1
+  if (featuredImageId) {
+    relationships.push({
+      entryId,
+      mediaId: featuredImageId,
+      position: -1,
+    });
+  }
+
+  // Then add content images with positions starting at 0
+  contentMediaIds.forEach((mediaId, index) => {
+    relationships.push({
+      entryId,
+      mediaId,
+      position: index,
+    });
+  });
+
   // Create new relationships
-  if (mediaIds.length > 0) {
-    await db.insert(cmsEntryMediaTable).values(
-      mediaIds.map((mediaId, index) => ({
-        entryId,
-        mediaId,
-        position: index,
-      }))
-    );
+  if (relationships.length > 0) {
+    await db.insert(cmsEntryMediaTable).values(relationships);
   }
 }

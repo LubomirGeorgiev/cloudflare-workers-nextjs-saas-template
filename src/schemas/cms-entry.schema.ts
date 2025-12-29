@@ -10,6 +10,7 @@ const baseCmsEntrySchema = z.object({
   seoDescription: z.string().max(160, "SEO description must be 160 characters or less").optional(),
   status: cmsEntryStatusEnum.default("draft"),
   tagIds: z.array(z.string()).optional(),
+  featuredImageId: z.string().nullable().optional(),
 });
 
 export const cmsEntryFormSchema = baseCmsEntrySchema.extend({

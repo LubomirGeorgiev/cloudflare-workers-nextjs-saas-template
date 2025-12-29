@@ -312,6 +312,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
     enum: cmsEntryStatusTuple,
   }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(),
   createdBy: text().notNull().references(() => userTable.id),
+  featuredImageId: text().references(() => cmsMediaTable.id, { onDelete: 'set null' }),
 }, (table) => ([
   // Index for filtering by collection (most common query)
   index('cms_entry_collection_idx').on(table.collection),
@@ -342,10 +343,12 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
 
   // Composite index for collection + created date (optimized listing for admin dashboard)
   index('cms_entry_collection_created_at_idx').on(table.collection, table.createdAt),
+
+  // Index for featured image lookups
+  index('cms_entry_featured_image_idx').on(table.featuredImageId),
 ]));
 
 // Junction table for many-to-many relationship between entries and media
-// TODO Add a featured image field to the cms_entry table
 export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `cms_em_${createId()}`).notNull(),
@@ -426,6 +429,10 @@ export const cmsEntryRelations = relations(cmsEntryTable, ({ one, many }) => ({
   createdByUser: one(userTable, {
     fields: [cmsEntryTable.createdBy],
     references: [userTable.id],
+  }),
+  featuredImage: one(cmsMediaTable, {
+    fields: [cmsEntryTable.featuredImageId],
+    references: [cmsMediaTable.id],
   }),
   entryMedia: many(cmsEntryMediaTable),
   tags: many(cmsEntryTagTable),

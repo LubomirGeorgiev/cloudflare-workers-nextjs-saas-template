@@ -231,6 +231,33 @@ export const updateCmsMediaAction = createServerAction()
   });
 
 /**
+ * Get media by bucket key (used for featured image selection)
+ */
+export const getCmsMediaByBucketKeyAction = createServerAction()
+  .input(z.object({
+    bucketKey: z.string(),
+  }))
+  .handler(async ({ input }) => {
+    await requireAdmin();
+
+    const db = getDB();
+
+    const media = await db
+      .select({
+        id: cmsMediaTable.id,
+        fileName: cmsMediaTable.fileName,
+        bucketKey: cmsMediaTable.bucketKey,
+        alt: cmsMediaTable.alt,
+        width: cmsMediaTable.width,
+        height: cmsMediaTable.height,
+      })
+      .from(cmsMediaTable)
+      .where(eq(cmsMediaTable.bucketKey, input.bucketKey));
+
+    return media;
+  });
+
+/**
  * Delete media file from both R2 and database
  */
 export const deleteCmsMediaAction = createServerAction()
@@ -258,7 +285,8 @@ export const deleteCmsMediaAction = createServerAction()
         throw new ZSAError("NOT_FOUND", "Media not found");
       }
 
-      // Check if media is in use
+      // Check if media is in use (in cms_entry_media junction table)
+      // This now includes both content images and featured images (position -1)
       const [usage] = await db
         .select({ count: sql<number>`count(*)` })
         .from(cmsEntryMediaTable)

@@ -12,6 +12,7 @@ import { withKVCache } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
+import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
@@ -100,6 +101,9 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
     };
   }
 
+  // Always include featured image if present
+  relations.featuredImage = true;
+
   return relations;
 }
 
@@ -133,6 +137,17 @@ export type GetCmsCollectionResult = CmsEntry & {
     email: string | null;
     avatar: string | null;
   };
+  featuredImage?: {
+    id: string;
+    fileName: string;
+    mimeType: string;
+    sizeInBytes: number;
+    bucketKey: string;
+    width: number | null;
+    height: number | null;
+    alt: string | null;
+  } | null;
+  featuredImageUrl?: string | null;
   entryMedia?: Array<{
     id: string;
     position: number | null;
@@ -196,7 +211,16 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
 
   const entries = await query;
 
-  return entries as GetCmsCollectionResult[];
+  // Generate featured image URLs for all entries
+  const results = entries.map(entry => {
+    const result = entry as GetCmsCollectionResult;
+    if (result.featuredImage?.bucketKey) {
+      result.featuredImageUrl = getCmsImagePublicUrl(result.featuredImage.bucketKey);
+    }
+    return result;
+  });
+
+  return results;
 });
 
 /**
@@ -272,7 +296,17 @@ export const getCmsEntryById = cache(async ({
     with: buildCmsRelationsQuery(includeRelations),
   });
 
-  return entry as GetCmsCollectionResult | null;
+  if (!entry) {
+    return null;
+  }
+
+  // Generate featured image URL if featured image exists
+  const result = entry as GetCmsCollectionResult;
+  if (result.featuredImage?.bucketKey) {
+    result.featuredImageUrl = getCmsImagePublicUrl(result.featuredImage.bucketKey);
+  }
+
+  return result;
 });
 
 type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = {
@@ -337,7 +371,13 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
         return null;
       }
 
-      return entry as GetCmsCollectionResult;
+      // Generate featured image URL if featured image exists
+      const result = entry as GetCmsCollectionResult;
+      if (result.featuredImage?.bucketKey) {
+        result.featuredImageUrl = getCmsImagePublicUrl(result.featuredImage.bucketKey);
+      }
+
+      return result;
     },
     {
       key: cacheKey,
@@ -365,6 +405,7 @@ type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
   status?: CmsEntryStatus;
   createdBy: string;
   tagIds?: string[];
+  featuredImageId?: string | null;
 };
 
 /**
@@ -392,6 +433,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   status = CMS_ENTRY_STATUS.DRAFT,
   createdBy,
   tagIds,
+  featuredImageId,
 }: CreateCmsEntryParams<T>): Promise<CmsEntry> {
   const db = getDB();
 
@@ -448,6 +490,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     seoDescription: finalSeoDescription,
     status,
     createdBy,
+    featuredImageId,
   }).returning();
 
   if (tagIds && tagIds.length > 0) {
@@ -459,10 +502,11 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     );
   }
 
-  // Sync media relationships based on content
+  // Sync media relationships based on content and featured image
   await syncEntryMediaRelationships({
     entryId: newEntry.id,
     content,
+    featuredImageId,
   });
 
   return newEntry;
@@ -486,6 +530,7 @@ type UpdateCmsEntryParams = {
   seoDescription?: string;
   status?: CmsEntryStatus;
   tagIds?: string[];
+  featuredImageId?: string | null;
 };
 
 /**
@@ -510,6 +555,7 @@ export async function updateCmsEntry({
   seoDescription,
   status,
   tagIds,
+  featuredImageId,
 }: UpdateCmsEntryParams): Promise<CmsEntry | null> {
   const db = getDB();
 
@@ -595,6 +641,7 @@ export async function updateCmsEntry({
       fields: validatedFields,
       seoDescription: finalSeoDescription,
       status: status,
+      featuredImageId: featuredImageId,
     })
     .where(eq(cmsEntryTable.id, id))
     .returning();
@@ -612,11 +659,12 @@ export async function updateCmsEntry({
     }
   }
 
-  // Sync media relationships if content changed
-  if (content !== undefined) {
+  // Sync media relationships if content or featured image changed
+  if (content !== undefined || featuredImageId !== undefined) {
     await syncEntryMediaRelationships({
       entryId: id,
-      content,
+      content: content ?? existingEntry.content,
+      featuredImageId: featuredImageId !== undefined ? featuredImageId : existingEntry.featuredImageId,
     });
   }
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d20df8bd-f76a-4bfd-aadd-8355098ecd48",
+  "id": "b7b44912-a11d-44c3-b1b4-3e67385cbc70",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -210,6 +210,13 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "featuredImageId": {
+          "name": "featuredImageId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -281,6 +288,13 @@
           ],
           "isUnique": false
         },
+        "cms_entry_featured_image_idx": {
+          "name": "cms_entry_featured_image_idx",
+          "columns": [
+            "featuredImageId"
+          ],
+          "isUnique": false
+        },
         "cms_entry_collection_slug_unique": {
           "name": "cms_entry_collection_slug_unique",
           "columns": [
@@ -302,6 +316,19 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cms_entry_featuredImageId_cms_media_id_fk": {
+          "name": "cms_entry_featuredImageId_cms_media_id_fk",
+          "tableFrom": "cms_entry",
+          "tableTo": "cms_media",
+          "columnsFrom": [
+            "featuredImageId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

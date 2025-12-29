@@ -5,6 +5,8 @@ import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
 import { CmsContentRenderer } from "@/components/cms-content-renderer"
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
+import Image from "next/image"
+import { SITE_URL } from "@/constants"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -29,6 +31,7 @@ export async function generateMetadata({
   }
 
   const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
+  const featuredImageUrl = entry.featuredImageUrl ? `${SITE_URL}${entry.featuredImageUrl}` : undefined
 
   return {
     title: entry.title,
@@ -37,11 +40,24 @@ export async function generateMetadata({
       title: entry.title,
       description: description || entry.title,
       type: 'article',
+      ...(featuredImageUrl && {
+        images: [
+          {
+            url: featuredImageUrl,
+            width: entry.featuredImage?.width || 1200,
+            height: entry.featuredImage?.height || 630,
+            alt: entry.featuredImage?.alt || entry.title,
+          },
+        ],
+      }),
     },
     twitter: {
       card: 'summary_large_image',
       title: entry.title,
       description: description || entry.title,
+      ...(featuredImageUrl && {
+        images: [featuredImageUrl],
+      }),
     },
   }
 }
@@ -74,6 +90,19 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             )}
           </div>
         </header>
+
+        {entry.featuredImageUrl && (
+          <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden">
+            <Image
+              src={entry.featuredImageUrl}
+              alt={entry.featuredImage?.alt || entry.title}
+              fill
+              className="object-cover"
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 896px"
+            />
+          </div>
+        )}
 
         <CmsContentRenderer
           content={entry.content as JSONContent}

@@ -52,6 +52,7 @@ import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
 import { CMS_ENTRY_STATUS_CONFIG } from "@/lib/cms/cms-entry-status-config";
+import { FeaturedImageUpload } from "./featured-image-upload";
 
 type CmsEntryFormProps = {
   collection: string;
@@ -100,6 +101,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
       status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
       tagIds: entry?.tags?.map((t) => t.tag.id) || [],
       fields: defaultFieldValues,
+      featuredImageId: entry?.featuredImageId || undefined,
     },
   });
 
@@ -363,6 +365,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
         seoDescription: data.seoDescription,
         status: data.status,
         tagIds: data.tagIds || [],
+        featuredImageId: data.featuredImageId,
       });
     } else {
       if (!entry) return;
@@ -376,6 +379,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
         seoDescription: data.seoDescription,
         status: data.status,
         tagIds: data.tagIds || [],
+        featuredImageId: data.featuredImageId,
       });
     }
   };
@@ -576,6 +580,35 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
           </div>
 
           <div className="space-y-6 order-2 lg:order-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Featured Image</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormField
+                  control={form.control}
+                  name="featuredImageId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <FeaturedImageUpload
+                          collection={collection}
+                          value={field.value}
+                          featuredImage={entry?.featuredImage}
+                          featuredImageUrl={entry?.featuredImageUrl}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Upload a featured image for this entry (recommended: 1200x630px)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Publishing</CardTitle>

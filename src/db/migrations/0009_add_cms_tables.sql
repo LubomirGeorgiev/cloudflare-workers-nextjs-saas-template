@@ -27,7 +27,9 @@ CREATE TABLE `cms_entry` (
 	`seoDescription` text,
 	`status` text DEFAULT 'draft' NOT NULL,
 	`createdBy` text NOT NULL,
-	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
+	`featuredImageId` text,
+	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`featuredImageId`) REFERENCES `cms_media`(`id`) ON UPDATE no action ON DELETE set null
 );
 --> statement-breakpoint
 CREATE INDEX `cms_entry_collection_idx` ON `cms_entry` (`collection`);--> statement-breakpoint
@@ -39,6 +41,7 @@ CREATE INDEX `cms_entry_created_by_status_idx` ON `cms_entry` (`createdBy`,`stat
 CREATE INDEX `cms_entry_created_at_idx` ON `cms_entry` (`createdAt`);--> statement-breakpoint
 CREATE INDEX `cms_entry_collection_status_created_at_idx` ON `cms_entry` (`collection`,`status`,`createdAt`);--> statement-breakpoint
 CREATE INDEX `cms_entry_collection_created_at_idx` ON `cms_entry` (`collection`,`createdAt`);--> statement-breakpoint
+CREATE INDEX `cms_entry_featured_image_idx` ON `cms_entry` (`featuredImageId`);--> statement-breakpoint
 CREATE UNIQUE INDEX `cms_entry_collection_slug_unique` ON `cms_entry` (`collection`,`slug`);--> statement-breakpoint
 CREATE TABLE `cms_entry_tag` (
 	`createdAt` integer NOT NULL,
