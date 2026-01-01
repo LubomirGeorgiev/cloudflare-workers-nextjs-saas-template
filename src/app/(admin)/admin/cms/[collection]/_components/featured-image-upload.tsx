@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MediaLibraryPicker } from "@/components/tiptap-node/image-upload-node/media-library-picker";
+import { CMS_IMAGES_API_ROUTE } from "@/constants";
 
 interface FeaturedImageUploadProps {
   collection: string;
@@ -65,6 +66,19 @@ export function FeaturedImageUpload({
       onError: (error) => {
         toast.error(error.err?.message || "Failed to load media");
       },
+      onSuccess: ({ data }) => {
+        if (!data || data.length === 0) {
+          toast.error("Media not found");
+          return;
+        }
+        // Get the URL from the pending selection
+        const bucketKey = data[0].bucketKey;
+        const url = `${CMS_IMAGES_API_ROUTE}/${bucketKey}`;
+        onChange(data[0].id);
+        setPreviewUrl(url);
+        setShowMediaLibrary(false);
+        toast.success("Featured image selected");
+      },
     }
   );
 
@@ -105,7 +119,7 @@ export function FeaturedImageUpload({
     fileInputRef.current?.click();
   };
 
-  const handleMediaLibrarySelect = async (
+  const handleMediaLibrarySelect = (
     url: string,
     _alt?: string,
     _width?: number,
@@ -115,17 +129,8 @@ export function FeaturedImageUpload({
     const bucketKey = url.replace(/^\/api\/cms-images\//, "");
 
     // Find the media by bucket key to get the media ID
-    const [result, error] = await getMediaByBucketKey({ bucketKey });
-
-    if (error || !result || result.length === 0) {
-      toast.error(error?.message || "Media not found");
-      return;
-    }
-
-    onChange(result[0].id);
-    setPreviewUrl(url);
-    setShowMediaLibrary(false);
-    toast.success("Featured image selected");
+    // The result will be handled in the onSuccess callback
+    getMediaByBucketKey({ bucketKey });
   };
 
   return (

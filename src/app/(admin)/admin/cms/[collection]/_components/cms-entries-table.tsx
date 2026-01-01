@@ -40,7 +40,17 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
   const [pageSize, setPageSize] = useState(20);
 
   const { execute: listEntries, data, isPending } = useServerAction(listCmsEntriesAction);
-  const { execute: deleteEntry, isPending: isDeleting } = useServerAction(deleteCmsEntryAction);
+  const { execute: deleteEntry, isPending: isDeleting } = useServerAction(deleteCmsEntryAction, {
+    onSuccess: () => {
+      listEntries({
+        collection,
+        status: statusFilter,
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+      });
+      setDeleteEntryId(null);
+    },
+  });
 
   const columns: ColumnDef<GetCmsCollectionResult>[] = useMemo(() => [
     {
@@ -154,17 +164,8 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     });
   }, [collection, statusFilter, pageIndex, pageSize, listEntries]);
 
-  const handleDelete = async (id: string) => {
-    const [, error] = await deleteEntry({ id });
-    if (!error) {
-      listEntries({
-        collection,
-        status: statusFilter,
-        limit: pageSize,
-        offset: pageIndex * pageSize,
-      });
-      setDeleteEntryId(null);
-    }
+  const handleDelete = (id: string) => {
+    deleteEntry({ id });
   };
 
   const entries = data?.entries ?? [];

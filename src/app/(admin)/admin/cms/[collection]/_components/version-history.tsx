@@ -5,6 +5,16 @@ import * as Diff from "diff";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatDistanceToNow } from "date-fns";
 import { Clock, History, RotateCcw, Trash2 } from "lucide-react";
 import type { CmsEntryVersion } from "@/db/schema";
@@ -539,15 +549,13 @@ type VersionHistoryProps = {
   currentVersion: CmsEntryVersion | null; // Using CmsEntryVersion type for current state too for simplicity
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onRevertSuccess?: () => void;
 };
 
 export function VersionHistory({
   entryId,
   currentVersion,
   isOpen,
-  onOpenChange,
-  onRevertSuccess
+  onOpenChange
 }: VersionHistoryProps) {
   const [selectedVersion, setSelectedVersion] = React.useState<CmsEntryVersion | null>(null);
   const [htmlDiff, setHtmlDiff] = useState<Diff.Change[] | null>(null);
@@ -555,6 +563,8 @@ export function VersionHistory({
   const selectedVersionRef = useRef<HTMLDivElement>(null);
   const [currentRendered, setCurrentRendered] = useState(false);
   const [selectedRendered, setSelectedRendered] = useState(false);
+  const [deleteVersionId, setDeleteVersionId] = useState<string | null>(null);
+  const [revertVersionToRestore, setRevertVersionToRestore] = useState<CmsEntryVersion | null>(null);
 
   // Fetch versions lazily when the sheet is opened
   const { execute: fetchVersions, data: versions, isPending: isLoadingVersions } = useServerAction(getCmsEntryVersionsAction);
@@ -571,11 +581,9 @@ export function VersionHistory({
       toast.success("Entry reverted successfully");
       onOpenChange(false);
       setSelectedVersion(null);
-      if (onRevertSuccess) {
-        onRevertSuccess();
-      } else {
-        window.location.reload();
-      }
+      // Disable unsaved confirmation modal before reloading
+      window.onbeforeunload = null;
+      window.location.reload();
     },
     onError: (error) => {
       toast.error(error.err?.message || "Failed to revert entry");
@@ -599,24 +607,32 @@ export function VersionHistory({
 
   const handleRevert = () => {
     if (!selectedVersion) return;
+    setRevertVersionToRestore(selectedVersion);
+  };
 
-    if (confirm("Are you sure you want to revert to this version? Current changes will be saved as a new version before reverting.")) {
-      revertVersion({
-        entryId,
-        versionId: selectedVersion.id,
-      });
-    }
+  const confirmRevert = () => {
+    if (!revertVersionToRestore) return;
+
+    revertVersion({
+      entryId,
+      versionId: revertVersionToRestore.id,
+    });
+    setRevertVersionToRestore(null);
   };
 
   const handleDelete = (versionId: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selecting the version when clicking delete
+    setDeleteVersionId(versionId);
+  };
 
-    if (confirm("Are you sure you want to delete this version? This action cannot be undone.")) {
-      deleteVersion({
-        entryId,
-        versionId,
-      });
-    }
+  const confirmDelete = () => {
+    if (!deleteVersionId) return;
+
+    deleteVersion({
+      entryId,
+      versionId: deleteVersionId,
+    });
+    setDeleteVersionId(null);
   };
 
   // Reset rendered state when versions change
@@ -988,6 +1004,49 @@ export function VersionHistory({
         </div>
       </SheetContent>
     </Sheet>
+
+    {/* Delete Version Confirmation Dialog */}
+    <AlertDialog open={deleteVersionId !== null} onOpenChange={(open) => !open && setDeleteVersionId(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this version.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={confirmDelete}
+            disabled={isDeleting}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Restore Version Confirmation Dialog */}
+    <AlertDialog open={revertVersionToRestore !== null} onOpenChange={(open) => !open && setRevertVersionToRestore(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Restore this version?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to revert to this version? Current changes will be saved as a new version before reverting.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isReverting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={confirmRevert}
+            disabled={isReverting}
+          >
+            {isReverting ? "Restoring..." : "Restore"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

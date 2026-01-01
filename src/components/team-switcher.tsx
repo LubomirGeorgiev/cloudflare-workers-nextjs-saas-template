@@ -39,7 +39,14 @@ export function TeamSwitcher({
   const selectedTeamId = session.selectedTeam()
   const setSelectedTeam = session.setSelectedTeam
 
-  const { execute: updateSelectedTeam, isPending } = useServerAction(updateSelectedTeamAction)
+  const { execute: updateSelectedTeam, isPending } = useServerAction(updateSelectedTeamAction, {
+    onError: (error) => {
+      console.error("Failed to update selected team:", error);
+      // Revert optimistic update
+      setSelectedTeam(selectedTeamId);
+      toast.error("Failed to update selected team");
+    },
+  })
 
   // Find the active team based on selectedTeamId from session
   const activeTeam = useMemo(() => {
@@ -51,20 +58,14 @@ export function TeamSwitcher({
 
   const LogoComponent = activeTeam?.logo || Building2
 
-  const handleTeamChange = useCallback(async (team: typeof teams[0]) => {
+  const handleTeamChange = useCallback((team: typeof teams[0]) => {
     // Optimistically update local state
     setSelectedTeam(team.id)
 
     // Call server action to persist
-    const [_data, error] = await updateSelectedTeam({ selectedTeam: team.id })
-
-    if (error) {
-      console.error("Failed to update selected team:", error)
-      // Revert optimistic update
-      setSelectedTeam(selectedTeamId)
-      toast.error("Failed to update selected team")
-    }
-  }, [selectedTeamId, setSelectedTeam, updateSelectedTeam])
+    // Error handling is done via onError callback in useServerAction
+    updateSelectedTeam({ selectedTeam: team.id })
+  }, [setSelectedTeam, updateSelectedTeam])
 
   return (
     <SidebarMenu>

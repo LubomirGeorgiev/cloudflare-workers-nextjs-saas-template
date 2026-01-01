@@ -1221,4 +1221,5 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 );
 
 MultiSelect.displayName = "MultiSelect";
+// eslint-disable-next-line import/no-unused-modules
 export type { MultiSelectOption, MultiSelectGroup, MultiSelectProps };

@@ -54,13 +54,14 @@ export default async function TagsPage() {
               <TableHead>Slug</TableHead>
               <TableHead>Color</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Used in</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tags.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No tags found. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -89,6 +90,9 @@ export default async function TagsPage() {
                   </TableCell>
                   <TableCell className="max-w-md truncate">
                     {tag.description || <span className="text-muted-foreground">-</span>}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">{tag.entryCount}</span>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>

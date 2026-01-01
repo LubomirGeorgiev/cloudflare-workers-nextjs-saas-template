@@ -38,9 +38,33 @@ export function TagForm({ mode, tag }: TagFormProps) {
   const [description, setDescription] = useState(tag?.description || "");
   const [color, setColor] = useState(tag?.color || "#000000");
 
-  const { execute: createTag, isPending: isCreating } = useServerAction(createCmsTagAction);
-  const { execute: updateTag, isPending: isUpdating } = useServerAction(updateCmsTagAction);
-  const { execute: deleteTag, isPending: isDeleting } = useServerAction(deleteCmsTagAction);
+  const { execute: createTag, isPending: isCreating } = useServerAction(createCmsTagAction, {
+    onSuccess: () => {
+      toast.success("Tag created successfully");
+      router.push("/admin/cms/tags");
+    },
+    onError: (error) => {
+      toast.error(error.err?.message || "Failed to create tag");
+    },
+  });
+  const { execute: updateTag, isPending: isUpdating } = useServerAction(updateCmsTagAction, {
+    onSuccess: () => {
+      toast.success("Tag updated successfully");
+      router.push("/admin/cms/tags");
+    },
+    onError: (error) => {
+      toast.error(error.err?.message || "Failed to update tag");
+    },
+  });
+  const { execute: deleteTag, isPending: isDeleting } = useServerAction(deleteCmsTagAction, {
+    onSuccess: () => {
+      toast.success("Tag deleted successfully");
+      router.push("/admin/cms/tags");
+    },
+    onError: (error) => {
+      toast.error(error.err?.message || "Failed to delete tag");
+    },
+  });
 
   const isPending = isCreating || isUpdating || isDeleting;
 
@@ -59,7 +83,7 @@ export function TagForm({ mode, tag }: TagFormProps) {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !slug) {
@@ -68,59 +92,29 @@ export function TagForm({ mode, tag }: TagFormProps) {
     }
 
     if (mode === "create") {
-      const [data, error] = await createTag({
+      createTag({
         name,
         slug,
         description,
         color,
       });
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      if (data) {
-        toast.success("Tag created successfully");
-        router.push("/admin/cms/tags");
-      }
     } else {
       if (!tag) return;
 
-      const [data, error] = await updateTag({
+      updateTag({
         id: tag.id,
         name,
         slug,
         description,
         color,
       });
-
-      if (error) {
-        toast.error(error.message);
-        return;
-      }
-
-      if (data) {
-        toast.success("Tag updated successfully");
-        router.push("/admin/cms/tags");
-      }
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!tag) return;
 
-    const [data, error] = await deleteTag({ id: tag.id });
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    if (data) {
-      toast.success("Tag deleted successfully");
-      router.push("/admin/cms/tags");
-    }
+    deleteTag({ id: tag.id });
   };
 
   return (

@@ -138,11 +138,31 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
     },
   });
 
-  const { execute: loadTags, isPending: isLoadingTags } = useServerAction(listCmsTagsAction);
-  const { execute: createTag, isPending: isCreatingTag } = useServerAction(createCmsTagAction);
+  const { execute: loadTags, data: tagsData, isPending: isLoadingTags } = useServerAction(listCmsTagsAction);
+  const { execute: createTag, isPending: isCreatingTag } = useServerAction(createCmsTagAction, {
+    onSuccess: (response) => {
+      if (response?.data) {
+        toast.success(`Tag "${response.data.name}" created successfully`);
+        loadTags(); // Refresh tags list
+        const currentTagIds = form.getValues("tagIds") || [];
+        form.setValue("tagIds", [...currentTagIds, response.data.id]);
+        setSearchValue("");
+        multiSelectRef.current?.closePopover();
+      }
+    },
+    onError: (error) => {
+      toast.error(error.err?.message || "Failed to create tag");
+    },
+  });
   const { execute: generateSeoDescription, isPending: isGeneratingSeo } = useServerAction(generateSeoDescriptionAction, {
     onError: (error) => {
       toast.error(error.err?.message || "Failed to generate SEO description");
+    },
+    onSuccess: (response) => {
+      if (response?.data?.description) {
+        form.setValue("seoDescription", response.data.description);
+        toast.success("SEO description generated successfully");
+      }
     },
   });
 
@@ -150,23 +170,13 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
 
   const isPending = isCreating || isUpdating;
 
-  const [availableTags, setAvailableTags] = useState<CmsTag[]>([]);
   const [searchValue, setSearchValue] = useState("");
 
-  const fetchTags = useCallback(async () => {
-    const [data, error] = await loadTags();
-    if (data) {
-      // TODO We do the same bullshit in other places as well. On all of those we need to use the data key from useServerAction()
-      setAvailableTags(data);
-    }
-    if (error) {
-      console.error("Failed to load tags:", error);
-    }
+  useEffect(() => {
+    loadTags();
   }, [loadTags]);
 
-  useEffect(() => {
-    fetchTags();
-  }, [fetchTags]);
+  const availableTags = tagsData || [];
 
   const isDirty = form.formState.isDirty;
 
@@ -200,25 +210,16 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
     }
   };
 
-  const handleGenerateSeoDescription = useCallback(async () => {
+  const handleGenerateSeoDescription = useCallback(() => {
     if (!entry?.id) {
       toast.error("Please save the entry first before generating SEO description");
       return;
     }
 
-    const [data, error] = await generateSeoDescription({
+    generateSeoDescription({
       id: entry.id,
     });
-
-    if (error) {
-      return;
-    }
-
-    if (data?.description) {
-      form.setValue("seoDescription", data.description);
-      toast.success("SEO description generated successfully");
-    }
-  }, [entry?.id, generateSeoDescription, form]);
+  }, [entry?.id, generateSeoDescription]);
 
   const tagOptions: MultiSelectOption[] = useMemo(
     () =>
@@ -233,33 +234,19 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
   );
 
   const handleCreateTag = useCallback(
-    async (tagName: string) => {
+    (tagName: string) => {
       if (!tagName.trim()) return;
 
       const slug = generateSlug(tagName);
 
-      const [data, error] = await createTag({
+      createTag({
         name: tagName.trim(),
         slug,
         description: "",
         color: undefined,
       });
-
-      if (error) {
-        toast.error(error.message || "Failed to create tag");
-        return;
-      }
-
-      if (data) {
-        toast.success(`Tag "${tagName}" created successfully`);
-        await fetchTags();
-        const currentTagIds = form.getValues("tagIds") || [];
-        form.setValue("tagIds", [...currentTagIds, data.id]);
-        setSearchValue("");
-        multiSelectRef.current?.closePopover();
-      }
     },
-    [createTag, fetchTags, form]
+    [createTag]
   );
 
   const hasExactMatch = useMemo(
@@ -431,9 +418,6 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                   currentVersion={entry as unknown as CmsEntryVersion} // Casting for compatibility
                   isOpen={isVersionHistoryOpen}
                   onOpenChange={setIsVersionHistoryOpen}
-                  onRevertSuccess={() => {
-                    window.location.reload();
-                  }}
                 />
                </>
             )}

@@ -763,7 +763,26 @@ export async function deleteCmsEntry({
 
 export const getCmsTags = cache(async () => {
   const db = getDB();
-  return await db.select().from(cmsTagTable).orderBy(desc(cmsTagTable.createdAt));
+
+  const tags = await db
+    .select({
+      id: cmsTagTable.id,
+      name: cmsTagTable.name,
+      slug: cmsTagTable.slug,
+      description: cmsTagTable.description,
+      color: cmsTagTable.color,
+      createdBy: cmsTagTable.createdBy,
+      createdAt: cmsTagTable.createdAt,
+      updatedAt: cmsTagTable.updatedAt,
+      updateCounter: cmsTagTable.updateCounter,
+      entryCount: count(cmsEntryTagTable.id),
+    })
+    .from(cmsTagTable)
+    .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
+    .groupBy(cmsTagTable.id)
+    .orderBy(desc(cmsTagTable.createdAt));
+
+  return tags;
 });
 
 export const getCmsTagById = cache(async (id: string) => {
