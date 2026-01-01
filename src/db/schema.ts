@@ -299,10 +299,7 @@ export const cmsMediaTable = sqliteTable("cms_media", {
 
 const cmsEntryStatusTuple = Object.values(CMS_ENTRY_STATUS) as [string, ...string[]];
 
-export const cmsEntryTable = sqliteTable("cms_entry", {
-  ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_ent_${createId()}`).notNull(),
-  collection: text().$type<CollectionsUnion>().notNull(),
+const cmsEntryCommonColumns = {
   title: text().notNull(),
   content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
   fields: text({ mode: 'json' }).default('{}').notNull(),
@@ -310,9 +307,19 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   seoDescription: text(),
   status: text({
     enum: cmsEntryStatusTuple,
-  }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(),
-  createdBy: text().notNull().references(() => userTable.id),
+  }).notNull().$type<CmsEntryStatus>().notNull(),
   featuredImageId: text().references(() => cmsMediaTable.id, { onDelete: 'set null' }),
+  createdBy: text().notNull().references(() => userTable.id),
+};
+
+export const cmsEntryTable = sqliteTable("cms_entry", {
+  ...commonColumns,
+  id: text().primaryKey().$defaultFn(() => `cms_ent_${createId()}`).notNull(),
+  collection: text().$type<CollectionsUnion>().notNull(),
+  ...cmsEntryCommonColumns,
+  status: text({
+    enum: cmsEntryStatusTuple,
+  }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(), // Override status to add default
 }, (table) => ([
   // Index for filtering by collection (most common query)
   index('cms_entry_collection_idx').on(table.collection),
@@ -346,6 +353,17 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
 
   // Index for featured image lookups
   index('cms_entry_featured_image_idx').on(table.featuredImageId),
+]));
+
+export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
+  ...commonColumns,
+  id: text().primaryKey().$defaultFn(() => `cms_ver_${createId()}`).notNull(),
+  entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
+  versionNumber: integer().notNull(),
+  ...cmsEntryCommonColumns,
+}, (table) => ([
+  index('cms_entry_version_entry_id_idx').on(table.entryId),
+  index('cms_entry_version_entry_id_version_idx').on(table.entryId, table.versionNumber),
 ]));
 
 // Junction table for many-to-many relationship between entries and media
@@ -436,6 +454,22 @@ export const cmsEntryRelations = relations(cmsEntryTable, ({ one, many }) => ({
   }),
   entryMedia: many(cmsEntryMediaTable),
   tags: many(cmsEntryTagTable),
+  versions: many(cmsEntryVersionTable),
+}));
+
+export const cmsEntryVersionRelations = relations(cmsEntryVersionTable, ({ one }) => ({
+  entry: one(cmsEntryTable, {
+    fields: [cmsEntryVersionTable.entryId],
+    references: [cmsEntryTable.id],
+  }),
+  createdByUser: one(userTable, {
+    fields: [cmsEntryVersionTable.createdBy],
+    references: [userTable.id],
+  }),
+  featuredImage: one(cmsMediaTable, {
+    fields: [cmsEntryVersionTable.featuredImageId],
+    references: [cmsMediaTable.id],
+  }),
 }));
 
 export const teamRelations = relations(teamTable, ({ many }) => ({
@@ -525,3 +559,4 @@ export type CmsMedia = InferSelectModel<typeof cmsMediaTable>;
 export type CmsEntryMedia = InferSelectModel<typeof cmsEntryMediaTable>;
 export type CmsTag = InferSelectModel<typeof cmsTagTable>;
 export type CmsEntryTag = InferSelectModel<typeof cmsEntryTagTable>;
+export type CmsEntryVersion = InferSelectModel<typeof cmsEntryVersionTable>;

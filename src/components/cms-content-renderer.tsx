@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import React, { useEffect, type ReactNode } from "react";
 import Image from "next/image";
 import { type JSONContent } from "@tiptap/core";
 import { renderToReactElement } from "@tiptap/static-renderer/pm/react";
@@ -192,6 +192,7 @@ function ImageComponent({
 interface CmsContentRendererProps {
   content: JSONContent;
   className?: string;
+  onRendered?: () => void;
 }
 
 /**
@@ -199,7 +200,8 @@ interface CmsContentRendererProps {
  * Uses Next.js Image component for optimized image loading
  * and custom CodeBlock component for syntax highlighting
  */
-export function CmsContentRenderer({ content, className }: CmsContentRendererProps) {
+export function CmsContentRenderer({ content, className, onRendered }: CmsContentRendererProps) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const extensions = getTiptapBaseExtensions();
 
   const reactElement = renderToReactElement({
@@ -215,5 +217,15 @@ export function CmsContentRenderer({ content, className }: CmsContentRendererPro
     },
   });
 
-  return <div className={className}>{reactElement}</div>;
+  useEffect(() => {
+    // Call onRendered callback after component has mounted and rendered
+    // Use requestAnimationFrame to ensure DOM is updated
+    if (onRendered && containerRef.current) {
+      requestAnimationFrame(() => {
+        onRendered();
+      });
+    }
+  }, [onRendered, content]);
+
+  return <div ref={containerRef} className={className}>{reactElement}</div>;
 }

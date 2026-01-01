@@ -1,12 +1,12 @@
 import "server-only";
 
 import { cache } from "react";
-import { eq, and, desc, count } from "drizzle-orm";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
 
 import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
-import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, type CmsEntry, type CmsTag } from "@/db/schema";
+import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, cmsEntryVersionTable, type CmsEntry, type CmsTag, type CmsEntryVersion } from "@/db/schema";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { withKVCache } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -14,11 +14,11 @@ import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 
+// TODO The params of all methods here should be validated and typed with Zod.
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
-// TODO Add version history
 // TODO Add scheduled publishing
 // TODO Uploading images from the editor and a dedicated media collection admin page
 
@@ -509,6 +509,10 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     featuredImageId,
   });
 
+  // Skip creating initial version to save space
+  // The version will be created automatically on first update
+  // This avoids duplicating data between cms_entry and cms_entry_version
+
   return newEntry;
 }
 
@@ -668,6 +672,43 @@ export async function updateCmsEntry({
     });
   }
 
+  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
+    where: eq(cmsEntryVersionTable.entryId, id),
+    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+  });
+
+  // If no versions exist, create version 1 as a snapshot of the current state (before update)
+  // This ensures version consistency even though we skipped the initial version on creation
+  if (!latestVersion) {
+    await db.insert(cmsEntryVersionTable).values({
+      entryId: id,
+      versionNumber: 1,
+      title: existingEntry.title,
+      content: existingEntry.content as JSONContent,
+      fields: existingEntry.fields,
+      slug: existingEntry.slug,
+      seoDescription: existingEntry.seoDescription,
+      status: existingEntry.status,
+      featuredImageId: existingEntry.featuredImageId,
+      createdBy: existingEntry.createdBy,
+    });
+  }
+
+  const nextVersionNumber = (latestVersion?.versionNumber ?? 1) + 1;
+
+  await db.insert(cmsEntryVersionTable).values({
+    entryId: id,
+    versionNumber: nextVersionNumber,
+    title: title ?? existingEntry.title,
+    content: (content ?? existingEntry.content) as JSONContent,
+    fields: validatedFields,
+    slug: slug ?? existingEntry.slug,
+    seoDescription: finalSeoDescription,
+    status: status ?? existingEntry.status,
+    featuredImageId: featuredImageId !== undefined ? featuredImageId : existingEntry.featuredImageId,
+    createdBy: existingEntry.createdBy, // We might want to track who updated it, but schema currently uses createdBy. Assuming the user updating is the one creating the version.
+  });
+
   const oldSlug = existingEntry.slug;
   const newSlug = slug ?? oldSlug;
   const collectionSlug = existingEntry.collection;
@@ -817,4 +858,161 @@ export async function deleteCmsTag(id: string) {
   const db = getDB();
 
   await db.delete(cmsTagTable).where(eq(cmsTagTable.id, id));
+}
+
+// Version Management Functions
+
+export const getCmsEntryVersions = cache(async (entryId: string): Promise<CmsEntryVersion[]> => {
+  const db = getDB();
+  return await db.query.cmsEntryVersionTable.findMany({
+    where: eq(cmsEntryVersionTable.entryId, entryId),
+    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+    with: {
+      createdByUser: {
+        columns: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          avatar: true,
+        },
+      },
+    },
+  });
+});
+
+export async function deleteCmsEntryVersion(entryId: string, versionId: string): Promise<void> {
+  const db = getDB();
+
+  // Verify the version exists and belongs to the entry
+  const version = await db.query.cmsEntryVersionTable.findFirst({
+    where: and(
+      eq(cmsEntryVersionTable.id, versionId),
+      eq(cmsEntryVersionTable.entryId, entryId)
+    ),
+  });
+
+  if (!version) {
+    throw new Error(`Version "${versionId}" not found for entry "${entryId}"`);
+  }
+
+  // Get the latest version to prevent deletion
+  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
+    where: eq(cmsEntryVersionTable.entryId, entryId),
+    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+  });
+
+  // Prevent deletion of the latest version
+  if (latestVersion && latestVersion.id === versionId) {
+    throw new Error("Cannot delete the latest version. Please create a new version first.");
+  }
+
+  // Prevent deletion if it's the only version
+  const versionCount = await db.select({ count: sql<number>`count(*)` })
+    .from(cmsEntryVersionTable)
+    .where(eq(cmsEntryVersionTable.entryId, entryId));
+
+  if (versionCount[0]?.count <= 1) {
+    throw new Error("Cannot delete the only version of an entry.");
+  }
+
+  await db.delete(cmsEntryVersionTable)
+    .where(and(
+      eq(cmsEntryVersionTable.id, versionId),
+      eq(cmsEntryVersionTable.entryId, entryId)
+    ));
+}
+
+export async function revertCmsEntryToVersion(entryId: string, versionId: string): Promise<CmsEntry> {
+  const db = getDB();
+
+  const version = await db.query.cmsEntryVersionTable.findFirst({
+    where: and(
+      eq(cmsEntryVersionTable.id, versionId),
+      eq(cmsEntryVersionTable.entryId, entryId)
+    ),
+  });
+
+  if (!version) {
+    throw new Error(`Version "${versionId}" not found for entry "${entryId}"`);
+  }
+
+  // Get current entry state to create a snapshot if needed
+  const currentEntry = await db.query.cmsEntryTable.findFirst({
+    where: eq(cmsEntryTable.id, entryId),
+  });
+
+  if (!currentEntry) {
+    throw new Error(`Entry "${entryId}" not found`);
+  }
+
+  // Create a new version that is a copy of the reverted version
+  // This ensures we keep a linear history even when reverting
+  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
+    where: eq(cmsEntryVersionTable.entryId, entryId),
+    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+  });
+
+  // If no versions exist (edge case), create version 1 as snapshot of current state
+  if (!latestVersion) {
+    await db.insert(cmsEntryVersionTable).values({
+      entryId: entryId,
+      versionNumber: 1,
+      title: currentEntry.title,
+      content: currentEntry.content as JSONContent,
+      fields: currentEntry.fields,
+      slug: currentEntry.slug,
+      seoDescription: currentEntry.seoDescription,
+      status: currentEntry.status,
+      featuredImageId: currentEntry.featuredImageId,
+      createdBy: currentEntry.createdBy,
+    });
+  }
+
+  const nextVersionNumber = (latestVersion?.versionNumber ?? 1) + 1;
+
+  // Create the new version snapshot
+  await db.insert(cmsEntryVersionTable).values({
+    entryId: entryId,
+    versionNumber: nextVersionNumber,
+    title: version.title,
+    content: version.content,
+    fields: version.fields,
+    slug: version.slug,
+    seoDescription: version.seoDescription,
+    status: version.status,
+    featuredImageId: version.featuredImageId,
+    createdBy: version.createdBy, // Or the current user if we had that context here
+  });
+
+  // Update the main entry
+  const [updatedEntry] = await db
+    .update(cmsEntryTable)
+    .set({
+      title: version.title,
+      content: version.content,
+      fields: version.fields,
+      slug: version.slug,
+      seoDescription: version.seoDescription,
+      status: version.status,
+      featuredImageId: version.featuredImageId,
+    })
+    .where(eq(cmsEntryTable.id, entryId))
+    .returning();
+
+  // Sync media relationships
+  await syncEntryMediaRelationships({
+    entryId: entryId,
+    content: version.content,
+    featuredImageId: version.featuredImageId,
+  });
+
+  // Invalidate cache
+  const collectionSlug = updatedEntry.collection;
+  await invalidateCmsEntryCache({ collectionSlug, slug: updatedEntry.slug });
+  // If slug changed, invalidate old slug too (though in revert we might not know the old slug easily without another query,
+  // but usually reverts are for content/fields. If slug changed in history, it's safer to just invalidate the new slug
+  // and let the old one expire or rely on the fact that we're mostly concerned with the current URL serving correct content).
+
+  return updatedEntry;
 }

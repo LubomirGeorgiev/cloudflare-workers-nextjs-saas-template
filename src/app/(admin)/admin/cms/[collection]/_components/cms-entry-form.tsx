@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback, useMemo, useRef } from "react";
+import { useEffect, useCallback, useMemo, useRef, useState, MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useServerAction } from "zsa-react";
 import { useForm } from "react-hook-form";
@@ -53,6 +53,9 @@ import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
 import { CMS_ENTRY_STATUS_CONFIG } from "@/lib/cms/cms-entry-status-config";
 import { FeaturedImageUpload } from "./featured-image-upload";
+import { VersionHistory } from "./version-history";
+import { History } from "lucide-react";
+import type { CmsEntryVersion } from "@/db/schema";
 
 type CmsEntryFormProps = {
   collection: string;
@@ -143,14 +146,17 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
     },
   });
 
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+
   const isPending = isCreating || isUpdating;
 
-  const [availableTags, setAvailableTags] = React.useState<CmsTag[]>([]);
-  const [searchValue, setSearchValue] = React.useState("");
+  const [availableTags, setAvailableTags] = useState<CmsTag[]>([]);
+  const [searchValue, setSearchValue] = useState("");
 
   const fetchTags = useCallback(async () => {
     const [data, error] = await loadTags();
     if (data) {
+      // TODO We do the same bullshit in other places as well. On all of those we need to use the data key from useServerAction()
       setAvailableTags(data);
     }
     if (error) {
@@ -166,7 +172,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
 
   useBeforeUnload(() => isDirty && !isPending);
 
-  const handleNavigateBack = useCallback((e?: React.MouseEvent) => {
+  const handleNavigateBack = useCallback((e: MouseEvent<HTMLButtonElement>) => {
     if (isDirty && !isPending) {
       const confirmed = window.confirm(
         "You have unsaved changes. Are you sure you want to leave?"
@@ -409,6 +415,28 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
           </div>
 
           <div className="flex items-center gap-3">
+            {mode === "edit" && entry && (
+               <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsVersionHistoryOpen(true)}
+                  disabled={isPending}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  History
+                </Button>
+                <VersionHistory
+                  entryId={entry.id}
+                  currentVersion={entry as unknown as CmsEntryVersion} // Casting for compatibility
+                  isOpen={isVersionHistoryOpen}
+                  onOpenChange={setIsVersionHistoryOpen}
+                  onRevertSuccess={() => {
+                    window.location.reload();
+                  }}
+                />
+               </>
+            )}
             <Button
               type="button"
               variant="outline"

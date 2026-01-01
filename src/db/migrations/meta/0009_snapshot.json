@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b7b44912-a11d-44c3-b1b4-3e67385cbc70",
+  "id": "97682e80-98dc-45fa-bf1e-9a4e27dc3e82",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -204,18 +204,18 @@
           "autoincrement": false,
           "default": "'draft'"
         },
-        "createdBy": {
-          "name": "createdBy",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "featuredImageId": {
           "name": "featuredImageId",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         }
       },
@@ -305,19 +305,6 @@
         }
       },
       "foreignKeys": {
-        "cms_entry_createdBy_user_id_fk": {
-          "name": "cms_entry_createdBy_user_id_fk",
-          "tableFrom": "cms_entry",
-          "tableTo": "user",
-          "columnsFrom": [
-            "createdBy"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "cms_entry_featuredImageId_cms_media_id_fk": {
           "name": "cms_entry_featuredImageId_cms_media_id_fk",
           "tableFrom": "cms_entry",
@@ -329,6 +316,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "cms_entry_createdBy_user_id_fk": {
+          "name": "cms_entry_createdBy_user_id_fk",
+          "tableFrom": "cms_entry",
+          "tableTo": "user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -432,6 +432,172 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cms_entry_version": {
+      "name": "cms_entry_version",
+      "columns": {
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updateCounter": {
+          "name": "updateCounter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entryId": {
+          "name": "entryId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "versionNumber": {
+          "name": "versionNumber",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fields": {
+          "name": "fields",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seoDescription": {
+          "name": "seoDescription",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "featuredImageId": {
+          "name": "featuredImageId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cms_entry_version_entry_id_idx": {
+          "name": "cms_entry_version_entry_id_idx",
+          "columns": [
+            "entryId"
+          ],
+          "isUnique": false
+        },
+        "cms_entry_version_entry_id_version_idx": {
+          "name": "cms_entry_version_entry_id_version_idx",
+          "columns": [
+            "entryId",
+            "versionNumber"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cms_entry_version_entryId_cms_entry_id_fk": {
+          "name": "cms_entry_version_entryId_cms_entry_id_fk",
+          "tableFrom": "cms_entry_version",
+          "tableTo": "cms_entry",
+          "columnsFrom": [
+            "entryId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "cms_entry_version_featuredImageId_cms_media_id_fk": {
+          "name": "cms_entry_version_featuredImageId_cms_media_id_fk",
+          "tableFrom": "cms_entry_version",
+          "tableTo": "cms_media",
+          "columnsFrom": [
+            "featuredImageId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "cms_entry_version_createdBy_user_id_fk": {
+          "name": "cms_entry_version_createdBy_user_id_fk",
+          "tableFrom": "cms_entry_version",
+          "tableTo": "user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

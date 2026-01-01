@@ -26,10 +26,10 @@ CREATE TABLE `cms_entry` (
 	`slug` text NOT NULL,
 	`seoDescription` text,
 	`status` text DEFAULT 'draft' NOT NULL,
-	`createdBy` text NOT NULL,
 	`featuredImageId` text,
-	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`featuredImageId`) REFERENCES `cms_media`(`id`) ON UPDATE no action ON DELETE set null
+	`createdBy` text NOT NULL,
+	FOREIGN KEY (`featuredImageId`) REFERENCES `cms_media`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE INDEX `cms_entry_collection_idx` ON `cms_entry` (`collection`);--> statement-breakpoint
@@ -57,6 +57,28 @@ CREATE TABLE `cms_entry_tag` (
 CREATE INDEX `cms_entry_tag_entry_id_idx` ON `cms_entry_tag` (`entryId`);--> statement-breakpoint
 CREATE INDEX `cms_entry_tag_tag_id_idx` ON `cms_entry_tag` (`tagId`);--> statement-breakpoint
 CREATE UNIQUE INDEX `cms_entry_tag_unique` ON `cms_entry_tag` (`entryId`,`tagId`);--> statement-breakpoint
+CREATE TABLE `cms_entry_version` (
+	`createdAt` integer NOT NULL,
+	`updatedAt` integer NOT NULL,
+	`updateCounter` integer DEFAULT 0,
+	`id` text PRIMARY KEY NOT NULL,
+	`entryId` text NOT NULL,
+	`versionNumber` integer NOT NULL,
+	`title` text NOT NULL,
+	`content` text NOT NULL,
+	`fields` text DEFAULT '{}' NOT NULL,
+	`slug` text NOT NULL,
+	`seoDescription` text,
+	`status` text NOT NULL,
+	`featuredImageId` text,
+	`createdBy` text NOT NULL,
+	FOREIGN KEY (`entryId`) REFERENCES `cms_entry`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`featuredImageId`) REFERENCES `cms_media`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`createdBy`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `cms_entry_version_entry_id_idx` ON `cms_entry_version` (`entryId`);--> statement-breakpoint
+CREATE INDEX `cms_entry_version_entry_id_version_idx` ON `cms_entry_version` (`entryId`,`versionNumber`);--> statement-breakpoint
 CREATE TABLE `cms_media` (
 	`createdAt` integer NOT NULL,
 	`updatedAt` integer NOT NULL,
