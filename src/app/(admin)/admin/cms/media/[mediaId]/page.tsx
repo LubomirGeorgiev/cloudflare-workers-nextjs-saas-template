@@ -6,18 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EditAltText } from "./_components/edit-alt-text";
+import { cmsConfig } from "@/../cms.config";
+import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 
 export const metadata: Metadata = {
   title: "Media Details | Admin",
@@ -49,6 +43,17 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
   const { media, relatedEntries } = result;
   const imageUrl = `${CMS_IMAGES_API_ROUTE}/${media.bucketKey}`;
   const isImage = media.mimeType.startsWith("image/");
+
+  // Group entries by collection
+  const entriesByCollection = relatedEntries.reduce((acc, entry) => {
+    if (!acc[entry.collection]) {
+      acc[entry.collection] = [];
+    }
+    acc[entry.collection].push(entry);
+    return acc;
+  }, {} as Record<string, typeof relatedEntries>);
+
+  const totalEntries = relatedEntries.length;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -148,49 +153,47 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
         <CardHeader>
           <CardTitle>Used In Entries</CardTitle>
           <CardDescription>
-            CMS entries that contain this media file
+            This media file is used in {totalEntries} {totalEntries === 1 ? "entry" : "entries"} across{" "}
+            {Object.keys(entriesByCollection).length} {Object.keys(entriesByCollection).length === 1 ? "collection" : "collections"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {relatedEntries.length === 0 ? (
+          {Object.keys(entriesByCollection).length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">
               This media file is not used in any entries yet.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Collection</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {relatedEntries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium">{entry.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{entry.collection}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{entry.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/admin/cms/${entry.collection}/${entry.id}`}>
-                          View Entry
+            <div className="space-y-6">
+              {Object.entries(entriesByCollection).map(([collectionSlug, entries]) => {
+                const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+                const collectionName = collection?.labels.plural || collectionSlug;
+
+                return (
+                  <div key={collectionSlug} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">{collectionName}</h3>
+                      <Badge variant="secondary">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {entries.map((entry) => (
+                        <Link
+                          key={entry.id}
+                          href={`/admin/cms/${collectionSlug}/${entry.id}`}
+                          className="flex items-center gap-2 rounded-md border p-3 text-sm transition-colors hover:bg-muted"
+                        >
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{entry.title}</p>
+                            <p className="text-xs text-muted-foreground truncate">/{entry.slug}</p>
+                          </div>
+                          <CmsEntryStatusBadge status={entry.status} />
                         </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

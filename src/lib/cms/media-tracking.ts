@@ -93,6 +93,9 @@ export async function syncEntryMediaRelationships({
     position: number;
   }> = [];
 
+  // Track which media IDs we've already added to avoid duplicates
+  const addedMediaIds = new Set<string>();
+
   // Insert featured image FIRST with position -1
   if (featuredImageId) {
     relationships.push({
@@ -100,15 +103,20 @@ export async function syncEntryMediaRelationships({
       mediaId: featuredImageId,
       position: -1,
     });
+    addedMediaIds.add(featuredImageId);
   }
 
   // Then add content images with positions starting at 0
+  // Skip media IDs that were already added (e.g., if featured image is also in content)
   contentMediaIds.forEach((mediaId, index) => {
-    relationships.push({
-      entryId,
-      mediaId,
-      position: index,
-    });
+    if (!addedMediaIds.has(mediaId)) {
+      relationships.push({
+        entryId,
+        mediaId,
+        position: index,
+      });
+      addedMediaIds.add(mediaId);
+    }
   });
 
   // Create new relationships

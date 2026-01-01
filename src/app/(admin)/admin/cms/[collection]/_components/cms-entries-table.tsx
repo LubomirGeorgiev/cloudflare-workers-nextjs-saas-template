@@ -28,8 +28,7 @@ import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { type CollectionsUnion } from "@/../cms.config";
-
-import { getStatusBadgeVariant, getStatusConfig } from "@/lib/cms/cms-entry-status-config";
+import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 
 type StatusFilter = "all" | "draft" | "published" | "archived";
 
@@ -66,17 +65,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => {
-        const statusConfig = getStatusConfig(row.original.status);
-        return (
-          <Badge variant={getStatusBadgeVariant(row.original.status)}>
-            <div className="flex items-center gap-2">
-              {statusConfig && <div className={`h-2 w-2 rounded-full ${statusConfig.color}`} />}
-              <span>{statusConfig?.label || row.original.status}</span>
-            </div>
-          </Badge>
-        );
-      },
+      cell: ({ row }) => <CmsEntryStatusBadge status={row.original.status} />,
     },
     {
       id: "tags",

@@ -24,7 +24,10 @@ export const revertCmsEntryVersionAction = createServerAction()
   .handler(async ({ input, ctx }) => {
     await requireAdmin(ctx);
 
-    const updatedEntry = await revertCmsEntryToVersion(input.entryId, input.versionId);
+    const updatedEntry = await revertCmsEntryToVersion({
+      entryId: input.entryId,
+      versionId: input.versionId,
+    });
     return updatedEntry;
   });
 
@@ -36,6 +39,9 @@ export const deleteCmsEntryVersionAction = createServerAction()
   .handler(async ({ input, ctx }) => {
     await requireAdmin(ctx);
 
-    await deleteCmsEntryVersion(input.entryId, input.versionId);
+    await deleteCmsEntryVersion({
+      entryId: input.entryId,
+      versionId: input.versionId,
+    });
     return { success: true };
   });

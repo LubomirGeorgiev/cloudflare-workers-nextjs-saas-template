@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { eq, and, desc, count, sql } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
+import { z } from "zod";
 
 import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
@@ -14,7 +15,6 @@ import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 
-// TODO The params of all methods here should be validated and typed with Zod.
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
@@ -24,6 +24,115 @@ import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 
 // Extend CMS_ENTRY_STATUS with 'all' option for queries
 export type CmsEntryStatus = typeof CMS_ENTRY_STATUS[keyof typeof CMS_ENTRY_STATUS];
+
+// Zod Schemas for validation
+const cmsEntryStatusSchema = z.enum([
+  CMS_ENTRY_STATUS.PUBLISHED,
+  CMS_ENTRY_STATUS.DRAFT,
+  CMS_ENTRY_STATUS.ARCHIVED,
+] as const);
+
+const cmsEntryStatusOrAllSchema = z.union([
+  cmsEntryStatusSchema,
+  z.literal('all'),
+]);
+
+const cmsIncludeRelationsSchema = z.object({
+  createdByUser: z.boolean().optional(),
+  media: z.boolean().optional(),
+  tags: z.boolean().optional(),
+}).optional();
+
+const getCmsCollectionParamsSchema = z.object({
+  collectionSlug: z.string(),
+  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+  includeRelations: cmsIncludeRelationsSchema,
+  limit: z.number().positive().optional(),
+  offset: z.number().nonnegative().optional(),
+});
+
+const getCmsCollectionCountParamsSchema = z.object({
+  collectionSlug: z.string(),
+  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+});
+
+const getCmsEntryByIdParamsSchema = z.object({
+  id: z.string().min(1),
+  includeRelations: cmsIncludeRelationsSchema,
+});
+
+const getCmsEntryBySlugParamsSchema = z.object({
+  collectionSlug: z.string(),
+  slug: z.string().min(1),
+  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+  includeRelations: cmsIncludeRelationsSchema,
+});
+
+const createCmsEntryParamsSchema = z.object({
+  collectionSlug: z.string(),
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  content: z.any(), // JSONContent - complex type, validated separately
+  fields: z.unknown(),
+  seoDescription: z.string().max(160).optional(),
+  status: cmsEntryStatusSchema.optional().default(CMS_ENTRY_STATUS.DRAFT),
+  createdBy: z.string().min(1),
+  tagIds: z.array(z.string()).optional(),
+  featuredImageId: z.string().nullable().optional(),
+});
+
+const updateCmsEntryParamsSchema = z.object({
+  id: z.string().min(1),
+  slug: z.string().min(1).optional(),
+  title: z.string().min(1).optional(),
+  content: z.any().optional(), // JSONContent - complex type, validated separately
+  fields: z.unknown().optional(),
+  seoDescription: z.string().max(160).optional(),
+  status: cmsEntryStatusSchema.optional(),
+  tagIds: z.array(z.string()).optional(),
+  featuredImageId: z.string().nullable().optional(),
+});
+
+const deleteCmsEntryParamsSchema = z.object({
+  id: z.string().min(1),
+});
+
+const getCmsTagByIdParamsSchema = z.string().min(1);
+
+const getCmsEntriesByTagIdParamsSchema = z.object({
+  tagId: z.string().min(1),
+  status: cmsEntryStatusOrAllSchema.optional().default('all'),
+});
+
+const createCmsTagParamsSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  description: z.string().optional(),
+  color: z.string().optional(),
+  createdBy: z.string().min(1),
+});
+
+const updateCmsTagParamsSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+  description: z.string().optional(),
+  color: z.string().optional(),
+});
+
+const deleteCmsTagParamsSchema = z.string().min(1);
+
+const getCmsEntryVersionsParamsSchema = z.string().min(1);
+
+const deleteCmsEntryVersionParamsSchema = z.object({
+  entryId: z.string().min(1),
+  versionId: z.string().min(1),
+});
+
+const revertCmsEntryToVersionParamsSchema = z.object({
+  entryId: z.string().min(1),
+  versionId: z.string().min(1),
+});
 
 function getCmsEntryCacheKey({
   collectionSlug,
@@ -107,25 +216,8 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   return relations;
 }
 
-type GetCmsCollectionParams<T extends CollectionsUnion> = {
+type GetCmsCollectionParams<T extends CollectionsUnion> = z.infer<typeof getCmsCollectionParamsSchema> & {
   collectionSlug: T;
-  /**
-   * Filter by status. Defaults to 'published' only.
-   * Pass 'all' to get entries with any status.
-   */
-  status?: CmsEntryStatus | 'all';
-  /**
-   * Include relations in the query
-   */
-  includeRelations?: CmsIncludeRelations;
-  /**
-   * Limit the number of entries returned
-   */
-  limit?: number;
-  /**
-   * Offset for pagination
-   */
-  offset?: number;
 };
 
 export type GetCmsCollectionResult = CmsEntry & {
@@ -179,13 +271,12 @@ export type GetCmsCollectionResult = CmsEntry & {
  *   includeRelations: { media: true }
  * });
  */
-export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.collections>({
-  collectionSlug,
-  status = CMS_ENTRY_STATUS.PUBLISHED,
-  includeRelations,
-  limit,
-  offset,
-}: GetCmsCollectionParams<T>): Promise<GetCmsCollectionResult[]> => {
+export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.collections>(
+  params: GetCmsCollectionParams<T>
+): Promise<GetCmsCollectionResult[]> => {
+  const validated = getCmsCollectionParamsSchema.parse(params);
+  const { collectionSlug, status, includeRelations, limit, offset } = validated;
+
   const db = getDB();
 
   const collection = cmsConfig.collections[collectionSlug];
@@ -233,13 +324,12 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
  *   status: 'published'
  * });
  */
-export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConfig.collections>({
-  collectionSlug,
-  status = CMS_ENTRY_STATUS.PUBLISHED,
-}: {
-  collectionSlug: T;
-  status?: CmsEntryStatus | 'all';
-}): Promise<number> => {
+export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConfig.collections>(
+  params: z.infer<typeof getCmsCollectionCountParamsSchema> & { collectionSlug: T }
+): Promise<number> => {
+  const validated = getCmsCollectionCountParamsSchema.parse(params);
+  const { collectionSlug, status } = validated;
+
   const db = getDB();
 
   const collection = cmsConfig.collections[collectionSlug];
@@ -264,13 +354,7 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
 });
 
 
-type GetCmsEntryByIdParams = {
-  id: string;
-  /**
-   * Include relations in the query
-   */
-  includeRelations?: CmsIncludeRelations;
-};
+type GetCmsEntryByIdParams = z.infer<typeof getCmsEntryByIdParamsSchema>;
 
 /**
  * Get a single CMS entry by ID (for admin/edit interfaces)
@@ -285,10 +369,10 @@ type GetCmsEntryByIdParams = {
  *   includeRelations: { createdByUser: true, media: true }
  * });
  */
-export const getCmsEntryById = cache(async ({
-  id,
-  includeRelations,
-}: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> => {
+export const getCmsEntryById = cache(async (params: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> => {
+  const validated = getCmsEntryByIdParamsSchema.parse(params);
+  const { id, includeRelations } = validated;
+
   const db = getDB();
 
   const entry = await db.query.cmsEntryTable.findFirst({
@@ -309,11 +393,8 @@ export const getCmsEntryById = cache(async ({
   return result;
 });
 
-type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = {
+type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = z.infer<typeof getCmsEntryBySlugParamsSchema> & {
   collectionSlug: T;
-  slug: string;
-  status?: CmsEntryStatus | 'all';
-  includeRelations?: CmsIncludeRelations;
 };
 
 type GetCmsEntryBySlugResult = GetCmsCollectionResult;
@@ -332,13 +413,13 @@ type GetCmsEntryBySlugResult = GetCmsCollectionResult;
  *   includeRelations: { createdByUser: true, tags: true }
  * });
  */
-export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collections>({
-  collectionSlug,
-  slug,
-  status = CMS_ENTRY_STATUS.PUBLISHED,
-  includeRelations,
-}: GetCmsEntryBySlugParams<T>): Promise<GetCmsEntryBySlugResult | null> {
-  const collection = cmsConfig.collections[collectionSlug];
+export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collections>(
+  params: GetCmsEntryBySlugParams<T>
+): Promise<GetCmsEntryBySlugResult | null> {
+  const validated = getCmsEntryBySlugParamsSchema.parse(params);
+  const { collectionSlug, slug, status, includeRelations } = validated;
+
+  const collection = cmsConfig.collections[collectionSlug as T];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
@@ -386,26 +467,9 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
   );
 }
 
-type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
+type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = z.infer<typeof createCmsEntryParamsSchema> & {
   collectionSlug: T;
-  slug: string;
-  title: string;
-  /**
-   * The main content of the entry (e.g., rich text, markdown, etc.)
-   */
   content: JSONContent;
-  /**
-   * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
-   */
-  fields: unknown;
-  /**
-   * SEO meta description (max 160 characters). If not provided, will be auto-generated using AI.
-   */
-  seoDescription?: string;
-  status?: CmsEntryStatus;
-  createdBy: string;
-  tagIds?: string[];
-  featuredImageId?: string | null;
 };
 
 /**
@@ -423,21 +487,15 @@ type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = {
  *   createdBy: userId,
  * });
  */
-export async function createCmsEntry<T extends keyof typeof cmsConfig.collections>({
-  collectionSlug,
-  slug,
-  title,
-  content,
-  fields,
-  seoDescription,
-  status = CMS_ENTRY_STATUS.DRAFT,
-  createdBy,
-  tagIds,
-  featuredImageId,
-}: CreateCmsEntryParams<T>): Promise<CmsEntry> {
+export async function createCmsEntry<T extends keyof typeof cmsConfig.collections>(
+  params: CreateCmsEntryParams<T>
+): Promise<CmsEntry> {
+  const validated = createCmsEntryParamsSchema.parse(params);
+  const { collectionSlug, slug, title, content, fields, seoDescription, status, createdBy, tagIds, featuredImageId } = validated;
+
   const db = getDB();
 
-  const collection = cmsConfig.collections[collectionSlug];
+  const collection = cmsConfig.collections[collectionSlug as T];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
@@ -516,25 +574,8 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   return newEntry;
 }
 
-type UpdateCmsEntryParams = {
-  id: string;
-  slug?: string;
-  title?: string;
-  /**
-   * The main content of the entry (e.g., rich text, markdown, etc.)
-   */
+type UpdateCmsEntryParams = z.infer<typeof updateCmsEntryParamsSchema> & {
   content?: JSONContent;
-  /**
-   * Custom fields specific to the collection (e.g., excerpt, author, tags, etc.)
-   */
-  fields?: unknown;
-  /**
-   * SEO meta description (max 160 characters). If not provided and content/title changed, will be auto-generated using AI.
-   */
-  seoDescription?: string;
-  status?: CmsEntryStatus;
-  tagIds?: string[];
-  featuredImageId?: string | null;
 };
 
 /**
@@ -550,17 +591,10 @@ type UpdateCmsEntryParams = {
  *   status: CMS_ENTRY_STATUS.PUBLISHED,
  * });
  */
-export async function updateCmsEntry({
-  id,
-  slug,
-  title,
-  content,
-  fields,
-  seoDescription,
-  status,
-  tagIds,
-  featuredImageId,
-}: UpdateCmsEntryParams): Promise<CmsEntry | null> {
+export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsEntry | null> {
+  const validated = updateCmsEntryParamsSchema.parse(params);
+  const { id, slug, title, content, fields, seoDescription, status, tagIds, featuredImageId } = validated;
+
   const db = getDB();
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
@@ -723,9 +757,7 @@ export async function updateCmsEntry({
   return updatedEntry || null;
 }
 
-type DeleteCmsEntryParams = {
-  id: string;
-};
+type DeleteCmsEntryParams = z.infer<typeof deleteCmsEntryParamsSchema>;
 
 /**
  * Delete a CMS entry and its associated media relations
@@ -736,9 +768,10 @@ type DeleteCmsEntryParams = {
  * // Delete a blog post
  * await deleteCmsEntry({ id: 'cms_ent_abc123' });
  */
-export async function deleteCmsEntry({
-  id,
-}: DeleteCmsEntryParams): Promise<void> {
+export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void> {
+  const validated = deleteCmsEntryParamsSchema.parse(params);
+  const { id } = validated;
+
   const db = getDB();
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
@@ -785,26 +818,62 @@ export const getCmsTags = cache(async () => {
   return tags;
 });
 
-export const getCmsTagById = cache(async (id: string) => {
+export const getCmsTagById = cache(async (id: z.infer<typeof getCmsTagByIdParamsSchema>) => {
+  const validated = getCmsTagByIdParamsSchema.parse(id);
+
   const db = getDB();
   return await db.query.cmsTagTable.findFirst({
-    where: eq(cmsTagTable.id, id),
+    where: eq(cmsTagTable.id, validated),
   });
 });
 
-export async function createCmsTag({
-  name,
-  slug,
-  description,
-  color,
-  createdBy,
-}: {
-  name: string;
-  slug: string;
-  description?: string;
-  color?: string;
-  createdBy: string;
-}) {
+/**
+ * Get all CMS entries that use a specific tag, grouped by collection
+ */
+export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status?: "draft" | "published" | "archived" | "all" }) => {
+  const validated = getCmsEntriesByTagIdParamsSchema.parse(params);
+  const { tagId, status } = validated;
+
+  const db = getDB();
+
+  // Build the where conditions
+  const conditions = [eq(cmsEntryTagTable.tagId, tagId)];
+
+  if (status !== 'all') {
+    conditions.push(eq(cmsEntryTable.status, status));
+  }
+
+  const entries = await db
+    .select({
+      id: cmsEntryTable.id,
+      title: cmsEntryTable.title,
+      slug: cmsEntryTable.slug,
+      collection: cmsEntryTable.collection,
+      status: cmsEntryTable.status,
+      createdAt: cmsEntryTable.createdAt,
+      updatedAt: cmsEntryTable.updatedAt,
+    })
+    .from(cmsEntryTagTable)
+    .innerJoin(cmsEntryTable, eq(cmsEntryTagTable.entryId, cmsEntryTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(cmsEntryTable.updatedAt));
+
+  // Group entries by collection
+  const entriesByCollection = entries.reduce((acc, entry) => {
+    if (!acc[entry.collection]) {
+      acc[entry.collection] = [];
+    }
+    acc[entry.collection].push(entry);
+    return acc;
+  }, {} as Record<string, typeof entries>);
+
+  return entriesByCollection;
+});
+
+export async function createCmsTag(params: z.infer<typeof createCmsTagParamsSchema>) {
+  const validated = createCmsTagParamsSchema.parse(params);
+  const { name, slug, description, color, createdBy } = validated;
+
   const db = getDB();
 
   const existingTag = await db.query.cmsTagTable.findFirst({
@@ -826,19 +895,10 @@ export async function createCmsTag({
   return newTag;
 }
 
-export async function updateCmsTag({
-  id,
-  name,
-  slug,
-  description,
-  color,
-}: {
-  id: string;
-  name?: string;
-  slug?: string;
-  description?: string;
-  color?: string;
-}) {
+export async function updateCmsTag(params: z.infer<typeof updateCmsTagParamsSchema>) {
+  const validated = updateCmsTagParamsSchema.parse(params);
+  const { id, name, slug, description, color } = validated;
+
   const db = getDB();
 
   const existingTag = await db.query.cmsTagTable.findFirst({
@@ -873,18 +933,22 @@ export async function updateCmsTag({
   return updatedTag;
 }
 
-export async function deleteCmsTag(id: string) {
+export async function deleteCmsTag(id: z.infer<typeof deleteCmsTagParamsSchema>) {
+  const validated = deleteCmsTagParamsSchema.parse(id);
+
   const db = getDB();
 
-  await db.delete(cmsTagTable).where(eq(cmsTagTable.id, id));
+  await db.delete(cmsTagTable).where(eq(cmsTagTable.id, validated));
 }
 
 // Version Management Functions
 
-export const getCmsEntryVersions = cache(async (entryId: string): Promise<CmsEntryVersion[]> => {
+export const getCmsEntryVersions = cache(async (entryId: z.infer<typeof getCmsEntryVersionsParamsSchema>): Promise<CmsEntryVersion[]> => {
+  const validated = getCmsEntryVersionsParamsSchema.parse(entryId);
+
   const db = getDB();
   return await db.query.cmsEntryVersionTable.findMany({
-    where: eq(cmsEntryVersionTable.entryId, entryId),
+    where: eq(cmsEntryVersionTable.entryId, validated),
     orderBy: [desc(cmsEntryVersionTable.versionNumber)],
     with: {
       createdByUser: {
@@ -900,7 +964,10 @@ export const getCmsEntryVersions = cache(async (entryId: string): Promise<CmsEnt
   });
 });
 
-export async function deleteCmsEntryVersion(entryId: string, versionId: string): Promise<void> {
+export async function deleteCmsEntryVersion(params: z.infer<typeof deleteCmsEntryVersionParamsSchema>): Promise<void> {
+  const validated = deleteCmsEntryVersionParamsSchema.parse(params);
+  const { entryId, versionId } = validated;
+
   const db = getDB();
 
   // Verify the version exists and belongs to the entry
@@ -942,7 +1009,10 @@ export async function deleteCmsEntryVersion(entryId: string, versionId: string):
     ));
 }
 
-export async function revertCmsEntryToVersion(entryId: string, versionId: string): Promise<CmsEntry> {
+export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEntryToVersionParamsSchema>): Promise<CmsEntry> {
+  const validated = revertCmsEntryToVersionParamsSchema.parse(params);
+  const { entryId, versionId } = validated;
+
   const db = getDB();
 
   const version = await db.query.cmsEntryVersionTable.findFirst({
