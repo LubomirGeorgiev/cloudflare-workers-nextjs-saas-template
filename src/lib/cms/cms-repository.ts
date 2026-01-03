@@ -536,7 +536,8 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
     offset,
   });
 
-  return withKVCache(
+  // Fetch entries from cache or DB (includes scheduled entries)
+  const cachedEntries = await withKVCache(
     async () => {
       const db = getDB();
 
@@ -554,25 +555,13 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
         whereConditions.push(statusCondition);
       }
 
-      let entries = await db.query.cmsEntryTable.findMany({
+      const entries = await db.query.cmsEntryTable.findMany({
         where: and(...whereConditions),
         orderBy: [desc(cmsEntryTable.createdAt)],
         limit: limit,
         offset: offset,
         with: buildCmsRelationsQuery(includeRelations),
       });
-
-      // Auto-publish any scheduled entries that are due
-      entries = await Promise.all(entries.map(entry => autoPublishScheduledEntry(entry)));
-
-      // Filter out entries that are still scheduled (not yet ready to be published)
-      // This ensures scheduled entries with future publishedAt don't appear in public queries
-      if (status === CMS_ENTRY_STATUS.PUBLISHED) {
-        entries = entries.filter(entry => {
-          // Include published entries and scheduled entries that were just auto-published
-          return entry.status === CMS_ENTRY_STATUS.PUBLISHED;
-        });
-      }
 
       // Generate featured image URLs for all entries
       const results = entries.map(entry => {
@@ -590,6 +579,20 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
       ttl: "8 hours",
     }
   );
+
+  // Auto-publish any scheduled entries that are due (runs on every request)
+  let processedEntries = await Promise.all(cachedEntries.map(entry => autoPublishScheduledEntry(entry)));
+
+  // Filter out entries that are still scheduled (not yet ready to be published)
+  // This ensures scheduled entries with future publishedAt don't appear in public queries
+  if (status === CMS_ENTRY_STATUS.PUBLISHED) {
+    processedEntries = processedEntries.filter(entry => {
+      // Include published entries and scheduled entries that were just auto-published
+      return entry.status === CMS_ENTRY_STATUS.PUBLISHED;
+    });
+  }
+
+  return processedEntries;
 });
 
 /**
@@ -710,7 +713,8 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
     status,
   });
 
-  return withKVCache(
+  // Fetch entry from cache or DB (includes scheduled entries)
+  const cachedEntry = await withKVCache(
     async () => {
       const db = getDB();
 
@@ -724,21 +728,12 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
         whereConditions.push(statusCondition);
       }
 
-      let entry = await db.query.cmsEntryTable.findFirst({
+      const entry = await db.query.cmsEntryTable.findFirst({
         where: and(...whereConditions),
         with: buildCmsRelationsQuery(includeRelations),
       });
 
       if (!entry) {
-        return null;
-      }
-
-      // Auto-publish if the entry is scheduled and the time has come
-      entry = await autoPublishScheduledEntry(entry);
-
-      // If entry is still scheduled (publishedAt in future), return null for public access
-      // This creates a 404 behavior for entries not yet published
-      if (status === CMS_ENTRY_STATUS.PUBLISHED && entry.status === CMS_ENTRY_STATUS.SCHEDULED) {
         return null;
       }
 
@@ -755,6 +750,22 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
       ttl: '7 days',
     }
   );
+
+  // If entry not found, return null
+  if (!cachedEntry) {
+    return null;
+  }
+
+  // Auto-publish if the entry is scheduled and the time has come (runs on every request)
+  const processedEntry = await autoPublishScheduledEntry(cachedEntry);
+
+  // If entry is still scheduled (publishedAt in future), return null for public access
+  // This creates a 404 behavior for entries not yet published
+  if (status === CMS_ENTRY_STATUS.PUBLISHED && processedEntry.status === CMS_ENTRY_STATUS.SCHEDULED) {
+    return null;
+  }
+
+  return processedEntry;
 }
 
 type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = z.infer<typeof createCmsEntryParamsSchema> & {
