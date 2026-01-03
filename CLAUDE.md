@@ -50,103 +50,6 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, 
 - CUID2 for ID generation
 - Team-based multi-tenancy
 
-## Project Structure
-
-```
-├── src/                          # Source directory
-│   ├── actions/                  # Server actions
-│   │   ├── credits.action.ts
-│   │   ├── sign-out.action.ts
-│   │   ├── team-actions.ts
-│   │   ├── team-membership-actions.ts
-│   │   └── team-role-actions.ts
-│   ├── app/                      # Next.js App Router
-│   │   ├── (admin)/              # Admin routes
-│   │   │   └── admin/
-│   │   │       ├── _actions/     # Admin-specific actions
-│   │   │       ├── _components/  # Admin-specific components
-│   │   │       └── users/        # User management
-│   │   ├── (auth)/               # Auth-related routes
-│   │   │   ├── _components/      # Auth components (SSO buttons, etc.)
-│   │   │   ├── sign-in/          # Sign in functionality
-│   │   │   ├── sign-up/          # Sign up functionality
-│   │   │   ├── forgot-password/  # Password reset request
-│   │   │   ├── reset-password/   # Password reset completion
-│   │   │   ├── passkey/          # Passkey/WebAuthn authentication
-│   │   │   ├── sso/              # SSO authentication
-│   │   │   │   └── google/       # Google OAuth
-│   │   │   ├── team-invite/      # Team invitation acceptance
-│   │   │   └── verify-email/     # Email verification
-│   │   ├── (dashboard)/          # Dashboard and app features
-│   │   │   ├── dashboard/        # Main dashboard
-│   │   │   └── layout.tsx
-│   │   ├── (legal)/              # Legal pages (terms, privacy)
-│   │   ├── (marketing)/          # Landing pages and marketing
-│   │   ├── (settings)/           # User settings pages
-│   │   │   └── settings/
-│   │   │       ├── profile/      # Profile settings
-│   │   │       └── sessions/     # Session management
-│   │   ├── teams/                # Team management
-│   │   │   ├── [teamSlug]/       # Team-specific routes (dynamic)
-│   │   │   │   ├── members/      # Team member management
-│   │   │   │   ├── settings/     # Team settings
-│   │   │   │   └── billing/      # Team billing
-│   │   │   └── create/           # Team creation
-│   │   ├── dashboard/            # Additional dashboard routes
-│   │   │   └── billing/          # User billing
-│   │   ├── api/                  # API routes
-│   │   │   ├── auth/             # Auth API endpoints
-│   │   │   └── get-session/      # Session retrieval
-│   │   └── globals.css           # Global styles
-│   ├── components/               # React components
-│   │   ├── landing/              # Landing page components
-│   │   ├── teams/                # Team-related components
-│   │   └── ui/                   # Shadcn UI components
-│   ├── db/                       # Database related code
-│   │   ├── migrations/           # Database migrations
-│   │   └── schema.ts             # DrizzleORM schema
-│   ├── hooks/                    # Custom React hooks
-│   │   ├── useMediaQuery.ts
-│   │   └── useSignOut.ts
-│   ├── icons/                    # Custom icon components
-│   ├── layouts/                  # Layout components
-│   ├── lib/                      # Library utilities
-│   │   ├── sso/                  # SSO integrations
-│   │   ├── stripe.ts             # Stripe integration
-│   │   ├── try-catch.ts          # Error handling utilities
-│   │   └── utils.ts              # General utilities
-│   ├── react-email/              # Email templates with react-email
-│   │   ├── reset-password.tsx
-│   │   ├── verify-email.tsx
-│   │   └── team-invite.tsx
-│   ├── schemas/                  # Zod validation schemas
-│   ├── server/                   # Server-side utilities
-│   │   ├── team-members.ts
-│   │   ├── team-roles.ts
-│   │   └── teams.ts
-│   ├── state/                    # Client state management (Zustand)
-│   │   ├── config.ts
-│   │   ├── nav.ts
-│   │   ├── session.ts
-│   │   └── transaction.ts
-│   ├── utils/                    # Core utilities
-│   │   ├── auth.ts               # Authentication logic
-│   │   ├── auth-utils.ts         # Auth helper utilities
-│   │   ├── credits.ts            # Credit system utilities
-│   │   ├── email.tsx             # Email sending utilities
-│   │   ├── kv-session.ts         # Session handling with KV
-│   │   ├── team-auth.ts          # Team authorization utilities
-│   │   ├── rate-limit.ts         # Rate limiting
-│   │   ├── webauthn.ts           # WebAuthn/Passkey utilities
-│   │   └── with-kv-cache.ts      # KV caching utilities
-│   ├── constants.ts              # Application constants
-│   ├── flags.ts                  # Feature flags
-│   └── types.ts                  # Type definitions
-├── public/                       # Static assets
-├── scripts/                      # Build and deployment scripts
-└── .wrangler/                    # Cloudflare Workers config
-```
-
 ## Development Status
 
 ### Completed Features
@@ -348,6 +251,126 @@ Cloudflare bindings accessed through getCloudflareContext
 - Rate limiting for API endpoints
 - Input validation and sanitization
 - Efficient data fetching and asset optimization
+
+## Forms and Validation Patterns
+
+### Zod Schema Reuse
+
+All Zod validation schemas should be:
+- Centralized in the `src/schemas/` directory
+- Reused between both client-side (react-hook-form) and server-side (zsa server actions) validation
+- Never duplicated or defined separately for client and server
+
+#### Schema File Structure
+
+Each schema file should export both the schema and its TypeScript type:
+
+```typescript
+import { z } from "zod"
+
+export const mySchema = z.object({
+  email: z.string().email(),
+  firstName: z.string().min(2).max(255),
+  lastName: z.string().min(2).max(255),
+})
+
+export type MySchema = z.infer<typeof mySchema>
+```
+
+Key requirements:
+- Export the schema with a camelCase name (e.g., `mySchema`)
+- Export the TypeScript type using `z.infer` with PascalCase name (e.g., `MySchema`)
+- This allows consumers to import both: `import { type MySchema, mySchema } from "@/schemas/my-schema.schema"`
+
+### Server Actions with ZSA
+
+All server actions that handle form submissions MUST use the `zsa` library:
+
+```typescript
+import { createServerAction } from "zsa"
+import { mySchema } from "@/schemas/my-schema.schema";
+
+export const myAction = createServerAction()
+  .input(mySchema)
+  .handler(async ({ input }) => {
+    // Server-side logic with validated input
+    return { success: true };
+  })
+```
+
+Key requirements:
+- Use `createServerAction()` from `zsa` (not just plain server functions)
+- Use `.input(schema)` to define input validation with the Zod schema
+- The schema provides full type safety for the `input` parameter
+
+### Client Forms with React Hook Form
+
+Client forms should follow this pattern:
+
+```typescript
+"use client";
+
+import { myAction } from "./my.actions";
+import { type MySchema, mySchema } from "@/schemas/my-schema.schema";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useServerAction } from "zsa-react";
+import { toast } from "sonner";
+
+const MyForm = () => {
+  const { execute: submitForm } = useServerAction(myAction, {
+    onError: (error) => {
+      toast.dismiss()
+      toast.error(error.err?.message)
+    },
+    onStart: () => {
+      toast.loading("Processing...")
+    },
+    onSuccess: () => {
+      toast.dismiss()
+      toast.success("Success!")
+    }
+  })
+
+  const form = useForm<MySchema>({
+    resolver: zodResolver(mySchema),
+  });
+
+  const onSubmit = async (data: MySchema) => {
+    submitForm(data)
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)}>
+        {/* Form fields */}
+      </form>
+    </Form>
+  );
+};
+```
+
+Key requirements:
+- Import both the schema type AND the schema itself: `type MySchema, mySchema`
+- Use `useForm<MySchema>` with `zodResolver(mySchema)` for client-side validation
+- Use `useServerAction` from `zsa-react` to call the server action
+- Use toast notifications for loading, success, and error states
+- Use `form.handleSubmit(onSubmit)` pattern for form submission
+
+### Complete Example
+
+See the sign-up implementation as the reference pattern:
+- **Server Action**: `src/app/(auth)/sign-up/sign-up.actions.ts`
+- **Client Form**: `src/app/(auth)/sign-up/sign-up.client.tsx`
+- **Schema**: `src/schemas/signup.schema.ts`
+
+### Benefits of This Pattern
+
+1. **Single Source of Truth**: One schema definition for both client and server validation
+2. **Type Safety**: Full TypeScript type inference from schema to form to server action
+3. **DRY Principle**: No duplication of validation logic
+4. **Runtime Safety**: Client-side validation for UX + Server-side validation for security
+5. **Error Handling**: Consistent error handling through `useServerAction` callbacks
 
 ## Terminal Commands
 

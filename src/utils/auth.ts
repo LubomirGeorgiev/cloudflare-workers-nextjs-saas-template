@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ROLES_ENUM, userTable, teamMembershipTable, SYSTEM_ROLES_ENUM, teamRoleTable, TEAM_PERMISSIONS } from "@/db/schema";
+import { userTable, teamMembershipTable, SYSTEM_ROLES_ENUM, teamRoleTable, TEAM_PERMISSIONS } from "@/db/schema";
 import { init } from "@paralleldrive/cuid2";
 import { encodeHexLowerCase } from "@oslojs/encoding"
 import ms from "ms"
@@ -23,6 +23,7 @@ import { SESSION_COOKIE_NAME } from "@/constants";
 import { ZSAError } from "zsa";
 import { addFreeMonthlyCreditsIfNeeded } from "./credits";
 import { getInitials } from "./name-initials";
+import { ROLES_ENUM } from "@/app/enums";
 
 const getSessionLength = () => {
   return ms("30d");

@@ -8,12 +8,14 @@ export const metadata: Metadata = {
   description: "Read our terms of service and usage agreement",
 };
 
+const lastUpdated = new Date('2025-01-15T20:10:16.287Z')
+
 export default function TermsPage() {
   return (
     <>
       <h1 className="text-4xl font-bold text-foreground mb-8">Terms of Service</h1>
 
-      <p className="text-muted-foreground mb-6">Last updated: {new Date().toLocaleDateString()}</p>
+      <p className="text-muted-foreground mb-6">Last updated: {lastUpdated.toLocaleDateString()}</p>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>

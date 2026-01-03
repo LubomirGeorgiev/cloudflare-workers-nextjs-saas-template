@@ -27,10 +27,11 @@ import {
 import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import { type CmsEntryStatus } from "@/types/cms";
 import { type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 
-type StatusFilter = "all" | "draft" | "published" | "archived";
+type StatusFilter = CmsEntryStatus | "all";
 
 export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -65,7 +66,16 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => <CmsEntryStatusBadge status={row.original.status} />,
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <CmsEntryStatusBadge status={row.original.status} />
+          {(row.original.publishedAt && row.original.status === "scheduled") && (
+            <span className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(row.original.publishedAt), { addSuffix: true })}
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       id: "tags",
@@ -180,6 +190,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
             </SelectContent>
           </Select>

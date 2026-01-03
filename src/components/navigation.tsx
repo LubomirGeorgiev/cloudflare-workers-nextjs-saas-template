@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useNavStore } from "@/state/nav"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SITE_NAME } from "@/constants"
+import { ROLES_ENUM } from "@/app/enums"
 
 type NavItem = {
   name: string;
@@ -40,6 +41,7 @@ export function Navigation() {
   const { session, isLoading } = useSessionStore()
   const { isOpen, setIsOpen } = useNavStore()
   const pathname = usePathname()
+  const isAdmin = session?.user?.role === ROLES_ENUM.ADMIN
 
   const navItems: NavItem[] = [
     { name: "Home", href: "/" },
@@ -48,6 +50,12 @@ export function Navigation() {
       { name: "Settings", href: "/settings" },
       { name: "Dashboard", href: "/dashboard" },
     ] as NavItem[] : []),
+    ...(isAdmin ? [
+      {
+        name: "Admin Panel",
+        href: "/admin"
+      }
+    ] as NavItem[] : [])
   ]
 
   const isActiveLink = (itemHref: string) => {

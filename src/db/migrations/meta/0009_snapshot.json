@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "97682e80-98dc-45fa-bf1e-9a4e27dc3e82",
+  "id": "b70475d9-edf6-458a-94cd-110bc5416156",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -203,6 +203,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'draft'"
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "featuredImageId": {
           "name": "featuredImageId",
@@ -526,6 +533,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "publishedAt": {
+          "name": "publishedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "featuredImageId": {

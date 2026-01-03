@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Plus, ArrowLeft } from "lucide-react";
 import { type CollectionsUnion } from "@/../cms.config";
 
+
+// TODO We need to add page title and description to the page
 export default async function CollectionPage({
   params,
 }: {

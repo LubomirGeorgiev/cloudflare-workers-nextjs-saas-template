@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createServerAction, ZSAError } from "zsa";
 import { requireAdmin } from "@/utils/auth";
 import { cmsConfig, zodCollectionEnum } from "@/../cms.config";
-import { createCmsEntrySchema, updateCmsEntrySchema, cmsEntryStatusEnum } from "@/schemas/cms-entry.schema";
+import { createCmsEntrySchema, updateCmsEntrySchema, cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
   getCmsCollectionCount,
@@ -15,7 +15,7 @@ import {
 } from "@/lib/cms/cms-repository";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 
-const listStatusEnum = z.enum([...cmsEntryStatusEnum.options, "all"]);
+const listStatusEnum = z.enum([...cmsEntryStatusSchema.options, "all"]);
 
 export const listCmsEntriesAction = createServerAction()
   .input(
@@ -59,16 +59,9 @@ export const createCmsEntryAction = createServerAction()
     }
 
     const newEntry = await createCmsEntry({
+      ...input,
       collectionSlug: input.collection as keyof typeof cmsConfig.collections,
-      title: input.title,
-      slug: input.slug,
-      content: input.content,
-      fields: input.fields,
-      seoDescription: input.seoDescription,
-      status: input.status,
       createdBy: session.userId,
-      tagIds: input.tagIds,
-      featuredImageId: input.featuredImageId,
     });
 
     return newEntry;
@@ -79,17 +72,7 @@ export const updateCmsEntryAction = createServerAction()
   .handler(async ({ input }) => {
     await requireAdmin();
 
-    const updatedEntry = await updateCmsEntry({
-      id: input.id,
-      title: input.title,
-      slug: input.slug,
-      content: input.content,
-      fields: input.fields,
-      seoDescription: input.seoDescription,
-      status: input.status,
-      tagIds: input.tagIds,
-      featuredImageId: input.featuredImageId,
-    });
+    const updatedEntry = await updateCmsEntry(input);
 
     if (!updatedEntry) {
       throw new ZSAError("NOT_FOUND", "Entry not found");

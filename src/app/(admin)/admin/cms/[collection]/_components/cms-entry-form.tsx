@@ -102,11 +102,14 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
       content: entry?.content || { type: "doc", content: [] },
       seoDescription: entry?.seoDescription || "",
       status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
+      publishedAt: entry?.publishedAt ? new Date(entry.publishedAt) : undefined,
       tagIds: entry?.tags?.map((t) => t.tag.id) || [],
       fields: defaultFieldValues,
       featuredImageId: entry?.featuredImageId || undefined,
     },
   });
+
+  const statusValue = form.watch("status");
 
   const { execute: createEntry, isPending: isCreating } = useServerAction(createCmsEntryAction, {
     onError: (error) => {
@@ -349,30 +352,22 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
 
     if (mode === "create") {
       await createEntry({
+        ...data,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         collection: collection as any,
-        title: data.title,
-        slug: data.slug,
         content: serializedContent,
         fields: cleanedFields,
-        seoDescription: data.seoDescription,
-        status: data.status,
         tagIds: data.tagIds || [],
-        featuredImageId: data.featuredImageId,
       });
     } else {
       if (!entry) return;
 
       await updateEntry({
+        ...data,
         id: entry.id,
-        title: data.title,
-        slug: data.slug,
         content: serializedContent,
         fields: cleanedFields,
-        seoDescription: data.seoDescription,
-        status: data.status,
         tagIds: data.tagIds || [],
-        featuredImageId: data.featuredImageId,
       });
     }
   };
@@ -632,7 +627,16 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Clear publishedAt when changing away from scheduled
+                          if (value !== CMS_ENTRY_STATUS.SCHEDULED) {
+                            form.setValue("publishedAt", undefined);
+                          }
+                        }}
+                        defaultValue={field.value}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue />
@@ -656,6 +660,41 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                     </FormItem>
                   )}
                 />
+
+                {statusValue === CMS_ENTRY_STATUS.SCHEDULED && (
+                  <FormField
+                    control={form.control}
+                    name="publishedAt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Publish Date & Time *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            value={
+                              field.value
+                                ? new Date(field.value.getTime() - field.value.getTimezoneOffset() * 60000)
+                                    .toISOString()
+                                    .slice(0, 16)
+                                : ""
+                            }
+                            onChange={(e) => {
+                              const dateValue = e.target.value
+                                ? new Date(e.target.value)
+                                : new Date(Date.now() + 5 * 60 * 1000);
+                              field.onChange(dateValue);
+                            }}
+                            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Entry will be automatically published at this date and time
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -741,6 +780,25 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                       })}
                     </p>
                   </div>
+                  {entry.publishedAt && (
+                    <div>
+                      <span className="text-muted-foreground">
+                        {entry.status === CMS_ENTRY_STATUS.SCHEDULED ? "Scheduled for:" : "Published:"}
+                      </span>
+                      <p className="font-medium">
+                        {formatDistanceToNow(new Date(entry.publishedAt), { addSuffix: true })}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {new Date(entry.publishedAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  )}
                   {previewUrl && (
                     <div>
                       <span className="text-muted-foreground mr-2">Preview:</span>

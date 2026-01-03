@@ -1,17 +1,14 @@
+import "server-only"
+
 import { sqliteTable, integer, text, index, unique } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 import { type InferSelectModel } from "drizzle-orm";
 
 import { createId } from '@paralleldrive/cuid2'
-import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { CMS_ENTRY_STATUS, ROLES_ENUM } from "@/app/enums";
 import type { JSONContent } from "@tiptap/core"
-import { CmsEntryStatus } from "@/lib/cms/cms-repository";
+import { cmsEntryStatusTuple, type CmsEntryStatus } from "@/types/cms";
 import type { CollectionsUnion } from "../../cms.config";
-
-export const ROLES_ENUM = {
-  ADMIN: 'admin',
-  USER: 'user',
-} as const;
 
 const roleTuple = Object.values(ROLES_ENUM) as [string, ...string[]];
 
@@ -297,8 +294,6 @@ export const cmsMediaTable = sqliteTable("cms_media", {
   index('cms_media_uploaded_by_idx').on(table.uploadedBy),
 ]));
 
-const cmsEntryStatusTuple = Object.values(CMS_ENTRY_STATUS) as [string, ...string[]];
-
 const cmsEntryCommonColumns = {
   title: text().notNull(),
   content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
@@ -308,6 +303,7 @@ const cmsEntryCommonColumns = {
   status: text({
     enum: cmsEntryStatusTuple,
   }).notNull().$type<CmsEntryStatus>().notNull(),
+  publishedAt: integer({ mode: 'timestamp' }),
   featuredImageId: text().references(() => cmsMediaTable.id, { onDelete: 'set null' }),
   createdBy: text().notNull().references(() => userTable.id),
 };

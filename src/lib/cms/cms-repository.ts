@@ -9,29 +9,22 @@ import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
 import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, cmsEntryVersionTable, type CmsEntry, type CmsTag, type CmsEntryVersion } from "@/db/schema";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { withKVCache } from "@/utils/with-kv-cache";
+import { withKVCache, CACHE_KEYS } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
+import { cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
+import type { CmsEntryStatus } from "@/types/cms";
 
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
-// TODO Add scheduled publishing
 // TODO Uploading images from the editor and a dedicated media collection admin page
 
-// Extend CMS_ENTRY_STATUS with 'all' option for queries
-export type CmsEntryStatus = typeof CMS_ENTRY_STATUS[keyof typeof CMS_ENTRY_STATUS];
-
 // Zod Schemas for validation
-const cmsEntryStatusSchema = z.enum([
-  CMS_ENTRY_STATUS.PUBLISHED,
-  CMS_ENTRY_STATUS.DRAFT,
-  CMS_ENTRY_STATUS.ARCHIVED,
-] as const);
-
+// TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
 const cmsEntryStatusOrAllSchema = z.union([
   cmsEntryStatusSchema,
   z.literal('all'),
@@ -68,30 +61,74 @@ const getCmsEntryBySlugParamsSchema = z.object({
   includeRelations: cmsIncludeRelationsSchema,
 });
 
-const createCmsEntryParamsSchema = z.object({
-  collectionSlug: z.string(),
+const cmsEntryBaseSchema = z.object({
   slug: z.string().min(1),
   title: z.string().min(1),
   content: z.any(), // JSONContent - complex type, validated separately
   fields: z.unknown(),
   seoDescription: z.string().max(160).optional(),
-  status: cmsEntryStatusSchema.optional().default(CMS_ENTRY_STATUS.DRAFT),
-  createdBy: z.string().min(1),
+  status: cmsEntryStatusSchema.optional(),
+  publishedAt: z.date().optional(),
   tagIds: z.array(z.string()).optional(),
   featuredImageId: z.string().nullable().optional(),
 });
 
-const updateCmsEntryParamsSchema = z.object({
-  id: z.string().min(1),
-  slug: z.string().min(1).optional(),
-  title: z.string().min(1).optional(),
-  content: z.any().optional(), // JSONContent - complex type, validated separately
-  fields: z.unknown().optional(),
-  seoDescription: z.string().max(160).optional(),
-  status: cmsEntryStatusSchema.optional(),
-  tagIds: z.array(z.string()).optional(),
-  featuredImageId: z.string().nullable().optional(),
-});
+// Helper function to add status/publishedAt validation and transformation
+function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
+  return schema.refine(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
+      // If publishedAt is in the future, status must be scheduled
+      if (data.publishedAt && data.publishedAt instanceof Date && data.publishedAt > new Date()) {
+        return data.status === CMS_ENTRY_STATUS.SCHEDULED;
+      }
+      return true;
+    },
+    {
+      message: "Status must be 'scheduled' when publishedAt is set to a future date",
+      path: ['status'],
+    }
+  ).refine(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
+      // If status is scheduled, publishedAt must be provided and in the future
+      if (data.status === CMS_ENTRY_STATUS.SCHEDULED) {
+        if (!data.publishedAt) {
+          return false;
+        }
+        return data.publishedAt instanceof Date && data.publishedAt > new Date();
+      }
+      return true;
+    },
+    {
+      message: "publishedAt is required and must be in the future for scheduled entries",
+      path: ['publishedAt'],
+    }
+  ).transform(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
+      // If status is published and no publishedAt, set it to now
+      if (data.status === CMS_ENTRY_STATUS.PUBLISHED && !data.publishedAt) {
+        return { ...data, publishedAt: new Date() };
+      }
+      return data;
+    }
+  );
+}
+
+const createCmsEntryParamsSchema = withStatusPublishedAtValidation(
+  cmsEntryBaseSchema.extend({
+    collectionSlug: z.string(),
+    status: cmsEntryStatusSchema.optional().default(CMS_ENTRY_STATUS.DRAFT),
+    createdBy: z.string().min(1),
+  })
+);
+
+const updateCmsEntryParamsSchema = withStatusPublishedAtValidation(
+  cmsEntryBaseSchema.partial().extend({
+    id: z.string().min(1),
+  })
+);
 
 const deleteCmsEntryParamsSchema = z.object({
   id: z.string().min(1),
@@ -147,7 +184,37 @@ function getCmsEntryCacheKey({
   return status ? `${base}:${status}` : base;
 }
 
-async function invalidateCmsEntryCache({
+function getCmsCollectionCacheKey({
+  collectionSlug,
+  status,
+  includeRelations,
+  limit,
+  offset,
+}: {
+  collectionSlug?: CollectionsUnion;
+  status?: CmsEntryStatus | 'all';
+  includeRelations?: CmsIncludeRelations;
+  limit?: number;
+  offset?: number;
+}): string {
+  // If no collectionSlug provided, return base prefix for all collections
+  if (!collectionSlug) {
+    return `${CACHE_KEYS.CMS_COLLECTION}:`;
+  }
+
+  // Base key with collection slug
+  const base = `${CACHE_KEYS.CMS_COLLECTION}:${collectionSlug}:`;
+
+  // If only collectionSlug is provided, return prefix for invalidation
+  if (status === undefined && includeRelations === undefined && limit === undefined && offset === undefined) {
+    return base;
+  }
+
+  // Full key with all parameters for specific cache lookup
+  return `${base}${status}:${JSON.stringify(includeRelations)}:${limit}:${offset}`;
+}
+
+export async function invalidateCmsEntryCache({
   collectionSlug,
   slug,
 }: {
@@ -162,9 +229,191 @@ async function invalidateCmsEntryCache({
   }
 
   const prefix = getCmsEntryCacheKey({ collectionSlug, slug });
-  const keys = await kv.list({ prefix });
 
-  await Promise.all(keys.keys.map(key => kv.delete(key.name)));
+  // List all keys with this prefix
+  let cursor: string | undefined;
+  const keysToDelete: string[] = [];
+
+  do {
+    const result = await kv.list({ prefix, cursor });
+    keysToDelete.push(...result.keys.map(key => key.name));
+    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
+  } while (cursor);
+
+  // Delete all matching keys in parallel
+  if (keysToDelete.length > 0) {
+    await Promise.all(keysToDelete.map(key => kv.delete(key)));
+  }
+}
+
+/**
+ * Invalidate all collection cache entries for a given collection
+ * Uses kv.list to find and delete all cache keys matching the collection
+ */
+export async function invalidateCmsCollectionCache({
+  collectionSlug,
+}: {
+  collectionSlug: CollectionsUnion;
+}): Promise<void> {
+  const { env } = await getCloudflareContext({ async: true });
+  const kv = env.NEXT_INC_CACHE_KV;
+
+  if (!kv) {
+    return;
+  }
+
+  // Build the prefix to match all collection cache entries for this collection
+  const prefix = getCmsCollectionCacheKey({ collectionSlug });
+
+  // List all keys with this prefix
+  let cursor: string | undefined;
+  const keysToDelete: string[] = [];
+
+  do {
+    const result = await kv.list({ prefix, cursor });
+    keysToDelete.push(...result.keys.map(key => key.name));
+    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
+  } while (cursor);
+
+  // Delete all matching keys in parallel
+  if (keysToDelete.length > 0) {
+    await Promise.all(keysToDelete.map(key => kv.delete(key)));
+  }
+}
+
+/**
+ * Invalidate all collection caches across all collections
+ * Used when changes affect multiple collections (e.g., tag updates)
+ */
+async function invalidateAllCmsCollectionCaches(): Promise<void> {
+  const { env } = await getCloudflareContext({ async: true });
+  const kv = env.NEXT_INC_CACHE_KV;
+
+  if (!kv) {
+    return;
+  }
+
+  // Build the prefix to match ALL collection cache entries
+  const prefix = getCmsCollectionCacheKey({});
+
+  // List all keys with this prefix
+  let cursor: string | undefined;
+  const keysToDelete: string[] = [];
+
+  do {
+    const result = await kv.list({ prefix, cursor });
+    keysToDelete.push(...result.keys.map(key => key.name));
+    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
+  } while (cursor);
+
+  // Delete all matching keys in parallel
+  if (keysToDelete.length > 0) {
+    await Promise.all(keysToDelete.map(key => kv.delete(key)));
+  }
+}
+
+/**
+ * Helper function that checks if a scheduled entry should be auto-published
+ * and performs the status update if the publishedAt time has passed
+ */
+async function autoPublishScheduledEntry<T extends CmsEntry>(entry: T): Promise<T> {
+  if (entry.status === CMS_ENTRY_STATUS.SCHEDULED &&
+      entry.publishedAt &&
+      entry.publishedAt <= new Date()) {
+    // Update status to published
+    const db = getDB();
+    const [updated] = await db
+      .update(cmsEntryTable)
+      .set({ status: CMS_ENTRY_STATUS.PUBLISHED })
+      .where(eq(cmsEntryTable.id, entry.id))
+      .returning();
+
+    // Invalidate cache for both the specific entry and all collection listings
+    await Promise.all([
+      invalidateCmsEntryCache({
+        collectionSlug: entry.collection,
+        slug: entry.slug
+      }),
+      invalidateCmsCollectionCache({
+        collectionSlug: entry.collection
+      })
+    ]);
+
+    // Merge the updated status back into the original entry object to preserve relations
+    return { ...entry, status: updated.status } as T;
+  }
+  return entry;
+}
+
+/**
+ * Helper function to build status filter conditions
+ * When querying for published entries, also includes scheduled entries so they can be auto-published at runtime
+ */
+function buildStatusWhereCondition(status: CmsEntryStatus | 'all') {
+  if (status === 'all') {
+    return undefined;
+  }
+
+  if (status === CMS_ENTRY_STATUS.PUBLISHED) {
+    // Include both published and scheduled entries so we can auto-publish scheduled ones
+    return sql`${cmsEntryTable.status} IN (${CMS_ENTRY_STATUS.PUBLISHED}, ${CMS_ENTRY_STATUS.SCHEDULED})`;
+  }
+
+  return eq(cmsEntryTable.status, status);
+}
+
+/**
+ * Helper function to validate entry fields using collection's Zod schema
+ */
+function validateEntryFields(
+  fields: unknown,
+  collection: typeof cmsConfig.collections[keyof typeof cmsConfig.collections]
+): unknown {
+  if (!collection.fieldsSchema) {
+    return fields;
+  }
+
+  const parseResult = collection.fieldsSchema.safeParse(fields);
+  if (!parseResult.success) {
+    throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+  }
+
+  return parseResult.data;
+}
+
+/**
+ * Helper function to validate SEO description length
+ */
+function validateSeoDescription(seoDescription: string | null | undefined): void {
+  if (seoDescription && seoDescription.length > 160) {
+    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${seoDescription.length})`);
+  }
+}
+
+/**
+ * Helper function to handle publishedAt logic based on entry status
+ */
+function handlePublishedAt(
+  status: CmsEntryStatus,
+  publishedAt: Date | undefined,
+  existingPublishedAt?: Date | null
+): Date | undefined {
+  if (status === CMS_ENTRY_STATUS.PUBLISHED && !publishedAt && !existingPublishedAt) {
+    // Auto-set publishedAt to now for published entries
+    return new Date();
+  }
+
+  if (status === CMS_ENTRY_STATUS.SCHEDULED) {
+    // Validate that scheduled entries have a future publishedAt date
+    if (!publishedAt) {
+      throw new Error('publishedAt is required for scheduled entries');
+    }
+    if (publishedAt <= new Date()) {
+      throw new Error('publishedAt must be in the future for scheduled entries');
+    }
+  }
+
+  return publishedAt;
 }
 
 type CmsIncludeRelations = {
@@ -216,8 +465,9 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   return relations;
 }
 
-type GetCmsCollectionParams<T extends CollectionsUnion> = z.infer<typeof getCmsCollectionParamsSchema> & {
+type GetCmsCollectionParams<T extends CollectionsUnion> = Omit<z.infer<typeof getCmsCollectionParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
+  status?: CmsEntryStatus | 'all';
 };
 
 export type GetCmsCollectionResult = CmsEntry & {
@@ -277,41 +527,69 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
   const validated = getCmsCollectionParamsSchema.parse(params);
   const { collectionSlug, status, includeRelations, limit, offset } = validated;
 
-  const db = getDB();
-
-  const collection = cmsConfig.collections[collectionSlug];
-  if (!collection) {
-    throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
-  }
-
-  const whereConditions = [
-    eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-  ];
-
-  if (status !== 'all') {
-    whereConditions.push(eq(cmsEntryTable.status, status));
-  }
-
-  const query = db.query.cmsEntryTable.findMany({
-    where: and(...whereConditions),
-    orderBy: [desc(cmsEntryTable.createdAt)],
-    limit: limit,
-    offset: offset,
-    with: buildCmsRelationsQuery(includeRelations),
+  // Generate a unique cache key based on the query parameters
+  const cacheKey = getCmsCollectionCacheKey({
+    collectionSlug: collectionSlug as CollectionsUnion,
+    status,
+    includeRelations,
+    limit,
+    offset,
   });
 
-  const entries = await query;
+  return withKVCache(
+    async () => {
+      const db = getDB();
 
-  // Generate featured image URLs for all entries
-  const results = entries.map(entry => {
-    const result = entry as GetCmsCollectionResult;
-    if (result.featuredImage?.bucketKey) {
-      result.featuredImageUrl = getCmsImagePublicUrl(result.featuredImage.bucketKey);
+      const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+      if (!collection) {
+        throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+      }
+
+      const whereConditions = [
+        eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
+      ];
+
+      const statusCondition = buildStatusWhereCondition(status);
+      if (statusCondition) {
+        whereConditions.push(statusCondition);
+      }
+
+      let entries = await db.query.cmsEntryTable.findMany({
+        where: and(...whereConditions),
+        orderBy: [desc(cmsEntryTable.createdAt)],
+        limit: limit,
+        offset: offset,
+        with: buildCmsRelationsQuery(includeRelations),
+      });
+
+      // Auto-publish any scheduled entries that are due
+      entries = await Promise.all(entries.map(entry => autoPublishScheduledEntry(entry)));
+
+      // Filter out entries that are still scheduled (not yet ready to be published)
+      // This ensures scheduled entries with future publishedAt don't appear in public queries
+      if (status === CMS_ENTRY_STATUS.PUBLISHED) {
+        entries = entries.filter(entry => {
+          // Include published entries and scheduled entries that were just auto-published
+          return entry.status === CMS_ENTRY_STATUS.PUBLISHED;
+        });
+      }
+
+      // Generate featured image URLs for all entries
+      const results = entries.map(entry => {
+        const result = entry as GetCmsCollectionResult;
+        if (result.featuredImage?.bucketKey) {
+          result.featuredImageUrl = getCmsImagePublicUrl(result.featuredImage.bucketKey);
+        }
+        return result;
+      });
+
+      return results;
+    },
+    {
+      key: cacheKey,
+      ttl: "8 hours",
     }
-    return result;
-  });
-
-  return results;
+  );
 });
 
 /**
@@ -332,7 +610,7 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
 
   const db = getDB();
 
-  const collection = cmsConfig.collections[collectionSlug];
+  const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
@@ -341,8 +619,9 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
     eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
   ];
 
-  if (status !== 'all') {
-    whereConditions.push(eq(cmsEntryTable.status, status));
+  const statusCondition = buildStatusWhereCondition(status);
+  if (statusCondition) {
+    whereConditions.push(statusCondition);
   }
 
   const result = await db
@@ -393,8 +672,9 @@ export const getCmsEntryById = cache(async (params: GetCmsEntryByIdParams): Prom
   return result;
 });
 
-type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = z.infer<typeof getCmsEntryBySlugParamsSchema> & {
+type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = Omit<z.infer<typeof getCmsEntryBySlugParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
+  status?: CmsEntryStatus | 'all';
 };
 
 type GetCmsEntryBySlugResult = GetCmsCollectionResult;
@@ -439,16 +719,26 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
         eq(cmsEntryTable.slug, slug),
       ];
 
-      if (status !== 'all') {
-        whereConditions.push(eq(cmsEntryTable.status, status));
+      const statusCondition = buildStatusWhereCondition(status);
+      if (statusCondition) {
+        whereConditions.push(statusCondition);
       }
 
-      const entry = await db.query.cmsEntryTable.findFirst({
+      let entry = await db.query.cmsEntryTable.findFirst({
         where: and(...whereConditions),
         with: buildCmsRelationsQuery(includeRelations),
       });
 
       if (!entry) {
+        return null;
+      }
+
+      // Auto-publish if the entry is scheduled and the time has come
+      entry = await autoPublishScheduledEntry(entry);
+
+      // If entry is still scheduled (publishedAt in future), return null for public access
+      // This creates a 404 behavior for entries not yet published
+      if (status === CMS_ENTRY_STATUS.PUBLISHED && entry.status === CMS_ENTRY_STATUS.SCHEDULED) {
         return null;
       }
 
@@ -491,7 +781,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   params: CreateCmsEntryParams<T>
 ): Promise<CmsEntry> {
   const validated = createCmsEntryParamsSchema.parse(params);
-  const { collectionSlug, slug, title, content, fields, seoDescription, status, createdBy, tagIds, featuredImageId } = validated;
+  const { collectionSlug, slug, title, content, fields, seoDescription, status, publishedAt, createdBy, tagIds, featuredImageId } = validated;
 
   const db = getDB();
 
@@ -501,14 +791,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   }
 
   // Validate fields using Zod schema if provided
-  let validatedFields = fields;
-  if (collection.fieldsSchema) {
-    const parseResult = collection.fieldsSchema.safeParse(fields);
-    if (!parseResult.success) {
-      throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
-    }
-    validatedFields = parseResult.data;
-  }
+  const validatedFields = validateEntryFields(fields, collection);
 
   // Auto-generate SEO description if not provided
   let finalSeoDescription = seoDescription;
@@ -524,9 +807,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   }
 
   // Validate SEO description length
-  if (finalSeoDescription && finalSeoDescription.length > 160) {
-    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${finalSeoDescription.length})`);
-  }
+  validateSeoDescription(finalSeoDescription);
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
     where: and(
@@ -539,6 +820,9 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     throw new Error(`Entry with slug "${slug}" already exists in collection "${collection.slug}"`);
   }
 
+  // Handle publishedAt based on status
+  const finalPublishedAt = handlePublishedAt(status, publishedAt);
+
   const [newEntry] = await db.insert(cmsEntryTable).values({
     collection: collection.slug as CollectionsUnion,
     slug,
@@ -547,13 +831,14 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     fields: validatedFields,
     seoDescription: finalSeoDescription,
     status,
+    publishedAt: finalPublishedAt,
     createdBy,
     featuredImageId,
   }).returning();
 
   if (tagIds && tagIds.length > 0) {
     await db.insert(cmsEntryTagTable).values(
-      tagIds.map(tagId => ({
+      tagIds.map((tagId: string) => ({
         entryId: newEntry.id,
         tagId,
       }))
@@ -570,6 +855,11 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   // Skip creating initial version to save space
   // The version will be created automatically on first update
   // This avoids duplicating data between cms_entry and cms_entry_version
+
+  // Invalidate collection cache since we added a new entry
+  await invalidateCmsCollectionCache({
+    collectionSlug: collection.slug as CollectionsUnion
+  });
 
   return newEntry;
 }
@@ -593,7 +883,7 @@ type UpdateCmsEntryParams = z.infer<typeof updateCmsEntryParamsSchema> & {
  */
 export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsEntry | null> {
   const validated = updateCmsEntryParamsSchema.parse(params);
-  const { id, slug, title, content, fields, seoDescription, status, tagIds, featuredImageId } = validated;
+  const { id, slug, title, content, fields, seoDescription, status, publishedAt, tagIds, featuredImageId } = validated;
 
   const db = getDB();
 
@@ -610,17 +900,10 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     throw new Error(`Collection "${existingEntry.collection}" not found in CMS config`);
   }
 
-  // Use provided fields or keep existing ones (don't merge to allow field deletion)
-  const finalFields = fields !== undefined ? fields : existingEntry.fields;
-
   // Validate fields using Zod schema if provided
-  let validatedFields = finalFields;
-  if (collection.fieldsSchema) {
-    const parseResult = collection.fieldsSchema.safeParse(finalFields);
-    if (!parseResult.success) {
-      throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
-    }
-    validatedFields = parseResult.data;
+  let validatedFields: unknown = undefined;
+  if (fields !== undefined) {
+    validatedFields = validateEntryFields(fields, collection);
   }
 
   // Determine final SEO description
@@ -647,15 +930,10 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     if (generatedDescription) {
       finalSeoDescription = generatedDescription;
     }
-  } else if (finalSeoDescription === undefined) {
-    // Keep existing SEO description if not provided and nothing changed
-    finalSeoDescription = existingEntry.seoDescription ?? undefined;
   }
 
   // Validate SEO description length
-  if (finalSeoDescription && finalSeoDescription.length > 160) {
-    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${finalSeoDescription.length})`);
-  }
+  validateSeoDescription(finalSeoDescription);
 
   if (slug && slug !== existingEntry.slug) {
     const conflictingEntry = await db.query.cmsEntryTable.findFirst({
@@ -670,17 +948,33 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     }
   }
 
+  // Handle publishedAt based on status changes
+  const finalStatus = status ?? existingEntry.status;
+  const finalPublishedAt = publishedAt !== undefined
+    ? handlePublishedAt(finalStatus, publishedAt, existingEntry.publishedAt)
+    : undefined;
+
+  // Build update object with only fields that were explicitly provided
+  // This automatically filters out undefined values so we only update what was provided
+  const updateData = {
+    slug,
+    title,
+    content,
+    fields: validatedFields,
+    seoDescription: finalSeoDescription,
+    status,
+    publishedAt: finalPublishedAt,
+    featuredImageId,
+  };
+
+  // Remove undefined values to avoid updating fields that weren't provided
+  const filteredUpdateData = Object.fromEntries(
+    Object.entries(updateData).filter(([_, value]) => value !== undefined)
+  );
+
   const [updatedEntry] = await db
     .update(cmsEntryTable)
-    .set({
-      slug: slug,
-      title: title,
-      content: content,
-      fields: validatedFields,
-      seoDescription: finalSeoDescription,
-      status: status,
-      featuredImageId: featuredImageId,
-    })
+    .set(filteredUpdateData)
     .where(eq(cmsEntryTable.id, id))
     .returning();
 
@@ -689,7 +983,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
 
     if (tagIds.length > 0) {
       await db.insert(cmsEntryTagTable).values(
-        tagIds.map(tagId => ({
+        tagIds.map((tagId: string) => ({
           entryId: id,
           tagId,
         }))
@@ -730,14 +1024,18 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
 
   const nextVersionNumber = (latestVersion?.versionNumber ?? 1) + 1;
 
+  // Manually serialize JSON fields for D1 compatibility
+  const versionContent = content ?? existingEntry.content;
+  const versionFields = validatedFields ?? existingEntry.fields;
+
   await db.insert(cmsEntryVersionTable).values({
     entryId: id,
     versionNumber: nextVersionNumber,
     title: title ?? existingEntry.title,
-    content: (content ?? existingEntry.content) as JSONContent,
-    fields: validatedFields,
+    content: (versionContent) as JSONContent,
+    fields: versionFields,
     slug: slug ?? existingEntry.slug,
-    seoDescription: finalSeoDescription,
+    seoDescription: finalSeoDescription ?? existingEntry.seoDescription,
     status: status ?? existingEntry.status,
     featuredImageId: featuredImageId !== undefined ? featuredImageId : existingEntry.featuredImageId,
     createdBy: existingEntry.createdBy, // We might want to track who updated it, but schema currently uses createdBy. Assuming the user updating is the one creating the version.
@@ -748,11 +1046,14 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   const collectionSlug = existingEntry.collection;
 
   const slugsToInvalidate = new Set([oldSlug, newSlug]);
-  await Promise.all(
-    Array.from(slugsToInvalidate).map(slugToInvalidate =>
+
+  // Invalidate both entry-specific caches and collection listings
+  await Promise.all([
+    ...Array.from(slugsToInvalidate).map(slugToInvalidate =>
       invalidateCmsEntryCache({ collectionSlug, slug: slugToInvalidate })
-    )
-  );
+    ),
+    invalidateCmsCollectionCache({ collectionSlug })
+  ]);
 
   return updatedEntry || null;
 }
@@ -789,7 +1090,11 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
 
   await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, id));
 
-  await invalidateCmsEntryCache({ collectionSlug, slug });
+  // Invalidate both entry-specific cache and collection listings
+  await Promise.all([
+    invalidateCmsEntryCache({ collectionSlug, slug }),
+    invalidateCmsCollectionCache({ collectionSlug })
+  ]);
 }
 
 // Tag Management Functions
@@ -930,6 +1235,9 @@ export async function updateCmsTag(params: z.infer<typeof updateCmsTagParamsSche
     .where(eq(cmsTagTable.id, id))
     .returning();
 
+  // Invalidate all collection caches since tag data may be included in collection queries
+  await invalidateAllCmsCollectionCaches();
+
   return updatedTag;
 }
 
@@ -939,6 +1247,9 @@ export async function deleteCmsTag(id: z.infer<typeof deleteCmsTagParamsSchema>)
   const db = getDB();
 
   await db.delete(cmsTagTable).where(eq(cmsTagTable.id, validated));
+
+  // Invalidate all collection caches since deleted tag may have been included in collection queries
+  await invalidateAllCmsCollectionCaches();
 }
 
 // Version Management Functions
@@ -1096,9 +1407,12 @@ export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEn
     featuredImageId: version.featuredImageId,
   });
 
-  // Invalidate cache
+  // Invalidate cache for both entry and collection
   const collectionSlug = updatedEntry.collection;
-  await invalidateCmsEntryCache({ collectionSlug, slug: updatedEntry.slug });
+  await Promise.all([
+    invalidateCmsEntryCache({ collectionSlug, slug: updatedEntry.slug }),
+    invalidateCmsCollectionCache({ collectionSlug })
+  ]);
   // If slug changed, invalidate old slug too (though in revert we might not know the old slug easily without another query,
   // but usually reverts are for content/fields. If slug changed in history, it's safer to just invalidate the new slug
   // and let the old one expire or rely on the fact that we're mostly concerned with the current URL serving correct content).

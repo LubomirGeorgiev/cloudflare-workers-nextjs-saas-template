@@ -1,6 +1,6 @@
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 
-export interface CmsEntryStatusConfig {
+interface CmsEntryStatusConfig {
   value: string;
   label: string;
   color: string;
@@ -18,6 +18,12 @@ export const CMS_ENTRY_STATUS_CONFIG: CmsEntryStatusConfig[] = [
     value: CMS_ENTRY_STATUS.PUBLISHED,
     label: "Published",
     color: "bg-green-500",
+    badgeVariant: "default",
+  },
+  {
+    value: CMS_ENTRY_STATUS.SCHEDULED,
+    label: "Scheduled",
+    color: "bg-blue-500",
     badgeVariant: "default",
   },
   {

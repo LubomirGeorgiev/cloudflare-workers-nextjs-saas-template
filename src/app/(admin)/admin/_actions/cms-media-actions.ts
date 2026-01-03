@@ -9,6 +9,8 @@ import { eq, desc, sql } from "drizzle-orm";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
+import type { CollectionsUnion } from "@/../cms.config";
+import { invalidateCmsEntryCache, invalidateCmsCollectionCache } from "@/lib/cms/cms-repository";
 
 /**
  * List all media files with pagination and entry relationships
@@ -198,11 +200,16 @@ export const updateCmsMediaAction = createServerAction()
       const relatedEntries = await db
         .select({
           id: cmsEntryTable.id,
+          slug: cmsEntryTable.slug,
+          collection: cmsEntryTable.collection,
           content: cmsEntryTable.content,
         })
         .from(cmsEntryMediaTable)
         .innerJoin(cmsEntryTable, eq(cmsEntryMediaTable.entryId, cmsEntryTable.id))
         .where(eq(cmsEntryMediaTable.mediaId, mediaId));
+
+      const affectedCollections = new Set<CollectionsUnion>();
+      const entriesToInvalidate: Array<{ collectionSlug: CollectionsUnion; slug: string }> = [];
 
       // Update each entry's content
       for (const entry of relatedEntries) {
@@ -223,7 +230,38 @@ export const updateCmsMediaAction = createServerAction()
             .update(cmsEntryTable)
             .set({ content })
             .where(eq(cmsEntryTable.id, entry.id));
+
+          // Track entries and collections that need cache invalidation
+          affectedCollections.add(entry.collection);
+          entriesToInvalidate.push({
+            collectionSlug: entry.collection,
+            slug: entry.slug,
+          });
         }
+      }
+
+      // Invalidate caches for all affected entries and collections
+      if (entriesToInvalidate.length > 0) {
+        const invalidationPromises: Promise<void>[] = [];
+
+        // Invalidate entry-specific caches
+        for (const entry of entriesToInvalidate) {
+          invalidationPromises.push(
+            invalidateCmsEntryCache({
+              collectionSlug: entry.collectionSlug,
+              slug: entry.slug,
+            })
+          );
+        }
+
+        // Invalidate collection caches
+        for (const collection of affectedCollections) {
+          invalidationPromises.push(
+            invalidateCmsCollectionCache({ collectionSlug: collection })
+          );
+        }
+
+        await Promise.all(invalidationPromises);
       }
     }
 
