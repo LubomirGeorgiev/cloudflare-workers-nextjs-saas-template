@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cmsConfig } from "@/../cms.config";
 import { FileText, Tag, Image } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Content Management | Admin",
+  description: "Manage your content collections",
+};
 
 export default async function CmsPage() {
   const session = await requireAdmin({ doNotThrowError: true });

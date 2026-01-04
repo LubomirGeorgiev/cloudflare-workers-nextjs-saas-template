@@ -1,8 +1,36 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getCmsEntryById } from "@/lib/cms/cms-repository";
 import { CmsEntryForm } from "../_components/cms-entry-form";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ collection: string; entryId: string }>;
+}): Promise<Metadata> {
+  const { collection, entryId } = await params;
+  const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
+
+  if (!collectionConfig) {
+    return {
+      title: "Edit Entry | Admin",
+    };
+  }
+
+  const entry = await getCmsEntryById({
+    id: entryId,
+    includeRelations: {
+      tags: false,
+    }
+  });
+
+  return {
+    title: `Edit ${collectionConfig.labels.singular} | Admin`,
+    description: entry?.title || `Edit ${collectionConfig.labels.singular.toLowerCase()}`,
+  };
+}
 
 export default async function EditEntryPage({
   params,

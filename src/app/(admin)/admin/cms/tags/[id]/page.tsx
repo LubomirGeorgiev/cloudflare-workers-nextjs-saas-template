@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { getCmsTagById, getCmsEntriesByTagId } from "@/lib/cms/cms-repository";
@@ -9,6 +10,11 @@ import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
+
+export const metadata: Metadata = {
+  title: "Edit Tag | Admin",
+  description: "Update tag details and view entries using this tag",
+};
 
 export default async function EditTagPage({
   params,

@@ -20,6 +20,7 @@ import type { CmsEntryStatus } from "@/types/cms";
 
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
+// TODO Check if the tiptap editor supports warning and error blocks
 // TODO Add CMS documentation example with drag-and-drop navigation
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file

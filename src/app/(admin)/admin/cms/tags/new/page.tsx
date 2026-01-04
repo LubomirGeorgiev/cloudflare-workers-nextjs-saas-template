@@ -1,9 +1,15 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { TagForm } from "../_components/tag-form";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Create Tag | Admin",
+  description: "Add a new tag to categorize your content",
+};
 
 export default async function NewTagPage() {
   const session = await requireAdmin({ doNotThrowError: true });

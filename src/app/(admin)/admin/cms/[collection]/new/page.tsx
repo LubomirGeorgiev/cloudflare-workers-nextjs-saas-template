@@ -1,8 +1,29 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig } from "@/../cms.config";
 import { CmsEntryForm } from "../_components/cms-entry-form";
 import { type CollectionsUnion } from "@/../cms.config";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ collection: string }>;
+}): Promise<Metadata> {
+  const { collection } = await params;
+  const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
+
+  if (!collectionConfig) {
+    return {
+      title: "Create Entry | Admin",
+    };
+  }
+
+  return {
+    title: `Create ${collectionConfig.labels.singular} | Admin`,
+    description: `Add a new ${collectionConfig.labels.singular.toLowerCase()} to your collection`,
+  };
+}
 
 export default async function NewEntryPage({
   params,

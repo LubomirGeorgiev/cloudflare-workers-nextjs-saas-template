@@ -1,0 +1,96 @@
+---
+description: DRY (Don't Repeat Yourself) principles to avoid code duplication
+alwaysApply: true
+---
+# DRY (Don't Repeat Yourself) Principles
+
+## Core Rules
+
+### 1. Extract Magic Values to Constants
+
+If a value appears 2+ times, make it a constant.
+
+**Bad**: Hardcoded strings/numbers in multiple places
+**Good**: Single constant defined once, used everywhere
+
+**Where**: `src/constants.ts` or `src/app/enums.ts`
+
+
+### 2. Centralize Validation Limits
+
+Validation limits must be constants, not hardcoded numbers.
+
+**Bad**: maxLength={160}, z.string().max(160), if (text.length > 160)
+**Good**: Define MAX_LENGTH = 160 once, use everywhere
+
+**Why**: Single source of truth across schemas, UI, and logic.
+
+
+### 3. Extract Repeated Formatting
+
+If same formatting appears 2+ times, create utility function.
+
+**Examples**: Date formatting, number formatting, text transformations
+
+**Where**: `src/utils/` or `src/lib/`
+
+
+### 4. Helper Functions for Common Patterns
+
+If writing same code 3+ times, extract to helper function.
+
+**Principle**: If copy-pasting, you should be extracting.
+
+
+### 5. Extract Repeated Type Definitions
+
+If TypeScript type appears 2+ times, make it a named type.
+
+**Bad**: Union types repeated everywhere
+**Good**: Single type definition, reused
+
+
+### 6. Use Existing Type Aliases
+
+Check for existing types before writing verbose assertions.
+
+**Bad**: as keyof typeof config.items
+**Good**: Use ItemKey if it exists
+
+
+### 7. Centralize Cache Keys
+
+Cache keys in central constant, not hardcoded strings.
+
+**Where**: `src/utils/with-kv-cache.ts`
+
+
+## When NOT to Apply DRY
+
+Acceptable repetition:
+
+1. Simple patterns that are clear and explicit
+2. Different business logic that looks similar
+3. Framework boilerplate
+
+**Principle**: Prefer clear code over abstractions for simple patterns.
+
+
+## Checklist Before Committing
+
+- Hardcoded values appearing multiple times?
+- Repeated object literals or config?
+- Copy-pasted code blocks?
+- Repeated type annotations?
+- Would extraction improve readability?
+
+**Apply DRY if duplication causes maintenance risk and extraction improves clarity.**
+
+
+## Quick Reference
+
+**Constants** → `src/constants.ts` or `src/app/enums.ts`
+**Cache keys** → `src/utils/with-kv-cache.ts`
+**Utilities** → `src/utils/` or `src/lib/`
+**Types** → Same file or `src/types.ts`
+**Schemas** → `src/schemas/`

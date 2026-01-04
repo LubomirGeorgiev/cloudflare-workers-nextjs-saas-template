@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig } from "@/../cms.config";
@@ -7,8 +8,26 @@ import Link from "next/link";
 import { Plus, ArrowLeft } from "lucide-react";
 import { type CollectionsUnion } from "@/../cms.config";
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ collection: CollectionsUnion }>;
+}): Promise<Metadata> {
+  const { collection } = await params;
+  const collectionConfig = cmsConfig.collections[collection];
 
-// TODO We need to add page title and description to the page
+  if (!collectionConfig) {
+    return {
+      title: "Collection | Admin",
+    };
+  }
+
+  return {
+    title: `${collectionConfig.labels.plural} | Admin`,
+    description: `Manage your ${collectionConfig.labels.plural.toLowerCase()}`,
+  };
+}
+
 export default async function CollectionPage({
   params,
 }: {

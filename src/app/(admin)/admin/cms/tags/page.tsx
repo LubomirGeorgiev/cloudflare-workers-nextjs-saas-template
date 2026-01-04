@@ -1,3 +1,4 @@
+import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { getCmsTags } from "@/lib/cms/cms-repository";
@@ -12,6 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+export const metadata: Metadata = {
+  title: "Tags | Admin",
+  description: "Manage content tags and categories",
+};
 
 export default async function TagsPage() {
   const session = await requireAdmin({ doNotThrowError: true });
