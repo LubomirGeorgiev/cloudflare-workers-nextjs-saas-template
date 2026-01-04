@@ -39,3 +39,5 @@ export const CMS_ALLOWED_IMAGE_TYPES = [
   "image/webp",
   "image/svg+xml",
 ] as const;
+
+export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;

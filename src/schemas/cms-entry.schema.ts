@@ -2,6 +2,7 @@ import { z } from "zod";
 import { zodCollectionEnum } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { cmsEntryStatusTuple } from "@/types/cms";
+import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 
 // Zod schema for CMS entry status validation
 export const cmsEntryStatusSchema = z.enum(cmsEntryStatusTuple);
@@ -10,8 +11,8 @@ const baseCmsEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),
   slug: z.string().min(1, "Slug is required"),
   content: z.any(),
-  seoDescription: z.string().max(160, "SEO description must be 160 characters or less").optional(),
-  status: cmsEntryStatusSchema.default("draft"),
+  seoDescription: z.string().max(CMS_SEO_DESCRIPTION_MAX_LENGTH, `SEO description must be ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters or less`).optional(),
+  status: cmsEntryStatusSchema.default(CMS_ENTRY_STATUS.DRAFT),
   publishedAt: z.coerce.date().optional(),
   tagIds: z.array(z.string()).optional(),
   featuredImageId: z.string().nullable().optional(),

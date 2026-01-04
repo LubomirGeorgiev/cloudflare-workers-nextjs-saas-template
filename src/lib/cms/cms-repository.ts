@@ -9,6 +9,7 @@ import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
 import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, cmsEntryVersionTable, type CmsEntry, type CmsTag, type CmsEntryVersion } from "@/db/schema";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { withKVCache, CACHE_KEYS } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
@@ -19,6 +20,7 @@ import type { CmsEntryStatus } from "@/types/cms";
 
 // TODO Add tags list to blog posts
 // TODO Add authors to blog posts
+// TODO Add CMS documentation example with drag-and-drop navigation
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
@@ -66,7 +68,7 @@ const cmsEntryBaseSchema = z.object({
   title: z.string().min(1),
   content: z.any(), // JSONContent - complex type, validated separately
   fields: z.unknown(),
-  seoDescription: z.string().max(160).optional(),
+  seoDescription: z.string().max(CMS_SEO_DESCRIPTION_MAX_LENGTH).optional(),
   status: cmsEntryStatusSchema.optional(),
   publishedAt: z.date().optional(),
   tagIds: z.array(z.string()).optional(),
@@ -180,7 +182,7 @@ function getCmsEntryCacheKey({
   slug: string;
   status?: CmsEntryStatus | 'all';
 }): string {
-  const base = `cms:entry:${collectionSlug}:${slug}`;
+  const base = `${CACHE_KEYS.CMS_ENTRY}:${collectionSlug}:${slug}`;
   return status ? `${base}:${status}` : base;
 }
 
@@ -385,8 +387,8 @@ function validateEntryFields(
  * Helper function to validate SEO description length
  */
 function validateSeoDescription(seoDescription: string | null | undefined): void {
-  if (seoDescription && seoDescription.length > 160) {
-    throw new Error(`SEO description exceeds maximum length of 160 characters (got ${seoDescription.length})`);
+  if (seoDescription && seoDescription.length > CMS_SEO_DESCRIPTION_MAX_LENGTH) {
+    throw new Error(`SEO description exceeds maximum length of ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters (got ${seoDescription.length})`);
   }
 }
 

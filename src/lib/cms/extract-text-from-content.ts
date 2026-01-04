@@ -3,6 +3,7 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 import { renderToMarkdown } from "@tiptap/static-renderer/pm/markdown";
 import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions";
+import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 
 /**
  * Extract plain text from TipTap JSON content using official markdown renderer
@@ -37,7 +38,7 @@ export function extractTextFromContent(content: JSONContent): string {
  */
 export function generateMetaDescription(
   content: JSONContent,
-  maxLength: number = 160
+  maxLength: number = CMS_SEO_DESCRIPTION_MAX_LENGTH
 ): string {
   const plainText = extractTextFromContent(content)
     .replace(/\s+/g, " ")

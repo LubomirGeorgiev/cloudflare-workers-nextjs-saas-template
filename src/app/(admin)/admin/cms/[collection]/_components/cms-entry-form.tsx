@@ -46,7 +46,7 @@ import type { CmsTag } from "@/db/schema";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import useBeforeUnload from "@/hooks/use-before-unload";
-import { SITE_URL } from "@/constants";
+import { SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { Route } from "next";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
@@ -507,9 +507,9 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                           <div className="relative">
                             <Textarea
                               {...field}
-                              placeholder="Enter SEO meta description (max 160 characters)..."
+                              placeholder={`Enter SEO meta description (max ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters)...`}
                               className="pr-10"
-                              maxLength={160}
+                              maxLength={CMS_SEO_DESCRIPTION_MAX_LENGTH}
                               rows={3}
                             />
                             <TooltipProvider>
@@ -538,7 +538,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                           </div>
                         </FormControl>
                         <FormDescription>
-                          Meta description for search engines (max 160 characters). Leave empty to auto-generate on save.
+                          Meta description for search engines (max {CMS_SEO_DESCRIPTION_MAX_LENGTH} characters). Leave empty to auto-generate on save.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
