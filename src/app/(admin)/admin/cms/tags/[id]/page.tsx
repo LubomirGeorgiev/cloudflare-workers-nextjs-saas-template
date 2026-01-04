@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ArrowLeft, FileText } from "lucide-react";
-import { cmsConfig } from "@/../cms.config";
+import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 
 export default async function EditTagPage({
@@ -67,7 +67,7 @@ export default async function EditTagPage({
             ) : (
               <div className="space-y-6">
                 {Object.entries(entriesByCollection).map(([collectionSlug, entries]) => {
-                  const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+                  const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
                   const collectionName = collection?.labels.plural || collectionSlug;
 
                   return (

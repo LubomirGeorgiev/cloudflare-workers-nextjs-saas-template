@@ -555,7 +555,7 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
     async () => {
       const db = getDB();
 
-      const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+      const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
       if (!collection) {
         throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
       }
@@ -627,7 +627,7 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
 
   const db = getDB();
 
-  const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+  const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
@@ -920,7 +920,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     throw new Error(`Entry with id "${id}" not found`);
   }
 
-  const collection = cmsConfig.collections[existingEntry.collection as keyof typeof cmsConfig.collections];
+  const collection = cmsConfig.collections[existingEntry.collection as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${existingEntry.collection}" not found in CMS config`);
   }

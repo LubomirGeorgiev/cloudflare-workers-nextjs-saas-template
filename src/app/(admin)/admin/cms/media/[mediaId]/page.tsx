@@ -10,7 +10,7 @@ import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
 import { EditAltText } from "./_components/edit-alt-text";
-import { cmsConfig } from "@/../cms.config";
+import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 
 export const metadata: Metadata = {
@@ -165,7 +165,7 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
           ) : (
             <div className="space-y-6">
               {Object.entries(entriesByCollection).map(([collectionSlug, entries]) => {
-                const collection = cmsConfig.collections[collectionSlug as keyof typeof cmsConfig.collections];
+                const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
                 const collectionName = collection?.labels.plural || collectionSlug;
 
                 return (

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createServerAction, ZSAError } from "zsa";
 import { requireAdmin } from "@/utils/auth";
-import { cmsConfig, zodCollectionEnum } from "@/../cms.config";
+import { cmsConfig, zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema, cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
@@ -60,7 +60,7 @@ export const createCmsEntryAction = createServerAction()
 
     const newEntry = await createCmsEntry({
       ...input,
-      collectionSlug: input.collection as keyof typeof cmsConfig.collections,
+      collectionSlug: input.collection as CollectionsUnion,
       createdBy: session.userId,
     });
 

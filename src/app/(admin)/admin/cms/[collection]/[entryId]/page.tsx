@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
-import { cmsConfig } from "@/../cms.config";
+import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getCmsEntryById } from "@/lib/cms/cms-repository";
 import { CmsEntryForm } from "../_components/cms-entry-form";
 
@@ -17,7 +17,7 @@ export default async function EditEntryPage({
 
   const { collection, entryId } = await params;
 
-  const collectionConfig = cmsConfig.collections[collection as keyof typeof cmsConfig.collections];
+  const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
 
   if (!collectionConfig) {
     return redirect("/admin/cms");
