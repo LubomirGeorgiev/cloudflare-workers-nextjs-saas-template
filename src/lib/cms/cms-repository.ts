@@ -284,6 +284,23 @@ export async function invalidateCmsCollectionCache({
 }
 
 /**
+ * Helper function to invalidate both entry-specific cache and collection listings
+ * This is a common pattern used after creating, updating, or deleting CMS entries
+ */
+async function invalidateEntryAndCollection({
+  collectionSlug,
+  slug,
+}: {
+  collectionSlug: CollectionsUnion;
+  slug: string;
+}): Promise<void> {
+  await Promise.all([
+    invalidateCmsEntryCache({ collectionSlug, slug }),
+    invalidateCmsCollectionCache({ collectionSlug })
+  ]);
+}
+
+/**
  * Invalidate all collection caches across all collections
  * Used when changes affect multiple collections (e.g., tag updates)
  */
@@ -331,15 +348,10 @@ async function autoPublishScheduledEntry<T extends CmsEntry>(entry: T): Promise<
       .returning();
 
     // Invalidate cache for both the specific entry and all collection listings
-    await Promise.all([
-      invalidateCmsEntryCache({
-        collectionSlug: entry.collection,
-        slug: entry.slug
-      }),
-      invalidateCmsCollectionCache({
-        collectionSlug: entry.collection
-      })
-    ]);
+    await invalidateEntryAndCollection({
+      collectionSlug: entry.collection,
+      slug: entry.slug
+    });
 
     // Merge the updated status back into the original entry object to preserve relations
     return { ...entry, status: updated.status } as T;
@@ -1104,10 +1116,7 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
   await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, id));
 
   // Invalidate both entry-specific cache and collection listings
-  await Promise.all([
-    invalidateCmsEntryCache({ collectionSlug, slug }),
-    invalidateCmsCollectionCache({ collectionSlug })
-  ]);
+  await invalidateEntryAndCollection({ collectionSlug, slug });
 }
 
 // Tag Management Functions
@@ -1421,11 +1430,10 @@ export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEn
   });
 
   // Invalidate cache for both entry and collection
-  const collectionSlug = updatedEntry.collection;
-  await Promise.all([
-    invalidateCmsEntryCache({ collectionSlug, slug: updatedEntry.slug }),
-    invalidateCmsCollectionCache({ collectionSlug })
-  ]);
+  await invalidateEntryAndCollection({
+    collectionSlug: updatedEntry.collection,
+    slug: updatedEntry.slug
+  });
   // If slug changed, invalidate old slug too (though in revert we might not know the old slug easily without another query,
   // but usually reverts are for content/fields. If slug changed in history, it's safer to just invalidate the new slug
   // and let the old one expire or rely on the fact that we're mostly concerned with the current URL serving correct content).

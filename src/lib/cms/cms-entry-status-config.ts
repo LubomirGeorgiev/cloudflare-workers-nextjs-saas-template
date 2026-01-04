@@ -1,10 +1,12 @@
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 
+type BadgeVariant = "default" | "secondary" | "outline" | "destructive";
+
 interface CmsEntryStatusConfig {
   value: string;
   label: string;
   color: string;
-  badgeVariant: "default" | "secondary" | "outline" | "destructive";
+  badgeVariant: BadgeVariant;
 }
 
 export const CMS_ENTRY_STATUS_CONFIG: CmsEntryStatusConfig[] = [
@@ -44,8 +46,6 @@ export function getStatusConfig(status: string): CmsEntryStatusConfig | undefine
 /**
  * Get the badge variant for a status
  */
-export function getStatusBadgeVariant(
-  status: string
-): "default" | "secondary" | "outline" | "destructive" {
+export function getStatusBadgeVariant(status: string): BadgeVariant {
   return getStatusConfig(status)?.badgeVariant ?? "secondary";
 }

@@ -55,6 +55,7 @@ import { CMS_ENTRY_STATUS_CONFIG } from "@/lib/cms/cms-entry-status-config";
 import { FeaturedImageUpload } from "./featured-image-upload";
 import { VersionHistory } from "./version-history";
 import { History } from "lucide-react";
+import { formatDateTime } from "@/utils/format-date";
 import type { CmsEntryVersion } from "@/db/schema";
 
 type CmsEntryFormProps = {
@@ -756,13 +757,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                       {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(entry.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDateTime(entry.createdAt)}
                     </p>
                   </div>
                   <div>
@@ -771,13 +766,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                       {formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true })}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(entry.updatedAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatDateTime(entry.updatedAt)}
                     </p>
                   </div>
                   {entry.publishedAt && (
@@ -789,13 +778,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                         {formatDistanceToNow(new Date(entry.publishedAt), { addSuffix: true })}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {new Date(entry.publishedAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                        {formatDateTime(entry.publishedAt)}
                       </p>
                     </div>
                   )}
