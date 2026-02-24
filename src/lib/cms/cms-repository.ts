@@ -18,13 +18,14 @@ import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
 import type { CmsEntryStatus } from "@/types/cms";
 
-// TODO Add tags list to blog posts
-// TODO Add authors to blog posts
 // TODO Check if the tiptap editor supports warning and error blocks
+// TODO Add blog table of contents
+// TODO Add open graph image generation
 // TODO Add CMS documentation example with drag-and-drop navigation
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
+// TODO Replace Radix with BaseUI
 
 // Zod Schemas for validation
 // TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.

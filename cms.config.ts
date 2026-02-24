@@ -10,6 +10,13 @@ const blogFieldsSchema = z.object({
 
 export type BlogFields = z.infer<typeof blogFieldsSchema>;
 
+/**
+ * ***************************************************************************************
+ *
+ * When you add a new collection don't forget to also add it to the sitemap.ts file !!!
+ *
+ * ***************************************************************************************
+ */
 const blogCollection = {
   slug: "blog",
   labels: {

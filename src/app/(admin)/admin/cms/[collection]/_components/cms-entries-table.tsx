@@ -4,9 +4,9 @@ import { useEffect, useState, useMemo } from "react";
 import { useServerAction } from "zsa-react";
 import { listCmsEntriesAction, deleteCmsEntryAction } from "../../../_actions/cms-entry-actions";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { CmsEntryTags } from "@/components/cms-entry-tags";
 import {
   Select,
   SelectContent,
@@ -82,30 +82,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
       header: "Tags",
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
-          {row.original.tags && row.original.tags.length > 0 ? (
-            <>
-              {row.original.tags.slice(0, 3).map((entryTag) => (
-                <Badge
-                  key={entryTag.tag.id}
-                  variant="outline"
-                  className="text-xs"
-                  style={{
-                    backgroundColor: entryTag.tag.color ? `${entryTag.tag.color}20` : undefined,
-                    borderColor: entryTag.tag.color || undefined,
-                  }}
-                >
-                  {entryTag.tag.name}
-                </Badge>
-              ))}
-              {row.original.tags.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{row.original.tags.length - 3}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <span className="text-muted-foreground text-sm">—</span>
-          )}
+          <CmsEntryTags tags={row.original.tags} variant="outline" emptyText="—" />
         </div>
       ),
     },
@@ -116,7 +93,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
         <span>
           {row.original.createdByUser
             ? `${row.original.createdByUser.firstName || ""} ${row.original.createdByUser.lastName || ""}`.trim() ||
-              row.original.createdByUser.email
+            row.original.createdByUser.email
             : "Unknown"}
         </span>
       ),
@@ -173,30 +150,6 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
 
   return (
     <>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filter by status:</span>
-          <Select
-            value={statusFilter}
-            onValueChange={(value) => {
-              setStatusFilter(value as StatusFilter);
-              setPageIndex(0);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       {isPending ? (
         <div className="flex items-center justify-center py-8">
           <div className="text-sm text-muted-foreground">Loading entries...</div>
@@ -218,6 +171,29 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
           itemNamePlural="entries"
           getRowHref={(row) => `/admin/cms/${collection}/${row.id}`}
           excludeClickableColumns={["actions"]}
+          filterComponents={(
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Filter by status:</span>
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value as StatusFilter);
+                  setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         />
       )}
 

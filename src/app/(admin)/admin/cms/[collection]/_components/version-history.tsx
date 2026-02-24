@@ -22,6 +22,7 @@ import { useServerAction } from "zsa-react";
 import { revertCmsEntryVersionAction, getCmsEntryVersionsAction, deleteCmsEntryVersionAction } from "../../_actions/version-actions";
 import { toast } from "sonner";
 import { CmsContentRenderer } from "@/components/cms-content-renderer";
+import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss";
 
@@ -545,8 +546,7 @@ function serializeToBlocks(root: HTMLElement): BlockNode[] {
 
 type VersionHistoryProps = {
   entryId: string;
-  // TODO currentVersion should be of type GetCmsCollectionResult
-  currentVersion: CmsEntryVersion | null; // Using CmsEntryVersion type for current state too for simplicity
+  currentVersion: GetCmsCollectionResult | null;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -796,13 +796,13 @@ export function VersionHistory({
                  return (
                    <div
                      key={version.id}
-                     className={`relative group rounded-lg border transition-colors ${
+                     className={`relative group rounded-lg border transition-all ${
                        selectedVersion?.id === version.id ? "bg-muted border-primary/50 ring-1 ring-primary/20" : "bg-card border-border"
                      }`}
                    >
                      <button
                        onClick={() => setSelectedVersion(version)}
-                       className={`w-full text-left p-3 hover:bg-muted/50 rounded-lg transition-colors ${canDelete ? 'pr-10' : ''}`}
+                       className={`w-full text-left p-3 hover:bg-muted/50 rounded-lg transition-all ${canDelete ? 'pr-10' : ''}`}
                      >
                        <div className="flex items-center gap-2 mb-1">
                          <span className="font-medium text-sm">Version {version.versionNumber}</span>
@@ -821,7 +821,7 @@ export function VersionHistory({
                        <button
                          onClick={(e) => handleDelete(version.id, e)}
                          disabled={isDeleting}
-                         className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                         className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50"
                          title="Delete version"
                        >
                          <Trash2 className="h-3.5 w-3.5" />

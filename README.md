@@ -7,8 +7,6 @@
 
 This is a SaaS template for Cloudflare Workers. It uses the [OpenNext](https://opennext.js.org/cloudflare) framework to build a SaaS application.
 
-Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overview of the project.
-
 > [!TIP]
 > This template is brought to you by 👉 [AgenticDev](https://agenticdev.agency/?ref=github-readme-nextjs-template) 👈 - where we help businesses automate operations and boost productivity through custom AI implementations. Just like this open-source project demonstrates technical excellence, we deliver:
 >
@@ -132,8 +130,10 @@ Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overv
 3.  Copy `.dev.vars.example` to `.dev.vars` and fill in the values.
 4.  Copy `.env.example` to `.env` and fill in the values.
 5. `pnpm db:migrate:dev` - Creates a local SQLite database and applies migrations
-6. `pnpm dev`
-7.  Open http://localhost:3000
+6. `pnpm db:seed` - Seeds the database with test data
+7. `pnpm dev`
+8.  Go to https://localhost:3000/sign-in and login with the test user credentials: test@test.com / password
+9.  Go to https://localhost:3000/admin to manage users and the CMS.
 
 ## Changes to wrangler.jsonc
 

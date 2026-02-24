@@ -25,6 +25,7 @@ export const CREDITS_EXPIRATION_YEARS = 2;
 export const FREE_MONTHLY_CREDITS = CREDIT_PACKAGES[0].credits * 0.1;
 
 export const MAX_TRANSACTIONS_PER_PAGE = 10;
+export const BLOG_POSTS_PER_PAGE = 12;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
 export const CMS_SEO_DESCRIPTION_AI_MODEL = '@cf/meta/llama-3.2-3b-instruct' as const satisfies keyof AiModels;
 

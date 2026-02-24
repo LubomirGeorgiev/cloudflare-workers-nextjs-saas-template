@@ -42,7 +42,6 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { generateSlug } from "@/utils/slugify";
-import type { CmsTag } from "@/db/schema";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import useBeforeUnload from "@/hooks/use-before-unload";
@@ -56,7 +55,6 @@ import { FeaturedImageUpload } from "./featured-image-upload";
 import { VersionHistory } from "./version-history";
 import { History } from "lucide-react";
 import { formatDateTime } from "@/utils/format-date";
-import type { CmsEntryVersion } from "@/db/schema";
 
 type CmsEntryFormProps = {
   collection: string;
@@ -411,7 +409,7 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                 </Button>
                 <VersionHistory
                   entryId={entry.id}
-                  currentVersion={entry as unknown as CmsEntryVersion} // Casting for compatibility
+                  currentVersion={entry}
                   isOpen={isVersionHistoryOpen}
                   onOpenChange={setIsVersionHistoryOpen}
                 />

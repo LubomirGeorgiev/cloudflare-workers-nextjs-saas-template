@@ -50,6 +50,7 @@ interface DataTableProps<TData, TValue> {
   pageSizeOptions?: number[]
   getRowHref?: (row: TData) => string
   excludeClickableColumns?: string[]
+  filterComponents?: React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -66,6 +67,7 @@ export function DataTable<TData, TValue>({
   pageSizeOptions = [10, 20, 100],
   getRowHref,
   excludeClickableColumns = ["actions"],
+  filterComponents,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
@@ -92,57 +94,77 @@ export function DataTable<TData, TValue>({
     },
   })
 
+  const rowsPerPageSelect = (
+    <div className="flex items-center space-x-2">
+      <p className="text-sm font-medium">Rows per page</p>
+      <Select
+        value={`${pageSize}`}
+        onValueChange={(value: string) => {
+          onPageSizeChange(Number(value))
+          onPageChange(0)
+        }}
+      >
+        <SelectTrigger className="h-8 w-[70px]">
+          <SelectValue placeholder={pageSize} />
+        </SelectTrigger>
+        <SelectContent side="top">
+          {pageSizeOptions?.map((size) => (
+            <SelectItem key={size} value={`${size}`}>
+              {size}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
+  const columnsDropdown = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className={filterComponents ? "" : "ml-auto"}>
+          Columns
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {table
+          .getAllColumns()
+          .filter((column) => column.getCanHide())
+          .map((column) => {
+            return (
+              <DropdownMenuCheckboxItem
+                key={column.id}
+                className="capitalize"
+                checked={column.getIsVisible()}
+                onCheckedChange={(value) =>
+                  column.toggleVisibility(!!value)
+                }
+              >
+                {column.id}
+              </DropdownMenuCheckboxItem>
+            )
+          })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+
   return (
     <div>
       <div className="flex items-center py-4">
-        <div className="flex items-center space-x-2">
-          <p className="text-sm font-medium">Rows per page</p>
-          <Select
-            value={`${pageSize}`}
-            onValueChange={(value: string) => {
-              onPageSizeChange(Number(value))
-              onPageChange(0)
-            }}
-          >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {pageSizeOptions?.map((size) => (
-                <SelectItem key={size} value={`${size}`}>
-                  {size}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={column.id}
-                    className="capitalize"
-                    checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
-                      column.toggleVisibility(!!value)
-                    }
-                  >
-                    {column.id}
-                  </DropdownMenuCheckboxItem>
-                )
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {filterComponents ? (
+          <>
+            {filterComponents}
+            <div className="ml-auto flex items-center space-x-6">
+              {columnsDropdown}
+              {rowsPerPageSelect}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-between w-full">
+            {rowsPerPageSelect}
+            {columnsDropdown}
+          </div>
+        )}
       </div>
       <div className="rounded-md border">
         <Table>

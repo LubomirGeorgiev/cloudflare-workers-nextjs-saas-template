@@ -273,17 +273,11 @@ export async function consumeCredits({ userId, amount, description }: { userId: 
   }
 
   const db = getDB();
+  const currentTime = new Date();
 
   // First check if user has enough credits
-  // TODO: use hasEnoughCredits function instead
-  const user = await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
-    columns: {
-      currentCredits: true,
-    },
-  });
-
-  if (!user || user.currentCredits < amount) {
+  const hasCredits = await hasEnoughCredits({ userId, requiredCredits: amount });
+  if (!hasCredits) {
     throw new Error("Insufficient credits");
   }
 
@@ -295,7 +289,7 @@ export async function consumeCredits({ userId, amount, description }: { userId: 
       isNull(creditTransactionTable.expirationDateProcessedAt),
       or(
         isNull(creditTransactionTable.expirationDate),
-        gt(creditTransactionTable.expirationDate, new Date())
+        gt(creditTransactionTable.expirationDate, currentTime)
       )
     ),
     orderBy: [asc(creditTransactionTable.createdAt)],
@@ -361,8 +355,8 @@ export async function consumeCredits({ userId, amount, description }: { userId: 
     remainingAmount: 0, // Usage transactions don't have remaining amount
     type: CREDIT_TRANSACTION_TYPE.USAGE,
     description,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: currentTime,
+    updatedAt: currentTime,
   });
 
   // Update all KV sessions to reflect the new credit balance
