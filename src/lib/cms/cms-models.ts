@@ -8,6 +8,7 @@ export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAn
   };
   fieldsSchema?: TFieldsSchema;
   previewUrl?: (slug: string) => string;
+  includeInSitemap?: boolean;
 };
 
 export type DefineCmsConfig = {

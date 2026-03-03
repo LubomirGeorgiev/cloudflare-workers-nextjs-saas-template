@@ -1,12 +1,17 @@
 import "server-only"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsCollection } from "@/lib/cms/cms-repository"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { BlogCard } from "@/components/blog-card"
-import { SITE_URL } from "@/constants"
+import { SITE_NAME, SITE_URL } from "@/constants"
+import {
+  getAuthorDisplayName,
+  getAuthorRouteParam,
+  parseAuthorIdFromRouteParam,
+} from "@/utils/blog-author-url"
 import type { Person, WithContext } from "schema-dts"
 
 type AuthorPageProps = {
@@ -18,7 +23,14 @@ type AuthorPageProps = {
 export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
-  const { authorId } = await params
+  const { authorId: authorRouteParam } = await params
+  const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
+
+  if (!parsedAuthorId) {
+    return {
+      title: "Author Not Found",
+    }
+  }
 
   const blogEntries = await getCmsCollection({
     collectionSlug: 'blog',
@@ -26,7 +38,7 @@ export async function generateMetadata({
   })
 
   const authorEntries = blogEntries.filter(
-    entry => entry.createdByUser?.id === authorId
+    entry => entry.createdByUser?.id === parsedAuthorId
   )
 
   if (authorEntries.length === 0) {
@@ -36,7 +48,8 @@ export async function generateMetadata({
   }
 
   const author = authorEntries[0].createdByUser!
-  const authorName = [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email || 'Unknown Author'
+  const authorName = getAuthorDisplayName(author)
+  const canonicalAuthorParam = getAuthorRouteParam(author)
 
   const avatarUrl = author.avatar ? `${SITE_URL}${author.avatar}` : undefined
 
@@ -44,13 +57,13 @@ export async function generateMetadata({
     title: `${authorName} - Blog Authors`,
     description: `Browse blog posts by ${authorName}`,
     alternates: {
-      canonical: `/blog/authors/${authorId}`,
+      canonical: `/blog/authors/${canonicalAuthorParam}`,
     },
     openGraph: {
       title: `${authorName} - Blog Authors`,
       description: `Browse blog posts by ${authorName}`,
       type: "profile",
-      url: `/blog/authors/${authorId}`,
+      url: `/blog/authors/${canonicalAuthorParam}`,
       ...(avatarUrl && {
         images: [avatarUrl],
       }),
@@ -67,7 +80,12 @@ export async function generateMetadata({
 }
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
-  const { authorId } = await params
+  const { authorId: authorRouteParam } = await params
+  const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
+
+  if (!parsedAuthorId) {
+    notFound()
+  }
 
   const blogEntries = await getCmsCollection({
     collectionSlug: 'blog',
@@ -75,7 +93,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   })
 
   const authorEntries = blogEntries.filter(
-    entry => entry.createdByUser?.id === authorId
+    entry => entry.createdByUser?.id === parsedAuthorId
   )
 
   if (authorEntries.length === 0) {
@@ -83,14 +101,19 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   }
 
   const author = authorEntries[0].createdByUser!
-  const authorName = [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email || 'Unknown Author'
+  const authorName = getAuthorDisplayName(author)
+  const canonicalAuthorParam = getAuthorRouteParam(author)
+
+  if (authorRouteParam !== canonicalAuthorParam) {
+    redirect(`/blog/authors/${canonicalAuthorParam}`)
+  }
 
   // JSON-LD structured data for Person
   const jsonLd: WithContext<Person> = {
     "@context": "https://schema.org",
     "@type": "Person",
     name: authorName,
-    url: `${SITE_URL}/blog/authors/${authorId}`,
+    url: `${SITE_URL}/blog/authors/${canonicalAuthorParam}`,
     ...(author.avatar && {
       image: `${SITE_URL}${author.avatar}`,
     }),
@@ -99,7 +122,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     }),
     worksFor: {
       "@type": "Organization",
-      name: "SaaS Template",
+      name: SITE_NAME,
     },
   }
 

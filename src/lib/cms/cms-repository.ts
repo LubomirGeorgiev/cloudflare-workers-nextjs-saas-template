@@ -285,6 +285,17 @@ export async function invalidateCmsCollectionCache({
   }
 }
 
+async function invalidateSitemapCache(): Promise<void> {
+  const { env } = await getCloudflareContext({ async: true });
+  const kv = env.NEXT_INC_CACHE_KV;
+
+  if (!kv) {
+    return;
+  }
+
+  await kv.delete(CACHE_KEYS.SITEMAP);
+}
+
 /**
  * Helper function to invalidate both entry-specific cache and collection listings
  * This is a common pattern used after creating, updating, or deleting CMS entries
@@ -298,7 +309,8 @@ async function invalidateEntryAndCollection({
 }): Promise<void> {
   await Promise.all([
     invalidateCmsEntryCache({ collectionSlug, slug }),
-    invalidateCmsCollectionCache({ collectionSlug })
+    invalidateCmsCollectionCache({ collectionSlug }),
+    invalidateSitemapCache(),
   ]);
 }
 
@@ -331,6 +343,8 @@ async function invalidateAllCmsCollectionCaches(): Promise<void> {
   if (keysToDelete.length > 0) {
     await Promise.all(keysToDelete.map(key => kv.delete(key)));
   }
+
+  await invalidateSitemapCache();
 }
 
 /**
@@ -883,10 +897,13 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   // The version will be created automatically on first update
   // This avoids duplicating data between cms_entry and cms_entry_version
 
-  // Invalidate collection cache since we added a new entry
-  await invalidateCmsCollectionCache({
-    collectionSlug: collection.slug as CollectionsUnion
-  });
+  // Invalidate collection cache and sitemap since we added a new entry
+  await Promise.all([
+    invalidateCmsCollectionCache({
+      collectionSlug: collection.slug as CollectionsUnion
+    }),
+    invalidateSitemapCache(),
+  ]);
 
   return newEntry;
 }
@@ -1079,7 +1096,8 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     ...Array.from(slugsToInvalidate).map(slugToInvalidate =>
       invalidateCmsEntryCache({ collectionSlug, slug: slugToInvalidate })
     ),
-    invalidateCmsCollectionCache({ collectionSlug })
+    invalidateCmsCollectionCache({ collectionSlug }),
+    invalidateSitemapCache(),
   ]);
 
   return updatedEntry || null;

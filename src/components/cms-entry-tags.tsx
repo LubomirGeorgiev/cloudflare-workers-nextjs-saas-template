@@ -24,6 +24,9 @@ export function CmsEntryTags({
   emptyText,
   linkHref,
 }: CmsEntryTagsProps) {
+  const badgeClassName =
+    "text-xs border shadow-sm dark:shadow-[0_1px_4px_0_rgba(255,255,255,0.1)]";
+
   if (!tags || tags.length === 0) {
     return emptyText ? (
       <span className="text-muted-foreground text-sm">{emptyText}</span>
@@ -37,7 +40,7 @@ export function CmsEntryTags({
     const badge = (
       <Badge
         variant={variant}
-        className="text-xs border shadow-sm dark:shadow-[0_1px_4px_0_rgba(255,255,255,0.1)]"
+        className={badgeClassName}
         style={
           tag.color
             ? variant === "outline"
@@ -73,10 +76,12 @@ export function CmsEntryTags({
         <span key={tag.id}>{renderBadge(tag)}</span>
       ))}
       {remainingCount > 0 && (
-        <Badge variant="outline" className="text-xs shadow-sm dark:shadow-[0_1px_4px_0_rgba(255,255,255,0.1)]">
-          +{remainingCount}
-          {variant === "secondary" && " more"}
-        </Badge>
+        <span>
+          <Badge variant="outline" className={badgeClassName}>
+            +{remainingCount}
+            {variant === "secondary" && " more"}
+          </Badge>
+        </span>
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
@@ -7,11 +7,16 @@ import { CmsContentRenderer } from "@/components/cms-content-renderer"
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
 import Image from "next/image"
-import { SITE_URL } from "@/constants"
+import { SITE_NAME, SITE_URL } from "@/constants"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
 import type { BlogPosting, BreadcrumbList, WithContext } from "schema-dts"
+import { BlogListPage, getBlogListPageMetadata } from "../_components/blog-list-page"
+import { getBlogPagePath } from "@/lib/blog-routing"
+import { getValidPageNumber } from "@/utils/get-valid-page-number"
+import { getAuthorRouteParam } from "@/utils/blog-author-url"
+import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -23,6 +28,11 @@ export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params
+  const validPageNumber = getValidPageNumber({ value: slug })
+
+  if (validPageNumber) {
+    return getBlogListPageMetadata({ page: validPageNumber })
+  }
 
   const entry = await getCmsEntryBySlug({
     collectionSlug: 'blog',
@@ -50,16 +60,11 @@ export async function generateMetadata({
     : undefined
   const tags = fullEntry?.tags?.map(({ tag }) => tag.name) || []
 
-  // Safely handle dates for OpenGraph metadata
-  const publishedDate = entry.publishedAt && entry.publishedAt instanceof Date && !isNaN(entry.publishedAt.getTime())
-    ? entry.publishedAt
-    : entry.createdAt instanceof Date && !isNaN(entry.createdAt.getTime())
-      ? entry.createdAt
-      : new Date()
-
-  const modifiedDate = entry.updatedAt instanceof Date && !isNaN(entry.updatedAt.getTime())
-    ? entry.updatedAt
-    : publishedDate
+  const { publishedDate, modifiedDate } = getCmsEntryDates({
+    publishedAt: entry.publishedAt,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  })
 
   return {
     title: entry.title,
@@ -100,6 +105,15 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
+  const validPageNumber = getValidPageNumber({ value: slug })
+
+  if (validPageNumber) {
+    if (slug !== String(validPageNumber) || validPageNumber === 1) {
+      redirect(getBlogPagePath({ page: validPageNumber }))
+    }
+
+    return <BlogListPage page={validPageNumber} />
+  }
 
   const entry = await getCmsEntryBySlug({
     collectionSlug: 'blog',
@@ -116,16 +130,11 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     ? [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email || 'Unknown Author'
     : 'Unknown Author'
 
-  // Safely handle dates - ensure they're valid Date objects
-  const publishedDate = entry.publishedAt && entry.publishedAt instanceof Date && !isNaN(entry.publishedAt.getTime())
-    ? entry.publishedAt
-    : entry.createdAt instanceof Date && !isNaN(entry.createdAt.getTime())
-      ? entry.createdAt
-      : new Date()
-
-  const modifiedDate = entry.updatedAt instanceof Date && !isNaN(entry.updatedAt.getTime())
-    ? entry.updatedAt
-    : publishedDate
+  const { publishedDate, modifiedDate } = getCmsEntryDates({
+    publishedAt: entry.publishedAt,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  })
 
   // JSON-LD structured data for Article
   const jsonLd: WithContext<BlogPosting> = {
@@ -143,7 +152,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       author: {
         "@type": "Person",
         name: authorName,
-        url: `${SITE_URL}/blog/authors/${author.id}`,
+        url: `${SITE_URL}/blog/authors/${getAuthorRouteParam(author)}`,
         ...(author.avatar && {
           image: `${SITE_URL}${author.avatar}`,
         }),
@@ -158,7 +167,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     },
     publisher: {
       "@type": "Organization",
-      name: "SaaS Template",
+      name: SITE_NAME,
       logo: {
         "@type": "ImageObject",
         url: `${SITE_URL}/favicon.ico`,
@@ -220,7 +229,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               {/* Author info */}
               {author && (
                 <Link
-                  href={`/blog/authors/${author.id}`}
+                  href={`/blog/authors/${getAuthorRouteParam(author)}`}
                   className="flex items-center gap-3 hover:opacity-80 transition-all"
                 >
                   <Avatar className="h-10 w-10">

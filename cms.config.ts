@@ -10,13 +10,6 @@ const blogFieldsSchema = z.object({
 
 export type BlogFields = z.infer<typeof blogFieldsSchema>;
 
-/**
- * ***************************************************************************************
- *
- * When you add a new collection don't forget to also add it to the sitemap.ts file !!!
- *
- * ***************************************************************************************
- */
 const blogCollection = {
   slug: "blog",
   labels: {
@@ -25,6 +18,7 @@ const blogCollection = {
   },
   fieldsSchema: blogFieldsSchema,
   previewUrl: (slug: string) => `/blog/${slug}`,
+  includeInSitemap: true,
 } satisfies DefineCmsCollection<typeof blogFieldsSchema>;
 
 export const cmsConfig = {

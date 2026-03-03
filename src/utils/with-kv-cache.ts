@@ -45,6 +45,7 @@ const STATS_PREFIX = "stats";
 const CMS_PREFIX = "cms";
 
 export const CACHE_KEYS = {
+  SITEMAP: "sitemap",
   TOTAL_USERS: `${STATS_PREFIX}:total-users`,
   GITHUB_STARS: `${STATS_PREFIX}:github-stars`,
   CMS_ENTRY: `${CMS_PREFIX}:entry`,

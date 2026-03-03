@@ -3,9 +3,10 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsTags, getCmsCollection } from "@/lib/cms/cms-repository"
-import { Badge } from "@/components/ui/badge"
 import { BlogCard } from "@/components/blog-card"
+import { CmsEntryTags } from "@/components/cms-entry-tags"
 import type { CollectionPage, WithContext } from "schema-dts"
+import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 
 type TagPageProps = {
   params: Promise<{
@@ -77,16 +78,11 @@ export default async function TagPage({ params }: TagPageProps) {
       mainEntity: {
         "@type": "ItemList",
         itemListElement: blogEntries.map((entry, index) => {
-          // Safely handle dates
-          const publishedDate = entry.publishedAt && entry.publishedAt instanceof Date && !isNaN(entry.publishedAt.getTime())
-            ? entry.publishedAt
-            : entry.createdAt instanceof Date && !isNaN(entry.createdAt.getTime())
-              ? entry.createdAt
-              : new Date()
-
-          const modifiedDate = entry.updatedAt instanceof Date && !isNaN(entry.updatedAt.getTime())
-            ? entry.updatedAt
-            : publishedDate
+          const { publishedDate, modifiedDate } = getCmsEntryDates({
+            publishedAt: entry.publishedAt,
+            createdAt: entry.createdAt,
+            updatedAt: entry.updatedAt,
+          })
 
           return {
             "@type": "ListItem",
@@ -117,15 +113,15 @@ export default async function TagPage({ params }: TagPageProps) {
         >
           ← Back to all tags
         </Link>
-        <div className="flex items-center gap-4 mb-4">
-          <h1 className="text-4xl font-bold">{tag.name}</h1>
-          <Badge
-            variant="secondary"
-            style={tag.color ? { backgroundColor: tag.color, color: 'white' } : undefined}
-            className="border-secondary"
-          >
+        <h1 className="text-4xl font-bold mb-4">{tag.name}</h1>
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <CmsEntryTags
+            tags={[{ tag }]}
+            maxTags={1}
+          />
+          <span className="text-sm text-muted-foreground">
             {blogEntries.length} {blogEntries.length === 1 ? 'post' : 'posts'}
-          </Badge>
+          </span>
         </div>
         {tag.description && (
           <p className="text-xl text-muted-foreground">

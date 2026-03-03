@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { getCmsCollection } from "@/lib/cms/cms-repository"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getInitials } from "@/utils/name-initials"
 import type { CollectionPage, WithContext } from "schema-dts"
 
@@ -64,19 +65,6 @@ export default async function BlogAuthorsPage() {
 
   const authors = Array.from(authorMap.values()).sort((a, b) => b.postCount - a.postCount)
 
-  const getAuthorName = (author: typeof authors[0]) => {
-    if (author.firstName && author.lastName) {
-      return `${author.firstName} ${author.lastName}`
-    }
-    if (author.firstName) {
-      return author.firstName
-    }
-    if (author.lastName) {
-      return author.lastName
-    }
-    return author.email || 'Unknown Author'
-  }
-
   // JSON-LD structured data for CollectionPage
   const jsonLd: WithContext<CollectionPage> = {
     "@context": "https://schema.org",
@@ -91,7 +79,7 @@ export default async function BlogAuthorsPage() {
           position: index + 1,
           item: {
             "@type": "Person",
-            name: getAuthorName(author),
+            name: getAuthorDisplayName(author),
             ...(author.email && {
               email: author.email,
             }),
@@ -130,20 +118,20 @@ export default async function BlogAuthorsPage() {
           {authors.map((author) => (
             <Link
               key={author.id}
-              href={`/blog/authors/${author.id}`}
+              href={`/blog/authors/${getAuthorRouteParam(author)}`}
               className="group block"
             >
               <div className="h-full border rounded-lg p-6 transition-all hover:shadow-lg hover:border-primary">
                 <div className="flex items-center gap-4 mb-3">
                   <Avatar className="h-12 w-12">
-                    {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorName(author)} />}
+                    {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorDisplayName(author)} />}
                     <AvatarFallback>
-                      {getInitials(getAuthorName(author))}
+                      {getInitials(getAuthorDisplayName(author))}
                     </AvatarFallback>
                   </Avatar>
                   <div>
                     <h2 className="text-xl font-semibold group-hover:text-primary transition-all">
-                      {getAuthorName(author)}
+                      {getAuthorDisplayName(author)}
                     </h2>
                     <p className="text-sm text-muted-foreground">
                       {author.postCount} {author.postCount === 1 ? 'post' : 'posts'}

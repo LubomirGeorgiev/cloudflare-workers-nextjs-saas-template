@@ -2,7 +2,7 @@ import "server-only"
 import Link from "next/link"
 import type { Metadata } from "next"
 import { getCmsTags } from "@/lib/cms/cms-repository"
-import { Badge } from "@/components/ui/badge"
+import { CmsEntryTags } from "@/components/cms-entry-tags"
 import type { CollectionPage, WithContext } from "schema-dts"
 
 export const metadata: Metadata = {
@@ -86,13 +86,7 @@ export default async function BlogTagsPage() {
             >
               <div className="h-full border rounded-lg p-6 transition-all hover:shadow-lg hover:border-primary">
                 <div className="flex items-center justify-between mb-3">
-                  <Badge
-                    variant="secondary"
-                    style={tag.color ? { backgroundColor: tag.color, color: 'white' } : undefined}
-                    className="group-hover:scale-105 transition-all border-secondary"
-                  >
-                    {tag.name}
-                  </Badge>
+                  <CmsEntryTags tags={[{ tag }]} maxTags={1} />
                   <span className="text-sm text-muted-foreground">
                     {tag.entryCount} {tag.entryCount === 1 ? 'post' : 'posts'}
                   </span>

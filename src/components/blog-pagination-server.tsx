@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { getBlogPagePath } from "@/lib/blog-routing"
 import {
   Pagination,
   PaginationContent,
@@ -66,7 +67,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
               {/* TODO Remove legacyBehavior and passHref when these are resolved: */}
               {/* https://github.com/vercel/next.js/discussions/76329 */}
               {/* https://github.com/vercel/next.js/discussions/80179 */}
-              <Link href={`/blog?page=${currentPage - 1}`} passHref legacyBehavior>
+              <Link href={getBlogPagePath({ page: currentPage - 1 })} passHref legacyBehavior>
                 <PaginationPrevious />
               </Link>
             </>
@@ -78,7 +79,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
             {page === 'ellipsis' ? (
               <PaginationEllipsis />
             ) : (
-              <Link href={`/blog?page=${page}`} passHref legacyBehavior>
+              <Link href={getBlogPagePath({ page })} passHref legacyBehavior>
                 <PaginationLink isActive={currentPage === page}>
                   {page}
                 </PaginationLink>
@@ -91,7 +92,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
           {currentPage === totalPages ? (
             <PaginationNext className="pointer-events-none opacity-50" />
           ) : (
-            <Link href={`/blog?page=${currentPage + 1}`} passHref legacyBehavior>
+            <Link href={getBlogPagePath({ page: currentPage + 1 })} passHref legacyBehavior>
               <PaginationNext />
             </Link>
           )}
