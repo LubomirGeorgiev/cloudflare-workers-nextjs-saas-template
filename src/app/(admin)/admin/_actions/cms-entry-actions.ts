@@ -14,8 +14,9 @@ import {
   getCmsEntryById,
 } from "@/lib/cms/cms-repository";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
+import { cmsStatusFilterTuple } from "@/types/cms";
 
-const listStatusEnum = z.enum([...cmsEntryStatusSchema.options, "all"]);
+const listStatusEnum = z.enum(cmsStatusFilterTuple);
 
 export const listCmsEntriesAction = createServerAction()
   .input(

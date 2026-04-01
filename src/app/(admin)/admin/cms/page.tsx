@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cmsConfig } from "@/../cms.config";
-import { FileText, Tag, Image } from "lucide-react";
+import { FileText, Tag, Image, PanelLeft } from "lucide-react";
+import { getCmsNavigations } from "@/lib/cms/cms-navigation-config";
 
 export const metadata: Metadata = {
   title: "Content Management | Admin",
@@ -20,6 +21,7 @@ export default async function CmsPage() {
   }
 
   const collections = Object.entries(cmsConfig.collections);
+  const navigations = getCmsNavigations();
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -70,6 +72,33 @@ export default async function CmsPage() {
             </p>
           </div>
         )}
+
+        {navigations.map((navigation) => (
+          <Card key={navigation.navigationKey} className="hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <PanelLeft className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>{navigation.label}</CardTitle>
+                    <CardDescription className="mt-1">
+                      {navigation.description || `Manage ${navigation.label.toLowerCase()}`}
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Button asChild className="flex-1">
+                  <Link href={`/admin/cms/navigation/${navigation.navigationKey}`}>Open Builder</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>

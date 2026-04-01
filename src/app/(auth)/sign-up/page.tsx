@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import { getSessionFromCookie } from "@/utils/auth";
 import SignUpClientComponent from "./sign-up.client";
 import { redirect } from "next/navigation";
@@ -16,7 +16,9 @@ const SignUpPage = async ({
 }) => {
   const { redirect: redirectParam } = await searchParams;
   const session = await getSessionFromCookie();
-  const redirectPath = redirectParam ?? REDIRECT_AFTER_SIGN_IN as unknown as string;
+  const redirectPath = (
+    redirectParam?.startsWith("/") ? redirectParam : REDIRECT_AFTER_SIGN_IN
+  ) as Route;
 
   if (session) {
     return redirect(redirectPath);

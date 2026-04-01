@@ -5,6 +5,7 @@ import Image from "next/image";
 import { type JSONContent } from "@tiptap/core";
 import { renderToReactElement } from "@tiptap/static-renderer/pm/react";
 import { getTiptapBaseExtensions, sharedLowlight } from "@/lib/tiptap-base-extensions";
+import { cn } from "@/lib/utils";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss"
@@ -195,6 +196,8 @@ interface CmsContentRendererProps {
   onRendered?: () => void;
 }
 
+export const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
+
 /**
  * Renders TipTap JSON content as React components
  * Uses Next.js Image component for optimized image loading
@@ -227,5 +230,12 @@ export function CmsContentRenderer({ content, className, onRendered }: CmsConten
     }
   }, [onRendered, content]);
 
-  return <div ref={containerRef} className={className}>{reactElement}</div>;
+  return (
+    <div
+      ref={containerRef}
+      className={cn(CMS_CONTENT_ROOT_CLASS_NAME, className)}
+    >
+      {reactElement}
+    </div>
+  );
 }

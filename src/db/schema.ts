@@ -7,7 +7,12 @@ import { type InferSelectModel } from "drizzle-orm";
 import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS, ROLES_ENUM } from "@/app/enums";
 import type { JSONContent } from "@tiptap/core"
+import { cmsNavigationKeys, type CmsNavigationKey } from "@/../cms.config";
 import { cmsEntryStatusTuple, type CmsEntryStatus } from "@/types/cms";
+import {
+  cmsNavigationNodeTypeTuple,
+  type CmsNavigationNodeType,
+} from "@/types/cms-navigation";
 import type { CollectionsUnion } from "../../cms.config";
 
 const roleTuple = Object.values(ROLES_ENUM) as [string, ...string[]];
@@ -351,6 +356,43 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   index('cms_entry_featured_image_idx').on(table.featuredImageId),
 ]));
 
+export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
+  ...commonColumns,
+  id: text().primaryKey().$defaultFn(() => `cms_nav_${createId()}`).notNull(),
+  navigationKey: text({
+    enum: cmsNavigationKeys,
+  }).$type<CmsNavigationKey>().notNull(),
+  parentId: text(),
+  nodeType: text({
+    enum: cmsNavigationNodeTypeTuple,
+  }).$type<CmsNavigationNodeType>().notNull(),
+  title: text().notNull(),
+  entryId: text().references(() => cmsEntryTable.id, { onDelete: "cascade" }),
+  slugSegment: text(),
+  resolvedPath: text(),
+  sortOrder: integer().default(0).notNull(),
+}, (table) => ([
+  index("cms_navigation_item_site_key_idx").on(table.navigationKey),
+  index("cms_navigation_item_parent_id_idx").on(table.parentId),
+  unique("cms_navigation_item_site_path_unique").on(table.navigationKey, table.resolvedPath),
+  unique("cms_navigation_item_site_parent_sort_order_unique").on(table.navigationKey, table.parentId, table.sortOrder),
+  unique("cms_navigation_item_site_entry_unique").on(table.navigationKey, table.entryId),
+]));
+
+export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect", {
+  ...commonColumns,
+  id: text().primaryKey().$defaultFn(() => `cms_red_${createId()}`).notNull(),
+  navigationKey: text({
+    enum: cmsNavigationKeys,
+  }).$type<CmsNavigationKey>().notNull(),
+  fromPath: text().notNull(),
+  toPath: text().notNull(),
+  statusCode: integer().default(301).notNull(),
+}, (table) => ([
+  index("cms_navigation_redirect_site_key_idx").on(table.navigationKey),
+  unique("cms_navigation_redirect_site_from_path_unique").on(table.navigationKey, table.fromPath),
+]));
+
 export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `cms_ver_${createId()}`).notNull(),
@@ -556,3 +598,5 @@ export type CmsEntryMedia = InferSelectModel<typeof cmsEntryMediaTable>;
 export type CmsTag = InferSelectModel<typeof cmsTagTable>;
 export type CmsEntryTag = InferSelectModel<typeof cmsEntryTagTable>;
 export type CmsEntryVersion = InferSelectModel<typeof cmsEntryVersionTable>;
+export type CmsNavigationItem = InferSelectModel<typeof cmsNavigationItemTable>;
+export type CmsNavigationRedirect = InferSelectModel<typeof cmsNavigationRedirectTable>;

@@ -21,8 +21,9 @@ import type { CmsEntryVersion } from "@/db/schema";
 import { useServerAction } from "zsa-react";
 import { revertCmsEntryVersionAction, getCmsEntryVersionsAction, deleteCmsEntryVersionAction } from "../../_actions/version-actions";
 import { toast } from "sonner";
-import { CmsContentRenderer } from "@/components/cms-content-renderer";
+import { CmsContentRenderer, CMS_CONTENT_ROOT_CLASS_NAME } from "@/components/cms-content-renderer";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import { cn } from "@/lib/utils";
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss";
 
@@ -941,7 +942,7 @@ export function VersionHistory({
                          </div>
 
                          {htmlDiff ? (
-                           <div className="tiptap ProseMirror cms-content-diff">
+                          <div className={cn(CMS_CONTENT_ROOT_CLASS_NAME, "cms-content-diff")}>
                               {htmlDiff.map((part, index) => {
                                 const className = part.added ? 'diff-added' : part.removed ? 'diff-removed' : '';
                                 // Determine if this is block-level content or inline content

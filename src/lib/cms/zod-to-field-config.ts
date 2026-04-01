@@ -3,11 +3,15 @@ import { z } from "zod";
 export type FieldConfig = {
   name: string;
   label: string;
-  type: "string" | "number" | "date" | "textarea";
+  type: "string" | "number" | "date" | "textarea" | "boolean" | "select";
   required: boolean;
   placeholder?: string;
   description?: string;
   defaultValue?: unknown;
+  options?: Array<{
+    label: string;
+    value: string;
+  }>;
   validation?: {
     min?: number;
     max?: number;
@@ -44,15 +48,18 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
   let isOptional = false;
   let defaultValue: unknown = undefined;
 
-  // Unwrap optional and default
-  if (currentType instanceof z.ZodOptional) {
-    isOptional = true;
-    currentType = currentType._def.innerType;
-  }
-
-  if (currentType instanceof z.ZodDefault) {
-    defaultValue = currentType._def.defaultValue();
-    currentType = currentType._def.innerType;
+  while (
+    currentType instanceof z.ZodOptional ||
+    currentType instanceof z.ZodNullable ||
+    currentType instanceof z.ZodDefault
+  ) {
+    if (currentType instanceof z.ZodOptional || currentType instanceof z.ZodNullable) {
+      isOptional = true;
+      currentType = currentType._def.innerType;
+    } else {
+      defaultValue = currentType._def.defaultValue();
+      currentType = currentType._def.innerType;
+    }
   }
 
   const label = name
@@ -117,6 +124,28 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
     return {
       ...baseConfig,
       type: "date",
+    } as FieldConfig;
+  }
+
+  if (currentType instanceof z.ZodBoolean) {
+    return {
+      ...baseConfig,
+      type: "boolean",
+    } as FieldConfig;
+  }
+
+  if (currentType instanceof z.ZodEnum) {
+    return {
+      ...baseConfig,
+      type: "select",
+      options: currentType.options.map((option: string) => ({
+        label: option
+          .replace(/([A-Z])/g, " $1")
+          .replace(/[-_]/g, " ")
+          .replace(/^./, (str: string) => str.toUpperCase())
+          .trim(),
+        value: option,
+      })),
     } as FieldConfig;
   }
 

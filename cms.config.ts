@@ -1,7 +1,12 @@
 import {
   type DefineCmsCollection,
+  type DefineCmsNavigationSite,
   type DefineCmsConfig
 } from "@/lib/cms/cms-models";
+import {
+  DOCS_BASE_PATH,
+  DOCS_SLUG,
+} from "@/lib/cms/docs-config";
 import z from "zod";
 
 const blogFieldsSchema = z.object({
@@ -21,13 +26,39 @@ const blogCollection = {
   includeInSitemap: true,
 } satisfies DefineCmsCollection<typeof blogFieldsSchema>;
 
+const docsCollection = {
+  slug: DOCS_SLUG,
+  labels: {
+    singular: "Doc",
+    plural: "Docs",
+  },
+  navigationKey: DOCS_SLUG,
+  includeInSitemap: true,
+} satisfies DefineCmsCollection;
+
+const docsNavigation = {
+  label: "Docs Navigation",
+  description: "Manage the docs sidebar structure and canonical public URLs",
+  collectionSlug: DOCS_SLUG,
+  basePath: DOCS_BASE_PATH,
+} satisfies DefineCmsNavigationSite;
+
 export const cmsConfig = {
   collections: {
     blog: blogCollection,
+    docs: docsCollection,
+  },
+  navigations: {
+    [DOCS_SLUG]: docsNavigation,
   },
 } satisfies DefineCmsConfig;
 
 export type CollectionsUnion = keyof typeof cmsConfig.collections;
+export type CmsNavigationKey = keyof typeof cmsConfig.navigations;
 
 export const collectionSlugs = Object.keys(cmsConfig.collections) as [CollectionsUnion, ...CollectionsUnion[]];
 export const zodCollectionEnum = z.enum(collectionSlugs);
+export const cmsNavigationKeys = Object.keys(cmsConfig.navigations) as [
+  CmsNavigationKey,
+  ...CmsNavigationKey[],
+];

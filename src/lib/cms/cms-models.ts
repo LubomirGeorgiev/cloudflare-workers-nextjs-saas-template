@@ -9,8 +9,17 @@ export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAn
   fieldsSchema?: TFieldsSchema;
   previewUrl?: (slug: string) => string;
   includeInSitemap?: boolean;
+  navigationKey?: string;
+};
+
+export type DefineCmsNavigationSite = {
+  label: string;
+  collectionSlug: string;
+  basePath: string;
+  description?: string;
 };
 
 export type DefineCmsConfig = {
   collections: Record<string, DefineCmsCollection>;
+  navigations: Record<string, DefineCmsNavigationSite>;
 };

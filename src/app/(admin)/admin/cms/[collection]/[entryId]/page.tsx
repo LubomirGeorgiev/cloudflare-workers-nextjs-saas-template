@@ -3,7 +3,14 @@ import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getCmsEntryById } from "@/lib/cms/cms-repository";
+import {
+  getCmsNavigationNodeByEntryId,
+  getCmsNavigationTree,
+} from "@/lib/cms/cms-navigation-repository";
+import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { CmsEntryForm } from "../_components/cms-entry-form";
+import { Route } from "next";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
 export async function generateMetadata({
   params,
@@ -61,10 +68,24 @@ export default async function EditEntryPage({
     return redirect(`/admin/cms/${collection}`);
   }
 
+  const navigationKey = getCmsCollectionNavigationKey(collection as CollectionsUnion);
+  const entryPublicUrl = navigationKey
+    ? (
+        getCmsNavigationNodeByEntryId({
+          entryId: entry.id,
+          nodes: await getCmsNavigationTree({
+            navigationKey,
+            status: CMS_STATUS_FILTER_ALL,
+          }),
+        })?.resolvedPath as Route | null
+      )
+    : null;
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <CmsEntryForm
         collection={collection}
+        navigationPublicUrl={entryPublicUrl}
         mode="edit"
         entry={entry}
         pageTitle={`Edit ${collectionConfig.labels.singular}`}

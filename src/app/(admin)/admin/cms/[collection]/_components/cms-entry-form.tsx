@@ -55,16 +55,26 @@ import { FeaturedImageUpload } from "./featured-image-upload";
 import { VersionHistory } from "./version-history";
 import { History } from "lucide-react";
 import { formatDateTime } from "@/utils/format-date";
+import { Alert } from "@heroui/react";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
 type CmsEntryFormProps = {
   collection: string;
+  navigationPublicUrl?: Route | null;
   mode: "create" | "edit";
   entry?: GetCmsCollectionResult;
   pageTitle: string;
   pageSubtitle: string;
 };
 
-export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle }: CmsEntryFormProps) {
+export function CmsEntryForm({
+  collection,
+  navigationPublicUrl = null,
+  mode,
+  entry,
+  pageTitle,
+  pageSubtitle,
+}: CmsEntryFormProps) {
   const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
   const router = useRouter();
   const multiSelectRef = useRef<MultiSelectRef>(null);
@@ -73,7 +83,11 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
   // Get field configurations from the Zod schema
   const collectionDefinition = cmsConfig.collections[collection as CollectionsUnion];
   const customFields = useMemo(() => {
-    if (!collectionDefinition?.fieldsSchema) {
+    if (
+      !collectionDefinition ||
+      !("fieldsSchema" in collectionDefinition) ||
+      !collectionDefinition.fieldsSchema
+    ) {
       return [];
     }
     return zodSchemaToFieldConfigs(collectionDefinition.fieldsSchema);
@@ -298,9 +312,34 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
   }, [searchValue, hasExactMatch, isCreatingTag, handleCreateTag]);
 
   const currentSlug = form.watch("slug");
-  const previewUrl = currentSlug?.trim() && collectionConfig.previewUrl
-    ? (collectionConfig.previewUrl(currentSlug) as Route)
-    : null;
+  const navigationKey = getCmsCollectionNavigationKey(collection as CollectionsUnion);
+  const previewUrlBuilder = "previewUrl" in collectionConfig ? collectionConfig.previewUrl : undefined;
+  const previewUrl = navigationKey
+    ? navigationPublicUrl
+    : currentSlug?.trim() && previewUrlBuilder
+      ? (previewUrlBuilder(currentSlug) as Route)
+      : null;
+  const showNavigationAlert = mode === "edit" && Boolean(navigationKey) && !previewUrl;
+  const navigationAlert = showNavigationAlert ? (
+    <Alert
+      color="warning"
+      title="No public URL"
+      description={(
+        <span>
+          This entry is not added to navigation yet, so it does not have a public URL.{" "}
+          <Link
+            href={`/admin/cms/navigation/${navigationKey}`}
+            className="underline"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Add it in Navigation
+          </Link>
+          .
+        </span>
+      )}
+    />
+  ) : null;
 
   const onSubmit = async (data: CmsEntryFormData) => {
     // Serialize content to prevent Next.js from converting attrs to functions
@@ -445,6 +484,11 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="contents lg:flex lg:flex-col lg:col-span-3 lg:gap-6">
             <div className="order-1">
+              {navigationAlert && (
+                <div className="mb-6">
+                  {navigationAlert}
+                </div>
+              )}
               <Card>
                 <CardHeader>
                   <CardTitle>Basic Information</CardTitle>
@@ -477,7 +521,9 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                     name="slug"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>URL Slug *</FormLabel>
+                        <FormLabel>
+                          {navigationKey ? "Entry Slug *" : "URL Slug *"}
+                        </FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -489,7 +535,22 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                           />
                         </FormControl>
                         <FormDescription>
-                          This will be used in the URL. Auto-generated from title, but you can customize it.
+                          {navigationKey ? (
+                            <>
+                              Internal identifier for this entry. The public URL is controlled from{" "}
+                              <Link
+                                href={`/admin/cms/navigation/${navigationKey}`}
+                                className="underline hover:text-foreground"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Navigation
+                              </Link>
+                              .
+                            </>
+                          ) : (
+                            "This will be used in the URL. Auto-generated from title, but you can customize it."
+                          )}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -785,11 +846,12 @@ export function CmsEntryForm({ collection, mode, entry, pageTitle, pageSubtitle 
                       <span className="text-muted-foreground mr-2">Preview:</span>
                       <div>
                         <Link href={previewUrl} className="underline" target="_blank" rel="noopener noreferrer">
-                        {SITE_URL}{previewUrl}
+                          {SITE_URL}{previewUrl}
                         </Link>
                       </div>
                     </div>
                   )}
+                  {navigationAlert}
                 </CardContent>
               </Card>
             )}

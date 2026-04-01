@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils"
 import { useNavStore } from "@/state/nav"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SITE_NAME } from "@/constants"
+import { DOCS_BASE_PATH } from "@/lib/cms/docs-config"
 import { ROLES_ENUM } from "@/app/enums"
+import { cmsConfig } from "../../cms.config"
 
 type NavItem = {
   name: string;
@@ -42,10 +44,15 @@ export function Navigation() {
   const { isOpen, setIsOpen } = useNavStore()
   const pathname = usePathname()
   const isAdmin = session?.user?.role === ROLES_ENUM.ADMIN
+  const isBlogEnabled = "blog" in cmsConfig.collections
+  const isDocsEnabled = "docs" in cmsConfig.collections
+
+  const docsPath = DOCS_BASE_PATH as Route
 
   const navItems: NavItem[] = [
     { name: "Home", href: "/" },
-    { name: "Blog", href: "/blog" },
+    ...(isBlogEnabled ? [{ name: "Blog", href: "/blog" }] as NavItem[] : []),
+    ...(isDocsEnabled ? [{ name: "Docs", href: docsPath }] as NavItem[] : []),
     ...(session ? [
       { name: "Settings", href: "/settings" },
       { name: "Dashboard", href: "/dashboard" },

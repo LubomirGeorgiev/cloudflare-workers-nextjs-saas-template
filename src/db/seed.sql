@@ -227,3 +227,104 @@ VALUES
   -- Post 20: Building Progressive Web Apps in 2026
   ('cet_test035', 'cms_ent_test020', 'ctag_test019', 1733184000, 1733184000, 0),
   ('cet_test036', 'cms_ent_test020', 'ctag_test002', 1733184000, 1733184000, 0);
+
+-- Insert docs entries for docs navigation testing
+INSERT INTO cms_entry (id, collection, title, content, fields, slug, seoDescription, status, publishedAt, createdBy, createdAt, updatedAt, updateCounter)
+VALUES
+  (
+    'cms_ent_docs001',
+    'docs',
+    'Introduction',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Introduction"}]},{"type":"paragraph","content":[{"type":"text","text":"Learn how this template is structured and how to ship your first feature quickly."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"What You Get"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Authentication and team management"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Credit-based billing with Stripe"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Cloudflare Workers edge deployment"}]}]}]}]}',
+    '{}',
+    'introduction',
+    'Start here to understand the architecture and core modules.',
+    'published',
+    1736636400,
+    'usr_lyo1up6a9q75dmpv3o5x9irj',
+    1736636400,
+    1736636400,
+    0
+  ),
+  (
+    'cms_ent_docs002',
+    'docs',
+    'Authentication Setup',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Authentication Setup"}]},{"type":"paragraph","content":[{"type":"text","text":"Configure auth providers, sessions, and passkeys for your deployment."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Required Environment Variables"}]},{"type":"orderedList","attrs":{"start":1},"content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Set OAuth client IDs and secrets."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Configure cookie and session settings."}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Run migrations and verify sign-in flows."}]}]}]}]}',
+    '{}',
+    'authentication-setup',
+    'Configure Lucia auth, providers, and session handling for production.',
+    'published',
+    1736638200,
+    'usr_lyo1up6a9q75dmpv3o5x9irj',
+    1736638200,
+    1736638200,
+    0
+  ),
+  (
+    'cms_ent_docs003',
+    'docs',
+    'Billing and Credits',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Billing and Credits"}]},{"type":"paragraph","content":[{"type":"text","text":"Understand how credits are purchased, consumed, and refreshed each month."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Credit Lifecycle"}]},{"type":"paragraph","content":[{"type":"text","text":"Credits are added after successful payment, then decremented by usage-based actions."}]}]}',
+    '{}',
+    'billing-and-credits',
+    'Understand credit packages, usage tracking, and monthly refresh behavior.',
+    'published',
+    1736640000,
+    'usr_lyo1up6a9q75dmpv3o5x9irj',
+    1736640000,
+    1736640000,
+    0
+  ),
+  (
+    'cms_ent_docs004',
+    'docs',
+    'CLI Reference',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"CLI Reference"}]},{"type":"paragraph","content":[{"type":"text","text":"A quick list of the commands you will use during local development and deployment."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Common Commands"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"pnpm install"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"pnpm dev"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"pnpm db:migrate"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"pnpm deploy"}]}]}]}]}',
+    '{}',
+    'cli-reference',
+    'Reference for the most common project CLI commands.',
+    'published',
+    1736641800,
+    'usr_lyo1up6a9q75dmpv3o5x9irj',
+    1736641800,
+    1736641800,
+    0
+  );
+
+-- Insert docs navigation tree
+INSERT INTO cms_navigation_item (
+  id,
+  navigationKey,
+  parentId,
+  nodeType,
+  title,
+  entryId,
+  slugSegment,
+  resolvedPath,
+  sortOrder,
+  createdAt,
+  updatedAt,
+  updateCounter
+)
+VALUES
+  ('cms_nav_docs001', 'docs', NULL, 'group', 'Getting Started', NULL, 'getting-started', NULL, 0, 1736636400, 1736636400, 0),
+  ('cms_nav_docs002', 'docs', 'cms_nav_docs001', 'page', 'Introduction', 'cms_ent_docs001', 'introduction', '/docs/getting-started/introduction', 0, 1736636400, 1736636400, 0),
+  ('cms_nav_docs003', 'docs', 'cms_nav_docs001', 'page', 'Authentication Setup', 'cms_ent_docs002', 'authentication', '/docs/getting-started/authentication', 1, 1736638200, 1736638200, 0),
+  ('cms_nav_docs004', 'docs', NULL, 'group', 'Core Concepts', NULL, 'core-concepts', NULL, 1, 1736640000, 1736640000, 0),
+  ('cms_nav_docs005', 'docs', 'cms_nav_docs004', 'page', 'Billing and Credits', 'cms_ent_docs003', 'billing-and-credits', '/docs/core-concepts/billing-and-credits', 0, 1736640000, 1736640000, 0),
+  ('cms_nav_docs006', 'docs', NULL, 'page', 'CLI Reference', 'cms_ent_docs004', 'cli-reference', '/docs/cli-reference', 2, 1736641800, 1736641800, 0);
+
+-- Insert docs redirect sample for canonical URL migration behavior
+INSERT INTO cms_navigation_redirect (
+  id,
+  navigationKey,
+  fromPath,
+  toPath,
+  statusCode,
+  createdAt,
+  updatedAt,
+  updateCounter
+)
+VALUES
+  ('cms_red_docs001', 'docs', '/docs/getting-started/setup', '/docs/getting-started/introduction', 301, 1736641800, 1736641800, 0);

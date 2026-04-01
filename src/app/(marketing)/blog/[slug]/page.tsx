@@ -3,7 +3,8 @@ import Link from "next/link"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
 import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
-import { CmsContentRenderer } from "@/components/cms-content-renderer"
+import { CmsEntryBody } from "@/components/cms-entry-body"
+import { ContentTableOfContentsNav } from "@/components/content-table-of-contents-nav"
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
 import Image from "next/image"
@@ -17,6 +18,8 @@ import { getBlogPagePath } from "@/lib/blog-routing"
 import { getValidPageNumber } from "@/utils/get-valid-page-number"
 import { getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
+import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree"
+import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -135,6 +138,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   })
+  const tableOfContents = extractTableOfContents(entry.content as JSONContent)
+  const tableOfContentsTree = buildTableOfContentsTree(tableOfContents)
 
   // JSON-LD structured data for Article
   const jsonLd: WithContext<BlogPosting> = {
@@ -212,86 +217,100 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <div className="container mx-auto py-12">
-        <article className="max-w-3xl mx-auto">
-          <header className="mb-8">
-            <Link
-              href="/blog"
-              className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-            >
-              ← Back to Blog
-            </Link>
-            <h1 className="text-4xl font-bold mb-6">{entry.title}</h1>
+        <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
+          <article className="min-w-0 max-w-3xl xl:max-w-none">
+            <header className="mb-8">
+              <Link
+                href="/blog"
+                className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
+              >
+                ← Back to Blog
+              </Link>
+              <h1 className="text-4xl font-bold mb-6">{entry.title}</h1>
 
-          {/* Metadata section */}
-          <div className="flex flex-col gap-4">
-            {/* Author and Date row */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              {/* Author info */}
-              {author && (
-                <Link
-                  href={`/blog/authors/${getAuthorRouteParam(author)}`}
-                  className="flex items-center gap-3 hover:opacity-80 transition-all"
-                >
-                  <Avatar className="h-10 w-10">
-                    {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
-                    <AvatarFallback>
-                      {getInitials(authorName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-medium">{authorName}</p>
-                    <p className="text-xs text-muted-foreground">Author</p>
+              {/* Metadata section */}
+              <div className="flex flex-col gap-4">
+                {/* Author and Date row */}
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  {/* Author info */}
+                  {author && (
+                    <Link
+                      href={`/blog/authors/${getAuthorRouteParam(author)}`}
+                      className="flex items-center gap-3 hover:opacity-80 transition-all"
+                    >
+                      <Avatar className="h-10 w-10">
+                        {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
+                        <AvatarFallback>
+                          {getInitials(authorName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">{authorName}</p>
+                        <p className="text-xs text-muted-foreground">Author</p>
+                      </div>
+                    </Link>
+                  )}
+
+                  {/* Date info */}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <time dateTime={publishedDate.toISOString()}>
+                      {formatDate(publishedDate)}
+                    </time>
+                    {modifiedDate.getTime() !== publishedDate.getTime() && (
+                      <>
+                        <span>•</span>
+                        <span>Updated: {formatDate(modifiedDate)}</span>
+                      </>
+                    )}
                   </div>
-                </Link>
-              )}
+                </div>
 
-              {/* Date info */}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <time dateTime={publishedDate.toISOString()}>
-                  {formatDate(publishedDate)}
-                </time>
-                {modifiedDate.getTime() !== publishedDate.getTime() && (
-                  <>
-                    <span>•</span>
-                    <span>Updated: {formatDate(modifiedDate)}</span>
-                  </>
+                {/* Tags row */}
+                {entry.tags && entry.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-3 border-t">
+                    <CmsEntryTags
+                      tags={entry.tags}
+                      maxTags={Infinity}
+                      variant="outline"
+                      linkHref={(tag) => `/blog/tags/${tag.slug}`}
+                    />
+                  </div>
                 )}
               </div>
-            </div>
+            </header>
 
-            {/* Tags row */}
-            {entry.tags && entry.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-3 border-t">
-                <CmsEntryTags
-                  tags={entry.tags}
-                  maxTags={Infinity}
-                  variant="outline"
-                  linkHref={(tag) => `/blog/tags/${tag.slug}`}
+            {entry.featuredImageUrl && (
+              <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden">
+                <Image
+                  src={entry.featuredImageUrl}
+                  alt={entry.featuredImage?.alt || entry.title}
+                  fill
+                  className="object-cover"
+                  priority
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 896px"
                 />
               </div>
             )}
-          </div>
-        </header>
 
-        {entry.featuredImageUrl && (
-          <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden">
-            <Image
-              src={entry.featuredImageUrl}
-              alt={entry.featuredImage?.alt || entry.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 896px"
+            <CmsEntryBody
+              content={entry.content as JSONContent}
+              className="blog-content"
+              tableOfContents={tableOfContents}
             />
-          </div>
-        )}
+          </article>
 
-        <CmsContentRenderer
-          content={entry.content as JSONContent}
-          className="tiptap ProseMirror blog-content"
-        />
-      </article>
-    </div>
+          {tableOfContents.length > 0 && (
+            <aside className="hidden xl:block">
+              <div className="sticky top-24">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  On This Page
+                </p>
+                <ContentTableOfContentsNav nodes={tableOfContentsTree} />
+              </div>
+            </aside>
+          )}
+        </div>
+      </div>
     </>
   )
 }

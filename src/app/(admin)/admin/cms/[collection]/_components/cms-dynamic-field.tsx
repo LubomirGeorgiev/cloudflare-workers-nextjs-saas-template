@@ -11,6 +11,13 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { FieldConfig } from "@/lib/cms/zod-to-field-config";
 
@@ -66,6 +73,37 @@ export function CmsDynamicField({ field }: CmsDynamicFieldProps) {
             value={fieldProps.value ? new Date(fieldProps.value as string).toISOString().split("T")[0] : ""}
             onChange={(e) => fieldProps.onChange(e.target.value)}
           />
+        );
+
+      case "boolean":
+        return (
+          <label className="flex items-center gap-3 rounded-md border px-3 py-2">
+            <input
+              type="checkbox"
+              checked={Boolean(fieldProps.value)}
+              onChange={(e) => fieldProps.onChange(e.target.checked)}
+            />
+            <span className="text-sm">{field.description || `Enable ${field.label.toLowerCase()}`}</span>
+          </label>
+        );
+
+      case "select":
+        return (
+          <Select
+            value={(fieldProps.value as string) || ""}
+            onValueChange={fieldProps.onChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={`Select ${field.label.toLowerCase()}...`} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options?.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         );
 
       default:

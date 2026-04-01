@@ -101,6 +101,40 @@ CREATE UNIQUE INDEX `cms_media_bucketKey_unique` ON `cms_media` (`bucketKey`);--
 CREATE INDEX `cms_media_mime_type_idx` ON `cms_media` (`mimeType`);--> statement-breakpoint
 CREATE INDEX `cms_media_created_at_idx` ON `cms_media` (`createdAt`);--> statement-breakpoint
 CREATE INDEX `cms_media_uploaded_by_idx` ON `cms_media` (`uploadedBy`);--> statement-breakpoint
+CREATE TABLE `cms_navigation_item` (
+	`createdAt` integer NOT NULL,
+	`updatedAt` integer NOT NULL,
+	`updateCounter` integer DEFAULT 0,
+	`id` text PRIMARY KEY NOT NULL,
+	`navigationKey` text NOT NULL,
+	`parentId` text,
+	`nodeType` text NOT NULL,
+	`title` text NOT NULL,
+	`entryId` text,
+	`slugSegment` text,
+	`resolvedPath` text,
+	`sortOrder` integer DEFAULT 0 NOT NULL,
+	FOREIGN KEY (`entryId`) REFERENCES `cms_entry`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE INDEX `cms_navigation_item_site_key_idx` ON `cms_navigation_item` (`navigationKey`);--> statement-breakpoint
+CREATE INDEX `cms_navigation_item_parent_id_idx` ON `cms_navigation_item` (`parentId`);--> statement-breakpoint
+CREATE UNIQUE INDEX `cms_navigation_item_site_path_unique` ON `cms_navigation_item` (`navigationKey`,`resolvedPath`);--> statement-breakpoint
+CREATE UNIQUE INDEX `cms_navigation_item_site_parent_sort_order_unique` ON `cms_navigation_item` (`navigationKey`,`parentId`,`sortOrder`);--> statement-breakpoint
+CREATE UNIQUE INDEX `cms_navigation_item_site_entry_unique` ON `cms_navigation_item` (`navigationKey`,`entryId`);--> statement-breakpoint
+CREATE TABLE `cms_navigation_redirect` (
+	`createdAt` integer NOT NULL,
+	`updatedAt` integer NOT NULL,
+	`updateCounter` integer DEFAULT 0,
+	`id` text PRIMARY KEY NOT NULL,
+	`navigationKey` text NOT NULL,
+	`fromPath` text NOT NULL,
+	`toPath` text NOT NULL,
+	`statusCode` integer DEFAULT 301 NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `cms_navigation_redirect_site_key_idx` ON `cms_navigation_redirect` (`navigationKey`);--> statement-breakpoint
+CREATE UNIQUE INDEX `cms_navigation_redirect_site_from_path_unique` ON `cms_navigation_redirect` (`navigationKey`,`fromPath`);--> statement-breakpoint
 CREATE TABLE `cms_tag` (
 	`createdAt` integer NOT NULL,
 	`updatedAt` integer NOT NULL,

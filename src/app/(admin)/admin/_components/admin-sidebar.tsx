@@ -8,6 +8,7 @@ import {
   FileText,
   Image,
   Tags,
+  PanelLeft,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -23,6 +24,7 @@ import {
   SidebarGroup,
 } from "@/components/ui/sidebar"
 import { cmsConfig } from "@/../cms.config"
+import { getCmsNavigations } from "@/lib/cms/cms-navigation-config"
 
 type NavItem = {
   title: string
@@ -44,6 +46,12 @@ const cmsCollectionItems: NavItem[] = Object.entries(cmsConfig.collections).map(
   })
 );
 
+const cmsNavigationItems: NavItem[] = getCmsNavigations().map((navigation) => ({
+  title: navigation.label,
+  url: `/admin/cms/navigation/${navigation.navigationKey}` as Route,
+  icon: PanelLeft,
+}));
+
 const adminNavItems: NavMainItem[] = [
   {
     title: "Users",
@@ -63,6 +71,7 @@ const adminNavItems: NavMainItem[] = [
         url: "/admin/cms/media",
         icon: Image,
       },
+      ...cmsNavigationItems,
       {
         title: "Tags",
         url: "/admin/cms/tags",

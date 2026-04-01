@@ -15,8 +15,14 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import { cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
-import type { CmsEntryStatus } from "@/types/cms";
+import {
+  CMS_STATUS_FILTER_ALL,
+  cmsStatusFilterTuple,
+  type CmsEntryStatus,
+  type CmsStatusFilter,
+} from "@/types/cms";
 
 // TODO Check if the tiptap editor supports warning and error blocks
 // TODO Add blog table of contents
@@ -29,10 +35,7 @@ import type { CmsEntryStatus } from "@/types/cms";
 
 // Zod Schemas for validation
 // TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
-const cmsEntryStatusOrAllSchema = z.union([
-  cmsEntryStatusSchema,
-  z.literal('all'),
-]);
+const cmsEntryStatusOrAllSchema = z.enum(cmsStatusFilterTuple);
 
 const cmsIncludeRelationsSchema = z.object({
   createdByUser: z.boolean().optional(),
@@ -142,7 +145,7 @@ const getCmsTagByIdParamsSchema = z.string().min(1);
 
 const getCmsEntriesByTagIdParamsSchema = z.object({
   tagId: z.string().min(1),
-  status: cmsEntryStatusOrAllSchema.optional().default('all'),
+  status: cmsEntryStatusOrAllSchema.optional().default(CMS_STATUS_FILTER_ALL),
 });
 
 const createCmsTagParamsSchema = z.object({
@@ -182,7 +185,7 @@ function getCmsEntryCacheKey({
 }: {
   collectionSlug: CollectionsUnion;
   slug: string;
-  status?: CmsEntryStatus | 'all';
+  status?: CmsStatusFilter;
 }): string {
   const base = `${CACHE_KEYS.CMS_ENTRY}:${collectionSlug}:${slug}`;
   return status ? `${base}:${status}` : base;
@@ -196,7 +199,7 @@ function getCmsCollectionCacheKey({
   offset,
 }: {
   collectionSlug?: CollectionsUnion;
-  status?: CmsEntryStatus | 'all';
+  status?: CmsStatusFilter;
   includeRelations?: CmsIncludeRelations;
   limit?: number;
   offset?: number;
@@ -218,13 +221,25 @@ function getCmsCollectionCacheKey({
   return `${base}${status}:${JSON.stringify(includeRelations)}:${limit}:${offset}`;
 }
 
-export async function invalidateCmsEntryCache({
+function getCmsCollectionCountCacheKey({
   collectionSlug,
-  slug,
+  status,
 }: {
-  collectionSlug: CollectionsUnion;
-  slug: string;
-}): Promise<void> {
+  collectionSlug?: CollectionsUnion;
+  status?: CmsStatusFilter;
+}): string {
+  if (!collectionSlug) {
+    return `${CACHE_KEYS.CMS_COLLECTION}:count:`;
+  }
+
+  if (status === undefined) {
+    return `${CACHE_KEYS.CMS_COLLECTION}:count:${collectionSlug}:`;
+  }
+
+  return `${CACHE_KEYS.CMS_COLLECTION}:count:${collectionSlug}:${status}`;
+}
+
+async function invalidateCacheByPrefix(prefix: string): Promise<void> {
   const { env } = await getCloudflareContext({ async: true });
   const kv = env.NEXT_INC_CACHE_KV;
 
@@ -232,22 +247,29 @@ export async function invalidateCmsEntryCache({
     return;
   }
 
-  const prefix = getCmsEntryCacheKey({ collectionSlug, slug });
-
-  // List all keys with this prefix
   let cursor: string | undefined;
   const keysToDelete: string[] = [];
 
   do {
     const result = await kv.list({ prefix, cursor });
-    keysToDelete.push(...result.keys.map(key => key.name));
-    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
+    keysToDelete.push(...result.keys.map((key) => key.name));
+    cursor = !result.list_complete && "cursor" in result ? result.cursor : undefined;
   } while (cursor);
 
-  // Delete all matching keys in parallel
   if (keysToDelete.length > 0) {
-    await Promise.all(keysToDelete.map(key => kv.delete(key)));
+    await Promise.all(keysToDelete.map((key) => kv.delete(key)));
   }
+}
+
+export async function invalidateCmsEntryCache({
+  collectionSlug,
+  slug,
+}: {
+  collectionSlug: CollectionsUnion;
+  slug: string;
+}): Promise<void> {
+  const prefix = getCmsEntryCacheKey({ collectionSlug, slug });
+  await invalidateCacheByPrefix(prefix);
 }
 
 /**
@@ -259,30 +281,34 @@ export async function invalidateCmsCollectionCache({
 }: {
   collectionSlug: CollectionsUnion;
 }): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
-  const kv = env.NEXT_INC_CACHE_KV;
+  const prefix = getCmsCollectionCacheKey({ collectionSlug });
+  await invalidateCacheByPrefix(prefix);
+}
 
-  if (!kv) {
+export async function invalidateCmsCollectionCountCache({
+  collectionSlug,
+}: {
+  collectionSlug: CollectionsUnion;
+}): Promise<void> {
+  const prefix = getCmsCollectionCountCacheKey({ collectionSlug });
+  await invalidateCacheByPrefix(prefix);
+}
+
+async function invalidateCmsNavigationCachesForCollection({
+  collectionSlug,
+}: {
+  collectionSlug: CollectionsUnion;
+}): Promise<void> {
+  const navigationKey = getCmsCollectionNavigationKey(collectionSlug);
+
+  if (!navigationKey) {
     return;
   }
 
-  // Build the prefix to match all collection cache entries for this collection
-  const prefix = getCmsCollectionCacheKey({ collectionSlug });
-
-  // List all keys with this prefix
-  let cursor: string | undefined;
-  const keysToDelete: string[] = [];
-
-  do {
-    const result = await kv.list({ prefix, cursor });
-    keysToDelete.push(...result.keys.map(key => key.name));
-    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
-  } while (cursor);
-
-  // Delete all matching keys in parallel
-  if (keysToDelete.length > 0) {
-    await Promise.all(keysToDelete.map(key => kv.delete(key)));
-  }
+  await Promise.all([
+    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:${navigationKey}:`),
+    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:${navigationKey}:`),
+  ]);
 }
 
 async function invalidateSitemapCache(): Promise<void> {
@@ -310,6 +336,8 @@ async function invalidateEntryAndCollection({
   await Promise.all([
     invalidateCmsEntryCache({ collectionSlug, slug }),
     invalidateCmsCollectionCache({ collectionSlug }),
+    invalidateCmsCollectionCountCache({ collectionSlug }),
+    invalidateCmsNavigationCachesForCollection({ collectionSlug }),
     invalidateSitemapCache(),
   ]);
 }
@@ -319,32 +347,13 @@ async function invalidateEntryAndCollection({
  * Used when changes affect multiple collections (e.g., tag updates)
  */
 async function invalidateAllCmsCollectionCaches(): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
-  const kv = env.NEXT_INC_CACHE_KV;
-
-  if (!kv) {
-    return;
-  }
-
-  // Build the prefix to match ALL collection cache entries
-  const prefix = getCmsCollectionCacheKey({});
-
-  // List all keys with this prefix
-  let cursor: string | undefined;
-  const keysToDelete: string[] = [];
-
-  do {
-    const result = await kv.list({ prefix, cursor });
-    keysToDelete.push(...result.keys.map(key => key.name));
-    cursor = !result.list_complete && 'cursor' in result ? result.cursor : undefined;
-  } while (cursor);
-
-  // Delete all matching keys in parallel
-  if (keysToDelete.length > 0) {
-    await Promise.all(keysToDelete.map(key => kv.delete(key)));
-  }
-
-  await invalidateSitemapCache();
+  await Promise.all([
+    invalidateCacheByPrefix(getCmsCollectionCacheKey({})),
+    invalidateCacheByPrefix(getCmsCollectionCountCacheKey({})),
+    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:`),
+    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:`),
+    invalidateSitemapCache(),
+  ]);
 }
 
 /**
@@ -379,8 +388,8 @@ async function autoPublishScheduledEntry<T extends CmsEntry>(entry: T): Promise<
  * Helper function to build status filter conditions
  * When querying for published entries, also includes scheduled entries so they can be auto-published at runtime
  */
-function buildStatusWhereCondition(status: CmsEntryStatus | 'all') {
-  if (status === 'all') {
+function buildStatusWhereCondition(status: CmsStatusFilter) {
+  if (status === CMS_STATUS_FILTER_ALL) {
     return undefined;
   }
 
@@ -399,7 +408,7 @@ function validateEntryFields(
   fields: unknown,
   collection: typeof cmsConfig.collections[keyof typeof cmsConfig.collections]
 ): unknown {
-  if (!collection.fieldsSchema) {
+  if (!("fieldsSchema" in collection) || !collection.fieldsSchema) {
     return fields;
   }
 
@@ -497,7 +506,7 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
 
 type GetCmsCollectionParams<T extends CollectionsUnion> = Omit<z.infer<typeof getCmsCollectionParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
-  status?: CmsEntryStatus | 'all';
+  status?: CmsStatusFilter;
 };
 
 export type GetCmsCollectionResult = CmsEntry & {
@@ -641,28 +650,37 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
   const validated = getCmsCollectionCountParamsSchema.parse(params);
   const { collectionSlug, status } = validated;
 
-  const db = getDB();
-
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
 
-  const whereConditions = [
-    eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-  ];
+  const cacheKey = getCmsCollectionCountCacheKey({
+    collectionSlug: collection.slug as CollectionsUnion,
+    status,
+  });
 
-  const statusCondition = buildStatusWhereCondition(status);
-  if (statusCondition) {
-    whereConditions.push(statusCondition);
-  }
+  return withKVCache(async () => {
+    const db = getDB();
+    const whereConditions = [
+      eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
+    ];
 
-  const result = await db
-    .select({ count: count() })
-    .from(cmsEntryTable)
-    .where(and(...whereConditions));
+    const statusCondition = buildStatusWhereCondition(status);
+    if (statusCondition) {
+      whereConditions.push(statusCondition);
+    }
 
-  return result[0]?.count ?? 0;
+    const result = await db
+      .select({ count: count() })
+      .from(cmsEntryTable)
+      .where(and(...whereConditions));
+
+    return result[0]?.count ?? 0;
+  }, {
+    key: cacheKey,
+    ttl: "8 hours",
+  });
 });
 
 
@@ -707,7 +725,7 @@ export const getCmsEntryById = cache(async (params: GetCmsEntryByIdParams): Prom
 
 type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = Omit<z.infer<typeof getCmsEntryBySlugParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
-  status?: CmsEntryStatus | 'all';
+  status?: CmsStatusFilter;
 };
 
 type GetCmsEntryBySlugResult = GetCmsCollectionResult;
@@ -899,8 +917,18 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
 
   // Invalidate collection cache and sitemap since we added a new entry
   await Promise.all([
+    invalidateCmsEntryCache({
+      collectionSlug: collection.slug as CollectionsUnion,
+      slug,
+    }),
     invalidateCmsCollectionCache({
       collectionSlug: collection.slug as CollectionsUnion
+    }),
+    invalidateCmsCollectionCountCache({
+      collectionSlug: collection.slug as CollectionsUnion,
+    }),
+    invalidateCmsNavigationCachesForCollection({
+      collectionSlug: collection.slug as CollectionsUnion,
     }),
     invalidateSitemapCache(),
   ]);
@@ -1097,6 +1125,8 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
       invalidateCmsEntryCache({ collectionSlug, slug: slugToInvalidate })
     ),
     invalidateCmsCollectionCache({ collectionSlug }),
+    invalidateCmsCollectionCountCache({ collectionSlug }),
+    invalidateCmsNavigationCachesForCollection({ collectionSlug }),
     invalidateSitemapCache(),
   ]);
 
@@ -1177,7 +1207,7 @@ export const getCmsTagById = cache(async (id: z.infer<typeof getCmsTagByIdParams
 /**
  * Get all CMS entries that use a specific tag, grouped by collection
  */
-export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status?: "draft" | "published" | "archived" | "all" }) => {
+export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status?: CmsStatusFilter }) => {
   const validated = getCmsEntriesByTagIdParamsSchema.parse(params);
   const { tagId, status } = validated;
 
@@ -1186,7 +1216,7 @@ export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status
   // Build the where conditions
   const conditions = [eq(cmsEntryTagTable.tagId, tagId)];
 
-  if (status !== 'all') {
+  if (status !== CMS_STATUS_FILTER_ALL) {
     conditions.push(eq(cmsEntryTable.status, status));
   }
 
@@ -1450,13 +1480,19 @@ export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEn
   });
 
   // Invalidate cache for both entry and collection
-  await invalidateEntryAndCollection({
-    collectionSlug: updatedEntry.collection,
-    slug: updatedEntry.slug
-  });
-  // If slug changed, invalidate old slug too (though in revert we might not know the old slug easily without another query,
-  // but usually reverts are for content/fields. If slug changed in history, it's safer to just invalidate the new slug
-  // and let the old one expire or rely on the fact that we're mostly concerned with the current URL serving correct content).
+  const slugsToInvalidate = new Set([currentEntry.slug, updatedEntry.slug]);
+  await Promise.all([
+    ...Array.from(slugsToInvalidate).map((slugToInvalidate) =>
+      invalidateCmsEntryCache({
+        collectionSlug: updatedEntry.collection,
+        slug: slugToInvalidate,
+      })
+    ),
+    invalidateCmsCollectionCache({ collectionSlug: updatedEntry.collection }),
+    invalidateCmsCollectionCountCache({ collectionSlug: updatedEntry.collection }),
+    invalidateCmsNavigationCachesForCollection({ collectionSlug: updatedEntry.collection }),
+    invalidateSitemapCache(),
+  ]);
 
   return updatedEntry;
 }

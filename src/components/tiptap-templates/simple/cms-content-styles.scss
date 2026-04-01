@@ -2,12 +2,12 @@
   Anytime we want to render the cms content in the frontend, we need to import this file.
 */
 
-@import "@/components/tiptap-node/blockquote-node/blockquote-node.scss";
-@import "@/components/tiptap-node/code-block-node/code-block-node.scss";
-@import "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node.scss";
-@import "@/components/tiptap-node/list-node/list-node.scss";
-@import "@/components/tiptap-node/image-node/image-node.scss";
-@import "@/components/tiptap-node/heading-node/heading-node.scss";
-@import "@/components/tiptap-node/paragraph-node/paragraph-node.scss";
-@import "@/components/tiptap-node/table-node/table-node.scss";
-@import "@/components/tiptap-templates/simple/code-highlighting.scss";
+@use "../../tiptap-node/blockquote-node/blockquote-node.scss" as *;
+@use "../../tiptap-node/code-block-node/code-block-node.scss" as *;
+@use "../../tiptap-node/horizontal-rule-node/horizontal-rule-node.scss" as *;
+@use "../../tiptap-node/list-node/list-node.scss" as *;
+@use "../../tiptap-node/image-node/image-node.scss" as *;
+@use "../../tiptap-node/heading-node/heading-node.scss" as *;
+@use "../../tiptap-node/paragraph-node/paragraph-node.scss" as *;
+@use "../../tiptap-node/table-node/table-node.scss" as *;
+@use "./code-highlighting.scss" as *;

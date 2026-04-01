@@ -27,17 +27,28 @@ import {
 import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type GetCmsCollectionResult } from "@/lib/cms/cms-repository";
-import { type CmsEntryStatus } from "@/types/cms";
+import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import { type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
+import { Badge } from "@/components/ui/badge";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
-type StatusFilter = CmsEntryStatus | "all";
-
-export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+export function CmsEntriesTable({
+  collection,
+  navigationEntryIds = [],
+}: {
+  collection: CollectionsUnion;
+  navigationEntryIds?: string[];
+}) {
+  const [statusFilter, setStatusFilter] = useState<CmsStatusFilter>(CMS_STATUS_FILTER_ALL);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+  const docsNavigationEntryIdsSet = useMemo(
+    () => new Set(navigationEntryIds),
+    [navigationEntryIds]
+  );
+  const hasNavigation = Boolean(getCmsCollectionNavigationKey(collection));
 
   const { execute: listEntries, data, isPending } = useServerAction(listCmsEntriesAction);
   const { execute: deleteEntry, isPending: isDeleting } = useServerAction(deleteCmsEntryAction, {
@@ -56,7 +67,21 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
     {
       accessorKey: "title",
       header: "Title",
-      cell: ({ row }) => <span className="font-medium">{row.original.title}</span>,
+      cell: ({ row }) => {
+        const isEntryMissingNavigation =
+          hasNavigation && !docsNavigationEntryIdsSet.has(row.original.id);
+
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">{row.original.title}</span>
+            {isEntryMissingNavigation ? (
+              <Badge variant="outline" className="w-fit text-amber-700 border-amber-300">
+                Not in navigation
+              </Badge>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "slug",
@@ -129,7 +154,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
         </div>
       ),
     },
-  ], [collection, setDeleteEntryId]);
+  ], [collection, docsNavigationEntryIdsSet, hasNavigation, setDeleteEntryId]);
 
   useEffect(() => {
     listEntries({
@@ -177,7 +202,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
               <Select
                 value={statusFilter}
                 onValueChange={(value) => {
-                  setStatusFilter(value as StatusFilter);
+                  setStatusFilter(value as CmsStatusFilter);
                   setPageIndex(0);
                 }}
               >
@@ -185,7 +210,7 @@ export function CmsEntriesTable({ collection }: { collection: CollectionsUnion }
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value={CMS_STATUS_FILTER_ALL}>All</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="published">Published</SelectItem>
                   <SelectItem value="scheduled">Scheduled</SelectItem>

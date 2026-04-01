@@ -50,4 +50,6 @@ export const CACHE_KEYS = {
   GITHUB_STARS: `${STATS_PREFIX}:github-stars`,
   CMS_ENTRY: `${CMS_PREFIX}:entry`,
   CMS_COLLECTION: `${CMS_PREFIX}:collection`,
+  CMS_NAVIGATION: `${CMS_PREFIX}:navigation`,
+  CMS_REDIRECT: `${CMS_PREFIX}:redirect`,
 } as const;

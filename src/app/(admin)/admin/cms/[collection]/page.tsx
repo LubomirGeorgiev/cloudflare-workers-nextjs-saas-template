@@ -5,8 +5,21 @@ import { cmsConfig } from "@/../cms.config";
 import { CmsEntriesTable } from "./_components/cms-entries-table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, PanelLeft } from "lucide-react";
 import { type CollectionsUnion } from "@/../cms.config";
+import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+
+function collectNavigationEntryIds(
+  nodes: Awaited<ReturnType<typeof getCmsNavigationTree>>
+): string[] {
+  return nodes.flatMap((node) => {
+    const childEntryIds = collectNavigationEntryIds(node.children);
+
+    return node.entryId ? [node.entryId, ...childEntryIds] : childEntryIds;
+  });
+}
 
 export async function generateMetadata({
   params,
@@ -46,6 +59,16 @@ export default async function CollectionPage({
     return redirect("/admin/cms");
   }
 
+  const navigationKey = getCmsCollectionNavigationKey(collection);
+  const navigationEntryIds = navigationKey
+    ? collectNavigationEntryIds(
+        await getCmsNavigationTree({
+          navigationKey,
+          status: CMS_STATUS_FILTER_ALL,
+        })
+      )
+    : [];
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
@@ -64,15 +87,28 @@ export default async function CollectionPage({
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href={`/admin/cms/${collection}/new`}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create {collectionConfig.labels.singular}
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          {navigationKey ? (
+            <Button asChild variant="outline">
+              <Link href={`/admin/cms/navigation/${navigationKey}`}>
+                <PanelLeft className="h-4 w-4 mr-2" />
+                Navigation
+              </Link>
+            </Button>
+          ) : null}
+          <Button asChild>
+            <Link href={`/admin/cms/${collection}/new`}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create {collectionConfig.labels.singular}
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <CmsEntriesTable collection={collection} />
+      <CmsEntriesTable
+        collection={collection}
+        navigationEntryIds={navigationEntryIds}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b70475d9-edf6-458a-94cd-110bc5416156",
+  "id": "8169289e-05d5-4881-be1b-c7d406a9f745",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -753,6 +753,240 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cms_navigation_item": {
+      "name": "cms_navigation_item",
+      "columns": {
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updateCounter": {
+          "name": "updateCounter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "navigationKey": {
+          "name": "navigationKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "parentId": {
+          "name": "parentId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "nodeType": {
+          "name": "nodeType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entryId": {
+          "name": "entryId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "slugSegment": {
+          "name": "slugSegment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "resolvedPath": {
+          "name": "resolvedPath",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sortOrder": {
+          "name": "sortOrder",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "cms_navigation_item_site_key_idx": {
+          "name": "cms_navigation_item_site_key_idx",
+          "columns": [
+            "navigationKey"
+          ],
+          "isUnique": false
+        },
+        "cms_navigation_item_parent_id_idx": {
+          "name": "cms_navigation_item_parent_id_idx",
+          "columns": [
+            "parentId"
+          ],
+          "isUnique": false
+        },
+        "cms_navigation_item_site_path_unique": {
+          "name": "cms_navigation_item_site_path_unique",
+          "columns": [
+            "navigationKey",
+            "resolvedPath"
+          ],
+          "isUnique": true
+        },
+        "cms_navigation_item_site_parent_sort_order_unique": {
+          "name": "cms_navigation_item_site_parent_sort_order_unique",
+          "columns": [
+            "navigationKey",
+            "parentId",
+            "sortOrder"
+          ],
+          "isUnique": true
+        },
+        "cms_navigation_item_site_entry_unique": {
+          "name": "cms_navigation_item_site_entry_unique",
+          "columns": [
+            "navigationKey",
+            "entryId"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "cms_navigation_item_entryId_cms_entry_id_fk": {
+          "name": "cms_navigation_item_entryId_cms_entry_id_fk",
+          "tableFrom": "cms_navigation_item",
+          "tableTo": "cms_entry",
+          "columnsFrom": [
+            "entryId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cms_navigation_redirect": {
+      "name": "cms_navigation_redirect",
+      "columns": {
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updateCounter": {
+          "name": "updateCounter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "navigationKey": {
+          "name": "navigationKey",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fromPath": {
+          "name": "fromPath",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "toPath": {
+          "name": "toPath",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "statusCode": {
+          "name": "statusCode",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 301
+        }
+      },
+      "indexes": {
+        "cms_navigation_redirect_site_key_idx": {
+          "name": "cms_navigation_redirect_site_key_idx",
+          "columns": [
+            "navigationKey"
+          ],
+          "isUnique": false
+        },
+        "cms_navigation_redirect_site_from_path_unique": {
+          "name": "cms_navigation_redirect_site_from_path_unique",
+          "columns": [
+            "navigationKey",
+            "fromPath"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}

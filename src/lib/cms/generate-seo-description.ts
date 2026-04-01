@@ -2,7 +2,7 @@ import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { CollectionsUnion } from "@/../cms.config";
-import { CMS_SEO_DESCRIPTION_AI_MODEL, SITE_DESCRIPTION, SITE_NAME, SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
+import { DEFAULT_AI_MODEL, SITE_DESCRIPTION, SITE_NAME, SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import type { JSONContent } from "@tiptap/core";
 import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
 
@@ -59,7 +59,7 @@ The description should be:
 
 Return only the description text, no quotes or additional text.`;
 
-    const result = await AI.run(CMS_SEO_DESCRIPTION_AI_MODEL, {
+    const result = await AI.run(DEFAULT_AI_MODEL, {
       prompt,
       max_tokens: 100,
     });

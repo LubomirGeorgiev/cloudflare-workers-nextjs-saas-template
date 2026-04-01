@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { notFound, redirect } from "next/navigation";
@@ -55,7 +56,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
   const session = await getSessionFromCookie();
   if (!session) {
-    redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
+    return redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`) as Route);
   }
 
   const db = getDB();
