@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa"
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db"
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
@@ -17,9 +18,9 @@ import { getIP } from "@/utils/get-IP";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 
-export const signUpAction = createServerAction()
-  .input(signUpSchema)
-  .handler(async ({ input }) => {
+export const signUpAction = actionClient
+  .inputSchema(signUpSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const db = getDB();
@@ -29,7 +30,7 @@ export const signUpAction = createServerAction()
           const success = await validateTurnstileToken(input.captchaToken)
 
           if (!success) {
-            throw new ZSAError(
+            throw new ActionError(
               "INPUT_PARSE_ERROR",
               "Please complete the captcha"
             )
@@ -45,7 +46,7 @@ export const signUpAction = createServerAction()
         });
 
         if (existingUser) {
-          throw new ZSAError(
+          throw new ActionError(
             "CONFLICT",
             "Email already taken"
           );
@@ -66,7 +67,7 @@ export const signUpAction = createServerAction()
           .returning();
 
         if (!user || !user.email) {
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "Failed to create user"
           );
@@ -117,7 +118,7 @@ export const signUpAction = createServerAction()
         } catch (error) {
           console.error(error)
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "Failed to create session after signup"
           );

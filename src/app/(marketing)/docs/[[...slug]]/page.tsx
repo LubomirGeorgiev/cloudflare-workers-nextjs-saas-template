@@ -212,10 +212,10 @@ export default async function DocsPage({ params }: DocsPageProps) {
 
   if (result.type === "redirect") {
     if (result.permanent) {
-      permanentRedirect(result.path);
+      permanentRedirect(result.path as Route);
     }
 
-    redirect(result.path);
+    redirect(result.path as Route);
   }
 
   if (result.type === "not-found") {
@@ -427,7 +427,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
 
           {tableOfContents.length > 0 ? (
             <aside className="hidden xl:block">
-              <div className="sticky top-24">
+              <div className="sticky top-10">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   On This Page
                 </p>

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { useSessionStore } from "@/state/session"
-import { useServerAction } from "zsa-react"
+import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
 
@@ -39,8 +39,8 @@ export function TeamSwitcher({
   const selectedTeamId = session.selectedTeam()
   const setSelectedTeam = session.setSelectedTeam
 
-  const { execute: updateSelectedTeam, isPending } = useServerAction(updateSelectedTeamAction, {
-    onError: (error) => {
+  const { execute: updateSelectedTeam, isExecuting } = useAction(updateSelectedTeamAction, {
+    onError: ({ error }) => {
       console.error("Failed to update selected team:", error);
       // Revert optimistic update
       setSelectedTeam(selectedTeamId);
@@ -63,7 +63,7 @@ export function TeamSwitcher({
     setSelectedTeam(team.id)
 
     // Call server action to persist
-    // Error handling is done via onError callback in useServerAction
+    // Error handling is done via the useAction onError callback
     updateSelectedTeam({ selectedTeam: team.id })
   }, [setSelectedTeam, updateSelectedTeam])
 
@@ -103,7 +103,7 @@ export function TeamSwitcher({
                   key={team.id}
                   onClick={() => handleTeamChange(team)}
                   className="gap-2 p-2"
-                  disabled={isPending}
+                  disabled={isExecuting}
                 >
                   <div className="flex size-6 items-center justify-center rounded-sm border">
                     <team.logo className="size-4 shrink-0" />

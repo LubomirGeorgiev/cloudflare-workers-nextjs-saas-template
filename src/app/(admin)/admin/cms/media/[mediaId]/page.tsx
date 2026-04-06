@@ -34,9 +34,9 @@ function formatFileSize(bytes: number): string {
 
 export default async function MediaDetailPage({ params }: MediaDetailPageProps) {
   const { mediaId } = await params;
-  const [result, error] = await getCmsMediaDetailsAction({ mediaId });
+  const { data: result, serverError } = await getCmsMediaDetailsAction({ mediaId });
 
-  if (error || !result) {
+  if (serverError || !result) {
     notFound();
   }
 

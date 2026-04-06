@@ -3,7 +3,7 @@ import { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamMembershipTable, teamRoleTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { generateSlug } from "@/utils/slugify";
-import { ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, and, count } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
@@ -24,7 +24,7 @@ export async function createTeam({
   // Verify user is authenticated
   const session = await requireVerifiedEmail();
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   const userId = session.userId;
@@ -44,7 +44,7 @@ export async function createTeam({
   const teamsOwned = ownedTeamsCount[0]?.value || 0;
 
   if (teamsOwned >= MAX_TEAMS_CREATED_PER_USER) {
-    throw new ZSAError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_CREATED_PER_USER} teams you can create.`);
+    throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_CREATED_PER_USER} teams you can create.`);
   }
 
   // Generate unique slug for the team
@@ -68,7 +68,7 @@ export async function createTeam({
   }
 
   if (!slugIsUnique) {
-    throw new ZSAError("ERROR", "Could not generate a unique slug for the team");
+    throw new ActionError("ERROR", "Could not generate a unique slug for the team");
   }
 
   // Insert the team
@@ -83,7 +83,7 @@ export async function createTeam({
   const team = newTeam?.[0];
 
   if (!team) {
-    throw new ZSAError("ERROR", "Could not create team");
+    throw new ActionError("ERROR", "Could not create team");
   }
 
   const teamId = team.id;
@@ -130,7 +130,7 @@ export async function getUserTeams() {
   const session = await requireVerifiedEmail();
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   const db = getDB();

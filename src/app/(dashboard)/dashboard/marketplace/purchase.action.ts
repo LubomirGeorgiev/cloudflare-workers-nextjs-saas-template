@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { z } from "zod";
 import { getSessionFromCookie } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -16,13 +17,13 @@ const purchaseSchema = z.object({
   itemType: z.enum([PURCHASABLE_ITEM_TYPE.COMPONENT]), // Add more types as they become available
 });
 
-export const purchaseAction = createServerAction()
-  .input(purchaseSchema)
-  .handler(async ({ input }) => {
+export const purchaseAction = actionClient
+  .inputSchema(purchaseSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         if (DISABLE_CREDIT_BILLING_SYSTEM) {
-          throw new ZSAError(
+          throw new ActionError(
             "INSUFFICIENT_CREDITS",
             "Marketplace is not available when credit billing is disabled"
           );
@@ -31,7 +32,7 @@ export const purchaseAction = createServerAction()
         const session = await getSessionFromCookie();
 
         if (!session) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_AUTHORIZED",
             "You must be logged in to make purchases"
           );
@@ -47,7 +48,7 @@ export const purchaseAction = createServerAction()
         }
 
         if (!itemDetails) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_FOUND",
             "Item not found"
           );
@@ -65,7 +66,7 @@ export const purchaseAction = createServerAction()
         });
 
         if (existingPurchase) {
-          throw new ZSAError(
+          throw new ActionError(
             "CONFLICT",
             "You already own this item"
           );
@@ -78,7 +79,7 @@ export const purchaseAction = createServerAction()
         });
 
         if (!hasCredits) {
-          throw new ZSAError(
+          throw new ActionError(
             "INSUFFICIENT_CREDITS",
             "You don't have enough credits to purchase this item"
           );

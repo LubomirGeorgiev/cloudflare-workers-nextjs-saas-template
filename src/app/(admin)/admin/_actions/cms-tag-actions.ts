@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import {
   getCmsTags,
@@ -10,15 +11,15 @@ import {
   deleteCmsTag,
 } from "@/lib/cms/cms-repository";
 
-export const listCmsTagsAction = createServerAction()
-  .handler(async () => {
+export const listCmsTagsAction = actionClient
+  .action(async () => {
     await requireAdmin();
     const tags = await getCmsTags();
     return tags;
   });
 
-export const createCmsTagAction = createServerAction()
-  .input(
+export const createCmsTagAction = actionClient
+  .inputSchema(
     z.object({
       name: z.string().min(1, "Name is required"),
       slug: z.string().min(1, "Slug is required"),
@@ -26,11 +27,11 @@ export const createCmsTagAction = createServerAction()
       color: z.string().optional(),
     })
   )
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
 
     if (!session?.userId) {
-      throw new ZSAError("FORBIDDEN", "Not authorized");
+      throw new ActionError("FORBIDDEN", "Not authorized");
     }
 
     const newTag = await createCmsTag({
@@ -44,8 +45,8 @@ export const createCmsTagAction = createServerAction()
     return newTag;
   });
 
-export const updateCmsTagAction = createServerAction()
-  .input(
+export const updateCmsTagAction = actionClient
+  .inputSchema(
     z.object({
       id: z.string(),
       name: z.string().min(1, "Name is required").optional(),
@@ -54,7 +55,7 @@ export const updateCmsTagAction = createServerAction()
       color: z.string().optional(),
     })
   )
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const updatedTag = await updateCmsTag({
@@ -66,15 +67,15 @@ export const updateCmsTagAction = createServerAction()
     });
 
     if (!updatedTag) {
-      throw new ZSAError("NOT_FOUND", "Tag not found");
+      throw new ActionError("NOT_FOUND", "Tag not found");
     }
 
     return updatedTag;
   });
 
-export const deleteCmsTagAction = createServerAction()
-  .input(z.object({ id: z.string() }))
-  .handler(async ({ input }) => {
+export const deleteCmsTagAction = actionClient
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     await deleteCmsTag(input.id);

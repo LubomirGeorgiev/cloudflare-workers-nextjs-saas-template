@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME, GOOGLE_OAUTH_STATE_COOKIE_NAME } from "@/constants";
@@ -50,12 +51,12 @@ type GoogleSSOResponse = {
   exp: number
 }
 
-export const googleSSOCallbackAction = createServerAction()
-  .input(googleSSOCallbackSchema)
-  .handler(async ({ input }) => {
+export const googleSSOCallbackAction = actionClient
+  .inputSchema(googleSSOCallbackSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       if (!(await isGoogleSSOEnabled())) {
-        throw new ZSAError(
+        throw new ActionError(
           "FORBIDDEN",
           "Google SSO is not enabled"
         );
@@ -66,14 +67,14 @@ export const googleSSOCallbackAction = createServerAction()
       const cookieCodeVerifier = cookieStore.get(GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME)?.value ?? null;
 
       if (!cookieState || !cookieCodeVerifier) {
-        throw new ZSAError(
+        throw new ActionError(
           "NOT_AUTHORIZED",
           "Missing required cookies"
         );
       }
 
       if (input.state !== cookieState) {
-        throw new ZSAError(
+        throw new ActionError(
           "NOT_AUTHORIZED",
           "Invalid state parameter"
         );
@@ -85,7 +86,7 @@ export const googleSSOCallbackAction = createServerAction()
         tokens = await google.validateAuthorizationCode(input.code, cookieCodeVerifier);
       } catch (error) {
         console.error("Google OAuth callback: Error validating authorization code", error);
-        throw new ZSAError(
+        throw new ActionError(
           "NOT_AUTHORIZED",
           "Invalid authorization code"
         );
@@ -154,11 +155,11 @@ export const googleSSOCallbackAction = createServerAction()
       } catch (error) {
         console.error(error);
 
-        if (error instanceof ZSAError) {
+        if (error instanceof ActionError) {
           throw error;
         }
 
-        throw new ZSAError(
+        throw new ActionError(
           "INTERNAL_SERVER_ERROR",
           "An unexpected error occurred"
         );

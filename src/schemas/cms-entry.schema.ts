@@ -83,5 +83,4 @@ export const updateCmsEntrySchema = withStatusPublishedAtValidation(
       id: z.string(),
     })
 );
-
 export type CmsEntryFormData = z.infer<typeof cmsEntryFormSchema>;

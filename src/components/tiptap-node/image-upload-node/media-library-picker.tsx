@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { listCmsMediaForPickerAction } from "@/actions/list-cms-media.action";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,8 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
   const [page, setPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { execute, data, isPending } = useServerAction(listCmsMediaForPickerAction);
+  const { execute, result, isExecuting } = useAction(listCmsMediaForPickerAction);
+  const data = result.data;
 
   // Debounce search input
   useEffect(() => {
@@ -73,14 +74,14 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
       </div>
 
       <div className="tiptap-media-library-grid">
-        {isPending ? (
+        {isExecuting ? (
           // Loading skeletons
           Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="tiptap-media-library-item-skeleton" />
           ))
         ) : data?.media && data.media.length > 0 ? (
           // Media grid
-          data.media.map((media) => {
+          data.media.map((media: any) => {
             const imageUrl = `${CMS_IMAGES_API_ROUTE}/${media.bucketKey}`;
             return (
               <button
@@ -136,7 +137,7 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
             variant="outline"
             size="sm"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1 || isPending}
+            disabled={page === 1 || isExecuting}
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
@@ -147,7 +148,7 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
             variant="outline"
             size="sm"
             onClick={() => setPage((p) => p + 1)}
-            disabled={!data?.media || data.media.length < 20 || isPending}
+            disabled={!data?.media || data.media.length < 20 || isExecuting}
           >
             Next
             <ChevronRight className="h-4 w-4" />

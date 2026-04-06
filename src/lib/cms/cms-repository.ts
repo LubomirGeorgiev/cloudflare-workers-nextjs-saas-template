@@ -25,7 +25,7 @@ import {
 } from "@/types/cms";
 
 // TODO Check if the tiptap editor supports warning and error blocks
-// TODO Add blog table of contents
+// TODO If an admin is logged in we need to show a button on blogs and docs to edit it in the CMS admin panel
 // TODO Add open graph image generation
 // TODO Add CMS documentation example with drag-and-drop navigation
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap

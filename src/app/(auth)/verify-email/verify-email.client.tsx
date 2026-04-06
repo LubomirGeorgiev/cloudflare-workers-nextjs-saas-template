@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { verifyEmailAction } from "./verify-email.action";
 import { verifyEmailSchema } from "@/schemas/verify-email.schema";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,12 +17,12 @@ export default function VerifyEmailClientComponent() {
   const token = searchParams.get("token");
   const hasCalledVerification = useRef(false);
 
-  const { execute: handleVerification, isPending, error } = useServerAction(verifyEmailAction, {
-    onError: ({ err }) => {
+  const { execute: handleVerification, isExecuting, result } = useAction(verifyEmailAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(err.message || "Failed to verify email");
+      toast.error(error.serverError?.message || "Failed to verify email");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Verifying your email...");
     },
     onSuccess: () => {
@@ -36,6 +36,7 @@ export default function VerifyEmailClientComponent() {
       }, 500);
     },
   });
+  const error = result.serverError;
 
   useEffect(() => {
     if (token && !hasCalledVerification.current) {
@@ -51,7 +52,7 @@ export default function VerifyEmailClientComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  if (isPending) {
+  if (isExecuting) {
     return (
       <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">

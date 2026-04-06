@@ -149,7 +149,7 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 ## Deploying to Cloudflare with Github Actions
 
 1. Create D1 and KV namespaces
-2. Set either `RESEND_API_KEY` or `BREVO_API_KEY` as a secret in your Cloudflare Worker depending on which email service you want to use.
+2. Set either `RESEND_API_KEY` or `BREVO_API_KEY` as a secret in your Cloudflare Worker depending on which email service you want to use. If you are using Brevo go to https://app.brevo.com/security/authorised_ips and disable it.
 3. Create a Turnstile catcha in your Cloudflare account, and set the `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a Github Actions variable.
 4. Set `TURNSTILE_SECRET_KEY` as a secret in your Cloudflare Worker.
 5. Update the `wrangler.jsonc` file with the new database and KV namespaces, env variables and account id. Search for "cloudflare-workers-nextjs-saas-template" recursively in the whole repository and change that to the name of your project. Don't forget that the name you choose at the top of the wrangler.jsonc should be the same as `services->[0]->service` in the same file.
@@ -167,10 +167,3 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 8. Add the Cloudflare account id to the Github repository variables as `CLOUDFLARE_ACCOUNT_ID`
 9. Optional: If you want clear the CDN cache on deploy, add `CLOUDFLARE_ZONE_ID` to the Github repository variables for the zone id of your domain. This is the zone id of your domain, not the account id.
 10. Push to the main branch
-
-## Email templates
-If you want to preview and edit the email templates you can:
-1. `pnpm email:dev`
-2. Open http://localhost:3001
-3. Edit the email templates in the `src/react-email` folder
-4. For inspiration you can checkout https://react.email/templates

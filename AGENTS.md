@@ -125,7 +125,7 @@ You are an expert in TypeScript, Node.js, Next.js App Router, React, Shadcn UI, 
 ### Import Guidelines
 
 - Add `import "server-only"` at the top of the file (ignore this rule for page.tsx files) if it's only intended to be used on the server.
-- When creating React server actions always use `import { useServerAction } from "zsa-react"`
+- When creating React server actions use `actionClient` from `src/lib/safe-action.ts` on the server and `useAction` from `next-safe-action/hooks` in client components.
 
 ### Package Management
 
@@ -342,7 +342,7 @@ Cloudflare bindings accessed through getCloudflareContext
 
 All Zod validation schemas should be:
 - Centralized in the `src/schemas/` directory
-- Reused between both client-side (react-hook-form) and server-side (zsa server actions) validation
+- Reused between both client-side (react-hook-form) and server-side (`next-safe-action`) validation
 - Never duplicated or defined separately for client and server
 
 #### Schema File Structure
@@ -366,26 +366,26 @@ Key requirements:
 - Export the TypeScript type using `z.infer` with PascalCase name (e.g., `MySchema`)
 - This allows consumers to import both: `import { type MySchema, mySchema } from "@/schemas/my-schema.schema"`
 
-### Server Actions with ZSA
+### Server Actions with next-safe-action
 
-All server actions that handle form submissions MUST use the `zsa` library:
+All server actions that handle form submissions MUST use `next-safe-action`:
 
 ```typescript
-import { createServerAction } from "zsa"
+import { actionClient } from "@/lib/safe-action"
 import { mySchema } from "@/schemas/my-schema.schema";
 
-export const myAction = createServerAction()
-  .input(mySchema)
-  .handler(async ({ input }) => {
+export const myAction = actionClient
+  .inputSchema(mySchema)
+  .action(async ({ parsedInput }) => {
     // Server-side logic with validated input
     return { success: true };
   })
 ```
 
 Key requirements:
-- Use `createServerAction()` from `zsa` (not just plain server functions)
-- Use `.input(schema)` to define input validation with the Zod schema
-- The schema provides full type safety for the `input` parameter
+- Use `actionClient` from `src/lib/safe-action.ts`
+- Use `.inputSchema(schema)` to define input validation with the Zod schema
+- The schema provides full type safety for the `parsedInput` parameter
 
 ### Client Forms with React Hook Form
 
@@ -398,19 +398,19 @@ import { myAction } from "./my.actions";
 import { type MySchema, mySchema } from "@/schemas/my-schema.schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 
 const MyForm = () => {
-  const { execute: submitForm } = useServerAction(myAction, {
-    onError: (error) => {
+  const { execute: submitForm } = useAction(myAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError || "Something went wrong")
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Processing...")
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       toast.dismiss()
       toast.success("Success!")
     }
@@ -437,7 +437,7 @@ const MyForm = () => {
 Key requirements:
 - Import both the schema type AND the schema itself: `type MySchema, mySchema`
 - Use `useForm<MySchema>` with `zodResolver(mySchema)` for client-side validation
-- Use `useServerAction` from `zsa-react` to call the server action
+- Use `useAction` from `next-safe-action/hooks` to call the server action
 - Use toast notifications for loading, success, and error states
 - Use `form.handleSubmit(onSubmit)` pattern for form submission
 
@@ -454,7 +454,7 @@ See the sign-up implementation as the reference pattern:
 2. **Type Safety**: Full TypeScript type inference from schema to form to server action
 3. **DRY Principle**: No duplication of validation logic
 4. **Runtime Safety**: Client-side validation for UX + Server-side validation for security
-5. **Error Handling**: Consistent error handling through `useServerAction` callbacks
+5. **Error Handling**: Consistent error handling through `useAction` callbacks
 
 ## Terminal Commands
 

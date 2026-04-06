@@ -6,6 +6,7 @@ import PurchaseButton from "@/components/purchase-button"
 import type { PURCHASABLE_ITEM_TYPE } from "@/db/schema"
 import { Badge } from "@/components/ui/badge"
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog"
+import { getMarketplaceComponentPreview } from "@/app/(dashboard)/dashboard/marketplace/components-catalog-preview"
 
 interface MarketplaceCardProps {
   id: string
@@ -22,6 +23,8 @@ export function MarketplaceCard({ id, name, description, credits, containerClass
   const component = COMPONENTS.find(c => c.id === id);
   if (!component) return null;
 
+  const preview = getMarketplaceComponentPreview(component.id)
+
   return (
     <Card>
       <CardHeader>
@@ -35,7 +38,7 @@ export function MarketplaceCard({ id, name, description, credits, containerClass
       </CardHeader>
       <CardContent className="flex justify-center bg-muted/50 p-6">
         <div className={containerClass}>
-          {component.preview()}
+          {preview}
         </div>
       </CardContent>
       <CardFooter className="flex justify-between mt-4">

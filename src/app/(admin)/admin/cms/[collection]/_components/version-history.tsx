@@ -18,7 +18,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { Clock, History, RotateCcw, Trash2 } from "lucide-react";
 import type { CmsEntryVersion } from "@/db/schema";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { revertCmsEntryVersionAction, getCmsEntryVersionsAction, deleteCmsEntryVersionAction } from "../../_actions/version-actions";
 import { toast } from "sonner";
 import { CmsContentRenderer, CMS_CONTENT_ROOT_CLASS_NAME } from "@/components/cms-content-renderer";
@@ -568,7 +568,7 @@ export function VersionHistory({
   const [revertVersionToRestore, setRevertVersionToRestore] = useState<CmsEntryVersion | null>(null);
 
   // Fetch versions lazily when the sheet is opened
-  const { execute: fetchVersions, data: versions, isPending: isLoadingVersions } = useServerAction(getCmsEntryVersionsAction);
+  const { execute: fetchVersions, result: versionsResult, isExecuting: isLoadingVersions } = useAction(getCmsEntryVersionsAction);
 
   // Fetch versions when sheet opens
   useEffect(() => {
@@ -577,7 +577,7 @@ export function VersionHistory({
     }
   }, [isOpen, entryId, fetchVersions]);
 
-  const { execute: revertVersion, isPending: isReverting } = useServerAction(revertCmsEntryVersionAction, {
+  const { execute: revertVersion, isExecuting: isReverting } = useAction(revertCmsEntryVersionAction, {
     onSuccess: () => {
       toast.success("Entry reverted successfully");
       onOpenChange(false);
@@ -586,12 +586,12 @@ export function VersionHistory({
       window.onbeforeunload = null;
       window.location.reload();
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to revert entry");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to revert entry");
     }
   });
 
-  const { execute: deleteVersion, isPending: isDeleting } = useServerAction(deleteCmsEntryVersionAction, {
+  const { execute: deleteVersion, isExecuting: isDeleting } = useAction(deleteCmsEntryVersionAction, {
     onSuccess: () => {
       toast.success("Version deleted successfully");
       // Clear selected version if it was deleted
@@ -601,10 +601,12 @@ export function VersionHistory({
       // Refetch versions
       fetchVersions({ entryId });
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to delete version");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete version");
     }
   });
+
+  const versions = versionsResult.data;
 
   const handleRevert = () => {
     if (!selectedVersion) return;
@@ -789,7 +791,7 @@ export function VersionHistory({
                  </div>
                )}
 
-               {!isLoadingVersions && versions && versions.map((version, index) => {
+               {!isLoadingVersions && versions && versions.map((version: any, index: number) => {
                  const isLatestVersion = index === 0; // First in the list is the latest (sorted by versionNumber desc)
                  const isOnlyVersion = versions.length === 1;
                  const canDelete = !isLatestVersion && !isOnlyVersion;

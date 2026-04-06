@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { uploadImageAction } from "@/actions/upload-image.action";
 import { getCmsMediaByBucketKeyAction } from "@/app/(admin)/admin/_actions/cms-media-actions";
 import { Button } from "@/components/ui/button";
@@ -47,9 +47,9 @@ export function FeaturedImageUpload({
   );
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
 
-  const { execute: uploadImage, isPending } = useServerAction(uploadImageAction, {
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to upload image");
+  const { execute: uploadImage, isExecuting } = useAction(uploadImageAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to upload image");
     },
     onSuccess: ({ data }) => {
       toast.success("Image uploaded successfully");
@@ -60,11 +60,11 @@ export function FeaturedImageUpload({
     },
   });
 
-  const { execute: getMediaByBucketKey, isPending: isLoadingMedia } = useServerAction(
+  const { execute: getMediaByBucketKey, isExecuting: isLoadingMedia } = useAction(
     getCmsMediaByBucketKeyAction,
     {
-      onError: (error) => {
-        toast.error(error.err?.message || "Failed to load media");
+      onError: ({ error }) => {
+        toast.error(error.serverError?.message || "Failed to load media");
       },
       onSuccess: ({ data }) => {
         if (!data || data.length === 0) {
@@ -141,7 +141,7 @@ export function FeaturedImageUpload({
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
-        disabled={isPending}
+        disabled={isExecuting}
       />
 
       {previewUrl ? (
@@ -161,11 +161,11 @@ export function FeaturedImageUpload({
               variant="secondary"
               size="icon"
               onClick={handleUploadClick}
-              disabled={isPending}
+              disabled={isExecuting}
               className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background/90"
               title="Upload new image"
             >
-              {isPending ? (
+              {isExecuting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Upload className="h-4 w-4" />
@@ -176,7 +176,7 @@ export function FeaturedImageUpload({
               variant="secondary"
               size="icon"
               onClick={() => setShowMediaLibrary(true)}
-              disabled={isPending || isLoadingMedia}
+              disabled={isExecuting || isLoadingMedia}
               className="h-8 w-8 bg-background/80 backdrop-blur-sm hover:bg-background/90"
               title="Choose from library"
             >
@@ -187,7 +187,7 @@ export function FeaturedImageUpload({
               variant="destructive"
               size="icon"
               onClick={handleRemove}
-              disabled={isPending}
+              disabled={isExecuting}
               className="h-8 w-8 bg-destructive/80 backdrop-blur-sm hover:bg-destructive/90"
               title="Remove image"
             >
@@ -206,12 +206,12 @@ export function FeaturedImageUpload({
                 <ImageIcon className="h-8 w-8 text-muted-foreground" />
               </div>
               <p className="text-sm font-medium mb-1">
-                {isPending ? "Uploading..." : "Upload Featured Image"}
+                {isExecuting ? "Uploading..." : "Upload Featured Image"}
               </p>
               <p className="text-xs text-muted-foreground text-center">
                 Click to select an image (max 10MB)
               </p>
-              {isPending && (
+              {isExecuting && (
                 <Loader2 className="h-5 w-5 animate-spin mt-3 text-primary" />
               )}
             </div>
@@ -224,7 +224,7 @@ export function FeaturedImageUpload({
             variant="outline"
             className="w-full"
             onClick={() => setShowMediaLibrary(true)}
-            disabled={isPending || isLoadingMedia}
+            disabled={isExecuting || isLoadingMedia}
           >
             <Library className="h-4 w-4 mr-2" />
             Choose from Media Library

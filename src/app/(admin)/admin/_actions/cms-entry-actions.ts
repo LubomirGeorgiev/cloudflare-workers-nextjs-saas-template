@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { cmsConfig, zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema, cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
@@ -18,8 +19,8 @@ import { cmsStatusFilterTuple } from "@/types/cms";
 
 const listStatusEnum = z.enum(cmsStatusFilterTuple);
 
-export const listCmsEntriesAction = createServerAction()
-  .input(
+export const listCmsEntriesAction = actionClient
+  .inputSchema(
     z.object({
       collection: zodCollectionEnum,
       status: listStatusEnum.optional().default("all"),
@@ -27,7 +28,7 @@ export const listCmsEntriesAction = createServerAction()
       offset: z.number().optional().default(0),
     })
   )
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const [entries, totalCount] = await Promise.all([
@@ -50,13 +51,13 @@ export const listCmsEntriesAction = createServerAction()
     return { entries, totalCount };
   });
 
-export const createCmsEntryAction = createServerAction()
-  .input(createCmsEntrySchema)
-  .handler(async ({ input }) => {
+export const createCmsEntryAction = actionClient
+  .inputSchema(createCmsEntrySchema)
+  .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
 
     if (!session?.userId) {
-      throw new ZSAError("FORBIDDEN", "Not authorized");
+      throw new ActionError("FORBIDDEN", "Not authorized");
     }
 
     const newEntry = await createCmsEntry({
@@ -68,23 +69,23 @@ export const createCmsEntryAction = createServerAction()
     return newEntry;
   });
 
-export const updateCmsEntryAction = createServerAction()
-  .input(updateCmsEntrySchema)
-  .handler(async ({ input }) => {
+export const updateCmsEntryAction = actionClient
+  .inputSchema(updateCmsEntrySchema)
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const updatedEntry = await updateCmsEntry(input);
 
     if (!updatedEntry) {
-      throw new ZSAError("NOT_FOUND", "Entry not found");
+      throw new ActionError("NOT_FOUND", "Entry not found");
     }
 
     return updatedEntry;
   });
 
-export const deleteCmsEntryAction = createServerAction()
-  .input(z.object({ id: z.string() }))
-  .handler(async ({ input }) => {
+export const deleteCmsEntryAction = actionClient
+  .inputSchema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     await deleteCmsEntry({ id: input.id });
@@ -92,19 +93,19 @@ export const deleteCmsEntryAction = createServerAction()
     return { success: true };
   });
 
-export const generateSeoDescriptionAction = createServerAction()
-  .input(
+export const generateSeoDescriptionAction = actionClient
+  .inputSchema(
     z.object({
       id: z.string().min(1, "Entry ID is required"),
     })
   )
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const entry = await getCmsEntryById({ id: input.id });
 
     if (!entry) {
-      throw new ZSAError("NOT_FOUND", "Entry not found");
+      throw new ActionError("NOT_FOUND", "Entry not found");
     }
 
     const description = await generateSeoDescription({
@@ -114,7 +115,7 @@ export const generateSeoDescriptionAction = createServerAction()
     });
 
     if (!description) {
-      throw new ZSAError("INTERNAL_SERVER_ERROR", "Failed to generate SEO description");
+      throw new ActionError("INTERNAL_SERVER_ERROR", "Failed to generate SEO description");
     }
 
     return { description };

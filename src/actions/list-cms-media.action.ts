@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createServerAction } from "zsa";
+import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
@@ -11,13 +11,13 @@ import { desc, like, or } from "drizzle-orm";
  * List CMS media files for content creators (non-admin version)
  * Used in the TipTap editor media picker
  */
-export const listCmsMediaForPickerAction = createServerAction()
-  .input(z.object({
+export const listCmsMediaForPickerAction = actionClient
+  .inputSchema(z.object({
     page: z.number().min(1).default(1),
     limit: z.number().min(1).max(50).default(20),
     search: z.string().optional(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const db = getDB();

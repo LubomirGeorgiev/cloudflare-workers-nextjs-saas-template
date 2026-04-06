@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { createCmsTagAction, updateCmsTagAction, deleteCmsTagAction } from "../../../_actions/cms-tag-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,35 +38,35 @@ export function TagForm({ mode, tag }: TagFormProps) {
   const [description, setDescription] = useState(tag?.description || "");
   const [color, setColor] = useState(tag?.color || "#000000");
 
-  const { execute: createTag, isPending: isCreating } = useServerAction(createCmsTagAction, {
+  const { execute: createTag, isExecuting: isCreating } = useAction(createCmsTagAction, {
     onSuccess: () => {
       toast.success("Tag created successfully");
       router.push("/admin/cms/tags");
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to create tag");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to create tag");
     },
   });
-  const { execute: updateTag, isPending: isUpdating } = useServerAction(updateCmsTagAction, {
+  const { execute: updateTag, isExecuting: isUpdating } = useAction(updateCmsTagAction, {
     onSuccess: () => {
       toast.success("Tag updated successfully");
       router.push("/admin/cms/tags");
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to update tag");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to update tag");
     },
   });
-  const { execute: deleteTag, isPending: isDeleting } = useServerAction(deleteCmsTagAction, {
+  const { execute: deleteTag, isExecuting: isDeleting } = useAction(deleteCmsTagAction, {
     onSuccess: () => {
       toast.success("Tag deleted successfully");
       router.push("/admin/cms/tags");
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to delete tag");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete tag");
     },
   });
 
-  const isPending = isCreating || isUpdating || isDeleting;
+  const isExecuting = isCreating || isUpdating || isDeleting;
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -183,8 +183,8 @@ export function TagForm({ mode, tag }: TagFormProps) {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button type="submit" disabled={isPending}>
-            {isPending ? (
+          <Button type="submit" disabled={isExecuting}>
+            {isExecuting ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 {mode === "create" ? "Creating..." : "Updating..."}
@@ -200,7 +200,7 @@ export function TagForm({ mode, tag }: TagFormProps) {
             type="button"
             variant="outline"
             onClick={() => router.push("/admin/cms/tags")}
-            disabled={isPending}
+            disabled={isExecuting}
           >
             Cancel
           </Button>
@@ -209,7 +209,7 @@ export function TagForm({ mode, tag }: TagFormProps) {
         {mode === "edit" && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" type="button" disabled={isPending}>
+              <Button variant="destructive" type="button" disabled={isExecuting}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </Button>

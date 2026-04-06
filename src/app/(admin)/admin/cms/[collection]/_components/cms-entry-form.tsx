@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useMemo, useRef, useState, MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
@@ -55,7 +55,7 @@ import { FeaturedImageUpload } from "./featured-image-upload";
 import { VersionHistory } from "./version-history";
 import { History } from "lucide-react";
 import { formatDateTime } from "@/utils/format-date";
-import { Alert } from "@heroui/react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
 type CmsEntryFormProps = {
@@ -124,12 +124,12 @@ export function CmsEntryForm({
 
   const statusValue = form.watch("status");
 
-  const { execute: createEntry, isPending: isCreating } = useServerAction(createCmsEntryAction, {
-    onError: (error) => {
+  const { execute: createEntry, isExecuting: isCreating } = useAction(createCmsEntryAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to create entry");
+      toast.error(error.serverError?.message || "Failed to create entry");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading(mode === "create" ? "Creating entry..." : "Updating entry...");
     },
     onSuccess: () => {
@@ -139,12 +139,12 @@ export function CmsEntryForm({
     },
   });
 
-  const { execute: updateEntry, isPending: isUpdating } = useServerAction(updateCmsEntryAction, {
-    onError: (error) => {
+  const { execute: updateEntry, isExecuting: isUpdating } = useAction(updateCmsEntryAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to update entry");
+      toast.error(error.serverError?.message || "Failed to update entry");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Updating entry...");
     },
     onSuccess: () => {
@@ -154,29 +154,29 @@ export function CmsEntryForm({
     },
   });
 
-  const { execute: loadTags, data: tagsData, isPending: isLoadingTags } = useServerAction(listCmsTagsAction);
-  const { execute: createTag, isPending: isCreatingTag } = useServerAction(createCmsTagAction, {
-    onSuccess: (response) => {
-      if (response?.data) {
-        toast.success(`Tag "${response.data.name}" created successfully`);
+  const { execute: loadTags, result: tagsResult, isExecuting: isLoadingTags } = useAction(listCmsTagsAction);
+  const { execute: createTag, isExecuting: isCreatingTag } = useAction(createCmsTagAction, {
+    onSuccess: ({ data }) => {
+      if (data) {
+        toast.success(`Tag "${data.name}" created successfully`);
         loadTags(); // Refresh tags list
         const currentTagIds = form.getValues("tagIds") || [];
-        form.setValue("tagIds", [...currentTagIds, response.data.id]);
+        form.setValue("tagIds", [...currentTagIds, data.id]);
         setSearchValue("");
         multiSelectRef.current?.closePopover();
       }
     },
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to create tag");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to create tag");
     },
   });
-  const { execute: generateSeoDescription, isPending: isGeneratingSeo } = useServerAction(generateSeoDescriptionAction, {
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to generate SEO description");
+  const { execute: generateSeoDescription, isExecuting: isGeneratingSeo } = useAction(generateSeoDescriptionAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to generate SEO description");
     },
-    onSuccess: (response) => {
-      if (response?.data?.description) {
-        form.setValue("seoDescription", response.data.description);
+    onSuccess: ({ data }) => {
+      if (data?.description) {
+        form.setValue("seoDescription", data.description);
         toast.success("SEO description generated successfully");
       }
     },
@@ -184,7 +184,7 @@ export function CmsEntryForm({
 
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
 
-  const isPending = isCreating || isUpdating;
+  const isExecuting = isCreating || isUpdating;
 
   const [searchValue, setSearchValue] = useState("");
 
@@ -192,14 +192,14 @@ export function CmsEntryForm({
     loadTags();
   }, [loadTags]);
 
-  const availableTags = tagsData || [];
+  const availableTags = tagsResult.data || [];
 
   const isDirty = form.formState.isDirty;
 
-  useBeforeUnload(() => isDirty && !isPending);
+  useBeforeUnload(() => isDirty && !isExecuting);
 
   const handleNavigateBack = useCallback((e: MouseEvent<HTMLButtonElement>) => {
-    if (isDirty && !isPending) {
+    if (isDirty && !isExecuting) {
       const confirmed = window.confirm(
         "You have unsaved changes. Are you sure you want to leave?"
       );
@@ -209,7 +209,7 @@ export function CmsEntryForm({
       }
     }
     router.push(`/admin/cms/${collection}`);
-  }, [isDirty, isPending, router, collection]);
+  }, [isDirty, isExecuting, router, collection]);
 
   const handleTitleChange = (value: string) => {
     form.setValue("title", value);
@@ -239,7 +239,7 @@ export function CmsEntryForm({
 
   const tagOptions: MultiSelectOption[] = useMemo(
     () =>
-      availableTags.map((tag) => ({
+      availableTags.map((tag: { id: string; name: string; color: string | null }) => ({
         label: tag.name,
         value: tag.id,
         style: {
@@ -321,10 +321,9 @@ export function CmsEntryForm({
       : null;
   const showNavigationAlert = mode === "edit" && Boolean(navigationKey) && !previewUrl;
   const navigationAlert = showNavigationAlert ? (
-    <Alert
-      color="warning"
-      title="No public URL"
-      description={(
+    <Alert>
+      <AlertTitle>No public URL</AlertTitle>
+      <AlertDescription>
         <span>
           This entry is not added to navigation yet, so it does not have a public URL.{" "}
           <Link
@@ -337,8 +336,8 @@ export function CmsEntryForm({
           </Link>
           .
         </span>
-      )}
-    />
+      </AlertDescription>
+    </Alert>
   ) : null;
 
   const onSubmit = async (data: CmsEntryFormData) => {
@@ -419,7 +418,7 @@ export function CmsEntryForm({
               variant="ghost"
               size="icon"
               onClick={handleNavigateBack}
-              disabled={isPending}
+              disabled={isExecuting}
               asChild
             >
               <span>
@@ -441,7 +440,7 @@ export function CmsEntryForm({
                   type="button"
                   variant="outline"
                   onClick={() => setIsVersionHistoryOpen(true)}
-                  disabled={isPending}
+                  disabled={isExecuting}
                 >
                   <History className="h-4 w-4 mr-2" />
                   History
@@ -458,15 +457,15 @@ export function CmsEntryForm({
               type="button"
               variant="outline"
               onClick={handleNavigateBack}
-              disabled={isPending}
+              disabled={isExecuting}
               asChild
             >
               <span>
                 Cancel
               </span>
             </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? (
+            <Button type="submit" disabled={isExecuting}>
+              {isExecuting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   {mode === "create" ? "Creating..." : "Saving..."}

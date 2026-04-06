@@ -38,14 +38,14 @@ export default async function TeamsIndexPage() {
   }
 
   // Get teams data
-  const [result, error] = await getUserTeamsAction();
+  const { data: result, serverError } = await getUserTeamsAction();
 
   let teams: TeamItem[] = [];
   if (result?.success && result.data) {
     teams = result.data;
   }
 
-  if (error) {
+  if (serverError) {
     return notFound();
   }
 

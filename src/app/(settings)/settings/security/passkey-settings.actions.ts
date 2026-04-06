@@ -10,7 +10,8 @@ import {
 import { getDB } from "@/db";
 import { userTable, passKeyCredentialTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireVerifiedEmail, createAndStoreSession } from "@/utils/auth";
 import type { User } from "@/db/schema";
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/types";
@@ -22,9 +23,9 @@ const generateRegistrationOptionsSchema = z.object({
   email: z.string().email(),
 });
 
-export const generateRegistrationOptionsAction = createServerAction()
-  .input(generateRegistrationOptionsSchema)
-  .handler(async ({ input }) => {
+export const generateRegistrationOptionsAction = actionClient
+  .inputSchema(generateRegistrationOptionsSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
@@ -35,12 +36,12 @@ export const generateRegistrationOptionsAction = createServerAction()
       });
 
       if (!user) {
-        throw new ZSAError("NOT_FOUND", "User not found");
+        throw new ActionError("NOT_FOUND", "User not found");
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ZSAError("FORBIDDEN", "You can only register passkeys for your own account");
+        throw new ActionError("FORBIDDEN", "You can only register passkeys for your own account");
       }
 
       // Check if user has reached the passkey limit
@@ -50,7 +51,7 @@ export const generateRegistrationOptionsAction = createServerAction()
         .where(eq(passKeyCredentialTable.userId, user.id));
 
       if (existingPasskeys.length >= 5) {
-        throw new ZSAError(
+        throw new ActionError(
           "FORBIDDEN",
           "You have reached the maximum limit of 5 passkeys"
         );
@@ -67,9 +68,9 @@ const verifyRegistrationSchema = z.object({
   challenge: z.string(),
 });
 
-export const verifyRegistrationAction = createServerAction()
-  .input(verifyRegistrationSchema)
-  .handler(async ({ input }) => {
+export const verifyRegistrationAction = actionClient
+  .inputSchema(verifyRegistrationSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
@@ -80,12 +81,12 @@ export const verifyRegistrationAction = createServerAction()
       });
 
       if (!user) {
-        throw new ZSAError("NOT_FOUND", "User not found");
+        throw new ActionError("NOT_FOUND", "User not found");
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ZSAError("FORBIDDEN", "You can only register passkeys for your own account");
+        throw new ActionError("FORBIDDEN", "You can only register passkeys for your own account");
       }
 
       await verifyPasskeyRegistration({
@@ -104,15 +105,15 @@ const deletePasskeySchema = z.object({
   credentialId: z.string(),
 });
 
-export const deletePasskeyAction = createServerAction()
-  .input(deletePasskeySchema)
-  .handler(async ({ input }) => {
+export const deletePasskeyAction = actionClient
+  .inputSchema(deletePasskeySchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const session = await requireVerifiedEmail();
 
       // Prevent deletion of the current passkey
       if (session?.passkeyCredentialId === input.credentialId) {
-        throw new ZSAError(
+        throw new ActionError(
           "FORBIDDEN",
           "Cannot delete the current passkey"
         );
@@ -133,7 +134,7 @@ export const deletePasskeyAction = createServerAction()
 
       // Check if this is the last passkey and if the user has a password
       if (passkeys.length === 1 && !user.passwordHash) {
-        throw new ZSAError(
+        throw new ActionError(
           "FORBIDDEN",
           "Cannot delete the last passkey when no password is set"
         );
@@ -147,9 +148,9 @@ export const deletePasskeyAction = createServerAction()
     }, RATE_LIMITS.SETTINGS);
   });
 
-export const generateAuthenticationOptionsAction = createServerAction()
-  .input(z.object({}))
-  .handler(async () => {
+export const generateAuthenticationOptionsAction = actionClient
+  .inputSchema(z.object({}))
+  .action(async () => {
     return withRateLimit(async () => {
       const options = await generatePasskeyAuthenticationOptions();
       return options;
@@ -163,14 +164,14 @@ const verifyAuthenticationSchema = z.object({
   challenge: z.string(),
 });
 
-export const verifyAuthenticationAction = createServerAction()
-  .input(verifyAuthenticationSchema)
-  .handler(async ({ input }) => {
+export const verifyAuthenticationAction = actionClient
+  .inputSchema(verifyAuthenticationSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const { verification, credential } = await verifyPasskeyAuthentication(input.response, input.challenge);
 
       if (!verification.verified) {
-        throw new ZSAError("FORBIDDEN", "Passkey authentication failed");
+        throw new ActionError("FORBIDDEN", "Passkey authentication failed");
       }
 
       await createAndStoreSession(credential.userId, "passkey", input.response.id);

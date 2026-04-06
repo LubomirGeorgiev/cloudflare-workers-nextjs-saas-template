@@ -2,7 +2,7 @@ import "server-only";
 import { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM, teamInvitationTable, teamMembershipTable, userTable, teamRoleTable, teamTable } from "@/db/schema";
 import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
-import { ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, and, isNull, count } from "drizzle-orm";
 import { TEAM_PERMISSIONS } from "@/db/schema";
@@ -99,12 +99,12 @@ export async function removeTeamMember({
   });
 
   if (!membership) {
-    throw new ZSAError("NOT_FOUND", "Team membership not found");
+    throw new ActionError("NOT_FOUND", "Team membership not found");
   }
 
   // Don't allow removing an owner
   if (membership.roleId === SYSTEM_ROLES_ENUM.OWNER && membership.isSystemRole) {
-    throw new ZSAError("FORBIDDEN", "Cannot remove the team owner");
+    throw new ActionError("FORBIDDEN", "Cannot remove the team owner");
   }
 
   // Delete the membership
@@ -142,17 +142,17 @@ export async function inviteUserToTeam({
   const session = await requireVerifiedEmail();
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   // Validate email
   try {
     await canSignUp({ email });
   } catch (error) {
-    if (error instanceof ZSAError) {
+    if (error instanceof ActionError) {
       throw error;
     }
-    throw new ZSAError("ERROR", "Invalid or disposable email address");
+    throw new ActionError("ERROR", "Invalid or disposable email address");
   }
 
   const db = getDB();
@@ -163,7 +163,7 @@ export async function inviteUserToTeam({
   });
 
   if (!team) {
-    throw new ZSAError("NOT_FOUND", "Team not found");
+    throw new ActionError("NOT_FOUND", "Team not found");
   }
 
   const teamName = team.name as string || "Team";
@@ -189,7 +189,7 @@ export async function inviteUserToTeam({
     });
 
     if (existingMembership) {
-      throw new ZSAError("CONFLICT", "User is already a member of this team");
+      throw new ActionError("CONFLICT", "User is already a member of this team");
     }
 
     // Check if user has reached their team joining limit
@@ -200,7 +200,7 @@ export async function inviteUserToTeam({
     const teamsJoined = teamsCountResult[0]?.value || 0;
 
     if (teamsJoined >= MAX_TEAMS_JOINED_PER_USER) {
-      throw new ZSAError("FORBIDDEN", `This user has reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams they can join.`);
+      throw new ActionError("FORBIDDEN", `This user has reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams they can join.`);
     }
 
     // User exists but is not a member, add them directly
@@ -281,7 +281,7 @@ export async function inviteUserToTeam({
   const invitation = newInvitation?.[0];
 
   if (!invitation) {
-    throw new ZSAError("ERROR", "Could not create invitation");
+    throw new ActionError("ERROR", "Could not create invitation");
   }
 
   // Send invitation email
@@ -306,7 +306,7 @@ export async function acceptTeamInvitation(token: string) {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   const db = getDB();
@@ -317,22 +317,22 @@ export async function acceptTeamInvitation(token: string) {
   });
 
   if (!invitation) {
-    throw new ZSAError("NOT_FOUND", "Invitation not found");
+    throw new ActionError("NOT_FOUND", "Invitation not found");
   }
 
   // Check if invitation has expired
   if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
-    throw new ZSAError("ERROR", "Invitation has expired");
+    throw new ActionError("ERROR", "Invitation has expired");
   }
 
   // Check if invitation was already accepted
   if (invitation.acceptedAt) {
-    throw new ZSAError("CONFLICT", "Invitation has already been accepted");
+    throw new ActionError("CONFLICT", "Invitation has already been accepted");
   }
 
   // Check if user's email matches the invitation email
   if (session.user.email !== invitation.email) {
-    throw new ZSAError("FORBIDDEN", "This invitation is for a different email address");
+    throw new ActionError("FORBIDDEN", "This invitation is for a different email address");
   }
 
   // Check if user is already a member
@@ -353,7 +353,7 @@ export async function acceptTeamInvitation(token: string) {
       })
       .where(eq(teamInvitationTable.id, invitation.id));
 
-    throw new ZSAError("CONFLICT", "You are already a member of this team");
+    throw new ActionError("CONFLICT", "You are already a member of this team");
   }
 
   // Check if user has reached their team joining limit
@@ -364,7 +364,7 @@ export async function acceptTeamInvitation(token: string) {
   const teamsJoined = teamsCountResult[0]?.value || 0;
 
   if (teamsJoined >= MAX_TEAMS_JOINED_PER_USER) {
-    throw new ZSAError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams you can join.`);
+    throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams you can join.`);
   }
 
   // Add user to the team
@@ -404,7 +404,7 @@ export async function getPendingInvitationsForCurrentUser() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   const db = getDB();

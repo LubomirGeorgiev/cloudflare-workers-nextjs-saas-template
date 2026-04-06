@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { ZSAError, createServerAction } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { createId } from "@paralleldrive/cuid2";
@@ -51,22 +52,22 @@ const uploadImageSchema = z.object({
  * Upload an image to R2 bucket
  * Returns the public URL of the uploaded image
  */
-export const uploadImageAction = createServerAction()
-  .input(uploadImageSchema)
-  .handler(async ({ input }) => {
+export const uploadImageAction = actionClient
+  .inputSchema(uploadImageSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       try {
         const session = await requireAdmin({ doNotThrowError: true });
 
         if (!session?.user?.id) {
-          throw new ZSAError("FORBIDDEN", "You must be logged in to upload images");
+          throw new ActionError("FORBIDDEN", "You must be logged in to upload images");
         }
 
         const { file, collection } = input;
 
         // Validate file size first
         if (file.size > CMS_IMAGE_MAX_FILE_SIZE) {
-          throw new ZSAError(
+          throw new ActionError(
             "INPUT_PARSE_ERROR",
             `File size exceeds maximum allowed size of ${CMS_IMAGE_MAX_FILE_SIZE / 1024 / 1024}MB`
           );
@@ -90,13 +91,13 @@ export const uploadImageAction = createServerAction()
             actualMimeType = "image/svg+xml";
             fileExtension = "svg";
           } else {
-            throw new ZSAError(
+            throw new ActionError(
               "INPUT_PARSE_ERROR",
               "File does not appear to be a valid SVG image"
             );
           }
         } else if (!detectedType) {
-          throw new ZSAError(
+          throw new ActionError(
             "INPUT_PARSE_ERROR",
             "Unable to determine file type. Please upload a valid image file."
           );
@@ -107,7 +108,7 @@ export const uploadImageAction = createServerAction()
 
         // Validate against allowed types
         if (!(CMS_ALLOWED_IMAGE_TYPES as readonly string[]).includes(actualMimeType)) {
-          throw new ZSAError(
+          throw new ActionError(
             "INPUT_PARSE_ERROR",
             `Invalid file type: ${actualMimeType}. Allowed types: ${CMS_ALLOWED_IMAGE_TYPES.join(", ")}`
           );
@@ -117,7 +118,7 @@ export const uploadImageAction = createServerAction()
         const { env } = getCloudflareContext();
 
         if (!env.NEXT_INC_CACHE_R2_BUCKET) {
-          throw new ZSAError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
+          throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
         }
 
         // Generate unique filename using the detected extension
@@ -188,11 +189,11 @@ export const uploadImageAction = createServerAction()
       } catch (error) {
         console.error("Image upload error:", error);
 
-        if (error instanceof ZSAError) {
+        if (error instanceof ActionError) {
           throw error;
         }
 
-        throw new ZSAError("INTERNAL_SERVER_ERROR", "Failed to upload image");
+        throw new ActionError("INTERNAL_SERVER_ERROR", "Failed to upload image");
       }
     }, RATE_LIMITS.UPLOAD);
   });

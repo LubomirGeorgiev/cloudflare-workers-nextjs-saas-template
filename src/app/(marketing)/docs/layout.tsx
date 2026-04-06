@@ -15,7 +15,7 @@ export default async function DocsLayout({
     <div className="border-t">
       <div className="mx-auto max-w-screen-2xl lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="hidden border-r px-6 py-10 lg:block">
-          <div className="sticky top-24">
+          <div className="sticky top-10">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Documentation
             </p>

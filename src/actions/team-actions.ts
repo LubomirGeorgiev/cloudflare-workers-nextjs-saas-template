@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { createTeam, getUserTeams } from "@/lib/teams/teams";
-import { ZSAError, createServerAction } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireVerifiedEmail } from "@/utils/auth";
 
 const createTeamSchema = z.object({
@@ -10,13 +11,13 @@ const createTeamSchema = z.object({
   description: z.string().max(1000, "Description is too long").optional(),
 });
 
-export const createTeamAction = createServerAction()
-  .input(createTeamSchema)
-  .handler(async ({ input }) => {
+export const createTeamAction = actionClient
+  .inputSchema(createTeamSchema)
+  .action(async ({ parsedInput: input }) => {
     const session = await requireVerifiedEmail();
 
     if (!session) {
-      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
     }
 
     try {
@@ -25,11 +26,11 @@ export const createTeamAction = createServerAction()
     } catch (error) {
       console.error("Failed to create team:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to create team"
       );
@@ -39,12 +40,12 @@ export const createTeamAction = createServerAction()
 /**
  * Get all teams for the current user
  */
-export const getUserTeamsAction = createServerAction()
-  .handler(async () => {
+export const getUserTeamsAction = actionClient
+  .action(async () => {
     const session = await requireVerifiedEmail();
 
     if (!session) {
-      throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
     }
 
     try {
@@ -53,11 +54,11 @@ export const getUserTeamsAction = createServerAction()
     } catch (error) {
       console.error("Failed to get user teams:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to get user teams"
       );

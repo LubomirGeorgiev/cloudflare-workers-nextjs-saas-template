@@ -9,15 +9,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSessionStore } from "@/state/session";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { resendVerificationAction } from "@/app/(auth)/resend-verification.action";
 import { toast } from "sonner";
 import { useState } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
-import { Alert } from "@heroui/react"
 import isProd from "@/utils/is-prod";
 import { usePathname } from "next/navigation";
 import { Route } from "next";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const pagesToBypass: Route[] = [
   "/verify-email",
@@ -35,12 +35,12 @@ export function EmailVerificationDialog() {
   const [lastResendTime, setLastResendTime] = useState<number | null>(null);
   const pathname = usePathname();
 
-  const { execute: resendVerification, status } = useServerAction(resendVerificationAction, {
-    onError: (error) => {
+  const { execute: resendVerification, status } = useAction(resendVerificationAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message);
+      toast.error(error.serverError?.message);
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Sending verification email...");
     },
     onSuccess: () => {
@@ -61,7 +61,7 @@ export function EmailVerificationDialog() {
   }
 
   const canResend = !lastResendTime || Date.now() - lastResendTime > 60000; // 1 minute cooldown
-  const isLoading = status === "pending";
+  const isLoading = status === "executing";
 
   return (
     <Dialog open modal onOpenChange={(newState) => {
@@ -77,12 +77,12 @@ export function EmailVerificationDialog() {
             The verification link will expire in {Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600)} hours.
 
             {!isProd && (
-              <Alert
-                color="warning"
-                title="Development mode"
-                description="You can find the verification link in the console."
-                className="mt-4 mb-2"
-              />
+              <Alert className="mt-4 mb-2">
+                <AlertTitle>Development mode</AlertTitle>
+                <AlertDescription>
+                  You can find the verification link in the console.
+                </AlertDescription>
+              </Alert>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -102,4 +102,3 @@ export function EmailVerificationDialog() {
     </Dialog>
   );
 }
-

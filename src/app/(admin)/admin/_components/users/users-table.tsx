@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { DataTable } from "@/components/data-table"
 import { columns, type User } from "./columns"
 import { getUsersAction } from "../../_actions/get-users.action"
-import { useServerAction } from "zsa-react"
+import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { PAGE_SIZE_OPTIONS } from "../../admin-constants"
@@ -15,11 +15,13 @@ export function UsersTable() {
   const [pageSize, setPageSize] = useQueryState("pageSize", { defaultValue: PAGE_SIZE_OPTIONS[0].toString() })
   const [emailFilter, setEmailFilter] = useQueryState("email", { defaultValue: "" })
 
-  const { execute: fetchUsers, data, error, status } = useServerAction(getUsersAction, {
+  const { execute: fetchUsers, result, status } = useAction(getUsersAction, {
     onError: () => {
       toast.error("Failed to fetch users")
     },
   })
+  const data = result.data
+  const error = result.serverError
 
   useEffect(() => {
     fetchUsers({ page: parseInt(page), pageSize: parseInt(pageSize), emailFilter })
@@ -57,7 +59,7 @@ export function UsersTable() {
       </div>
       <div className="mt-8 flex-1 min-h-0">
         <div className="space-y-4 h-full">
-          {status === 'pending' || status === 'idle' ? (
+          {status === 'executing' || status === 'idle' ? (
             <div>Loading...</div>
           ) : error ? (
             <div>Error: Failed to fetch users</div>

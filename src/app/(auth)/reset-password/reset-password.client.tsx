@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { useRouter, useSearchParams } from "next/navigation";
 import { resetPasswordAction } from "./reset-password.action";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,12 +41,12 @@ export default function ResetPasswordClientComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const { execute: resetPassword, isSuccess } = useServerAction(resetPasswordAction, {
-    onError: (error) => {
+  const { execute: resetPassword, hasSucceeded } = useAction(resetPasswordAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message);
+      toast.error(error.serverError?.message);
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Resetting password...");
     },
     onSuccess: () => {
@@ -59,7 +59,7 @@ export default function ResetPasswordClientComponent() {
     resetPassword(data);
   };
 
-  if (isSuccess) {
+  if (hasSucceeded) {
     return (
       <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">

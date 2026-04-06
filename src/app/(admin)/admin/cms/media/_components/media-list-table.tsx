@@ -29,12 +29,12 @@ function formatFileSize(bytes: number): string {
 }
 
 export async function MediaListTable({ page }: MediaListTableProps) {
-  const [result, error] = await listCmsMediaAction({ page, limit: 20 });
+  const { data: result, serverError } = await listCmsMediaAction({ page, limit: 20 });
 
-  if (error) {
+  if (serverError) {
     return (
       <div className="text-center py-8 text-destructive">
-        Error loading media: {error.message}
+        Error loading media: {serverError.message}
       </div>
     );
   }

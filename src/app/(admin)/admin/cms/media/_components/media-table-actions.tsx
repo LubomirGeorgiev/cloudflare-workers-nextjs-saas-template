@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { deleteCmsMediaAction } from "@/app/(admin)/admin/_actions/cms-media-actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,9 +33,9 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
   const router = useRouter();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const { execute: deleteMedia, isPending } = useServerAction(deleteCmsMediaAction, {
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to delete media");
+  const { execute: deleteMedia, isExecuting } = useAction(deleteCmsMediaAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete media");
     },
     onSuccess: () => {
       toast.success("Media deleted successfully");
@@ -48,7 +48,7 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
     await deleteMedia({ mediaId });
   };
 
-  const isDisabled = usageCount > 0 || isPending;
+  const isDisabled = usageCount > 0 || isExecuting;
 
   return (
     <>
@@ -63,7 +63,7 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
                 disabled={isDisabled}
                 style={isDisabled ? { pointerEvents: 'none' } : undefined}
               >
-                {isPending ? (
+                {isExecuting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Trash2 className="h-4 w-4" />
@@ -101,10 +101,10 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isExecuting}>Cancel</AlertDialogCancel>
             {usageCount === 0 && (
-              <AlertDialogAction onClick={handleDelete} disabled={isPending}>
-                {isPending ? "Deleting..." : "Delete"}
+              <AlertDialogAction onClick={handleDelete} disabled={isExecuting}>
+                {isExecuting ? "Deleting..." : "Delete"}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>

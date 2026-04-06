@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { acceptTeamInviteAction } from "./team-invite.action";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,15 +16,15 @@ export default function TeamInviteClientComponent() {
   const token = searchParams.get("token");
   const hasCalledAcceptInvite = useRef(false);
 
-  const { execute: handleAcceptInvite, isPending, error } = useServerAction(acceptTeamInviteAction, {
-    onError: ({ err }) => {
+  const { execute: handleAcceptInvite, isExecuting, result } = useAction(acceptTeamInviteAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(err.message || "Failed to accept team invitation");
+      toast.error(error.serverError?.message || "Failed to accept team invitation");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Processing your invitation...");
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data }) => {
       toast.dismiss();
       toast.success("You've successfully joined the team!");
 
@@ -32,17 +32,16 @@ export default function TeamInviteClientComponent() {
 
       // Redirect to the team dashboard, with fallback to general dashboard
       setTimeout(() => {
-        if (data && typeof data === 'object' && 'teamId' in data) {
+        if (data && typeof data === "object" && "teamId" in data) {
           router.push(`/dashboard/teams/${data.teamId}`);
-        } else if (data && typeof data === 'object' && data.data && 'teamId' in data.data) {
-          router.push(`/dashboard/teams/${data.data.teamId}`);
         } else {
           // Fallback to dashboard if teamId is not found
-          router.push('/dashboard');
+          router.push("/dashboard");
         }
       }, 500);
     },
   });
+  const error = result.serverError;
 
   useEffect(() => {
     if (token && !hasCalledAcceptInvite.current) {
@@ -58,7 +57,7 @@ export default function TeamInviteClientComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  if (isPending) {
+  if (isExecuting) {
     return (
       <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">

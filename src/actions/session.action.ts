@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { ZSAError, createServerAction } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { updateKVSessionSelectedTeam } from "@/utils/kv-session";
 
@@ -12,14 +13,14 @@ const updateSelectedTeamSchema = z.object({
 /**
  * Update the selected team for the current user's session
  */
-export const updateSelectedTeamAction = createServerAction()
-  .input(updateSelectedTeamSchema)
-  .handler(async ({ input }) => {
+export const updateSelectedTeamAction = actionClient
+  .inputSchema(updateSelectedTeamSchema)
+  .action(async ({ parsedInput: input }) => {
     try {
       const session = await getSessionFromCookie();
 
       if (!session) {
-        throw new ZSAError(
+        throw new ActionError(
           "FORBIDDEN",
           "You must be logged in to update your selected team"
         );
@@ -29,7 +30,7 @@ export const updateSelectedTeamAction = createServerAction()
       if (input.selectedTeam && session.teams) {
         const teamExists = session.teams.some(team => team.id === input.selectedTeam);
         if (!teamExists) {
-          throw new ZSAError(
+          throw new ActionError(
             "FORBIDDEN",
             "Team not found or you are not a member"
           );
@@ -43,7 +44,7 @@ export const updateSelectedTeamAction = createServerAction()
       );
 
       if (!updatedSession) {
-        throw new ZSAError(
+        throw new ActionError(
           "INTERNAL_SERVER_ERROR",
           "Failed to update selected team"
         );
@@ -56,11 +57,11 @@ export const updateSelectedTeamAction = createServerAction()
     } catch (error) {
       console.error("Failed to update selected team:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to update selected team"
       );

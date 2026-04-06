@@ -387,15 +387,15 @@ export const handleImageUpload = async (
     onProgress?.({ progress: 10 })
 
     // Execute the upload action
-    const [result, error] = await uploadImageAction({ file, collection })
+    const { data: result, serverError } = await uploadImageAction({ file, collection })
 
     // Check if upload was cancelled during execution
     if (abortSignal?.aborted) {
       throw new Error("Upload cancelled")
     }
 
-    if (error) {
-      throw new Error(error.message || "Failed to upload image")
+    if (serverError) {
+      throw new Error(serverError.message)
     }
 
     if (!result?.url) {

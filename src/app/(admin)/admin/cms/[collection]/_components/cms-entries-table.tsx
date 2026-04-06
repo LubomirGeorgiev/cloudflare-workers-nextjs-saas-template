@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { listCmsEntriesAction, deleteCmsEntryAction } from "../../../_actions/cms-entry-actions";
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
@@ -50,8 +50,8 @@ export function CmsEntriesTable({
   );
   const hasNavigation = Boolean(getCmsCollectionNavigationKey(collection));
 
-  const { execute: listEntries, data, isPending } = useServerAction(listCmsEntriesAction);
-  const { execute: deleteEntry, isPending: isDeleting } = useServerAction(deleteCmsEntryAction, {
+  const { execute: listEntries, result, isExecuting } = useAction(listCmsEntriesAction);
+  const { execute: deleteEntry, isExecuting: isDeleting } = useAction(deleteCmsEntryAction, {
     onSuccess: () => {
       listEntries({
         collection,
@@ -169,13 +169,14 @@ export function CmsEntriesTable({
     deleteEntry({ id });
   };
 
+  const data = result.data;
   const entries = data?.entries ?? [];
   const totalCount = data?.totalCount ?? 0;
   const pageCount = Math.ceil(totalCount / pageSize);
 
   return (
     <>
-      {isPending ? (
+      {isExecuting ? (
         <div className="flex items-center justify-center py-8">
           <div className="text-sm text-muted-foreground">Loading entries...</div>
         </div>

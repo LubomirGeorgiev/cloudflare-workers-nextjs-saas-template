@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { createId } from "@paralleldrive/cuid2";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -10,22 +11,22 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { z } from "zod";
 
-export const resendVerificationAction = createServerAction()
-  .input(z.void())
-  .handler(async () => {
+export const resendVerificationAction = actionClient
+  .inputSchema(z.void())
+  .action(async () => {
     return withRateLimit(
       async () => {
         const session = await getSessionFromCookie();
 
         if (!session) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_AUTHORIZED",
             "Not authenticated"
           );
         }
 
         if (session?.user?.emailVerified) {
-          throw new ZSAError(
+          throw new ActionError(
             "PRECONDITION_FAILED",
             "Email is already verified"
           );

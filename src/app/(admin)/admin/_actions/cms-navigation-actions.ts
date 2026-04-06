@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { createServerAction } from "zsa";
+import { actionClient } from "@/lib/safe-action";
 import { cmsNavigationKeys } from "@/../cms.config";
 
 import { saveCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
@@ -20,12 +20,12 @@ const cmsNavigationFlatNodeSchema = z.object({
   sortOrder: z.number().int().min(0),
 });
 
-export const saveCmsNavigationTreeAction = createServerAction()
-  .input(z.object({
+export const saveCmsNavigationTreeAction = actionClient
+  .inputSchema(z.object({
     navigationKey: z.enum(cmsNavigationKeys),
     items: z.array(cmsNavigationFlatNodeSchema),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     return saveCmsNavigationTree({

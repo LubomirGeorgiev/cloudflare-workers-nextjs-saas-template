@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { updateCmsMediaAction } from "@/app/(admin)/admin/_actions/cms-media-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,14 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
   const [altText, setAltText] = useState(currentAlt || "");
   const router = useRouter();
 
-  const { execute, isPending } = useServerAction(updateCmsMediaAction, {
+  const { execute, isExecuting } = useAction(updateCmsMediaAction, {
     onSuccess: () => {
       toast.success("Alt text updated successfully");
       setIsEditing(false);
       router.refresh();
     },
-    onError: ({ err }) => {
-      toast.error(err.message || "Failed to update alt text");
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to update alt text");
     },
   });
 
@@ -78,16 +78,16 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
           value={altText}
           onChange={(e) => setAltText(e.target.value)}
           placeholder="Enter descriptive alt text..."
-          disabled={isPending}
+          disabled={isExecuting}
           className="flex-1"
         />
         <Button
           variant="outline"
           size="icon"
           onClick={handleSave}
-          disabled={isPending}
+          disabled={isExecuting}
         >
-          {isPending ? (
+          {isExecuting ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Check className="h-4 w-4" />
@@ -97,7 +97,7 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
           variant="outline"
           size="icon"
           onClick={handleCancel}
-          disabled={isPending}
+          disabled={isExecuting}
         >
           <X className="h-4 w-4" />
         </Button>

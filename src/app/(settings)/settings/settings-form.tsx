@@ -19,7 +19,7 @@ import { updateUserProfileAction } from "./settings.actions";
 import { useEffect } from "react";
 import { useSessionStore } from "@/state/session";
 import { userSettingsSchema } from "@/schemas/settings.schema";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
@@ -27,12 +27,12 @@ import { useRouter } from "next/navigation";
 export function SettingsForm() {
   const router = useRouter()
 
-  const { execute: updateUserProfile } = useServerAction(updateUserProfileAction, {
-    onError: (error) => {
+  const { execute: updateUserProfile } = useAction(updateUserProfileAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError?.message)
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Signing you in...")
     },
     onSuccess: () => {

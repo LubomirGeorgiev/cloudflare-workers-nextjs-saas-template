@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
@@ -10,16 +11,16 @@ import { userSettingsSchema } from "@/schemas/settings.schema";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
-export const updateUserProfileAction = createServerAction()
-  .input(userSettingsSchema)
-  .handler(async ({ input }) => {
+export const updateUserProfileAction = actionClient
+  .inputSchema(userSettingsSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const session = await requireVerifiedEmail();
         const db = getDB();
 
         if (!session?.user?.id) {
-          throw new ZSAError("NOT_AUTHORIZED", "Unauthorized");
+          throw new ActionError("NOT_AUTHORIZED", "Unauthorized");
         }
 
         try {
@@ -35,7 +36,7 @@ export const updateUserProfileAction = createServerAction()
           return { success: true };
         } catch (error) {
           console.error(error)
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "Failed to update profile"
           );

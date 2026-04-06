@@ -1,27 +1,27 @@
 "use server";
 
-import { createServerAction } from "zsa";
+import { actionClient } from "@/lib/safe-action";
 import { z } from "zod";
 import { getCmsEntryVersions, revertCmsEntryToVersion, deleteCmsEntryVersion } from "@/lib/cms/cms-repository";
 import { requireAdmin } from "@/utils/auth";
 
-export const getCmsEntryVersionsAction = createServerAction()
-  .input(z.object({
+export const getCmsEntryVersionsAction = actionClient
+  .inputSchema(z.object({
     entryId: z.string(),
   }))
-  .handler(async ({ input, ctx }) => {
+  .action(async ({ parsedInput: input, ctx }) => {
     await requireAdmin(ctx);
 
     const versions = await getCmsEntryVersions(input.entryId);
     return versions;
   });
 
-export const revertCmsEntryVersionAction = createServerAction()
-  .input(z.object({
+export const revertCmsEntryVersionAction = actionClient
+  .inputSchema(z.object({
     entryId: z.string(),
     versionId: z.string(),
   }))
-  .handler(async ({ input, ctx }) => {
+  .action(async ({ parsedInput: input, ctx }) => {
     await requireAdmin(ctx);
 
     const updatedEntry = await revertCmsEntryToVersion({
@@ -31,12 +31,12 @@ export const revertCmsEntryVersionAction = createServerAction()
     return updatedEntry;
   });
 
-export const deleteCmsEntryVersionAction = createServerAction()
-  .input(z.object({
+export const deleteCmsEntryVersionAction = actionClient
+  .inputSchema(z.object({
     entryId: z.string(),
     versionId: z.string(),
   }))
-  .handler(async ({ input, ctx }) => {
+  .action(async ({ parsedInput: input, ctx }) => {
     await requireAdmin(ctx);
 
     await deleteCmsEntryVersion({

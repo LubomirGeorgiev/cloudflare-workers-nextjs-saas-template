@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
@@ -10,9 +11,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
-export const resetPasswordAction = createServerAction()
-  .input(resetPasswordSchema)
-  .handler(async ({ input }) => {
+export const resetPasswordAction = actionClient
+  .inputSchema(resetPasswordSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const db = getDB();
@@ -26,7 +27,7 @@ export const resetPasswordAction = createServerAction()
           // Find valid reset token
           const resetTokenStr = await env.NEXT_INC_CACHE_KV.get(getResetTokenKey(input.token));
           if (!resetTokenStr) {
-            throw new ZSAError(
+            throw new ActionError(
               "NOT_FOUND",
               "Invalid or expired reset token"
             );
@@ -39,7 +40,7 @@ export const resetPasswordAction = createServerAction()
 
           // Check if token is expired (although KV should have auto-deleted it)
           if (new Date() > new Date(resetToken.expiresAt)) {
-            throw new ZSAError(
+            throw new ActionError(
               "PRECONDITION_FAILED",
               "Reset token has expired"
             );
@@ -51,7 +52,7 @@ export const resetPasswordAction = createServerAction()
           });
 
           if (!user) {
-            throw new ZSAError(
+            throw new ActionError(
               "NOT_FOUND",
               "User not found"
             );
@@ -70,11 +71,11 @@ export const resetPasswordAction = createServerAction()
         } catch (error) {
           console.error(error)
 
-          if (error instanceof ZSAError) {
+          if (error instanceof ActionError) {
             throw error;
           }
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "An unexpected error occurred"
           );

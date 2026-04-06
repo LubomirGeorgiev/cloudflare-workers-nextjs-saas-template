@@ -20,7 +20,7 @@ import {
 import { cache } from "react"
 import type { SessionValidationResult } from "@/types";
 import { SESSION_COOKIE_NAME } from "@/constants";
-import { ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
 import { addFreeMonthlyCreditsIfNeeded } from "./credits";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
@@ -297,7 +297,7 @@ export const requireVerifiedEmail = cache(async ({
   }
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   if (!session?.user?.emailVerified) {
@@ -305,7 +305,7 @@ export const requireVerifiedEmail = cache(async ({
       return null;
     }
 
-    throw new ZSAError("FORBIDDEN", "Please verify your email first");
+    throw new ActionError("FORBIDDEN", "Please verify your email first");
   }
 
   return session;
@@ -323,7 +323,7 @@ export const requireAdmin = cache(async ({
   }
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   if (session.user.role !== ROLES_ENUM.ADMIN) {
@@ -331,7 +331,7 @@ export const requireAdmin = cache(async ({
       return null;
     }
 
-    throw new ZSAError("FORBIDDEN", "Not authorized");
+    throw new ActionError("FORBIDDEN", "Not authorized");
   }
 
   return session;
@@ -405,7 +405,7 @@ async function checkWithMailcheck(email: string): Promise<ValidatorResult> {
  * Checks if an email is allowed for sign up by verifying it's not a disposable email
  * Uses multiple services in sequence for redundancy.
  *
- * @throws {ZSAError} If email is disposable or if all services fail
+ * @throws {ActionError} If email is disposable or if all services fail
  */
 export async function canSignUp(
   {
@@ -442,7 +442,7 @@ export async function canSignUp(
 
     // If we got a successful response and it's disposable, reject the signup
     if (result.isDisposable) {
-      throw new ZSAError(
+      throw new ActionError(
         "PRECONDITION_FAILED",
         "Disposable email addresses are not allowed"
       );
@@ -453,7 +453,7 @@ export async function canSignUp(
   }
 
   // If all validators failed, we can't verify the email
-  throw new ZSAError(
+  throw new ActionError(
     "PRECONDITION_FAILED",
     "Unable to verify email address at this time. Please try again later."
   );

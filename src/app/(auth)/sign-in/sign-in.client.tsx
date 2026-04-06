@@ -12,7 +12,7 @@ import SeparatorWithText from "@/components/separator-with-text";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { KeyIcon } from "lucide-react";
@@ -31,17 +31,17 @@ interface PasskeyAuthenticationButtonProps {
 }
 
 function PasskeyAuthenticationButton({ className, disabled, children, redirectPath }: PasskeyAuthenticationButtonProps) {
-  const { execute: generateOptions } = useServerAction(generateAuthenticationOptionsAction, {
-    onError: (error) => {
+  const { executeAsync: generateOptions } = useAction(generateAuthenticationOptionsAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to get authentication options");
+      toast.error(error.serverError?.message || "Failed to get authentication options");
     },
   });
 
-  const { execute: verifyAuthentication } = useServerAction(verifyAuthenticationAction, {
-    onError: (error) => {
+  const { executeAsync: verifyAuthentication } = useAction(verifyAuthenticationAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Authentication failed");
+      toast.error(error.serverError?.message || "Authentication failed");
     },
     onSuccess: () => {
       toast.dismiss();
@@ -58,7 +58,11 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
       toast.loading("Authenticating with passkey...");
 
       // Get authentication options from the server
-      const [options] = await generateOptions({});
+      const { data: options, serverError } = await generateOptions({});
+
+      if (serverError) {
+        throw new Error(serverError.message);
+      }
 
       if (!options) {
         throw new Error("Failed to get authentication options");
@@ -95,12 +99,12 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
 }
 
 const SignInPage = ({ redirectPath }: SignInClientProps) => {
-  const { execute: signIn } = useServerAction(signInAction, {
-    onError: (error) => {
+  const { execute: signIn } = useAction(signInAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError?.message)
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Signing you in...")
     },
     onSuccess: () => {

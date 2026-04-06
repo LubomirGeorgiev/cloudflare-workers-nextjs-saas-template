@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerAction } from "zsa"
+import { actionClient } from "@/lib/safe-action"
 import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
 import { z } from "zod"
@@ -14,9 +14,9 @@ const getUsersSchema = z.object({
   emailFilter: z.string().optional(),
 })
 
-export const getUsersAction = createServerAction()
-  .input(getUsersSchema)
-  .handler(async ({ input }) => {
+export const getUsersAction = actionClient
+  .inputSchema(getUsersSchema)
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin()
 
     const db = getDB()

@@ -9,11 +9,12 @@ import { eq } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { verifyEmailSchema } from "@/schemas/verify-email.schema";
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 
-export const verifyEmailAction = createServerAction()
-  .input(verifyEmailSchema)
-  .handler(async ({ input }) => {
+export const verifyEmailAction = actionClient
+  .inputSchema(verifyEmailSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const { env } = getCloudflareContext();
@@ -29,7 +30,7 @@ export const verifyEmailAction = createServerAction()
         }
 
         if (!verificationTokenStr) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_FOUND",
             "Verification token not found or expired"
           );
@@ -42,7 +43,7 @@ export const verifyEmailAction = createServerAction()
 
         // Check if token is expired (although KV should have auto-deleted it)
         if (new Date() > new Date(verificationToken.expiresAt)) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_FOUND",
             "Verification token not found or expired"
           );
@@ -56,7 +57,7 @@ export const verifyEmailAction = createServerAction()
         });
 
         if (!user) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_FOUND",
             "User not found"
           );
@@ -81,7 +82,7 @@ export const verifyEmailAction = createServerAction()
         } catch (error) {
           console.error(error);
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "An unexpected error occurred"
           );

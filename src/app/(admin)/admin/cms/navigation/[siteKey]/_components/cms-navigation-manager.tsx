@@ -7,7 +7,7 @@ import {
   monitorForElements,
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import {
   ChevronDown,
@@ -674,22 +674,22 @@ export function CmsNavigationManager({
   const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
   const [collapsedRowIds, setCollapsedRowIds] = useState<Set<string>>(() => new Set());
 
-  const { execute: saveNavigationTree, isPending: isSaving } = useServerAction(
+  const { execute: saveNavigationTree, isExecuting: isSaving } = useAction(
     saveCmsNavigationTreeAction,
     {
-      onError: (error) => {
+      onError: ({ error }) => {
         toast.dismiss();
-        toast.error(error.err?.message || `Failed to save ${navigationLabel.toLowerCase()}`);
+        toast.error(error.serverError?.message || `Failed to save ${navigationLabel.toLowerCase()}`);
       },
-      onStart: () => {
+      onExecute: () => {
         toast.loading(`Saving ${navigationLabel.toLowerCase()}...`);
       },
-      onSuccess: (response) => {
+      onSuccess: ({ data }) => {
         toast.dismiss();
         toast.success(`${navigationLabel} saved`);
 
-        if (response?.data) {
-          const nextItems = flattenNavigationTree(response.data);
+        if (data) {
+          const nextItems = flattenNavigationTree(data);
           setItems(nextItems);
           setSelectedNodeId((current) =>
             current && nextItems.some((item) => item.id === current)

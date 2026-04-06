@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { ZSAError, createServerAction } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { getDB } from "@/db";
 import { cmsMediaTable, cmsEntryTable, cmsEntryMediaTable } from "@/db/schema";
@@ -15,12 +16,12 @@ import { invalidateCmsEntryCache, invalidateCmsCollectionCache } from "@/lib/cms
 /**
  * List all media files with pagination and entry relationships
  */
-export const listCmsMediaAction = createServerAction()
-  .input(z.object({
+export const listCmsMediaAction = actionClient
+  .inputSchema(z.object({
     page: z.number().min(1).default(1),
     limit: z.number().min(1).max(100).default(20),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const db = getDB();
@@ -69,11 +70,11 @@ export const listCmsMediaAction = createServerAction()
 /**
  * Get media details with all related entries
  */
-export const getCmsMediaDetailsAction = createServerAction()
-  .input(z.object({
+export const getCmsMediaDetailsAction = actionClient
+  .inputSchema(z.object({
     mediaId: z.string(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const db = getDB();
@@ -85,7 +86,7 @@ export const getCmsMediaDetailsAction = createServerAction()
       .where(eq(cmsMediaTable.id, input.mediaId));
 
     if (!media) {
-      throw new ZSAError("NOT_FOUND", "Media not found");
+      throw new ActionError("NOT_FOUND", "Media not found");
     }
 
     // Get all entries using this media
@@ -164,14 +165,14 @@ function updateImageNodesInContent(
  * Update media metadata (alt text, dimensions, etc.)
  * Also updates the content JSON in all related cms_entry records
  */
-export const updateCmsMediaAction = createServerAction()
-  .input(z.object({
+export const updateCmsMediaAction = actionClient
+  .inputSchema(z.object({
     mediaId: z.string(),
     alt: z.string().optional(),
     width: z.number().optional(),
     height: z.number().optional(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const db = getDB();
@@ -184,7 +185,7 @@ export const updateCmsMediaAction = createServerAction()
       .where(eq(cmsMediaTable.id, mediaId));
 
     if (!media) {
-      throw new ZSAError("NOT_FOUND", "Media not found");
+      throw new ActionError("NOT_FOUND", "Media not found");
     }
 
     // Update the media record
@@ -271,11 +272,11 @@ export const updateCmsMediaAction = createServerAction()
 /**
  * Get media by bucket key (used for featured image selection)
  */
-export const getCmsMediaByBucketKeyAction = createServerAction()
-  .input(z.object({
+export const getCmsMediaByBucketKeyAction = actionClient
+  .inputSchema(z.object({
     bucketKey: z.string(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
     const db = getDB();
@@ -298,11 +299,11 @@ export const getCmsMediaByBucketKeyAction = createServerAction()
 /**
  * Delete media file from both R2 and database
  */
-export const deleteCmsMediaAction = createServerAction()
-  .input(z.object({
+export const deleteCmsMediaAction = actionClient
+  .inputSchema(z.object({
     mediaId: z.string(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       await requireAdmin();
 
@@ -310,7 +311,7 @@ export const deleteCmsMediaAction = createServerAction()
       const { env } = getCloudflareContext();
 
       if (!env.NEXT_INC_CACHE_R2_BUCKET) {
-        throw new ZSAError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
+        throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
       }
 
       // Get media record
@@ -320,7 +321,7 @@ export const deleteCmsMediaAction = createServerAction()
         .where(eq(cmsMediaTable.id, input.mediaId));
 
       if (!media) {
-        throw new ZSAError("NOT_FOUND", "Media not found");
+        throw new ActionError("NOT_FOUND", "Media not found");
       }
 
       // Check if media is in use (in cms_entry_media junction table)
@@ -331,7 +332,7 @@ export const deleteCmsMediaAction = createServerAction()
         .where(eq(cmsEntryMediaTable.mediaId, input.mediaId));
 
       if (usage.count > 0) {
-        throw new ZSAError(
+        throw new ActionError(
           "CONFLICT",
           `Cannot delete media: it is used in ${usage.count} entry/entries`
         );
