@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   type TableOfContentsNode,
@@ -52,6 +52,7 @@ function TableOfContentsBranch({
         <li key={node.id}>
           <a
             href={`#${node.id}`}
+            data-active={activeId === node.id}
             className={cn(
               "block py-1 pl-3 text-sm transition-colors",
               activeId === node.id
@@ -83,6 +84,7 @@ export function ContentTableOfContentsNav({
 }: ContentTableOfContentsNavProps) {
   const orderedIds = useMemo(() => flattenTableOfContentsIds(nodes), [nodes]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   const updateActive = useCallback(() => {
     setActiveId(computeActiveSectionId(orderedIds));
@@ -121,8 +123,21 @@ export function ContentTableOfContentsNav({
     };
   }, [updateActive]);
 
+  useEffect(() => {
+    if (!activeId) {
+      return;
+    }
+
+    const activeItem = navRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    activeItem?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId]);
+
   return (
-    <nav className="mt-4" aria-label="On this page">
+    <nav
+      ref={navRef}
+      className="mt-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3"
+      aria-label="On this page"
+    >
       <TableOfContentsBranch nodes={nodes} activeId={activeId} depth={0} />
     </nav>
   );

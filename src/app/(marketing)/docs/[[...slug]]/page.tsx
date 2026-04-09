@@ -492,7 +492,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
 
           {tableOfContents.length > 0 ? (
             <aside className="hidden xl:block">
-              <div className="sticky top-10">
+              <div className="sticky top-10 max-h-[calc(100vh-5rem)]">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   On This Page
                 </p>

@@ -8,13 +8,20 @@ import { Bot } from "lucide-react";
 import { DOCS_LLMS_TXT_PATH } from "@/lib/cms/docs-config";
 import { cn } from "@/lib/utils";
 
-export function DocsLlmsTxtLink({ className }: { className?: string }) {
+export function DocsLlmsTxtLink({
+  className,
+  onNavigate,
+}: {
+  className?: string;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const isActive = pathname === DOCS_LLMS_TXT_PATH;
 
   return (
     <Link
       href={DOCS_LLMS_TXT_PATH as Route}
+      onClick={onNavigate}
       className={cn(
         "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted/70",
         isActive && "bg-accent font-medium text-accent-foreground",
