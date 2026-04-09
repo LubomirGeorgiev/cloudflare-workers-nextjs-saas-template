@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8169289e-05d5-4881-be1b-c7d406a9f745",
+  "id": "59560ab7-74b3-41eb-a927-45c8a6d7c4da",
   "prevId": "59579936-107a-4565-acf3-10fe5a0984f9",
   "tables": {
     "cms_entry_media": {
@@ -966,7 +966,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": 301
+          "default": 307
         }
       },
       "indexes": {

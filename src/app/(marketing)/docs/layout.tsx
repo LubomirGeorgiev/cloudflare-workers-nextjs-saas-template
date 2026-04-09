@@ -1,5 +1,6 @@
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import { DocsLlmsTxtLink } from "./_components/docs-llms-txt-link";
 import { DocsSidebar } from "./_components/docs-sidebar";
 
 export default async function DocsLayout({
@@ -19,7 +20,10 @@ export default async function DocsLayout({
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Documentation
             </p>
-            <DocsSidebar nodes={sidebarTree} />
+            <div className="space-y-1">
+              <DocsLlmsTxtLink />
+              <DocsSidebar nodes={sidebarTree} />
+            </div>
           </div>
         </aside>
 
@@ -28,7 +32,10 @@ export default async function DocsLayout({
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Documentation
             </p>
-            <DocsSidebar nodes={sidebarTree} className="max-h-72 overflow-y-auto" />
+            <div className="space-y-1">
+              <DocsLlmsTxtLink />
+              <DocsSidebar nodes={sidebarTree} className="max-h-72 overflow-y-auto" />
+            </div>
           </div>
           {children}
         </div>

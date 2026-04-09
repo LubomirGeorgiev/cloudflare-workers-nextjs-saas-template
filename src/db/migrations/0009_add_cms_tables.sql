@@ -130,7 +130,7 @@ CREATE TABLE `cms_navigation_redirect` (
 	`navigationKey` text NOT NULL,
 	`fromPath` text NOT NULL,
 	`toPath` text NOT NULL,
-	`statusCode` integer DEFAULT 301 NOT NULL
+	`statusCode` integer DEFAULT 307 NOT NULL
 );
 --> statement-breakpoint
 CREATE INDEX `cms_navigation_redirect_site_key_idx` ON `cms_navigation_redirect` (`navigationKey`);--> statement-breakpoint

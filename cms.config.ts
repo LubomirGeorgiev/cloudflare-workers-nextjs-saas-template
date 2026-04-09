@@ -21,6 +21,8 @@ const blogCollection = {
     singular: "Blog",
     plural: "Blogs",
   },
+  description:
+    "Articles and updates from the team: product news, engineering notes, and guides published on the marketing site.",
   fieldsSchema: blogFieldsSchema,
   previewUrl: (slug: string) => `/blog/${slug}`,
   includeInSitemap: true,
@@ -32,6 +34,8 @@ const docsCollection = {
     singular: "Doc",
     plural: "Docs",
   },
+  description:
+    "Product documentation for this application: how it works, how to run and deploy it, and how to use its features.",
   navigationKey: DOCS_SLUG,
   includeInSitemap: true,
 } satisfies DefineCmsCollection;

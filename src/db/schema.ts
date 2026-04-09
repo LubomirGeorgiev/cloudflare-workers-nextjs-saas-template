@@ -1,5 +1,3 @@
-import "server-only"
-
 import { sqliteTable, integer, text, index, unique } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 import { type InferSelectModel } from "drizzle-orm";
@@ -387,7 +385,7 @@ export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect",
   }).$type<CmsNavigationKey>().notNull(),
   fromPath: text().notNull(),
   toPath: text().notNull(),
-  statusCode: integer().default(301).notNull(),
+  statusCode: integer().default(307).notNull(),
 }, (table) => ([
   index("cms_navigation_redirect_site_key_idx").on(table.navigationKey),
   unique("cms_navigation_redirect_site_from_path_unique").on(table.navigationKey, table.fromPath),

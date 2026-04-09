@@ -662,7 +662,7 @@ export async function saveCmsNavigationTree({
           navigationKey,
           fromPath: oldPath,
           toPath: newPath,
-          statusCode: 301,
+          statusCode: 307,
         })
         .onConflictDoUpdate({
           target: [
@@ -671,7 +671,7 @@ export async function saveCmsNavigationTree({
           ],
           set: {
             toPath: newPath,
-            statusCode: 301,
+            statusCode: 307,
             updatedAt: new Date(),
           },
         });

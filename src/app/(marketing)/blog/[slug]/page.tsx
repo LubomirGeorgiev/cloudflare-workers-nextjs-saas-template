@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
+import type { Route } from "next"
 import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
 import { CmsEntryBody } from "@/components/cms-entry-body"
 import { ContentTableOfContentsNav } from "@/components/content-table-of-contents-nav"
@@ -20,6 +21,7 @@ import { getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree"
 import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents"
+import { buildCmsEntryMarkdownPath } from "@/lib/cms/cms-paths"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -27,10 +29,45 @@ type BlogPostPageProps = {
   }>
 }
 
+function blogSlugWithoutMdSuffix(slug: string): string | undefined {
+  if (!slug.toLowerCase().endsWith(".md")) {
+    return undefined
+  }
+
+  const base = slug.slice(0, -".md".length)
+  return base || undefined
+}
+
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params
+
+  const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
+  if (slugForMarkdown !== undefined) {
+    const mdEntry = await getCmsEntryBySlug({
+      collectionSlug: "blog",
+      slug: slugForMarkdown,
+    })
+    if (mdEntry) {
+      redirect(
+        buildCmsEntryMarkdownPath({
+          collectionSlug: "blog",
+          slug: slugForMarkdown,
+        }) as Route
+      )
+    }
+
+    const mdPageNumber = getValidPageNumber({ value: slugForMarkdown })
+    if (mdPageNumber) {
+      redirect(getBlogPagePath({ page: mdPageNumber }))
+    }
+
+    return {
+      title: "Blog Post Not Found",
+    }
+  }
+
   const validPageNumber = getValidPageNumber({ value: slug })
 
   if (validPageNumber) {
@@ -108,6 +145,30 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params
+
+  const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
+  if (slugForMarkdown !== undefined) {
+    const mdEntry = await getCmsEntryBySlug({
+      collectionSlug: "blog",
+      slug: slugForMarkdown,
+    })
+    if (mdEntry) {
+      redirect(
+        buildCmsEntryMarkdownPath({
+          collectionSlug: "blog",
+          slug: slugForMarkdown,
+        }) as Route
+      )
+    }
+
+    const mdPageNumber = getValidPageNumber({ value: slugForMarkdown })
+    if (mdPageNumber) {
+      redirect(getBlogPagePath({ page: mdPageNumber }))
+    }
+
+    notFound()
+  }
+
   const validPageNumber = getValidPageNumber({ value: slug })
 
   if (validPageNumber) {

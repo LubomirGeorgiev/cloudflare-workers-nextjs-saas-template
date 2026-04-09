@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Download, MoreHorizontal } from "lucide-react";
+import { Bot, Check, Copy, Download, ExternalLink, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
@@ -12,14 +12,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DOCS_LLMS_TXT_PATH } from "@/lib/cms/docs-config";
 
 interface CopyDocsMarkdownButtonProps {
   markdown: string;
+  rawMarkdownUrl: string;
   downloadUrl: string;
 }
 
 export function CopyDocsMarkdownButton({
   markdown,
+  rawMarkdownUrl,
   downloadUrl,
 }: CopyDocsMarkdownButtonProps) {
   const [copied, setCopied] = useState(false);
@@ -44,10 +47,22 @@ export function CopyDocsMarkdownButton({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <a target="_blank" href={downloadUrl}>
+              <a target="_blank" rel="noreferrer" href={rawMarkdownUrl}>
+                <ExternalLink className="h-4 w-4" />
+                Open raw
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a target="_blank" rel="noreferrer" href={DOCS_LLMS_TXT_PATH}>
+                <Bot className="h-4 w-4" />
+                llms.txt
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={downloadUrl}>
                 <Download className="h-4 w-4" />
                 Download
               </a>

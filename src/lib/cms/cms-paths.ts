@@ -22,25 +22,31 @@ export function buildCmsResolvedPath({
   return normalizeCmsResolvedPath(`${basePath}/${normalizedSegments}`);
 }
 
-function buildCmsEntryMarkdownPath({
+export function buildCmsEntryMarkdownPath({
   collectionSlug,
   slug,
+  download = false,
 }: {
   collectionSlug: CollectionsUnion;
   slug: string;
+  download?: boolean;
 }): string {
-  return `/api/cms/markdown/${collectionSlug}/${slug}`;
+  const path = `/api/cms/markdown/${collectionSlug}/${slug}`;
+  return download ? `${path}?download` : path;
 }
 
 export function buildAbsoluteCmsEntryMarkdownUrl({
   collectionSlug,
   slug,
+  download = false,
 }: {
   collectionSlug: CollectionsUnion;
   slug: string;
+  download?: boolean;
 }): string {
   return `${SITE_URL}${buildCmsEntryMarkdownPath({
     collectionSlug,
     slug,
+    download,
   })}`;
 }

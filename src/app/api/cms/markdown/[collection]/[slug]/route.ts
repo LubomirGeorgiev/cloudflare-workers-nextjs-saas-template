@@ -10,7 +10,7 @@ import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   {
     params,
   }: {
@@ -22,6 +22,7 @@ export async function GET(
 ) {
   return withRateLimit(async () => {
     const { collection, slug } = await params;
+    const wantsDownload = new URL(request.url).searchParams.has("download");
 
     if (!(collection in cmsConfig.collections)) {
       return NextResponse.json(
@@ -61,11 +62,14 @@ export async function GET(
 
     const fileName = `${SITE_NAME.toLowerCase().replace(/\s+/g, "-")}-${entry.collection}-${entry.slug}.md`;
 
-    return new Response(markdown, {
-      headers: {
-        "content-type": "text/markdown; charset=utf-8",
-        "content-disposition": `attachment; filename="${fileName}"`,
-      },
-    });
+    const headers: Record<string, string> = {
+      "content-type": "text/markdown; charset=utf-8",
+    };
+
+    if (wantsDownload) {
+      headers["content-disposition"] = `attachment; filename="${fileName}"`;
+    }
+
+    return new Response(markdown, { headers });
   }, RATE_LIMITS.CMS_MARKDOWN_API);
 }

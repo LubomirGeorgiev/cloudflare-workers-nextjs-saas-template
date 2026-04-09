@@ -10,6 +10,7 @@ import { DocsOnThisPageNav } from "@/app/(marketing)/docs/_components/docs-on-th
 import { SITE_URL } from "@/constants";
 import {
   buildAbsoluteCmsEntryMarkdownUrl,
+  buildCmsEntryMarkdownPath,
   buildCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
@@ -48,6 +49,20 @@ function getNavigationItemDescription(node: CmsNavigationTreeNode): string | nul
   return node.entry.seoDescription || null;
 }
 
+function stripMdSuffixFromSlugParts(slugParts: string[]): string[] | undefined {
+  const last = slugParts[slugParts.length - 1]!;
+  if (!last.toLowerCase().endsWith(".md")) {
+    return undefined;
+  }
+
+  const base = last.slice(0, -".md".length);
+  if (!base) {
+    return undefined;
+  }
+
+  return [...slugParts.slice(0, -1), base];
+}
+
 async function resolveDocsPage(slugParts?: string[]) {
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
@@ -69,12 +84,16 @@ async function resolveDocsPage(slugParts?: string[]) {
     };
   }
 
+  const mdStrippedSegments = stripMdSuffixFromSlugParts(slugParts);
+  const segmentsForResolve = mdStrippedSegments ?? slugParts;
+  const isMarkdownSuffixRequest = mdStrippedSegments !== undefined;
+
   const navigationTree = await getCmsNavigationTree({
     navigationKey: DOCS_SLUG,
   });
   const resolvedPath = buildCmsResolvedPath({
     basePath: docsNavigation.basePath,
-    segments: slugParts,
+    segments: segmentsForResolve,
   });
   const node = getCmsNavigationNodeByResolvedPath({
     path: resolvedPath,
@@ -114,6 +133,14 @@ async function resolveDocsPage(slugParts?: string[]) {
     };
   }
 
+  if (isMarkdownSuffixRequest) {
+    return {
+      type: "markdown-redirect" as const,
+      collectionSlug: node.entry.collection,
+      slug: node.entry.slug,
+    };
+  }
+
   return {
     type: "page" as const,
     node,
@@ -127,6 +154,15 @@ export async function generateMetadata({
   const { slug } = await params;
   const result = await resolveDocsPage(slug);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
+
+  if (result.type === "markdown-redirect") {
+    redirect(
+      buildCmsEntryMarkdownPath({
+        collectionSlug: result.collectionSlug,
+        slug: result.slug,
+      }) as Route
+    );
+  }
 
   if (result.type === "group") {
     const canonicalPath = result.node.resolvedPath ?? docsNavigation.basePath;
@@ -209,6 +245,15 @@ export default async function DocsPage({ params }: DocsPageProps) {
   const result = await resolveDocsPage(slug);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
+
+  if (result.type === "markdown-redirect") {
+    redirect(
+      buildCmsEntryMarkdownPath({
+        collectionSlug: result.collectionSlug,
+        slug: result.slug,
+      }) as Route
+    );
+  }
 
   if (result.type === "redirect") {
     if (result.permanent) {
@@ -359,10 +404,19 @@ export default async function DocsPage({ params }: DocsPageProps) {
     currentNodeId: node.id,
     nodes: navigationTree,
   });
+  const previousSeoDescription = previous
+    ? getNavigationItemDescription(previous)
+    : null;
+  const nextSeoDescription = next ? getNavigationItemDescription(next) : null;
   const markdown = renderContentToMarkdown(entry.content as JSONContent);
-  const markdownPath = buildAbsoluteCmsEntryMarkdownUrl({
+  const markdownApiUrl = buildAbsoluteCmsEntryMarkdownUrl({
     collectionSlug: entry.collection,
     slug: entry.slug,
+  });
+  const markdownDownloadUrl = buildAbsoluteCmsEntryMarkdownUrl({
+    collectionSlug: entry.collection,
+    slug: entry.slug,
+    download: true,
   });
 
   return (
@@ -383,8 +437,9 @@ export default async function DocsPage({ params }: DocsPageProps) {
                 </h1>
                 <div className="shrink-0">
                   <CopyDocsMarkdownButton
-                    downloadUrl={markdownPath}
+                    downloadUrl={markdownDownloadUrl}
                     markdown={markdown}
+                    rawMarkdownUrl={markdownApiUrl}
                   />
                 </div>
               </div>
@@ -406,6 +461,11 @@ export default async function DocsPage({ params }: DocsPageProps) {
                       Previous
                     </p>
                     <p className="mt-2 font-medium">{previous.title}</p>
+                    {previousSeoDescription ? (
+                      <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                        {previousSeoDescription}
+                      </p>
+                    ) : null}
                   </Link>
                 ) : (
                   <div />
@@ -419,6 +479,11 @@ export default async function DocsPage({ params }: DocsPageProps) {
                       Next
                     </p>
                     <p className="mt-2 font-medium">{next.title}</p>
+                    {nextSeoDescription ? (
+                      <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                        {nextSeoDescription}
+                      </p>
+                    ) : null}
                   </Link>
                 ) : null}
               </div>

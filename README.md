@@ -141,10 +141,11 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 
 ## Things to change and customize before deploying to production
 1. Go to `src/constants.ts` and update it with your project details
-2. Update `.cursor/rules/001-main-project-context.mdc` with your project specification so that Cursor AI can give you better suggestions
+2. Update `AGENTS.md` with your project specification so that Cursor AI can give you better suggestions
 3. Update the footer in `src/components/footer.tsx` with your project details and links
 4. Optional: Update the color palette in `src/app/globals.css`
 5. Update the metadata in `src/app/layout.tsx` with your project details
+7. Update `cms.config.ts` if necessary
 
 ## Deploying to Cloudflare with Github Actions
 

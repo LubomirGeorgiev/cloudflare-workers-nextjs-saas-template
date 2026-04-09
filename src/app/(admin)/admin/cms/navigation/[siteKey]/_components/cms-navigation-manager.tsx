@@ -10,8 +10,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import {
-  ChevronDown,
-  ChevronRight,
   FileText,
   FolderTree,
   GripVertical,
@@ -49,6 +47,7 @@ type RootDropPosition = "start" | "end";
 
 const CMS_NAVIGATION_ROW_DRAG_TYPE = "cms-navigation-row";
 const CMS_NAVIGATION_ROOT_DROP_TYPE = "cms-navigation-root-drop";
+const CMS_NAVIGATION_TREE_INDENT_PX = 24;
 
 interface CmsNavigationManagerProps {
   entries: GetCmsCollectionResult[];
@@ -91,7 +90,6 @@ type DropTargetState =
 interface CmsNavigationRowProps {
   row: VisibleCmsNavigationRow;
   basePath: string;
-  collapsedRowIds: Set<string>;
   dropTarget: DropTargetState | null;
   draggedId: string | null;
   isSelected: boolean;
@@ -107,7 +105,6 @@ interface CmsNavigationRowProps {
       | null
       | ((current: DropTargetState | null) => DropTargetState | null)
   ) => void;
-  onToggleCollapsed: (rowId: string) => void;
 }
 
 interface CmsNavigationRootDropZoneProps {
@@ -404,16 +401,11 @@ function moveNodeToRoot({
 
 function getFlattenedVisibleRows(
   nodes: EditableTreeNode[],
-  collapsedRowIds: Set<string>,
   depth = 0
 ): Array<EditableTreeNode & { depth: number }> {
   return nodes.flatMap((node) => {
     const currentRow = { ...node, depth };
-    const isRowCollapsed = collapsedRowIds.has(node.id);
-    const childRows = isRowCollapsed
-      ? []
-      : getFlattenedVisibleRows(node.children, collapsedRowIds, depth + 1);
-
+    const childRows = getFlattenedVisibleRows(node.children, depth + 1);
     return [currentRow, ...childRows];
   });
 }
@@ -465,7 +457,6 @@ function createTempId() {
 function CmsNavigationRow({
   row,
   basePath,
-  collapsedRowIds,
   dropTarget,
   draggedId,
   isSelected,
@@ -473,7 +464,6 @@ function CmsNavigationRow({
   onCanDrop,
   onSelect,
   onSetDropTarget,
-  onToggleCollapsed,
 }: CmsNavigationRowProps) {
   const rowRef = useRef<HTMLDivElement | null>(null);
   const dragHandleRef = useRef<HTMLSpanElement | null>(null);
@@ -529,16 +519,19 @@ function CmsNavigationRow({
 
   return (
     <div
-      ref={rowRef}
-      onClick={() => onSelect(row.id)}
-      className={cn(
-        "relative flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
-        isSelected ? "bg-accent" : "hover:bg-muted/50",
-        showInsideIndicator && "border-primary bg-primary/10 ring-2 ring-primary/30",
-        draggedId === row.id && "opacity-60"
-      )}
-      style={{ paddingLeft: `${row.depth * 24 + 12}px` }}
+      className="w-full min-w-0"
+      style={{ paddingLeft: row.depth * CMS_NAVIGATION_TREE_INDENT_PX }}
     >
+      <div
+        ref={rowRef}
+        onClick={() => onSelect(row.id)}
+        className={cn(
+          "relative flex w-full min-w-0 items-center gap-3 rounded-lg border px-3 py-3 text-left transition-colors",
+          isSelected ? "bg-accent" : "hover:bg-muted/50",
+          showInsideIndicator && "border-primary bg-primary/10 ring-2 ring-primary/30",
+          draggedId === row.id && "opacity-60"
+        )}
+      >
       {showBeforeIndicator ? (
         <span className="pointer-events-none absolute inset-x-2 -top-[2px] h-1 rounded-full bg-primary shadow-[0_0_0_1px_hsl(var(--background)),0_0_0_3px_hsl(var(--primary)/0.35)]" />
       ) : null}
@@ -551,24 +544,6 @@ function CmsNavigationRow({
       >
         <GripVertical className="h-4 w-4" />
       </span>
-      <button
-        type="button"
-        className="shrink-0"
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleCollapsed(row.id);
-        }}
-      >
-        {row.children.length > 0 ? (
-          collapsedRowIds.has(row.id) ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )
-        ) : (
-          <span className="block h-4 w-4" />
-        )}
-      </button>
       {row.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE ? (
         <FileText className="h-4 w-4 shrink-0 text-blue-500" />
       ) : (
@@ -586,6 +561,7 @@ function CmsNavigationRow({
                 })
               : "Group without URL segment"}
         </p>
+      </div>
       </div>
     </div>
   );
@@ -672,7 +648,6 @@ export function CmsNavigationManager({
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
-  const [collapsedRowIds, setCollapsedRowIds] = useState<Set<string>>(() => new Set());
 
   const { execute: saveNavigationTree, isExecuting: isSaving } = useAction(
     saveCmsNavigationTreeAction,
@@ -702,10 +677,7 @@ export function CmsNavigationManager({
   );
 
   const tree = useMemo(() => buildEditableTree(items), [items]);
-  const rows = useMemo(
-    () => getFlattenedVisibleRows(tree, collapsedRowIds),
-    [collapsedRowIds, tree]
-  );
+  const rows = useMemo(() => getFlattenedVisibleRows(tree), [tree]);
   const resolvedPaths = useMemo(
     () => computeResolvedPaths({ items, basePath }),
     [basePath, items]
@@ -832,13 +804,6 @@ export function CmsNavigationManager({
         position,
       })
     );
-    if (position === "inside") {
-      setCollapsedRowIds((prev) => {
-        const next = new Set(prev);
-        next.delete(targetId);
-        return next;
-      });
-    }
     setDraggedId(null);
     setDropTarget(null);
   };
@@ -990,7 +955,6 @@ export function CmsNavigationManager({
                     key={row.id}
                     row={row}
                     basePath={basePath}
-                    collapsedRowIds={collapsedRowIds}
                     dropTarget={dropTarget}
                     draggedId={draggedId}
                     isSelected={row.id === selectedNodeId}
@@ -998,17 +962,6 @@ export function CmsNavigationManager({
                     onCanDrop={canDropOnRow}
                     onSelect={setSelectedNodeId}
                     onSetDropTarget={setDropTarget}
-                    onToggleCollapsed={(rowId) =>
-                      setCollapsedRowIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(rowId)) {
-                          next.delete(rowId);
-                        } else {
-                          next.add(rowId);
-                        }
-                        return next;
-                      })
-                    }
                   />
                 );
               })}

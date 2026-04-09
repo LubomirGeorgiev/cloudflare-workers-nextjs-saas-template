@@ -6,6 +6,7 @@ export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAn
     singular: string;
     plural: string;
   };
+  description?: string;
   fieldsSchema?: TFieldsSchema;
   previewUrl?: (slug: string) => string;
   includeInSitemap?: boolean;
