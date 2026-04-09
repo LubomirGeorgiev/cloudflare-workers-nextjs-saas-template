@@ -27,7 +27,6 @@ export const FREE_MONTHLY_CREDITS = CREDIT_PACKAGES[0].credits * 0.1;
 export const MAX_TRANSACTIONS_PER_PAGE = 10;
 export const BLOG_POSTS_PER_PAGE = 12;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
-// TODO Switch to Kimi K2.5 https://blog.cloudflare.com/workers-ai-large-models/
 export const DEFAULT_AI_MODEL = '@cf/google/gemma-3-12b-it' as const satisfies keyof AiModels;
 
 // CMS Image Upload Configuration
