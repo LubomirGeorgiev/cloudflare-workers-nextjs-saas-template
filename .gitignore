@@ -4,6 +4,7 @@
 node_modules
 .pnp
 .pnp.js
+.pnpm-store
 .yarn/install-state.gz
 
 # testing
@@ -11,7 +12,6 @@ node_modules
 
 # next.js
 .next
-.react-email
 out
 
 # production

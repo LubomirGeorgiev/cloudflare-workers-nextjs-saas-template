@@ -70,7 +70,7 @@ export interface KVSession {
 export const CURRENT_SESSION_VERSION = 4;
 
 async function getKV() {
-  const { env } = getCloudflareContext();
+  const { env } = await getCloudflareContext({ async: true });
   return env.NEXT_INC_CACHE_KV;
 }
 
@@ -90,7 +90,7 @@ export async function createKVSession({
   teams,
   selectedTeam
 }: CreateKVSessionParams): Promise<KVSession> {
-  const { cf } = getCloudflareContext();
+  const { cf } = await getCloudflareContext({ async: true });
   const headersList = await headers();
   const kv = await getKV();
 

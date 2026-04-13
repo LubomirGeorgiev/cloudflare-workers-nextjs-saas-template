@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { requireVerifiedEmail } from "./auth";
-import { ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
 
 // Check if the user has team membership and return both access status and session
 // This function doesn't throw exceptions, making it easier to use in pages
@@ -43,13 +43,13 @@ export const requireTeamPermission = cache(async (teamId: string, permission: st
   const session = await requireVerifiedEmail();
 
   if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
   const hasPermission = await hasTeamPermission(teamId, permission);
 
   if (!hasPermission) {
-    throw new ZSAError("FORBIDDEN", "You don't have the required permission in this team");
+    throw new ActionError("FORBIDDEN", "You don't have the required permission in this team");
   }
 
   return session;

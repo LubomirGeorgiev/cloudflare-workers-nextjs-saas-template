@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { deleteSessionAction } from "./sessions.actions";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -34,7 +34,7 @@ const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
   const router = useRouter();
   const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
-  const { execute: deleteSession } = useServerAction(deleteSessionAction, {
+  const { execute: deleteSession } = useAction(deleteSessionAction, {
     onSuccess: () => {
       toast.success("Session deleted");
       dialogCloseRef.current?.click();

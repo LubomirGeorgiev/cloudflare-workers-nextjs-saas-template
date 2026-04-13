@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { createTeamAction } from "@/actions/team-actions";
 
 const formSchema = z.object({
@@ -24,18 +24,18 @@ type FormValues = z.infer<typeof formSchema>;
 export function CreateTeamForm() {
   const router = useRouter();
 
-  const { execute: createTeam } = useServerAction(createTeamAction, {
-    onError: (error) => {
+  const { execute: createTeam } = useAction(createTeamAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to create team");
+      toast.error(error.serverError?.message || "Failed to create team");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Creating team...");
     },
-    onSuccess: (result) => {
+    onSuccess: ({ data }) => {
       toast.dismiss();
       toast.success("Team created successfully");
-      router.push(`/dashboard/teams/${result.data.data.slug}` as Route);
+      router.push(`/dashboard/teams/${data.data.slug}` as Route);
       router.refresh();
     }
   });

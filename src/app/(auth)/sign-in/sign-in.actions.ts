@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { signInSchema } from "@/schemas/signin.schema";
@@ -9,9 +10,9 @@ import { createAndStoreSession } from "@/utils/auth";
 import { eq } from "drizzle-orm";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
-export const signInAction = createServerAction()
-  .input(signInSchema)
-  .handler(async ({ input }) => {
+export const signInAction = actionClient
+  .inputSchema(signInSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const db = getDB();
@@ -23,7 +24,7 @@ export const signInAction = createServerAction()
           });
 
           if (!user) {
-            throw new ZSAError(
+            throw new ActionError(
               "NOT_AUTHORIZED",
               "Invalid email or password"
             );
@@ -31,14 +32,14 @@ export const signInAction = createServerAction()
 
           // Check if user has only Google SSO
           if (!user.passwordHash && user.googleAccountId) {
-            throw new ZSAError(
+            throw new ActionError(
               "FORBIDDEN",
               "Please sign in with your Google account instead."
             );
           }
 
           if (!user.passwordHash) {
-            throw new ZSAError(
+            throw new ActionError(
               "NOT_AUTHORIZED",
               "Invalid email or password"
             );
@@ -51,7 +52,7 @@ export const signInAction = createServerAction()
           });
 
           if (!isValid) {
-            throw new ZSAError(
+            throw new ActionError(
               "NOT_AUTHORIZED",
               "Invalid email or password"
             );
@@ -64,11 +65,11 @@ export const signInAction = createServerAction()
         } catch (error) {
           console.error(error)
 
-          if (error instanceof ZSAError) {
+          if (error instanceof ActionError) {
             throw error;
           }
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "An unexpected error occurred"
           );
@@ -77,4 +78,3 @@ export const signInAction = createServerAction()
       RATE_LIMITS.SIGN_IN
     );
   });
-

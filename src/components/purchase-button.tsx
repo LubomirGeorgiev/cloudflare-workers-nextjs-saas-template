@@ -2,7 +2,7 @@
 
 import { toast } from "sonner"
 import ShinyButton from "@/components/ui/shiny-button"
-import { useServerAction } from "zsa-react"
+import { useAction } from "next-safe-action/hooks"
 import { purchaseAction } from "@/app/(dashboard)/dashboard/marketplace/purchase.action"
 import type { PURCHASABLE_ITEM_TYPE } from "@/db/schema"
 import { useRouter } from "next/navigation"
@@ -15,29 +15,28 @@ interface PurchaseButtonProps {
 export default function PurchaseButton({ itemId, itemType }: PurchaseButtonProps) {
   const router = useRouter()
 
-  const { execute: handlePurchase, isPending } = useServerAction(purchaseAction, {
-    onError: (error) => {
+  const { executeAsync: handlePurchase, isExecuting } = useAction(purchaseAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to purchase item")
+      toast.error(error.serverError?.message || "Failed to purchase item")
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Processing purchase...")
     },
     onSuccess: () => {
       toast.dismiss()
       toast.success("Item purchased successfully!")
+      router.refresh()
     },
   })
 
   return (
     <ShinyButton
       onClick={() => {
-        handlePurchase({ itemId, itemType }).then(() => {
-          router.refresh()
-        })
+        void handlePurchase({ itemId, itemType })
       }}
     >
-      {isPending ? "Processing..." : "Purchase"}
+      {isExecuting ? "Processing..." : "Purchase"}
     </ShinyButton>
   )
 }

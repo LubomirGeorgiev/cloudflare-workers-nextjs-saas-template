@@ -7,8 +7,6 @@
 
 This is a SaaS template for Cloudflare Workers. It uses the [OpenNext](https://opennext.js.org/cloudflare) framework to build a SaaS application.
 
-Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overview of the project.
-
 > [!TIP]
 > This template is brought to you by 👉 [AgenticDev](https://agenticdev.agency/?ref=github-readme-nextjs-template) 👈 - where we help businesses automate operations and boost productivity through custom AI implementations. Just like this open-source project demonstrates technical excellence, we deliver:
 >
@@ -128,11 +126,14 @@ Have a look at the [project plan](./cursor-docs/project-plan.md) to get an overv
 # Running it locally
 
 1. `pnpm install`
-2.  Copy `.dev.vars.example` to `.dev.vars` and fill in the values.
-3.  Copy `.env.example` to `.env` and fill in the values.
-4. `pnpm db:migrate:dev` - Creates a local SQLite database and applies migrations
-5. `pnpm dev`
-6.  Open http://localhost:3000
+2. `pnpx wrangler login` - Login to your Cloudflare account to use Cloudflare AI while testing locally.
+3.  Copy `.dev.vars.example` to `.dev.vars` and fill in the values.
+4.  Copy `.env.example` to `.env` and fill in the values.
+5. `pnpm db:migrate:dev` - Creates a local SQLite database and applies migrations
+6. `pnpm db:seed` - Seeds the database with test data
+7. `pnpm dev`
+8.  Go to https://localhost:3000/sign-in and login with the test user credentials: test@test.com / password
+9.  Go to https://localhost:3000/admin to manage users and the CMS.
 
 ## Changes to wrangler.jsonc
 
@@ -140,15 +141,16 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 
 ## Things to change and customize before deploying to production
 1. Go to `src/constants.ts` and update it with your project details
-2. Update `.cursor/rules/001-main-project-context.mdc` with your project specification so that Cursor AI can give you better suggestions
+2. Update `AGENTS.md` with your project specification so that Cursor AI can give you better suggestions
 3. Update the footer in `src/components/footer.tsx` with your project details and links
 4. Optional: Update the color palette in `src/app/globals.css`
 5. Update the metadata in `src/app/layout.tsx` with your project details
+7. Update `cms.config.ts` if necessary
 
 ## Deploying to Cloudflare with Github Actions
 
 1. Create D1 and KV namespaces
-2. Set either `RESEND_API_KEY` or `BREVO_API_KEY` as a secret in your Cloudflare Worker depending on which email service you want to use.
+2. Set either `RESEND_API_KEY` or `BREVO_API_KEY` as a secret in your Cloudflare Worker depending on which email service you want to use. If you are using Brevo go to https://app.brevo.com/security/authorised_ips and disable it.
 3. Create a Turnstile catcha in your Cloudflare account, and set the `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a Github Actions variable.
 4. Set `TURNSTILE_SECRET_KEY` as a secret in your Cloudflare Worker.
 5. Update the `wrangler.jsonc` file with the new database and KV namespaces, env variables and account id. Search for "cloudflare-workers-nextjs-saas-template" recursively in the whole repository and change that to the name of your project. Don't forget that the name you choose at the top of the wrangler.jsonc should be the same as `services->[0]->service` in the same file.
@@ -166,10 +168,3 @@ After making a change to wrangler.jsonc, you need to run `pnpm cf-typegen` to ge
 8. Add the Cloudflare account id to the Github repository variables as `CLOUDFLARE_ACCOUNT_ID`
 9. Optional: If you want clear the CDN cache on deploy, add `CLOUDFLARE_ZONE_ID` to the Github repository variables for the zone id of your domain. This is the zone id of your domain, not the account id.
 10. Push to the main branch
-
-## Email templates
-If you want to preview and edit the email templates you can:
-1. `pnpm email:dev`
-2. Open http://localhost:3001
-3. Edit the email templates in the `src/react-email` folder
-4. For inspiration you can checkout https://react.email/templates

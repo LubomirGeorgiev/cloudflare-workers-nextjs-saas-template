@@ -16,7 +16,7 @@ import { Captcha } from "@/components/captcha";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { useState } from "react";
@@ -34,12 +34,12 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const { execute: signUp } = useServerAction(signUpAction, {
-    onError: (error) => {
+  const { execute: signUp } = useAction(signUpAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError?.message)
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Creating your account...")
     },
     onSuccess: () => {
@@ -49,10 +49,10 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     }
   })
 
-  const { execute: completePasskeyRegistration } = useServerAction(completePasskeyRegistrationAction, {
-    onError: (error) => {
+  const { execute: completePasskeyRegistration } = useAction(completePasskeyRegistrationAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError?.message)
       setIsRegistering(false)
     },
     onSuccess: () => {
@@ -62,19 +62,19 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     }
   })
 
-  const { execute: startPasskeyRegistration } = useServerAction(startPasskeyRegistrationAction, {
-    onError: (error) => {
+  const { execute: startPasskeyRegistration } = useAction(startPasskeyRegistrationAction, {
+    onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.err?.message)
+      toast.error(error.serverError?.message)
       setIsRegistering(false)
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Starting passkey registration...")
       setIsRegistering(true)
     },
-    onSuccess: async (response) => {
+    onSuccess: async ({ data }) => {
       toast.dismiss()
-      if (!response?.data?.optionsJSON) {
+      if (!data?.optionsJSON) {
         toast.error("Failed to start passkey registration")
         setIsRegistering(false)
         return;
@@ -82,7 +82,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
 
       try {
         const attResp = await startRegistration({
-          optionsJSON: response.data.optionsJSON,
+          optionsJSON: data.optionsJSON,
           useAutoRegister: true,
         });
         await completePasskeyRegistration({ response: attResp });

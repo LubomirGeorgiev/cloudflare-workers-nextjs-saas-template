@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { PASSKEY_AUTHENTICATOR_IDS } from "@/utils/passkey-authenticator-ids";
 import { cn } from "@/lib/utils";
 import type { ParsedUserAgent } from "@/types";
@@ -34,10 +34,10 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       setIsRegistering(true);
 
       // Get registration options from the server
-      const [options] = await generateRegistrationOptionsAction({ email });
+      const { data: options, serverError: optionsError } = await generateRegistrationOptionsAction({ email });
 
-      if (!options) {
-        throw new Error("Failed to get registration options");
+      if (optionsError || !options) {
+        throw new Error(optionsError?.message || "Failed to get registration options");
       }
 
       // Start the registration process in the browser
@@ -46,11 +46,15 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       });
 
       // Send the response back to the server for verification
-      await verifyRegistrationAction({
+      const { serverError: verificationError } = await verifyRegistrationAction({
         email,
         response: registrationResponse,
         challenge: options.challenge,
       });
+
+      if (verificationError) {
+        throw new Error(verificationError.message);
+      }
 
       toast.success("Passkey registered successfully");
       onSuccess?.();
@@ -93,7 +97,7 @@ interface PasskeysListProps {
 export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysListProps) {
   const router = useRouter();
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
-  const { execute: deletePasskey } = useServerAction(deletePasskeyAction, {
+  const { execute: deletePasskey } = useAction(deletePasskeyAction, {
     onSuccess: () => {
       toast.success("Passkey deleted");
       dialogCloseRef.current?.click();
@@ -177,7 +181,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
         ))}
 
         {passkeys.length === 0 && (
-          <div className="text-center text-muted-foreground">
+          <div className="text-center text-muted-foreground mt-10">
             No passkeys found. Add a passkey to enable passwordless authentication.
           </div>
         )}

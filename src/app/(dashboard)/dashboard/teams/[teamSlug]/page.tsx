@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { notFound, redirect } from "next/navigation";
@@ -9,8 +10,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getSessionFromCookie } from "@/utils/auth";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
-import { Alert } from "@heroui/react";
-import { getTeamMembers } from "@/server/team-members";
+import { getTeamMembers } from "@/lib/teams/team-members";
 import {
   Table,
   TableBody,
@@ -22,6 +22,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface TeamPageProps {
   params: Promise<{
@@ -52,6 +53,12 @@ export async function generateMetadata({ params }: TeamPageProps) {
 
 export default async function TeamDashboardPage({ params }: TeamPageProps) {
   const { teamSlug } = await params;
+
+  const session = await getSessionFromCookie();
+  if (!session) {
+    return redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`) as Route);
+  }
+
   const db = getDB();
 
   // Find the team by slug
@@ -61,12 +68,6 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
   if (!team) {
     notFound();
-  }
-
-  // Check if user is authenticated
-  const session = await getSessionFromCookie();
-  if (!session) {
-    redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`));
   }
 
   // Check team membership using the new function
@@ -85,12 +86,12 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           ]}
         />
         <div className="container mx-auto px-5 py-12">
-          <Alert
-            color="danger"
-            title="Access Denied"
-            description={`You don't have permission to access team "${team.name}". Please contact the team owner to request access.`}
-            className="mb-6"
-          />
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Access Denied</AlertTitle>
+            <AlertDescription>
+              {`You don't have permission to access team "${team.name}". Please contact the team owner to request access.`}
+            </AlertDescription>
+          </Alert>
           <Button asChild className="mt-4">
             <Link href="/dashboard/teams">
               Return to Teams

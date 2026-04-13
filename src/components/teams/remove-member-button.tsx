@@ -22,7 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 
 interface RemoveMemberButtonProps {
   teamId: string;
@@ -42,9 +42,9 @@ export function RemoveMemberButton({
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
-  const { execute: removeMember, isPending } = useServerAction(removeTeamMemberAction, {
-    onError: (error) => {
-      toast.error(error.err?.message || "Failed to remove team member");
+  const { execute: removeMember, isExecuting } = useAction(removeTeamMemberAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to remove team member");
       dialogCloseRef.current?.click();
     },
     onSuccess: () => {
@@ -110,10 +110,10 @@ export function RemoveMemberButton({
           <Button
             variant="destructive"
             onClick={handleRemoveMember}
-            disabled={isPending}
+            disabled={isExecuting}
             className="sm:w-auto w-full"
           >
-            {isPending ? "Removing..." : "Remove member"}
+            {isExecuting ? "Removing..." : "Remove member"}
           </Button>
         </DialogFooter>
       </DialogContent>

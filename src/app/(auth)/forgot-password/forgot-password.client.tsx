@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { forgotPasswordAction } from "./forgot-password.action";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,12 +42,12 @@ export default function ForgotPasswordClientComponent() {
 
   const captchaToken = useWatch({ control: form.control, name: 'captchaToken' })
 
-  const { execute: sendResetLink, isSuccess } = useServerAction(forgotPasswordAction, {
-    onError: (error) => {
+  const { execute: sendResetLink, hasSucceeded } = useAction(forgotPasswordAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message);
+      toast.error(error.serverError?.message);
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Sending reset instructions...");
     },
     onSuccess: () => {
@@ -63,7 +63,7 @@ export default function ForgotPasswordClientComponent() {
     });
   };
 
-  if (isSuccess) {
+  if (hasSucceeded) {
     return (
       <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">

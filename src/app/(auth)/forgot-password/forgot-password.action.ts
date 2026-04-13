@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { sendPasswordResetEmail } from "@/utils/email";
@@ -18,16 +19,16 @@ const createId = init({
   length: 32,
 });
 
-export const forgotPasswordAction = createServerAction()
-  .input(forgotPasswordSchema)
-  .handler(async ({ input }) => {
+export const forgotPasswordAction = actionClient
+  .inputSchema(forgotPasswordSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         if (await isTurnstileEnabled() && input.captchaToken) {
           const success = await validateTurnstileToken(input.captchaToken)
 
           if (!success) {
-            throw new ZSAError(
+            throw new ActionError(
               "INPUT_PARSE_ERROR",
               "Please complete the captcha"
             )
@@ -81,11 +82,11 @@ export const forgotPasswordAction = createServerAction()
         } catch (error) {
           console.error(error)
 
-          if (error instanceof ZSAError) {
+          if (error instanceof ActionError) {
             throw error;
           }
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "An unexpected error occurred"
           );

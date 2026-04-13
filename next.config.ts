@@ -7,15 +7,10 @@ import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
 initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
-  experimental: {
-    typedRoutes: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: process.env.SKIP_LINTER === 'true'
-  },
+  typedRoutes: true,
   typescript: {
     ignoreBuildErrors: process.env.SKIP_LINTER === 'true'
-  }
+  },
 };
 
 export default process.env.ANALYZE === 'true'

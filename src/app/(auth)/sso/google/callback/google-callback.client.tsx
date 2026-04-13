@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { googleSSOCallbackAction } from "./google-callback.action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,12 +18,12 @@ export default function GoogleCallbackClientComponent() {
   const state = searchParams.get("state");
   const hasCalledCallback = useRef(false);
 
-  const { execute: handleCallback, isPending, error } = useServerAction(googleSSOCallbackAction, {
-    onError: (error) => {
+  const { execute: handleCallback, isExecuting, result } = useAction(googleSSOCallbackAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to sign in with Google");
+      toast.error(error.serverError?.message || "Failed to sign in with Google");
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Signing you in with Google...");
     },
     onSuccess: () => {
@@ -32,6 +32,7 @@ export default function GoogleCallbackClientComponent() {
       window.location.href = REDIRECT_AFTER_SIGN_IN;
     },
   });
+  const error = result.serverError;
 
   useEffect(() => {
     if (code && state && !hasCalledCallback.current) {
@@ -47,7 +48,7 @@ export default function GoogleCallbackClientComponent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, state]);
 
-  if (isPending) {
+  if (isExecuting) {
     return (
       <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">

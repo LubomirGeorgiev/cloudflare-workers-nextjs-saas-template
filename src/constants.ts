@@ -25,4 +25,20 @@ export const CREDITS_EXPIRATION_YEARS = 2;
 export const FREE_MONTHLY_CREDITS = CREDIT_PACKAGES[0].credits * 0.1;
 
 export const MAX_TRANSACTIONS_PER_PAGE = 10;
+export const BLOG_POSTS_PER_PAGE = 12;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
+export const DEFAULT_AI_MODEL = '@cf/google/gemma-3-12b-it' as const satisfies keyof AiModels;
+
+// CMS Image Upload Configuration
+export const CMS_IMAGES_BASE_PATH = "cms-images" as const;
+export const CMS_IMAGES_API_ROUTE = `/api/${CMS_IMAGES_BASE_PATH}` as const;
+export const CMS_IMAGE_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+export const CMS_ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/svg+xml",
+] as const;
+
+export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;

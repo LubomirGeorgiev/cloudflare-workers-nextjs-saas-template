@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useServerAction } from "zsa-react";
+import { useAction } from "next-safe-action/hooks";
 import { inviteUserAction } from "@/actions/team-membership-actions";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,13 +43,13 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
     }
   });
 
-  const { execute } = useServerAction(inviteUserAction, {
-    onError: (error) => {
+  const { execute } = useAction(inviteUserAction, {
+    onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.err?.message || "Failed to invite user");
+      toast.error(error.serverError?.message || "Failed to invite user");
       console.error("Invite error:", error);
     },
-    onStart: () => {
+    onExecute: () => {
       toast.loading("Sending invitation...");
     },
     onSuccess: () => {

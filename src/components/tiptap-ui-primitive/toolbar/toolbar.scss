@@ -1,0 +1,93 @@
+:root {
+  --tt-toolbar-height: 2.75rem;
+  --tt-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --tt-toolbar-bg-color: var(--tt-gray-light-50);
+  --tt-toolbar-border-color: var(--tt-gray-light-a-300);
+}
+
+.dark {
+  --tt-toolbar-bg-color: var(--tt-gray-dark-100);
+  --tt-toolbar-border-color: var(--tt-gray-dark-a-300);
+}
+
+.tiptap-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--tt-radius-lg);
+
+  &-group {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+
+    &:empty {
+      display: none;
+    }
+
+    &:empty + .tiptap-separator,
+    .tiptap-separator + &:empty {
+      display: none;
+    }
+  }
+
+  &[data-variant="fixed"] {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    width: 100%;
+    min-height: var(--tt-toolbar-height);
+    // height: fit-content;
+    max-height: none;
+    background: var(--tt-toolbar-bg-color);
+    border-bottom: 1px solid var(--tt-toolbar-border-color);
+    padding: 0.25rem 0.5rem;
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+    align-items: flex-start;
+    align-content: flex-start;
+    overflow: visible;
+
+    // Hide separators where wrapping occurs
+    // The gap property provides spacing instead
+    > .tiptap-separator {
+      display: none;
+    }
+
+    // Ensure toolbar groups align properly when wrapping
+    > .tiptap-toolbar-group {
+      align-items: center;
+    }
+  }
+
+  &[data-variant="floating"] {
+    --tt-toolbar-padding: 0.125rem;
+    --tt-toolbar-border-width: 1px;
+
+    padding: 0.188rem;
+    border-radius: calc(
+      var(--tt-toolbar-padding) + var(--tt-radius-lg) +
+        var(--tt-toolbar-border-width)
+    );
+    border: var(--tt-toolbar-border-width) solid var(--tt-toolbar-border-color);
+    background-color: var(--tt-toolbar-bg-color);
+    box-shadow: var(--tt-shadow-elevated-md);
+    outline: none;
+    overflow: hidden;
+
+    &[data-plain="true"] {
+      padding: 0;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      background-color: transparent;
+    }
+
+    @media screen and (max-width: 480px) {
+      width: 100%;
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+    }
+  }
+}

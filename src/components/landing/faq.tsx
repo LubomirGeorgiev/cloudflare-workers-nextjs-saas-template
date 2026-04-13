@@ -114,7 +114,6 @@ const faqs = [
         <p>Before deploying to production, you should:</p>
         <ul className="list-disc pl-6 mt-2 space-y-1">
           <li>Update project details in <code>src/constants.ts</code></li>
-          <li>Customize the documentation in <code>./cursor-docs</code></li>
           <li>Modify the footer in <code>src/components/footer.tsx</code></li>
           <li>Optionally update the color palette in <code>src/app/globals.css</code></li>
         </ul>

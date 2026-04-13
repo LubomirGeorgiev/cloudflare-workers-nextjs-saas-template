@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { z } from "zod";
 import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@/utils/webauthn";
 import { getDB } from "@/db";
@@ -24,16 +25,16 @@ import { isTurnstileEnabled } from "@/flags";
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
 const PASSKEY_USER_ID_COOKIE_NAME = "passkey_user_id";
 
-export const startPasskeyRegistrationAction = createServerAction()
-  .input(passkeyEmailSchema)
-  .handler(async ({ input }) => {
+export const startPasskeyRegistrationAction = actionClient
+  .inputSchema(passkeyEmailSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         if (await isTurnstileEnabled() && input.captchaToken) {
           const success = await validateTurnstileToken(input.captchaToken)
 
           if (!success) {
-            throw new ZSAError(
+            throw new ActionError(
               "INPUT_PARSE_ERROR",
               "Please complete the captcha"
             )
@@ -50,7 +51,7 @@ export const startPasskeyRegistrationAction = createServerAction()
         });
 
         if (existingUser) {
-          throw new ZSAError(
+          throw new ActionError(
             "CONFLICT",
             "An account with this email already exists"
           );
@@ -68,7 +69,7 @@ export const startPasskeyRegistrationAction = createServerAction()
           .returning();
 
         if (!user) {
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "Failed to create user"
           );
@@ -122,15 +123,15 @@ const completePasskeyRegistrationSchema = z.object({
   }, "Invalid registration response"),
 });
 
-export const completePasskeyRegistrationAction = createServerAction()
-  .input(completePasskeyRegistrationSchema)
-  .handler(async ({ input }) => {
+export const completePasskeyRegistrationAction = actionClient
+  .inputSchema(completePasskeyRegistrationSchema)
+  .action(async ({ parsedInput: input }) => {
     const cookieStore = await cookies();
     const challenge = cookieStore.get(PASSKEY_CHALLENGE_COOKIE_NAME)?.value;
     const userId = cookieStore.get(PASSKEY_USER_ID_COOKIE_NAME)?.value;
 
     if (!challenge || !userId) {
-      throw new ZSAError(
+      throw new ActionError(
         "PRECONDITION_FAILED",
         "Invalid registration session"
       );
@@ -153,7 +154,7 @@ export const completePasskeyRegistrationAction = createServerAction()
       });
 
       if (!user || !user.email) {
-        throw new ZSAError(
+        throw new ActionError(
           "INTERNAL_SERVER_ERROR",
           "User not found"
         );
@@ -210,7 +211,7 @@ export const completePasskeyRegistrationAction = createServerAction()
       return { success: true };
     } catch (error) {
       console.error("Failed to register passkey:", error);
-      throw new ZSAError(
+      throw new ActionError(
         "PRECONDITION_FAILED",
         "Failed to register passkey"
       );

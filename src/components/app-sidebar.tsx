@@ -13,6 +13,7 @@ import {
   SquareTerminal,
   CreditCard,
   Users,
+  Shield,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useSessionStore } from "@/state/session"
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
+import { ROLES_ENUM } from "@/app/enums"
 
 export type NavItem = {
   title: string
@@ -128,6 +130,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           },
         ],
       },
+      ...(session?.user?.role === ROLES_ENUM.ADMIN ? [
+        {
+          title: "Admin Panel",
+          url: "/admin",
+          icon: Shield,
+        } as NavMainItem
+      ] : []),
     ],
     projects: [
       {

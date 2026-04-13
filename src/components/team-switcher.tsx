@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { useSessionStore } from "@/state/session"
-import { useServerAction } from "zsa-react"
+import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
 
@@ -39,7 +39,14 @@ export function TeamSwitcher({
   const selectedTeamId = session.selectedTeam()
   const setSelectedTeam = session.setSelectedTeam
 
-  const { execute: updateSelectedTeam, isPending } = useServerAction(updateSelectedTeamAction)
+  const { execute: updateSelectedTeam, isExecuting } = useAction(updateSelectedTeamAction, {
+    onError: ({ error }) => {
+      console.error("Failed to update selected team:", error);
+      // Revert optimistic update
+      setSelectedTeam(selectedTeamId);
+      toast.error("Failed to update selected team");
+    },
+  })
 
   // Find the active team based on selectedTeamId from session
   const activeTeam = useMemo(() => {
@@ -51,20 +58,14 @@ export function TeamSwitcher({
 
   const LogoComponent = activeTeam?.logo || Building2
 
-  const handleTeamChange = useCallback(async (team: typeof teams[0]) => {
+  const handleTeamChange = useCallback((team: typeof teams[0]) => {
     // Optimistically update local state
     setSelectedTeam(team.id)
 
     // Call server action to persist
-    const [_data, error] = await updateSelectedTeam({ selectedTeam: team.id })
-
-    if (error) {
-      console.error("Failed to update selected team:", error)
-      // Revert optimistic update
-      setSelectedTeam(selectedTeamId)
-      toast.error("Failed to update selected team")
-    }
-  }, [selectedTeamId, setSelectedTeam, updateSelectedTeam])
+    // Error handling is done via the useAction onError callback
+    updateSelectedTeam({ selectedTeam: team.id })
+  }, [setSelectedTeam, updateSelectedTeam])
 
   return (
     <SidebarMenu>
@@ -102,7 +103,7 @@ export function TeamSwitcher({
                   key={team.id}
                   onClick={() => handleTeamChange(team)}
                   className="gap-2 p-2"
-                  disabled={isPending}
+                  disabled={isExecuting}
                 >
                   <div className="flex size-6 items-center justify-center rounded-sm border">
                     <team.logo className="size-4 shrink-0" />

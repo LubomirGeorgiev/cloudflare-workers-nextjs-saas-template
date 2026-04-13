@@ -44,7 +44,7 @@ export function PendingInvitations() {
     const fetchPendingInvitations = async () => {
       setIsLoading(true);
       try {
-        const [result] = await getPendingInvitationsForCurrentUserAction();
+        const { data: result } = await getPendingInvitationsForCurrentUserAction();
 
         if (result?.success && result.data) {
           setPendingInvitations(result.data as PendingInvitation[]);
@@ -63,7 +63,11 @@ export function PendingInvitations() {
     setIsAccepting(prev => ({ ...prev, [token]: true }));
 
     try {
-      const [result] = await acceptInvitationAction({ token });
+      const { data: result, serverError } = await acceptInvitationAction({ token });
+
+      if (serverError) {
+        throw new Error(serverError.message);
+      }
 
       if (result?.success) {
         toast.success("You have successfully joined the team");

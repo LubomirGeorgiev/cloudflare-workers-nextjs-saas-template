@@ -2,6 +2,7 @@ import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import ms from "ms";
+import superjson from "superjson";
 import isProd from "./is-prod";
 
 interface CacheOptions {
@@ -26,25 +27,30 @@ export async function withKVCache<T>(
   }
 
   // Try to get the cached value
-  const cached = await kv.get<T>(key, "json");
+  const cached = await kv.get(key, "text");
   if (cached !== null) {
-    return cached;
+    return superjson.parse<T>(cached);
   }
 
-  // If not cached, execute the function
   const result = await fn();
 
-  // Cache the result with the specified TTL
-  await kv.put(key, JSON.stringify(result), {
-    expirationTtl: Math.floor(ms(ttl) / 1000), // Convert ms to seconds for KV
+  await kv.put(key, superjson.stringify(result), {
+    expirationTtl: Math.floor(ms(ttl) / 1000),
   });
 
   return result;
 }
 
 const STATS_PREFIX = "stats";
+const CMS_PREFIX = "cms";
 
 export const CACHE_KEYS = {
+  SITEMAP: "sitemap",
   TOTAL_USERS: `${STATS_PREFIX}:total-users`,
   GITHUB_STARS: `${STATS_PREFIX}:github-stars`,
+  CMS_ENTRY: `${CMS_PREFIX}:entry`,
+  CMS_COLLECTION: `${CMS_PREFIX}:collection`,
+  CMS_NAVIGATION: `${CMS_PREFIX}:navigation`,
+  CMS_REDIRECT: `${CMS_PREFIX}:redirect`,
+  CMS_SEARCH: `${CMS_PREFIX}:search`,
 } as const;

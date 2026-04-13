@@ -1,6 +1,7 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
 import { getAllSessionIdsOfUser, getKVSession, deleteKVSession } from "@/utils/kv-session";
 import { z } from "zod";
@@ -14,15 +15,15 @@ function isValidSession(session: unknown): session is SessionWithMeta {
   return 'createdAt' in sessionObj && typeof sessionObj.createdAt === 'number';
 }
 
-export const getSessionsAction = createServerAction()
-  .input(z.void())
-  .handler(async () => {
+export const getSessionsAction = actionClient
+  .inputSchema(z.void())
+  .action(async () => {
     return withRateLimit(
       async () => {
         const session = await requireVerifiedEmail();
 
         if (!session?.user?.id) {
-          throw new ZSAError("NOT_AUTHORIZED", "Unauthorized");
+          throw new ActionError("NOT_AUTHORIZED", "Unauthorized");
         }
 
         const sessionIds = await getAllSessionIdsOfUser(session.user.id);
@@ -74,17 +75,17 @@ export const getSessionsAction = createServerAction()
     );
   });
 
-export const deleteSessionAction = createServerAction()
-  .input(z.object({
+export const deleteSessionAction = actionClient
+  .inputSchema(z.object({
     sessionId: z.string(),
   }))
-  .handler(async ({ input }) => {
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const session = await getSessionFromCookie();
 
         if (!session) {
-          throw new ZSAError(
+          throw new ActionError(
             "NOT_AUTHORIZED",
             "Not authenticated"
           );

@@ -117,4 +117,29 @@ export const RATE_LIMITS = {
     limit: 5,
     windowInSeconds: Math.floor(ms("1 hour") / 1000),
   },
+  UPLOAD: {
+    identifier: "upload",
+    limit: 30,
+    windowInSeconds: Math.floor(ms("5 minutes") / 1000),
+  },
+  CMS_MARKDOWN_API: {
+    identifier: "cms-markdown-api",
+    limit: 5,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
+  GET_SESSION_API: {
+    identifier: "get-session-api",
+    limit: 50,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
+  CMS_IMAGES_API: {
+    identifier: "cms-images-api",
+    limit: 300,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
+  DOCS_SEARCH: {
+    identifier: "docs-search",
+    limit: 20,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
 } as const;

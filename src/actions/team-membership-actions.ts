@@ -1,14 +1,16 @@
 "use server";
 
-import { createServerAction, ZSAError } from "zsa";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
 import { z } from "zod";
 import {
   acceptTeamInvitation,
   inviteUserToTeam,
   removeTeamMember,
   getPendingInvitationsForCurrentUser
-} from "@/server/team-members";
+} from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { requireVerifiedEmail } from "@/utils/auth";
 
 // Invite user schema
 const inviteUserSchema = z.object({
@@ -30,22 +32,28 @@ const invitationTokenSchema = z.object({
 /**
  * Invite a user to a team
  */
-export const inviteUserAction = createServerAction()
-  .input(inviteUserSchema)
-  .handler(async ({ input }) => {
+export const inviteUserAction = actionClient
+  .inputSchema(inviteUserSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const session = await requireVerifiedEmail();
+
+        if (!session) {
+          throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+        }
+
         try {
           const result = await inviteUserToTeam(input);
           return { success: true, data: result };
         } catch (error) {
           console.error("Failed to invite user:", error);
 
-          if (error instanceof ZSAError) {
+          if (error instanceof ActionError) {
             throw error;
           }
 
-          throw new ZSAError(
+          throw new ActionError(
             "INTERNAL_SERVER_ERROR",
             "Failed to invite user"
           );
@@ -58,20 +66,26 @@ export const inviteUserAction = createServerAction()
 /**
  * Remove a team member
  */
-export const removeTeamMemberAction = createServerAction()
-  .input(removeMemberSchema)
-  .handler(async ({ input }) => {
+export const removeTeamMemberAction = actionClient
+  .inputSchema(removeMemberSchema)
+  .action(async ({ parsedInput: input }) => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       await removeTeamMember(input);
       return { success: true };
     } catch (error) {
       console.error("Failed to remove team member:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to remove team member"
       );
@@ -81,20 +95,26 @@ export const removeTeamMemberAction = createServerAction()
 /**
  * Accept a team invitation
  */
-export const acceptInvitationAction = createServerAction()
-  .input(invitationTokenSchema)
-  .handler(async ({ input }) => {
+export const acceptInvitationAction = actionClient
+  .inputSchema(invitationTokenSchema)
+  .action(async ({ parsedInput: input }) => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const result = await acceptTeamInvitation(input.token);
       return { success: true, data: result };
     } catch (error) {
       console.error("Failed to accept invitation:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to accept invitation"
       );
@@ -104,19 +124,25 @@ export const acceptInvitationAction = createServerAction()
 /**
  * Get pending team invitations for the current user
  */
-export const getPendingInvitationsForCurrentUserAction = createServerAction()
-  .handler(async () => {
+export const getPendingInvitationsForCurrentUserAction = actionClient
+  .action(async () => {
+    const session = await requireVerifiedEmail();
+
+    if (!session) {
+      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    }
+
     try {
       const invitations = await getPendingInvitationsForCurrentUser();
       return { success: true, data: invitations };
     } catch (error) {
       console.error("Failed to get pending team invitations:", error);
 
-      if (error instanceof ZSAError) {
+      if (error instanceof ActionError) {
         throw error;
       }
 
-      throw new ZSAError(
+      throw new ActionError(
         "INTERNAL_SERVER_ERROR",
         "Failed to get pending team invitations"
       );

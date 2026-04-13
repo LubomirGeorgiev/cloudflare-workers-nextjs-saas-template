@@ -10,9 +10,9 @@ export const metadata = {
 };
 
 export default async function SessionsPage() {
-  const [sessions, error] = await getSessionsAction()
+  const { data: sessions, serverError } = await getSessionsAction()
 
-  if (error) {
+  if (serverError || !sessions) {
     return redirect('/')
   }
 

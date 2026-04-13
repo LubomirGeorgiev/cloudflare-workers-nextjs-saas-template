@@ -5,6 +5,10 @@ import type { Route } from 'next'
 import {
   Users,
   Shield,
+  FileText,
+  Image,
+  Tags,
+  PanelLeft,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -19,19 +23,34 @@ import {
   SidebarRail,
   SidebarGroup,
 } from "@/components/ui/sidebar"
+import { cmsConfig } from "@/../cms.config"
+import { getCmsNavigations } from "@/lib/cms/cms-navigation-config"
 
-// eslint-disable-next-line import/no-unused-modules
-export type NavItem = {
+type NavItem = {
   title: string
   url: Route
   icon?: ComponentType
 }
 
-// eslint-disable-next-line import/no-unused-modules
-export type NavMainItem = NavItem & {
+type NavMainItem = NavItem & {
   isActive?: boolean
   items?: NavItem[]
 }
+
+// Dynamically generate CMS collection nav items
+const cmsCollectionItems: NavItem[] = Object.entries(cmsConfig.collections).map(
+  ([slug, collection]) => ({
+    title: collection.labels.plural,
+    url: `/admin/cms/${slug}` as Route,
+    icon: FileText,
+  })
+);
+
+const cmsNavigationItems: NavItem[] = getCmsNavigations().map((navigation) => ({
+  title: navigation.label,
+  url: `/admin/cms/navigation/${navigation.navigationKey}` as Route,
+  icon: PanelLeft,
+}));
 
 const adminNavItems: NavMainItem[] = [
   {
@@ -39,6 +58,31 @@ const adminNavItems: NavMainItem[] = [
     url: "/admin",
     icon: Users,
     isActive: true,
+  },
+  {
+    title: "CMS",
+    url: "/admin/cms",
+    icon: FileText,
+    isActive: true,
+    items: [
+      {
+        title: "Overview",
+        url: "/admin/cms",
+        icon: FileText,
+      },
+      ...cmsCollectionItems,
+      {
+        title: "Media Library",
+        url: "/admin/cms/media",
+        icon: Image,
+      },
+      ...cmsNavigationItems,
+      {
+        title: "Tags",
+        url: "/admin/cms/tags",
+        icon: Tags,
+      },
+    ],
   },
 ]
 

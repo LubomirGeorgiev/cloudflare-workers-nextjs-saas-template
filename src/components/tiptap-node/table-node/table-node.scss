@@ -1,0 +1,73 @@
+.tiptap.ProseMirror {
+  table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 1.5rem 0;
+    overflow: hidden;
+    border: 1px solid var(--tt-border-color);
+    border-radius: var(--tt-radius-md);
+
+    td,
+    th {
+      min-width: 1em;
+      border: 1px solid var(--tt-border-color);
+      padding: 0.5rem 0.75rem;
+      vertical-align: top;
+      box-sizing: border-box;
+      position: relative;
+
+      > * {
+        margin-bottom: 0;
+      }
+
+      p {
+        margin: 0;
+      }
+    }
+
+    th {
+      font-weight: 600;
+      text-align: left;
+      background-color: var(--tt-gray-light-a-50);
+
+      .dark & {
+        background-color: var(--tt-gray-dark-a-100);
+      }
+    }
+
+    .selectedCell {
+      background-color: var(--tt-brand-color-100);
+
+      .dark & {
+        background-color: var(--tt-brand-color-900);
+      }
+    }
+
+    .column-resize-handle {
+      position: absolute;
+      right: -2px;
+      top: 0;
+      bottom: -2px;
+      width: 4px;
+      background-color: var(--tt-brand-color-500);
+      pointer-events: none;
+    }
+  }
+
+  .tableWrapper {
+    padding: 1rem 0;
+    overflow-x: auto;
+  }
+
+  table:not(.ProseMirror-selectednode) {
+    td:hover,
+    th:hover {
+      background-color: var(--tt-gray-light-a-100);
+
+      .dark & {
+        background-color: var(--tt-gray-dark-a-200);
+      }
+    }
+  }
+}
