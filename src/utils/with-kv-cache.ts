@@ -52,4 +52,5 @@ export const CACHE_KEYS = {
   CMS_COLLECTION: `${CMS_PREFIX}:collection`,
   CMS_NAVIGATION: `${CMS_PREFIX}:navigation`,
   CMS_REDIRECT: `${CMS_PREFIX}:redirect`,
+  CMS_SEARCH: `${CMS_PREFIX}:search`,
 } as const;

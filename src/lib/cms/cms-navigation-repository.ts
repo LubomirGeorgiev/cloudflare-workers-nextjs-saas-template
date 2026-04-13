@@ -24,6 +24,7 @@ import {
   normalizeCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
 import { generateSlug } from "@/utils/slugify";
 import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
@@ -106,11 +107,17 @@ async function invalidateCacheByPrefix(prefix: string): Promise<void> {
 }
 
 async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
-  await Promise.all([
+  const invalidations = [
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:${navigationKey}:`),
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:${navigationKey}:`),
     invalidateCacheByPrefix(CACHE_KEYS.SITEMAP),
-  ]);
+  ];
+
+  if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
+    invalidations.push(invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey)));
+  }
+
+  await Promise.all(invalidations);
 }
 
 function normalizeSlugSegment(slugSegment: string | null | undefined): string | null {

@@ -137,4 +137,9 @@ export const RATE_LIMITS = {
     limit: 300,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
+  DOCS_SEARCH: {
+    identifier: "docs-search",
+    limit: 20,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
 } as const;

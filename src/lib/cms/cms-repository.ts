@@ -18,6 +18,12 @@ import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import { cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
 import {
+  invalidateCmsSearchCache,
+  isCollectionSearchEnabled,
+  removeCmsEntrySearch,
+  syncCmsEntrySearch,
+} from "@/lib/cms/cms-search";
+import {
   CMS_STATUS_FILTER_ALL,
   cmsStatusFilterTuple,
   type CmsEntryStatus,
@@ -305,10 +311,16 @@ async function invalidateCmsNavigationCachesForCollection({
     return;
   }
 
-  await Promise.all([
+  const invalidations = [
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:${navigationKey}:`),
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:${navigationKey}:`),
-  ]);
+  ];
+
+  if (isCollectionSearchEnabled(collectionSlug)) {
+    invalidations.push(invalidateCmsSearchCache(collectionSlug));
+  }
+
+  await Promise.all(invalidations);
 }
 
 async function invalidateSitemapCache(): Promise<void> {
@@ -333,13 +345,19 @@ async function invalidateEntryAndCollection({
   collectionSlug: CollectionsUnion;
   slug: string;
 }): Promise<void> {
-  await Promise.all([
+  const invalidations = [
     invalidateCmsEntryCache({ collectionSlug, slug }),
     invalidateCmsCollectionCache({ collectionSlug }),
     invalidateCmsCollectionCountCache({ collectionSlug }),
     invalidateCmsNavigationCachesForCollection({ collectionSlug }),
     invalidateSitemapCache(),
-  ]);
+  ];
+
+  if (isCollectionSearchEnabled(collectionSlug)) {
+    invalidations.push(invalidateCmsSearchCache(collectionSlug));
+  }
+
+  await Promise.all(invalidations);
 }
 
 /**
@@ -353,6 +371,13 @@ async function invalidateAllCmsCollectionCaches(): Promise<void> {
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:`),
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:`),
     invalidateSitemapCache(),
+  ]);
+}
+
+export async function invalidateAllCmsCaches(): Promise<void> {
+  await Promise.all([
+    invalidateAllCmsCollectionCaches(),
+    invalidateCmsSearchCache(),
   ]);
 }
 
@@ -371,6 +396,15 @@ async function autoPublishScheduledEntry<T extends CmsEntry>(entry: T): Promise<
       .set({ status: CMS_ENTRY_STATUS.PUBLISHED })
       .where(eq(cmsEntryTable.id, entry.id))
       .returning();
+
+    await syncCmsEntrySearch({
+      entryId: entry.id,
+      collection: entry.collection,
+      slug: entry.slug,
+      title: entry.title,
+      seoDescription: entry.seoDescription,
+      content: entry.content as JSONContent,
+    });
 
     // Invalidate cache for both the specific entry and all collection listings
     await invalidateEntryAndCollection({
@@ -911,6 +945,15 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
     featuredImageId,
   });
 
+  await syncCmsEntrySearch({
+    entryId: newEntry.id,
+    collection: newEntry.collection,
+    slug: newEntry.slug,
+    title: newEntry.title,
+    seoDescription: newEntry.seoDescription,
+    content: newEntry.content as JSONContent,
+  });
+
   // Skip creating initial version to save space
   // The version will be created automatically on first update
   // This avoids duplicating data between cms_entry and cms_entry_version
@@ -1072,6 +1115,15 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     });
   }
 
+  await syncCmsEntrySearch({
+    entryId: id,
+    collection: updatedEntry.collection,
+    slug: updatedEntry.slug,
+    title: updatedEntry.title,
+    seoDescription: updatedEntry.seoDescription,
+    content: updatedEntry.content as JSONContent,
+  });
+
   const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
     where: eq(cmsEntryVersionTable.entryId, id),
     orderBy: [desc(cmsEntryVersionTable.versionNumber)],
@@ -1164,6 +1216,8 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
   await db.delete(cmsEntryMediaTable).where(eq(cmsEntryMediaTable.entryId, id));
 
   await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, id));
+
+  await removeCmsEntrySearch({ entryId: id });
 
   // Invalidate both entry-specific cache and collection listings
   await invalidateEntryAndCollection({ collectionSlug, slug });

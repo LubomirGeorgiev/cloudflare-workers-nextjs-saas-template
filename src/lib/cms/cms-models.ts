@@ -11,6 +11,7 @@ export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAn
   previewUrl?: (slug: string) => string;
   includeInSitemap?: boolean;
   navigationKey?: string;
+  enableSearch?: boolean;
 };
 
 export type DefineCmsNavigationSite = {

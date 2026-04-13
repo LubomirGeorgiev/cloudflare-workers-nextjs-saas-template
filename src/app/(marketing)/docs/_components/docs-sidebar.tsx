@@ -60,7 +60,7 @@ function DocsSidebarNode({
       )}
 
       {hasChildren ? (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {node.children.map((child) => (
             <DocsSidebarNode
               key={child.id}
@@ -86,7 +86,7 @@ export function DocsSidebar({ nodes, className, onNavigate }: DocsSidebarProps) 
   }, [pathname]);
 
   return (
-    <nav ref={navRef} className={cn("space-y-1 px-3", className)} aria-label="Docs navigation">
+    <nav ref={navRef} className={cn("space-y-3 px-3", className)} aria-label="Docs navigation">
       {nodes.map((node) => (
         <DocsSidebarNode
           key={node.id}

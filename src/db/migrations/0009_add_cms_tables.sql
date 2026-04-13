@@ -150,3 +150,14 @@ CREATE TABLE `cms_tag` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `cms_tag_name_unique` ON `cms_tag` (`name`);--> statement-breakpoint
 CREATE UNIQUE INDEX `cms_tag_slug_unique` ON `cms_tag` (`slug`);
+
+--> CUSTOM MIGRATION CODE
+CREATE VIRTUAL TABLE `cms_entry_search` USING fts5(
+	`entryId` UNINDEXED,
+	`collection` UNINDEXED,
+	`slug` UNINDEXED,
+	`title`,
+	`seoDescription`,
+	`body`,
+	tokenize = 'unicode61'
+);

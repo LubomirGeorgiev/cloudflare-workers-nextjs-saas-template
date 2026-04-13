@@ -130,6 +130,8 @@ export type MySchema = z.infer<typeof mySchema>
 
 - All form-handling server actions must use `actionClient` from `src/lib/safe-action.ts`.
 - Define validation with `.inputSchema(schema)`.
+- For authenticated actions, follow existing patterns such as `src/app/(settings)/settings/settings.actions.ts` for `requireVerifiedEmail`, rate limiting with `withRateLimit`, and Next.js cache invalidation with `revalidatePath`.
+- For more complex authenticated actions that also invalidate CMS/KV caches, refer to `src/app/(admin)/admin/_actions/cms-media-actions.ts` such as `deleteCmsMediaAction` and `updateCmsMediaAction`.
 
 ### Client Forms
 

@@ -1,6 +1,7 @@
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { DocsLlmsTxtLink } from "./_components/docs-llms-txt-link";
+import { DocsSearch } from "./_components/docs-search";
 import { DocsSidebar } from "./_components/docs-sidebar";
 import { MobileDocsNav } from "./_components/mobile-docs-nav";
 
@@ -21,8 +22,9 @@ export default async function DocsLayout({
             <p className="mb-4 px-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Documentation
             </p>
-            <div className="min-h-0 overflow-y-auto">
-              <div className="space-y-1 px-6">
+            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+              <div className="space-y-3 px-3">
+                <DocsSearch registerHotkeys />
                 <DocsLlmsTxtLink />
               </div>
               <DocsSidebar nodes={sidebarTree} />
@@ -32,7 +34,10 @@ export default async function DocsLayout({
 
         <div className="min-w-0">
           <div className="border-b px-4 py-4 lg:hidden">
-            <MobileDocsNav nodes={sidebarTree} />
+            <div className="space-y-3">
+              <MobileDocsNav nodes={sidebarTree} />
+              <DocsSearch />
+            </div>
           </div>
           {children}
         </div>

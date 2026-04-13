@@ -38,6 +38,7 @@ const docsCollection = {
     "Product documentation for this application: how it works, how to run and deploy it, and how to use its features.",
   navigationKey: DOCS_SLUG,
   includeInSitemap: true,
+  enableSearch: true,
 } satisfies DefineCmsCollection;
 
 const docsNavigation = {

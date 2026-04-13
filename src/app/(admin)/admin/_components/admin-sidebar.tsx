@@ -65,6 +65,11 @@ const adminNavItems: NavMainItem[] = [
     icon: FileText,
     isActive: true,
     items: [
+      {
+        title: "Overview",
+        url: "/admin/cms",
+        icon: FileText,
+      },
       ...cmsCollectionItems,
       {
         title: "Media Library",

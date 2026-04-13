@@ -7,6 +7,7 @@ import Link from "next/link";
 import { cmsConfig } from "@/../cms.config";
 import { FileText, Tag, Image, PanelLeft } from "lucide-react";
 import { getCmsNavigations } from "@/lib/cms/cms-navigation-config";
+import { CmsSystemActions } from "./_components/cms-system-actions";
 
 export const metadata: Metadata = {
   title: "Content Management | Admin",
@@ -31,6 +32,8 @@ export default async function CmsPage() {
           Manage your content collections
         </p>
       </div>
+
+      <CmsSystemActions />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {collections.map(([slug, config]) => (
