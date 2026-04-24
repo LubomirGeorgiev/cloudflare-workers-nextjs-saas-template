@@ -20,6 +20,7 @@ function parseCfBooleanHeader(raw: string): boolean | undefined {
 
 function getRequestContextFromHeaders(headersList: Headers): CloudflareRequestContext | undefined {
   const cf: CloudflareRequestContext = {};
+  const writableCf = cf as Record<string, string | boolean | undefined>;
   let hasAny = false;
 
   for (const row of CF_CONTEXT_FIELDS) {
@@ -31,13 +32,13 @@ function getRequestContextFromHeaders(headersList: Headers): CloudflareRequestCo
     if (valueKind === "boolean") {
       const parsed = parseCfBooleanHeader(value);
       if (parsed !== undefined) {
-        cf[key] = parsed;
+        writableCf[key] = parsed;
         hasAny = true;
       }
       continue;
     }
 
-    cf[key] = value;
+    writableCf[key] = value;
     hasAny = true;
   }
 

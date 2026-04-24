@@ -26,4 +26,8 @@ export const CF_CONTEXT_FIELDS = [
 
 export type CfContextKey = (typeof CF_CONTEXT_FIELDS)[number]["key"];
 
-export type CloudflareRequestContext = Partial<Record<CfContextKey, string | boolean>>;
+export type CloudflareRequestContext = {
+  [Field in (typeof CF_CONTEXT_FIELDS)[number] as Field["key"]]?: Field extends { valueKind: "boolean" }
+    ? boolean
+    : string;
+};

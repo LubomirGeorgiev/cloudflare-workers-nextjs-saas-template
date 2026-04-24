@@ -3,8 +3,6 @@ on:
     branches:
       - main
 
-## TODO Update the CI to support Vinext
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -14,31 +12,31 @@ jobs:
     name: Deploy to Cloudflare Workers
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          # We need to fetch all the history in order to get the updated date for...
-          # ... the blog posts and sitemap.
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: latest
+          version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 23
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
 
       - name: Set D1 environment variables
         id: set-d1-vars
         run: |
           echo "D1_DATABASE_NAME=$(node scripts/get-db-name.mjs)" >> $GITHUB_ENV
-          echo "D1_DATABASE_ID=$(node scripts/get-db-id.mjs)" >> $GITHUB_ENV
 
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
@@ -46,7 +44,6 @@ jobs:
       - name: Deploy
         run: pnpm run deploy
         env:
-          DATABASE_ID: ${{ env.D1_DATABASE_ID }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Here you can add env variables that will be available in Next.js
