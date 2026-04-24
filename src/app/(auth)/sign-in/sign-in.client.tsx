@@ -1,6 +1,5 @@
 "use client";
 
-import { signInAction } from "./sign-in.actions";
 import { type SignInSchema, signInSchema } from "@/schemas/signin.schema";
 import { type ReactNode, useState } from "react";
 
@@ -17,6 +16,7 @@ import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { KeyIcon } from "lucide-react";
 import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(settings)/settings/security/passkey-settings.actions";
+// TODO simplewebauthn is huuge. We need to write our own little implementation containging only the necessary functions
 import { startAuthentication } from "@simplewebauthn/browser";
 
 interface SignInClientProps {
@@ -99,26 +99,40 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
 }
 
 const SignInPage = ({ redirectPath }: SignInClientProps) => {
-  const { execute: signIn } = useAction(signInAction, {
-    onError: ({ error }) => {
-      toast.dismiss()
-      toast.error(error.serverError?.message)
-    },
-    onExecute: () => {
-      toast.loading("Signing you in...")
-    },
-    onSuccess: () => {
-      toast.dismiss()
-      toast.success("Signed in successfully")
-      window.location.href = redirectPath;
-    }
-  })
   const form = useForm<SignInSchema>({
     resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
-
   const onSubmit = async (data: SignInSchema) => {
-    signIn(data)
+    try {
+      toast.loading("Signing you in...");
+
+      const response = await fetch("/api/auth/sign-in", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json() as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(result.message ?? "Something went wrong");
+      }
+
+      toast.dismiss();
+      toast.success("Signed in successfully");
+      window.location.href = redirectPath;
+    } catch (error) {
+      toast.dismiss();
+      toast.error(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
+    }
   }
 
   return (

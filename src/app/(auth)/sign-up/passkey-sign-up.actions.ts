@@ -13,7 +13,7 @@ import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp }
 import type { RegistrationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/types";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { sendVerificationEmail } from "@/utils/email";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
@@ -161,7 +161,7 @@ export const completePasskeyRegistrationAction = actionClient
       }
 
       // Generate verification token
-      const { env } = getCloudflareContext();
+      const { env } = await getCloudflareContext();
       const verificationToken = createId();
       const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS * 1000);
 

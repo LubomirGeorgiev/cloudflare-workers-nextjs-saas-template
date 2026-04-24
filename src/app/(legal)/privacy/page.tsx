@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 
 const lastUpdated = new Date('2025-01-15T20:10:16.287Z')
 
-export default function PrivacyPage() {
-  const { env } = getCloudflareContext()
+export default async function PrivacyPage() {
+  const { env } = await getCloudflareContext();
 
   const email = env?.EMAIL_REPLY_TO
 

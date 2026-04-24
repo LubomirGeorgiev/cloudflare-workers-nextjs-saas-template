@@ -28,8 +28,7 @@
       ]
     },
     "types": [
-      "./cloudflare-env.d.ts",
-      "node"
+      "worker-configuration.d.ts"
     ]
   },
   "include": [

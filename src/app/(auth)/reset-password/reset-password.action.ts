@@ -7,7 +7,7 @@ import { userTable } from "@/db/schema";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
 import { hashPassword } from "@/utils/password-hasher";
 import { eq } from "drizzle-orm";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
@@ -17,7 +17,7 @@ export const resetPasswordAction = actionClient
     return withRateLimit(
       async () => {
         const db = getDB();
-        const { env } = getCloudflareContext();
+        const { env } = await getCloudflareContext();
 
         if (!env?.NEXT_INC_CACHE_KV) {
           throw new Error("Can't connect to KV store");

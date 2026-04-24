@@ -7,7 +7,7 @@ import { userTable } from "@/db/schema";
 import { sendPasswordResetEmail } from "@/utils/email";
 import { init } from "@paralleldrive/cuid2";
 import { eq } from "drizzle-orm";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
@@ -36,7 +36,7 @@ export const forgotPasswordAction = actionClient
         }
 
         const db = getDB();
-        const { env } = getCloudflareContext();
+        const { env } = await getCloudflareContext();
 
         try {
           // Find user by email

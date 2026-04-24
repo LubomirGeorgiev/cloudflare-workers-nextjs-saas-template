@@ -3,6 +3,8 @@ on:
     branches:
       - main
 
+## TODO Update the CI to support Vinext
+
 jobs:
   publish:
     runs-on: ubuntu-latest

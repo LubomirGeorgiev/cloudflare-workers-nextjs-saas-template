@@ -6,17 +6,16 @@
     "$schema": "node_modules/wrangler/config-schema.json",
     "account_id": "0d5667a195a90458761fe59fca898f9c",
     "name": "cloudflare-workers-nextjs-saas-template",
-    "main": ".open-next/worker.js",
-    "compatibility_date": "2026-03-17",
-    "compatibility_flags": [
-      "nodejs_compat",
-      "global_fetch_strictly_public"
-    ],
-    // Minification helps to keep the Worker bundle size down and improve start up time.
-    "minify": true,
+    "main": "./worker-entrypoint.ts",
+    "preview_urls": true,
+    "compatibility_date": "2026-02-12",
+    "compatibility_flags": ["nodejs_compat"],
     "assets": {
       "binding": "ASSETS",
-      "directory": ".open-next/assets"
+      "not_found_handling": "none"
+    },
+    "images": {
+      "binding": "IMAGES"
     },
     "observability": {
       "enabled": true,
@@ -59,33 +58,6 @@
      * Note: Use secrets to store sensitive data.
      * https://developers.cloudflare.com/workers/configuration/secrets/
      */
-
-    /**
-     * Service Bindings (communicate between multiple Workers)
-     * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-     */
-     "services": [
-      {
-        "binding": "WORKER_SELF_REFERENCE",
-        "service": "cloudflare-workers-nextjs-saas-template"
-      }
-    ],
-
-    "durable_objects": {
-      "bindings": [
-        {
-          "name": "NEXT_CACHE_DO_QUEUE",
-          "class_name": "DOQueueHandler",
-        }
-      ]
-    },
-
-    "migrations": [
-      {
-        "tag": "v1",
-        "new_sqlite_classes": ["DOQueueHandler"],
-      },
-    ],
 
     "d1_databases": [
         {

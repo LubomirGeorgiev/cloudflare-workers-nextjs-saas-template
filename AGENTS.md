@@ -11,7 +11,7 @@ Primary stack:
 - React Server Components
 - TypeScript
 - Tailwind CSS
-- Shadcn UI / Radix UI / HeroUI
+- Shadcn UI / Radix UI
 - Drizzle ORM
 - Cloudflare Workers, D1, KV, R2
 - Lucia Auth
@@ -71,7 +71,7 @@ Suggested homes:
 - Use dynamic loading for non-critical UI when useful.
 - Use `nuqs` for URL search parameter state.
 - Use declarative JSX and concise conditionals.
-- Use Tailwind, Shadcn UI, HeroUI, and Radix UI consistently with the existing design system.
+- Use Tailwind, Shadcn UI, and Radix UI consistently with the existing design system.
 - Implement responsive, mobile-first layouts and support light/dark mode.
 - When using a `container` class, also use `mx-auto`.
 

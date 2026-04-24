@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import type { CollectionsUnion } from "@/../cms.config";
 import { DEFAULT_AI_MODEL, SITE_DESCRIPTION, SITE_NAME, SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import type { JSONContent } from "@tiptap/core";
@@ -24,7 +24,7 @@ export async function generateSeoDescription({
   collectionSlug,
 }: GenerateSeoDescriptionParams): Promise<string | null> {
   try {
-    const { env } = await getCloudflareContext({ async: true });
+    const { env } = await getCloudflareContext();
     const AI = env.AI;
 
     if (!AI) {

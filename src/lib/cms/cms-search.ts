@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
 
@@ -120,7 +120,7 @@ function getCmsSearchCacheKey({
 }
 
 export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   const kv = env.NEXT_INC_CACHE_KV;
 
   if (!kv) {
@@ -153,7 +153,7 @@ export async function invalidateDocsSearchCache(): Promise<void> {
 }
 
 async function getSearchDatabase(): Promise<D1Database> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
 
   if (!env.NEXT_TAG_CACHE_D1) {
     throw new Error("D1 database not found");

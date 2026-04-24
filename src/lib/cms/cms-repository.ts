@@ -11,7 +11,7 @@ import { cmsEntryTable, cmsEntryMediaTable, cmsTagTable, cmsEntryTagTable, cmsEn
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { withKVCache, CACHE_KEYS } from "@/utils/with-kv-cache";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
@@ -38,6 +38,7 @@ import {
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
 // TODO Replace Radix with BaseUI
+// Replace eslint with biome/oxlint
 
 // Zod Schemas for validation
 // TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
@@ -246,7 +247,7 @@ function getCmsCollectionCountCacheKey({
 }
 
 async function invalidateCacheByPrefix(prefix: string): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   const kv = env.NEXT_INC_CACHE_KV;
 
   if (!kv) {
@@ -324,7 +325,7 @@ async function invalidateCmsNavigationCachesForCollection({
 }
 
 async function invalidateSitemapCache(): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   const kv = env.NEXT_INC_CACHE_KV;
 
   if (!kv) {

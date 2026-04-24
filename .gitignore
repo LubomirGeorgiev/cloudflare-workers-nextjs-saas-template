@@ -50,3 +50,6 @@ dist
 !.env*example
 *.log
 backups
+.vinext
+worker
+worker-dist

@@ -4,7 +4,7 @@ import type { Route } from 'next'
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ScrollShadow } from '@heroui/react'
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   User,
   Smartphone,
@@ -62,30 +62,33 @@ export function SettingsNav() {
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const { signOut } = useSignOut();
 
+  const tabs = (
+    <Tabs value={pathname}>
+      <TabsList className="h-auto p-1">
+        {settingsNavItems.map((item) => (
+          <TabsTrigger key={item.href} value={item.href} asChild>
+            <Link href={item.href} className="flex items-center gap-2">
+              <item.icon className="h-4 w-4" />
+              {item.title}
+            </Link>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+
   return (
     <div className="w-full flex items-center justify-between gap-4">
-      <ScrollShadow
-        className="whitespace-nowrap"
-        orientation="horizontal"
-        isEnabled={isLgAndSmaller}
-      >
-        <Tabs value={pathname}>
-          <TabsList className="h-auto p-1">
-            {settingsNavItems.map((item) => (
-              <TabsTrigger
-                key={item.href}
-                value={item.href}
-                asChild
-              >
-                <Link href={item.href} className="flex items-center gap-2">
-                  <item.icon className="h-4 w-4" />
-                  {item.title}
-                </Link>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </ScrollShadow>
+      {isLgAndSmaller ? (
+        <ScrollArea
+          scrollOrientation="horizontal"
+          className="min-w-0 flex-1"
+        >
+          <div className="w-max whitespace-nowrap">{tabs}</div>
+        </ScrollArea>
+      ) : (
+        <div className="min-w-0 flex-1 whitespace-nowrap">{tabs}</div>
+      )}
 
       <Dialog>
         <DialogTrigger asChild>

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import ms from "ms";
 import superjson from "superjson";
 import isProd from "./is-prod";
@@ -19,7 +19,7 @@ export async function withKVCache<T>(
     return fn();
   }
 
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   const kv = env.NEXT_INC_CACHE_KV;
 
   if (!kv) {

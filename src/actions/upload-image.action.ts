@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { createId } from "@paralleldrive/cuid2";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { fileTypeFromBuffer } from "file-type";
@@ -115,7 +115,7 @@ export const uploadImageAction = actionClient
         }
 
         // Get Cloudflare context
-        const { env } = getCloudflareContext();
+        const { env } = await getCloudflareContext();
 
         if (!env.NEXT_INC_CACHE_R2_BUCKET) {
           throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");

@@ -9,7 +9,7 @@ import { hashPassword } from "@/utils/password-hasher";
 import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp } from "@/utils/auth";
 import { eq } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { sendVerificationEmail } from "@/utils/email";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -24,7 +24,7 @@ export const signUpAction = actionClient
     return withRateLimit(
       async () => {
         const db = getDB();
-        const { env } = getCloudflareContext();
+        const { env } = await getCloudflareContext();
 
         if (await isTurnstileEnabled() && input.captchaToken) {
           const success = await validateTurnstileToken(input.captchaToken)
