@@ -65,7 +65,53 @@ jobs:
 
       - name: Purge Cloudflare CDN cache
         if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
-        uses: nathanvaughn/actions-cloudflare-purge@master
+        uses: actions/github-script@9
+        env:
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         with:
-          cf_zone: ${{ vars.CLOUDFLARE_ZONE_ID }}
-          cf_auth: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          script: |
+            const zoneId = process.env.CLOUDFLARE_ZONE_ID;
+            const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+
+            if (!zoneId) {
+              core.setFailed('CLOUDFLARE_ZONE_ID is required');
+              return;
+            }
+
+            if (!apiToken) {
+              core.setFailed('CLOUDFLARE_API_TOKEN is required');
+              return;
+            }
+
+            const response = await fetch(
+              `https://api.cloudflare.com/client/v4/zones/${zoneId}/purge_cache`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${apiToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ purge_everything: true })
+              }
+            );
+
+            const body = await response.text();
+            const result = body ? JSON.parse(body) : {};
+
+            if (!response.ok || !result.success) {
+              const errors = Array.isArray(result.errors)
+                ? result.errors.map((error) => error.message).filter(Boolean)
+                : [];
+              const reason = errors.length > 0 ? errors.join('; ') : response.statusText;
+
+              core.setFailed(`Cloudflare cache purge failed: ${reason}`);
+              return;
+            }
+
+            const purgeId = result.result?.id;
+            core.info(
+              purgeId
+                ? `Cloudflare CDN cache purge requested: ${purgeId}`
+                : 'Cloudflare CDN cache purge requested'
+            );
