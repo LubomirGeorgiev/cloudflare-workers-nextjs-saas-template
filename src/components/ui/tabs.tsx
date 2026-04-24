@@ -56,6 +56,5 @@ export {
   Tabs,
   TabsList,
   TabsTrigger,
-  // eslint-disable-next-line import/no-unused-modules
   TabsContent
 }

@@ -61,5 +61,4 @@ const ScrollBar = React.forwardRef<
 })
 ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName
 
-// eslint-disable-next-line import/no-unused-modules
 export { ScrollArea, ScrollBar }

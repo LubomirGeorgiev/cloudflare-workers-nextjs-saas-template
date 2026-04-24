@@ -21,8 +21,8 @@ import { CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
  */
 async function handleCustomEdge(
   request: Request,
-  _env: Env,
-  _ctx: ExecutionContext,
+  __env: Env,
+  __ctx: ExecutionContext,
 ): Promise<Response | null> {
   const url = new URL(request.url);
 

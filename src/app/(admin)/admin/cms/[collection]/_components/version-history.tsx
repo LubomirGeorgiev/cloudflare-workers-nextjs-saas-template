@@ -791,7 +791,7 @@ export function VersionHistory({
                  </div>
                )}
 
-               {!isLoadingVersions && versions && versions.map((version: any, index: number) => {
+               {!isLoadingVersions && versions && versions.map((version: CmsEntryVersion, index: number) => {
                  const isLatestVersion = index === 0; // First in the list is the latest (sorted by versionNumber desc)
                  const isOnlyVersion = versions.length === 1;
                  const canDelete = !isLatestVersion && !isOnlyVersion;

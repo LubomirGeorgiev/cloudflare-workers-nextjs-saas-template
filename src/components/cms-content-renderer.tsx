@@ -105,7 +105,7 @@ function CodeBlockRenderer({
   language: propLanguage,
   children,
   node,
-  ..._rest
+  ...__rest
 }: CodeBlockRendererProps) {
 
   // Extract language from node.attrs if available, fallback to prop
@@ -178,7 +178,7 @@ function ImageComponent({
         />
       ) : (
         // External images - use regular img tag
-        // eslint-disable-next-line @next/next/no-img-element
+        // oxlint-disable-next-line nextjs/no-img-element
         <img
           src={src as string}
           alt={(alt as string) || ""}

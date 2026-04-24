@@ -390,7 +390,7 @@ export function CmsEntryForm({
     if (mode === "create") {
       await createEntry({
         ...data,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // oxlint-disable-next-line typescript/no-explicit-any
         collection: collection as any,
         content: serializedContent,
         fields: cleanedFields,

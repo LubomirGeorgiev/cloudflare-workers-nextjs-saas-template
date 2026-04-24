@@ -85,7 +85,7 @@ This is a SaaS template for Cloudflare Workers. It uses the [OpenNext](https://o
 - 👨‍💻 Developer Experience
   - 🧪 Local Development Setup
   - 📘 TypeScript Support
-  - 🔍 ESLint Configuration
+  - 🔍 Oxlint Configuration
   - ✨ Prettier Configuration
   - 🔐 Type-safe Environment Variables
   - 🏗️ Cloudflare Types Generation
@@ -112,8 +112,8 @@ This is a SaaS template for Cloudflare Workers. It uses the [OpenNext](https://o
 
 ## Planned features (TODO):
 
-- [ ] Add an eslint rule to check for unused imports and exports
-- [ ] Add an eslint rule to check for unused variables and functions
+- [ ] Add Oxlint coverage for unused exports
+- [x] Add an Oxlint rule to check for unused variables and imports
 - [ ] Upgrade to Tailwind 4 and fix the errors and visual regressions. Already started here https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template/tree/tailwind-4-upgrade
 - [ ] Update Meta SEO tags 🔍
 - [ ] Dynamic OpenGraph images 📸

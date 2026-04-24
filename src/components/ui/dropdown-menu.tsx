@@ -187,7 +187,6 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
-  // eslint-disable-next-line import/no-unused-modules
   DropdownMenuRadioItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -197,6 +196,5 @@ export {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  // eslint-disable-next-line import/no-unused-modules
   DropdownMenuRadioGroup,
 }

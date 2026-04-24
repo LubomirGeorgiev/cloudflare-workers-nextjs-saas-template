@@ -3,9 +3,9 @@
 import { lazy, Suspense } from "react";
 
 const NextTopLoader = lazy(async () => {
-  const module = await import("nextjs-toploader");
+  const topLoaderModule = await import("nextjs-toploader");
   // @ts-expect-error - default is not a property of the module
-  const component = module.default?.default ?? module.default;
+  const component = topLoaderModule.default?.default ?? topLoaderModule.default;
 
   return {
     default: component,

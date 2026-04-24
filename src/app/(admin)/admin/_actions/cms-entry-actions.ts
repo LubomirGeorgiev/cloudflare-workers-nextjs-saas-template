@@ -4,8 +4,8 @@ import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { cmsConfig, zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
-import { createCmsEntrySchema, updateCmsEntrySchema, cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
+import { zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
+import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
   getCmsCollectionCount,

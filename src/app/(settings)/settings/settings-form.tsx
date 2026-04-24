@@ -52,7 +52,6 @@ export function SettingsForm() {
       firstName: session?.user.firstName ?? '',
       lastName: session?.user.lastName ?? '',
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session])
 
   if (!session || isLoading) {

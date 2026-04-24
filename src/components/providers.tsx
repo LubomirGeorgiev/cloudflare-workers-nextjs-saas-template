@@ -36,13 +36,11 @@ function RouterChecker() {
       fetchSession?.();
       _refresh();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     done();
     fetchSession?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams, params]);
 
   return null;

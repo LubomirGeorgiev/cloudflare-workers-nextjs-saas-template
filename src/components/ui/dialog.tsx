@@ -112,9 +112,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName
 
 export {
   Dialog,
-  // eslint-disable-next-line import/no-unused-modules
   DialogPortal,
-  // eslint-disable-next-line import/no-unused-modules
   DialogOverlay,
   DialogClose,
   DialogTrigger,

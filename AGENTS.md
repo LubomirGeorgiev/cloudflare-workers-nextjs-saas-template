@@ -49,6 +49,12 @@ Primary stack:
 - Before adding a package, check `package.json` first.
 - Use `pnpm` for all package management.
 
+### Verification
+
+- Use `pnpm run lint` to verify lint rules with Oxlint.
+- Use `pnpm run typecheck` to verify TypeScript correctness.
+- Run both commands after code changes when feasible, especially before handing work back.
+
 ## DRY Rules
 
 - Extract repeated values into constants, especially validation limits.

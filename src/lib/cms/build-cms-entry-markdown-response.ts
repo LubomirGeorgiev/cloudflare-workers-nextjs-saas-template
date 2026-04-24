@@ -6,7 +6,6 @@ import { SITE_NAME } from "@/constants";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
 
-// eslint-disable-next-line import/no-unused-modules
 export function buildCmsEntryMarkdownResponse(entry: GetCmsCollectionResult): Response {
   const markdown = renderContentToMarkdown(entry.content as JSONContent);
   const fileName = `${SITE_NAME.toLowerCase().replace(/\s+/g, "-")}-${entry.collection}-${entry.slug}.md`;

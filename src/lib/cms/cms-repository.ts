@@ -38,8 +38,6 @@ import {
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
 // TODO Replace Radix with BaseUI
-// Replace eslint with biome/oxlint
-
 // Zod Schemas for validation
 // TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
 const cmsEntryStatusOrAllSchema = z.enum(cmsStatusFilterTuple);
@@ -90,7 +88,7 @@ const cmsEntryBaseSchema = z.object({
 // Helper function to add status/publishedAt validation and transformation
 function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
   return schema.refine(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     (data: any) => {
       // If publishedAt is in the future, status must be scheduled
       if (data.publishedAt && data.publishedAt instanceof Date && data.publishedAt > new Date()) {
@@ -103,7 +101,7 @@ function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
       path: ['status'],
     }
   ).refine(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     (data: any) => {
       // If status is scheduled, publishedAt must be provided and in the future
       if (data.status === CMS_ENTRY_STATUS.SCHEDULED) {
@@ -119,7 +117,7 @@ function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
       path: ['publishedAt'],
     }
   ).transform(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // oxlint-disable-next-line typescript/no-explicit-any
     (data: any) => {
       // If status is published and no publishedAt, set it to now
       if (data.status === CMS_ENTRY_STATUS.PUBLISHED && !data.publishedAt) {
@@ -500,7 +498,7 @@ type CmsIncludeRelations = {
  * Helper function to build the 'with' clause for including relations in CMS queries
  */
 function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // oxlint-disable-next-line typescript/no-explicit-any
   const relations = {} as Record<string, any>;
 
   if (includeRelations?.createdByUser) {
@@ -517,7 +515,7 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
 
   if (includeRelations?.media) {
     relations.entryMedia = {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       orderBy: (fields: any, { asc }: any) => [asc(fields.position)],
       with: {
         media: true,
@@ -1085,7 +1083,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
 
   // Remove undefined values to avoid updating fields that weren't provided
   const filteredUpdateData = Object.fromEntries(
-    Object.entries(updateData).filter(([_, value]) => value !== undefined)
+    Object.entries(updateData).filter(([__, value]) => value !== undefined)
   );
 
   const [updatedEntry] = await db
