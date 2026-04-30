@@ -8,9 +8,10 @@
     "name": "cloudflare-workers-nextjs-saas-template",
     "main": "./worker-entrypoint.ts",
     "preview_urls": true,
-    "compatibility_date": "2026-02-12",
+    "compatibility_date": "2026-04-21",
     "compatibility_flags": ["nodejs_compat"],
     "assets": {
+      "directory": "dist/client",
       "binding": "ASSETS",
       "not_found_handling": "none"
     },
