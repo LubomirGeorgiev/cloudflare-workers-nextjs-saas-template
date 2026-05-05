@@ -16,7 +16,6 @@ import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { KeyIcon } from "lucide-react";
 import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(settings)/settings/security/passkey-settings.actions";
-// TODO simplewebauthn is huuge. We need to write our own little implementation containging only the necessary functions
 import { startAuthentication } from "@simplewebauthn/browser";
 
 interface SignInClientProps {

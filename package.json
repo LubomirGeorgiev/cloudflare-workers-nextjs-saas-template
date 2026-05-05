@@ -107,7 +107,7 @@
     "zustand": "^5.0.5"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.34.0",
+    "@cloudflare/vite-plugin": "^1.35.0",
     "@simplewebauthn/types": "^12.0.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.4",
@@ -129,6 +129,6 @@
     "typescript": "^5",
     "vinext": "^0.0.45",
     "vite": "^8.0.10",
-    "wrangler": "^4.86.0"
+    "wrangler": "^4.87.0"
   }
 }
