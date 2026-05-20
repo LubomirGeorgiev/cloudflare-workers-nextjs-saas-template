@@ -19,7 +19,7 @@ const features = [
   {
     name: "Database & Email",
     description:
-      "Drizzle ORM with Cloudflare D1 for the database, and React Email with Resend or Brevo for transactional email.",
+      "Drizzle ORM with Cloudflare D1 for the database, and Cloudflare Email Service for transactional email.",
     icon: EnvelopeIcon,
   },
   {

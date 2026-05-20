@@ -55,6 +55,15 @@
         "EMAIL_FROM_NAME": "Lubomir Georgiev",
         "EMAIL_REPLY_TO": "lubo@lubomirgeorgiev.com"
     },
+    "send_email": [
+        {
+            "name": "EMAIL",
+            "allowed_sender_addresses": [
+                "no-reply@notifications.lubomirgeorgiev.com"
+            ],
+            "remote": true
+        }
+    ],
     /**
      * Note: Use secrets to store sensitive data.
      * https://developers.cloudflare.com/workers/configuration/secrets/

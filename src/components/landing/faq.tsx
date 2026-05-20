@@ -23,7 +23,7 @@ const faqs = [
         <ul className="list-disc pl-6 mt-2 space-y-1">
           <li>Authentication with email/password and forgot password flow</li>
           <li>Database integration with Drizzle ORM and Cloudflare D1</li>
-          <li>Email service powered by React Email with Resend or Brevo</li>
+          <li>Email service powered by Cloudflare Email Service</li>
           <li>Modern UI components from Shadcn UI and Tailwind CSS</li>
           <li>Form validations and error handling</li>
           <li>Dark mode support</li>
@@ -50,7 +50,7 @@ const faqs = [
           <li>Lucia Auth for authentication</li>
           <li>Cloudflare Workers for serverless deployment</li>
           <li>Cloudflare KV for session storage</li>
-          <li>React Email for beautiful email templates</li>
+          <li>Cloudflare Email Service for transactional email</li>
         </ul>
       </>
     ),
@@ -62,7 +62,7 @@ const faqs = [
         <p>Deployment is automated with GitHub Actions. You&apos;ll need to:</p>
         <ol className="list-decimal pl-6 mt-2 space-y-1">
           <li>Create Cloudflare D1 and KV namespaces</li>
-          <li>Set up Resend or Brevo for email service</li>
+          <li>Onboard your sending domain in Cloudflare Email Service</li>
           <li>Enable Cloudflare Images for image optimization</li>
           <li>Configure Turnstile for captcha</li>
           <li>Add your Cloudflare API token to GitHub secrets</li>
@@ -104,7 +104,7 @@ const faqs = [
     question: "How are email templates handled?",
     answer: (
       <>
-        Email templates are built with React components and sent through either Resend or Brevo, depending on which provider key is configured for the deployment.
+        Transactional email templates are rendered by the app and sent through Cloudflare Email Service from the Worker.
       </>
     ),
   },

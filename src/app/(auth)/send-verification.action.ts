@@ -11,7 +11,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { z } from "zod";
 
-export const resendVerificationAction = actionClient
+export const sendVerificationAction = actionClient
   .inputSchema(z.void())
   .action(async () => {
     return withRateLimit(

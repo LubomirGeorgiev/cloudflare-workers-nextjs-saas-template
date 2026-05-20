@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSessionStore } from "@/state/session";
 import { useAction } from "next-safe-action/hooks";
-import { resendVerificationAction } from "@/app/(auth)/resend-verification.action";
+import { sendVerificationAction } from "@/app/(auth)/send-verification.action";
 import { toast } from "sonner";
 import { useState } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
@@ -32,10 +32,10 @@ const pagesToBypass: Route[] = [
 
 export function EmailVerificationDialog() {
   const { session } = useSessionStore();
-  const [lastResendTime, setLastResendTime] = useState<number | null>(null);
+  const [lastVerificationEmailSentAt, setLastVerificationEmailSentAt] = useState<number | null>(null);
   const pathname = usePathname();
 
-  const { execute: resendVerification, status } = useAction(resendVerificationAction, {
+  const { execute: sendVerification, status } = useAction(sendVerificationAction, {
     onError: ({ error }) => {
       toast.dismiss();
       toast.error(error.serverError?.message);
@@ -46,7 +46,7 @@ export function EmailVerificationDialog() {
     onSuccess: () => {
       toast.dismiss();
       toast.success("Verification email sent");
-      setLastResendTime(Date.now());
+      setLastVerificationEmailSentAt(Date.now());
     },
   });
 
@@ -60,7 +60,7 @@ export function EmailVerificationDialog() {
     return null;
   }
 
-  const canResend = !lastResendTime || Date.now() - lastResendTime > 60000; // 1 minute cooldown
+  const canSendAgain = !lastVerificationEmailSentAt || Date.now() - lastVerificationEmailSentAt > 60000; // 1 minute cooldown
   const isLoading = status === "executing";
 
   return (
@@ -88,14 +88,14 @@ export function EmailVerificationDialog() {
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <Button
-            onClick={() => resendVerification()}
-            disabled={isLoading || !canResend}
+            onClick={() => sendVerification()}
+            disabled={isLoading || !canSendAgain}
           >
             {isLoading
               ? "Sending..."
-              : !canResend
-                ? "Please wait 1 minute before resending"
-                : "Resend verification email"}
+              : !canSendAgain
+                ? "Please wait 1 minute before sending again"
+                : "Send verification email again"}
           </Button>
         </div>
       </DialogContent>

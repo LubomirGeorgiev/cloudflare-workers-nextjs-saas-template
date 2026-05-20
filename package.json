@@ -15,7 +15,7 @@
     "deploy": "vinext deploy",
     "preview": "pnpm build && wrangler dev --local",
     "deploy:dryrun": "rm -rf worker-dist && pnpm build && wrangler deploy --outdir worker-dist --dry-run",
-    "cf-typegen": "wrangler types",
+    "cf-typegen": "wrangler types --env-file .env.example",
     "db:generate": "drizzle-kit generate --name",
     "db:migrate:dev": "echo yes | wrangler d1 migrations apply $(node scripts/get-db-name.mjs) --local",
     "dev:reset": "rm -rf .wrangler && pnpm db:migrate:dev && pnpm db:seed",

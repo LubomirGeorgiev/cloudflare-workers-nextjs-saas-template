@@ -8,28 +8,13 @@ import {
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import isProd from "./is-prod";
 
-interface BrevoEmailOptions {
-  to: { email: string; name?: string }[];
-  subject: string;
-  replyTo?: string;
-  htmlContent: string;
-  textContent?: string;
-  templateId?: number;
-  params?: Record<string, string>;
-  tags?: string[];
-}
-
-interface ResendEmailOptions {
-  to: string[];
+interface TransactionalEmailOptions {
+  to: string;
   subject: string;
   html: string;
-  from?: string;
-  replyTo?: string;
   text?: string;
-  tags?: { name: string; value: string }[];
+  type: string;
 }
-
-type EmailProvider = "resend" | "brevo" | null;
 
 interface EmailTemplate {
   html: string;
@@ -46,118 +31,40 @@ async function getEmailEnv() {
   };
 }
 
-async function getEmailProvider(): Promise<EmailProvider> {
-  if (process.env.RESEND_API_KEY) {
-    return "resend";
-  }
-
-  if (process.env.BREVO_API_KEY) {
-    return "brevo";
-  }
-
-  return null;
-}
-
-// TODO Migrate to https://blog.cloudflare.com/email-for-agents/
-async function sendResendEmail({
+async function sendTransactionalEmail({
   to,
   subject,
   html,
-  from,
-  replyTo: originalReplyTo,
   text,
-  tags,
-}: ResendEmailOptions) {
-  if (!isProd) {
-    return;
-  }
-
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not set");
-  }
-
+  type,
+}: TransactionalEmailOptions) {
+  const { env } = await getCloudflareContext();
   const { emailFrom, emailFromName, emailReplyTo } = await getEmailEnv();
-  const replyTo = originalReplyTo ?? emailReplyTo;
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    } as const,
-    body: JSON.stringify({
-      from: from ?? `${emailFromName} <${emailFrom}>`,
-      to,
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-      tags,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Failed to send email via Resend: ${JSON.stringify(error)}`);
+  if (!env.EMAIL) {
+    throw new Error("Cloudflare Email Service binding EMAIL is not configured.");
   }
 
-  return response.json();
-}
-
-async function sendBrevoEmail({
-  to,
-  subject,
-  replyTo: originalReplyTo,
-  htmlContent,
-  textContent,
-  templateId,
-  params,
-  tags,
-}: BrevoEmailOptions) {
-  if (!isProd) {
-    return;
+  if (!emailFrom) {
+    throw new Error("EMAIL_FROM is not configured.");
   }
 
-  if (!process.env.BREVO_API_KEY) {
-    throw new Error("BREVO_API_KEY is not set");
-  }
-
-  const { emailFrom, emailFromName, emailReplyTo } = await getEmailEnv();
-  const replyTo = originalReplyTo ?? emailReplyTo;
-
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "accept": "application/json",
-      "content-type": "application/json",
-      "api-key": process.env.BREVO_API_KEY,
-    } as const,
-    body: JSON.stringify({
-      sender: {
-        name: emailFromName,
-        email: emailFrom,
-      },
-      to,
-      htmlContent,
-      textContent,
-      subject,
-      templateId,
-      params,
-      tags,
-      ...(replyTo ? {
-        replyTo: {
-          email: replyTo,
+  await env.EMAIL.send({
+    to,
+    from: emailFromName
+      ? {
+          email: emailFrom,
+          name: emailFromName,
         }
-      } : {}),
-    }),
+      : emailFrom,
+    subject,
+    html,
+    text,
+    ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
+    headers: {
+      "X-Transactional-Email-Type": type,
+    },
   });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`Failed to send email via Brevo: ${JSON.stringify(error)}`);
-  }
-
-  return response.json();
 }
 
 function escapeHtml(value: string): string {
@@ -265,29 +172,14 @@ export async function sendPasswordResetEmail({
     fallbackText: "If you're having trouble with the button above, copy and paste this URL into your browser:",
     footerText: `This is an automated message from ${SITE_DOMAIN}. If you did not request this email, please ignore it or contact support if you have concerns.`,
   });
-  const provider = await getEmailProvider();
 
-  if (!provider && isProd) {
-    throw new Error("No email provider configured. Set either RESEND_API_KEY or BREVO_API_KEY in your environment.");
-  }
-
-  if (provider === "resend") {
-    await sendResendEmail({
-      to: [email],
-      subject: `Reset your password for ${SITE_DOMAIN}`,
-      html: emailTemplate.html,
-      text: emailTemplate.text,
-      tags: [{ name: "type", value: "password-reset" }],
-    });
-  } else {
-    await sendBrevoEmail({
-      to: [{ email, name: username }],
-      subject: `Reset your password for ${SITE_DOMAIN}`,
-      htmlContent: emailTemplate.html,
-      textContent: emailTemplate.text,
-      tags: ["password-reset"],
-    });
-  }
+  await sendTransactionalEmail({
+    to: email,
+    subject: `Reset your password for ${SITE_DOMAIN}`,
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: "password-reset",
+  });
 }
 
 export async function sendVerificationEmail({
@@ -318,29 +210,14 @@ export async function sendVerificationEmail({
     fallbackText: `If you didn't create an account on ${SITE_DOMAIN}, you can safely ignore this email.`,
     footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
   });
-  const provider = await getEmailProvider();
 
-  if (!provider && isProd) {
-    throw new Error("No email provider configured. Set either RESEND_API_KEY or BREVO_API_KEY in your environment.");
-  }
-
-  if (provider === "resend") {
-    await sendResendEmail({
-      to: [email],
-      subject: `Verify your email for ${SITE_DOMAIN}`,
-      html: emailTemplate.html,
-      text: emailTemplate.text,
-      tags: [{ name: "type", value: "email-verification" }],
-    });
-  } else {
-    await sendBrevoEmail({
-      to: [{ email, name: username }],
-      subject: `Verify your email for ${SITE_DOMAIN}`,
-      htmlContent: emailTemplate.html,
-      textContent: emailTemplate.text,
-      tags: ["email-verification"],
-    });
-  }
+  await sendTransactionalEmail({
+    to: email,
+    subject: `Verify your email for ${SITE_DOMAIN}`,
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: "email-verification",
+  });
 }
 
 export async function sendTeamInvitationEmail({
@@ -372,27 +249,11 @@ export async function sendTeamInvitationEmail({
     footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
   });
 
-  const provider = await getEmailProvider();
-
-  if (!provider && isProd) {
-    throw new Error("No email provider configured. Set either RESEND_API_KEY or BREVO_API_KEY in your environment.");
-  }
-
-  if (provider === "resend") {
-    await sendResendEmail({
-      to: [email],
-      subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
-      html: emailTemplate.html,
-      text: emailTemplate.text,
-      tags: [{ name: "type", value: "team-invitation" }],
-    });
-  } else {
-    await sendBrevoEmail({
-      to: [{ email }],
-      subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
-      htmlContent: emailTemplate.html,
-      textContent: emailTemplate.text,
-      tags: ["team-invitation"],
-    });
-  }
+  await sendTransactionalEmail({
+    to: email,
+    subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: "team-invitation",
+  });
 }

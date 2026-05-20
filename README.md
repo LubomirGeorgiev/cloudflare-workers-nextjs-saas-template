@@ -46,7 +46,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 💻 SQLite for Local Development
   - ⚡ Efficient Data Fetching
   - 🔍 Type-safe Queries
-- 📨 Email Service with React Email and Resend or Brevo
+- 📨 Email Service with Cloudflare Email Service
   - 🎨 Beautiful Email Templates
   - 👀 Email Preview Mode
   - 🔧 Local Email Development Server
@@ -189,10 +189,10 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
 ## Deploying to Cloudflare with Github Actions
 
 1. Create D1, KV, and R2 resources, and make sure Cloudflare Images is available for the account.
-2. Set either `RESEND_API_KEY` or `BREVO_API_KEY` as a secret in your Cloudflare Worker depending on which email service you want to use. If you are using Brevo go to https://app.brevo.com/security/authorised_ips and disable it.
+2. Onboard your sending domain in Cloudflare Email Service, then update `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, and the `send_email.allowed_sender_addresses` entry in `wrangler.jsonc`. The Worker uses the `EMAIL` Email Service binding to send transactional email.
 3. Create a Turnstile catcha in your Cloudflare account, and set the `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a Github Actions variable.
 4. Set `TURNSTILE_SECRET_KEY` as a secret in your Cloudflare Worker.
-5. Update the `wrangler.jsonc` file with the new database, KV namespace, R2 bucket, env variables, Images binding, and account id. Search for "cloudflare-workers-nextjs-saas-template" recursively in the whole repository and change that to the name of your project.
+5. Update the `wrangler.jsonc` file with the new database, KV namespace, R2 bucket, env variables, Images binding, email binding, and account id. Search for "cloudflare-workers-nextjs-saas-template" recursively in the whole repository and change that to the name of your project.
 6. Go to https://dash.cloudflare.com/profile/api-tokens and click on "Use template" next to "Edit Cloudflare Workers". On the next, page add the following permissions in addition to the ones from the template:
     - Account:AI Gateway:Edit
     - Account:Workers AI:Edit
@@ -202,6 +202,7 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
     - Account:D1:Edit
     - Account:Cloudflare Images:Edit
     - Account:Workers KV Storage:Edit
+    - Account:Email Sending:Edit
     - Zone:Cache Purge:Purge
 7. Add the API token to the Github repository secrets as `CLOUDFLARE_API_TOKEN`
 8. Add the Cloudflare account id to the Github repository variables as `CLOUDFLARE_ACCOUNT_ID`
