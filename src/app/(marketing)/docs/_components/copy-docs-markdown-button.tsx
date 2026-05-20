@@ -53,7 +53,7 @@ export function CopyDocsMarkdownButton({
             <DropdownMenuItem asChild>
               <a target="_blank" rel="noreferrer" href={rawMarkdownUrl}>
                 <ExternalLink className="h-4 w-4" />
-                Open raw
+                Open as Markdown
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
