@@ -43,6 +43,9 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
       toast.error(error.serverError?.message || "Authentication failed");
     },
     onSuccess: () => {
+      // TODO(vinext): Keep client-side navigation here until
+      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
+      // remove the matching server-action redirect guard from the auth pages.
       toast.dismiss();
       toast.success("Authentication successful");
       window.location.href = redirectPath;

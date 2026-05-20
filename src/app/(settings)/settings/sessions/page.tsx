@@ -13,7 +13,7 @@ export default async function SessionsPage() {
   const { data: sessions, serverError } = await getSessionsAction()
 
   if (serverError || !sessions) {
-    return redirect('/')
+    return redirect("/sign-in")
   }
 
   return (

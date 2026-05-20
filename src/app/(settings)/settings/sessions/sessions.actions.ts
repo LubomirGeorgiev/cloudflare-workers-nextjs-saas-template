@@ -2,7 +2,7 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
+import { getSessionFromCookie } from "@/utils/auth";
 import { getAllSessionIdsOfUser, getKVSession, deleteKVSession } from "@/utils/kv-session";
 import { z } from "zod";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -20,7 +20,7 @@ export const getSessionsAction = actionClient
   .action(async () => {
     return withRateLimit(
       async () => {
-        const session = await requireVerifiedEmail();
+        const session = await getSessionFromCookie();
 
         if (!session?.user?.id) {
           throw new ActionError("NOT_AUTHORIZED", "Unauthorized");

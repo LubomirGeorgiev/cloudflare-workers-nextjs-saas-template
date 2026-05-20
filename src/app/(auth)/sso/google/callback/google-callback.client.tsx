@@ -27,6 +27,9 @@ export default function GoogleCallbackClientComponent() {
       toast.loading("Signing you in with Google...");
     },
     onSuccess: () => {
+      // TODO(vinext): Keep client-side navigation here until
+      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
+      // remove the matching server-action redirect guard from the auth pages.
       toast.dismiss();
       toast.success("Signed in successfully");
       window.location.href = REDIRECT_AFTER_SIGN_IN;
