@@ -74,6 +74,16 @@
             "id": "e922d6e22f4a46b6a92be653e90c6ca1"
         }
     ],
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": ["DOQueueHandler"]
+        },
+        {
+            "tag": "v2",
+            "deleted_classes": ["DOQueueHandler"]
+        }
+    ],
     "r2_buckets": [
         {
             "binding": "NEXT_INC_CACHE_R2_BUCKET",
