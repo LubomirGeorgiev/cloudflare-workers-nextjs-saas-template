@@ -162,6 +162,8 @@ jobs:
           const totalBytes = toBytes(totalValueRaw, totalUnitRaw);
           const gzipBytes = toBytes(gzipValueRaw, gzipUnitRaw);
           const metricsPath = path.join("metrics", "deploy-size-history.jsonl");
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const projectName = packageJson.name;
           const now = new Date().toISOString();
           const sha = process.env.GITHUB_SHA ?? "";
           const runId = process.env.GITHUB_RUN_ID ?? "";
@@ -171,6 +173,7 @@ jobs:
           fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
           const line = JSON.stringify({
             timestamp: now,
+            projectName,
             branch,
             commitSha: sha,
             runId,
@@ -182,7 +185,9 @@ jobs:
           });
 
           fs.appendFileSync(metricsPath, `${line}\n`);
-          console.log(`Recorded deploy size metrics: total=${totalBytes}B gzip=${gzipBytes}B`);
+          console.log(
+            `Recorded deploy size metrics for ${projectName}: total=${totalBytes}B gzip=${gzipBytes}B`
+          );
           NODE
 
       - name: Commit deploy size metrics

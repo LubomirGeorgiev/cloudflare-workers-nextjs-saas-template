@@ -179,10 +179,11 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
 
 ## Things to change and customize before deploying to production
 1. Go to `src/constants.ts` and update it with your project details
-2. Update `AGENTS.md` with your project specification so that Cursor AI can give you better suggestions
-3. Update the footer in `src/components/footer.tsx` with your project details and links
-4. Optional: Update the color palette in `src/app/globals.css`
-5. Update the metadata in `src/app/layout.tsx` with your project details
+2. Update the `name` field in `package.json` to your project name so generated metrics and package metadata identify the reused template correctly
+3. Update `AGENTS.md` with your project specification so that Cursor AI can give you better suggestions
+4. Update the footer in `src/components/footer.tsx` with your project details and links
+5. Optional: Update the color palette in `src/app/globals.css`
+6. Update the metadata in `src/app/layout.tsx` with your project details
 7. Update `cms.config.ts` if necessary
 
 ## Deploying to Cloudflare with Github Actions

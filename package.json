@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vinext dev",
-    "build": "vinext build --verbose",
+    "build": "rm -rf node_modules/.vite .vinext/cache dist vinext worker worker-dist && vinext build --verbose",
     "build:prod": "vinext deploy --dry-run",
     "start": "vinext start",
     "lint": "oxlint",
