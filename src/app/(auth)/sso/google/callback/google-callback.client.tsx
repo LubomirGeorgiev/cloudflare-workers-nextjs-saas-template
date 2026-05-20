@@ -11,8 +11,6 @@ import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 
-const GOOGLE_SSO_TOAST_ID = "google-sso-callback";
-
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -22,22 +20,18 @@ export default function GoogleCallbackClientComponent() {
 
   const { execute: handleCallback, isExecuting, result } = useAction(googleSSOCallbackAction, {
     onError: ({ error }) => {
-      toast.error(error.serverError?.message || "Failed to sign in with Google", {
-        id: GOOGLE_SSO_TOAST_ID,
-      });
+      toast.dismiss();
+      toast.error(error.serverError?.message || "Failed to sign in with Google");
     },
     onExecute: () => {
-      toast.loading("Signing you in with Google...", {
-        id: GOOGLE_SSO_TOAST_ID,
-      });
+      toast.loading("Signing you in with Google...");
     },
     onSuccess: () => {
       // TODO(vinext): Keep client-side navigation here until
       // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
       // remove the matching server-action redirect guard from the auth pages.
-      toast.success("Signed in successfully", {
-        id: GOOGLE_SSO_TOAST_ID,
-      });
+      toast.dismiss();
+      toast.success("Signed in successfully");
       window.location.href = REDIRECT_AFTER_SIGN_IN;
     },
   });
@@ -50,9 +44,7 @@ export default function GoogleCallbackClientComponent() {
         hasCalledCallback.current = true;
         handleCallback(result.data);
       } else {
-        toast.error("Invalid callback parameters", {
-          id: GOOGLE_SSO_TOAST_ID,
-        });
+        toast.error("Invalid callback parameters");
         router.push("/sign-in");
       }
     }
