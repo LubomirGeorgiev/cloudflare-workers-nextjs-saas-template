@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SearchIcon, FileText } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   CommandDialog,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
@@ -167,29 +166,28 @@ export function DocsSearch({
                 ? "Type at least 2 characters to search."
                 : "No matching docs found."}
           </CommandEmpty>
-          <CommandGroup heading="Documentation">
-            {results.map((result) => (
-              <CommandItem
-                key={result.entryId}
-                value={`${result.title} ${result.snippet} ${result.resolvedPath}`}
-                onSelect={() => navigateToResult(result.resolvedPath)}
-                className="items-start gap-3 py-3"
-              >
-                <FileText className="mt-0.5 size-4 text-muted-foreground" />
-                <div className="min-w-0 space-y-1">
-                  <p className="truncate font-medium text-foreground">
+          {results.map((result) => (
+            <CommandItem
+              key={result.entryId}
+              value={`${result.title} ${result.snippet} ${result.resolvedPath}`}
+              onSelect={() => navigateToResult(result.resolvedPath)}
+              className="rounded-none py-3"
+            >
+              <div className="min-w-0 space-y-1 px-3 py-1">
+                <div className="flex items-baseline gap-3">
+                  <p className="min-w-0 flex-1 truncate font-medium text-foreground">
                     <HighlightedText text={result.title} query={query} />
                   </p>
-                  <p className="line-clamp-2 text-xs text-muted-foreground">
-                    <HighlightedText text={result.snippet} query={query} />
-                  </p>
-                  <p className="truncate text-[11px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                  <p className="min-w-0 max-w-[45%] shrink truncate font-mono text-[11px] tracking-normal text-muted-foreground/70">
                     <HighlightedText text={result.resolvedPath} query={query} />
                   </p>
                 </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+                <p className="line-clamp-2 text-xs text-muted-foreground">
+                  <HighlightedText text={result.snippet} query={query} />
+                </p>
+              </div>
+            </CommandItem>
+          ))}
         </CommandList>
       </CommandDialog>
     </>

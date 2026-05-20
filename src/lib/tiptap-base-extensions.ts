@@ -1,4 +1,4 @@
-import type { Extension } from "@tiptap/core"
+import type { AnyExtension, Extension } from "@tiptap/core"
 import { StarterKit } from "@tiptap/starter-kit"
 import { Image } from "@tiptap/extension-image"
 import { TaskItem, TaskList } from "@tiptap/extension-list"
@@ -14,6 +14,7 @@ import { TableHeader } from "@tiptap/extension-table/header"
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
 import { common, createLowlight } from "lowlight"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
+import { AlertBlockExtension } from "@/components/tiptap-node/alert-block/alert-block-extension"
 
 // Shared lowlight instance used across all extensions and renderers
 export const sharedLowlight = createLowlight(common)
@@ -22,6 +23,7 @@ type LowlightInstance = ReturnType<typeof createLowlight>
 
 interface GetBaseExtensionsOptions {
   lowlight?: LowlightInstance
+  alertBlockExtension?: AnyExtension
   starterKitConfig?: {
     link?: {
       openOnClick?: boolean
@@ -34,7 +36,11 @@ interface GetBaseExtensionsOptions {
  * Returns the base TipTap extensions configuration shared between editor and static rendering.
  * This ensures consistent rendering across both contexts.
  */
-export function getTiptapBaseExtensions({ lowlight = sharedLowlight, starterKitConfig }: GetBaseExtensionsOptions = {}): Extension[] {
+export function getTiptapBaseExtensions({
+  lowlight = sharedLowlight,
+  alertBlockExtension = AlertBlockExtension,
+  starterKitConfig,
+}: GetBaseExtensionsOptions = {}): Extension[] {
   return [
     StarterKit.configure({
       horizontalRule: false, // We use custom HorizontalRule
@@ -63,5 +69,6 @@ export function getTiptapBaseExtensions({ lowlight = sharedLowlight, starterKitC
     TableRow,
     TableHeader,
     TableCell,
+    alertBlockExtension,
   ] as Extension[]
 }

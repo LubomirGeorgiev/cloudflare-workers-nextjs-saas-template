@@ -11,23 +11,13 @@ function escapeMarkdownLinkText(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/\[/g, "\\[").replace(/\]/g, "\\]");
 }
 
-function collectDocPagesInNavOrder(
-  nodes: CmsNavigationTreeNode[]
-): CmsNavigationTreeNode[] {
-  return nodes.flatMap((node) => {
-    const page =
-      node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE && node.entry ? [node] : [];
-    return [...page, ...collectDocPagesInNavOrder(node.children)];
-  });
-}
-
 function singleLineDescription(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function pageDescription(node: CmsNavigationTreeNode): string {
+function pageDescription(node: CmsNavigationTreeNode): string | null {
   if (!node.entry) {
-    return node.title;
+    return null;
   }
 
   const fromSeo = node.entry.seoDescription?.trim();
@@ -35,25 +25,38 @@ function pageDescription(node: CmsNavigationTreeNode): string {
     return singleLineDescription(fromSeo);
   }
 
-  return singleLineDescription(node.entry.title);
+  return null;
 }
 
-export function buildDocsLlmsTxtContent(nodes: CmsNavigationTreeNode[]): string {
-  const pages = collectDocPagesInNavOrder(nodes);
-  const docsIntro =
-    cmsConfig.collections[DOCS_SLUG].description?.trim() ||
-    "Product documentation for this application: how it works, how to run and deploy it, and how to use its features.";
+function appendNodeLines({
+  lines,
+  nodes,
+  depth = 0,
+}: {
+  lines: string[];
+  nodes: CmsNavigationTreeNode[];
+  depth?: number;
+}) {
+  let hasRenderedNode = false;
 
-  const lines: string[] = [
-    `# ${SITE_NAME}`,
-    "",
-    singleLineDescription(docsIntro),
-    "",
-    "## Documentation",
-    "",
-  ];
+  for (const node of nodes) {
+    if (node.nodeType === CMS_NAVIGATION_NODE_TYPES.GROUP) {
+      const headingLevel = Math.min(depth + 3, 6);
 
-  for (const node of pages) {
+      if (hasRenderedNode) {
+        lines.push("");
+      }
+
+      lines.push(`${"#".repeat(headingLevel)} ${node.title}`);
+      appendNodeLines({
+        lines,
+        nodes: node.children,
+        depth: depth + 1,
+      });
+      hasRenderedNode = true;
+      continue;
+    }
+
     if (!node.entry) {
       continue;
     }
@@ -64,8 +67,44 @@ export function buildDocsLlmsTxtContent(nodes: CmsNavigationTreeNode[]): string 
     });
     const title = escapeMarkdownLinkText(node.title);
     const desc = pageDescription(node);
-    lines.push(`- [${title}](${url}): ${desc}`);
+
+    if (depth === 0) {
+      if (hasRenderedNode) {
+        lines.push("");
+      }
+
+      lines.push(
+        desc
+          ? `### [${title}](${url}): ${desc}`
+          : `### [${title}](${url})`
+      );
+      hasRenderedNode = true;
+      continue;
+    }
+
+    lines.push(desc ? `- [${title}](${url}): ${desc}` : `- [${title}](${url})`);
+    hasRenderedNode = true;
   }
+}
+
+export function buildDocsLlmsTxtContent(nodes: CmsNavigationTreeNode[]): string {
+  const docsIntro = cmsConfig.collections[DOCS_SLUG].description?.trim();
+
+  const lines: string[] = [
+    `# ${SITE_NAME}`,
+    "",
+    "## Documentation",
+    "",
+  ];
+
+  if (docsIntro) {
+    lines.splice(2, 0, singleLineDescription(docsIntro), "");
+  }
+
+  appendNodeLines({
+    lines,
+    nodes,
+  });
 
   lines.push("");
   return lines.join("\n");

@@ -7,7 +7,7 @@ import isProd from "./is-prod";
 
 interface CacheOptions {
   key: string;
-  ttl: string; // e.g., "1h", "5m", "1d"
+  ttl: ms.StringValue; // e.g., "1h", "5m", "1d"
 }
 
 export async function withKVCache<T>(

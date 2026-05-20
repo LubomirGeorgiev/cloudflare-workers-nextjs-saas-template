@@ -31,7 +31,7 @@ export function buildCmsEntryMarkdownPath({
   slug: string;
   download?: boolean;
 }): string {
-  const path = `/api/cms/markdown/${collectionSlug}/${slug}`;
+  const path = `/markdown/${collectionSlug}/${slug}`;
   return download ? `${path}?download` : path;
 }
 

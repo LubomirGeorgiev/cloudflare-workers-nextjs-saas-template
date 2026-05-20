@@ -32,6 +32,7 @@ export function CopyDocsMarkdownButton({
       <Button
         type="button"
         variant="outline"
+        className="cursor-pointer"
         onClick={async () => {
           await navigator.clipboard.writeText(markdown);
           setCopied(true);
