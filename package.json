@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vinext dev",
-    "dev:next": "next dev",
     "build": "vinext build --verbose",
-    "build:next": "next build",
     "build:prod": "vinext deploy --dry-run",
     "start": "vinext start",
     "lint": "oxlint",

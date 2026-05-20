@@ -24,6 +24,18 @@ interface RateLimitConfig {
   windowInSeconds: number;
 }
 
+export class RateLimitError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
+
+    super(`Rate limit exceeded. Try again in ${retryAfterMinutes} minutes.`);
+    this.name = "RateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export async function withRateLimit<T>(
   action: () => Promise<T>,
   config: RateLimitConfig
@@ -45,10 +57,8 @@ export async function withRateLimit<T>(
   });
 
   if (!rateLimitResult.success) {
-    throw new Error(
-      `Rate limit exceeded. Try again in ${Math.ceil(
-        (rateLimitResult.reset - Date.now() / 1000) / 60
-      )} minutes.`
+    throw new RateLimitError(
+      Math.max(0, Math.ceil(rateLimitResult.reset - Date.now() / 1000))
     );
   }
 

@@ -23,7 +23,7 @@ const faqs = [
         <ul className="list-disc pl-6 mt-2 space-y-1">
           <li>Authentication with email/password and forgot password flow</li>
           <li>Database integration with Drizzle ORM and Cloudflare D1</li>
-          <li>Email service powered by React Email and Resend</li>
+          <li>Email service powered by React Email with Resend or Brevo</li>
           <li>Modern UI components from Shadcn UI and Tailwind CSS</li>
           <li>Form validations and error handling</li>
           <li>Dark mode support</li>
@@ -43,7 +43,7 @@ const faqs = [
       <>
         <p>The template uses modern and reliable technologies:</p>
         <ul className="list-disc pl-6 mt-2 space-y-1">
-          <li>Next.js 15 with App Router and React Server Components</li>
+          <li>Next.js App Router with React Server Components through Vinext and Vite</li>
           <li>TypeScript for type safety</li>
           <li>Tailwind CSS and Shadcn UI for styling</li>
           <li>DrizzleORM with Cloudflare D1 for database</li>
@@ -62,7 +62,8 @@ const faqs = [
         <p>Deployment is automated with GitHub Actions. You&apos;ll need to:</p>
         <ol className="list-decimal pl-6 mt-2 space-y-1">
           <li>Create Cloudflare D1 and KV namespaces</li>
-          <li>Set up Resend for email service</li>
+          <li>Set up Resend or Brevo for email service</li>
+          <li>Enable Cloudflare Images for image optimization</li>
           <li>Configure Turnstile for captcha</li>
           <li>Add your Cloudflare API token to GitHub secrets</li>
           <li>Push to the main branch</li>
@@ -100,10 +101,10 @@ const faqs = [
     ),
   },
   {
-    question: "Can I preview the email templates?",
+    question: "How are email templates handled?",
     answer: (
       <>
-        Yes! Run <code>pnpm email:dev</code> and open <a href="http://localhost:3001" target="_blank">http://localhost:3001</a> to preview and edit the email templates. They&apos;re built with React Email for a great developer experience.
+        Email templates are built with React components and sent through either Resend or Brevo, depending on which provider key is configured for the deployment.
       </>
     ),
   },

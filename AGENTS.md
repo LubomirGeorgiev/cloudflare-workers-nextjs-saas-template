@@ -4,18 +4,32 @@ Use this file for repo-specific rules. For product overview, features, setup, an
 
 ## Project Context
 
-Production-ready Next.js SaaS template running on Cloudflare Workers with OpenNext. Core areas include authentication, multi-tenancy, billing, admin tools, and email workflows.
+Production-ready Next.js SaaS template running on Cloudflare Workers with Vinext and Vite. Core areas include authentication, multi-tenancy, billing, admin tools, and email workflows.
 
 Primary stack:
 - Next.js App Router
 - React Server Components
 - TypeScript
 - Tailwind CSS
+- Vinext and Vite
 - Shadcn UI / Radix UI
 - Drizzle ORM
-- Cloudflare Workers, D1, KV, R2
+- Cloudflare Workers, D1, KV, R2, Images
 - Lucia Auth
 - Zustand and NUQS
+
+## Vinext Context
+
+Vinext is Cloudflare's experimental Vite-based implementation of the public Next.js API surface. This project still uses familiar Next.js App Router conventions, React Server Components, route handlers, server actions, and `next/*` imports, but the dev, build, start, and deploy lifecycle runs through Vinext and Vite.
+
+Use Vinext commands for framework work:
+- `pnpm dev` starts the Vinext development server.
+- `pnpm build` builds with Vinext and Vite.
+- `pnpm start` starts the local Vinext production server.
+- `pnpm deploy` runs `vinext deploy` for Cloudflare Workers.
+- `pnpm run check:vinext` scans compatibility with the Vinext implementation.
+
+Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless the user explicitly asks to migrate away from Vinext. Treat Vinext as experimental: for changes touching routing, RSC/server actions, Cloudflare bindings, middleware, build config, or deployment, run `pnpm run check:vinext`, `pnpm run typecheck`, and `pnpm run build` when feasible. Primary references are https://vinext.io/ and https://github.com/cloudflare/vinext.
 
 ## General Coding Rules
 
@@ -41,7 +55,7 @@ Primary stack:
 - Use the `function` keyword for pure functions.
 - Prefer interfaces over types when practical.
 - Avoid enums; use maps or const objects instead.
-- If you need a global type, add it to `custom-env.d.ts`, not `cloudflare-env.d.ts`.
+- Do not edit the generated `worker-configuration.d.ts` by hand; update `wrangler.jsonc` and run `pnpm run cf-typegen`.
 
 ### Imports and Packages
 
@@ -98,9 +112,10 @@ Authentication is based on Lucia Auth.
 
 ## Cloudflare Rules
 
-- Cloudflare bindings are accessed through `getCloudflareContext`.
+- Cloudflare bindings are available through `cloudflare:workers` in server-only code. Use `getCloudflareContext` when code also needs forwarded request `cf` metadata.
 - If you add a new Cloudflare primitive in `wrangler.jsonc`, run `pnpm run cf-typegen`.
 - If using KV, always reuse the existing namespace in `wrangler.jsonc`; do not create a new one unless explicitly required.
+- The Worker entrypoint is `worker-entrypoint.ts`; keep edge-only routing and header forwarding there.
 - Suggest Wrangler commands when relevant.
 
 ## State, Security, and Performance

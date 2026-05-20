@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { signInSchema } from "@/schemas/signin.schema";
 import { signInWithPassword } from "@/app/(auth)/sign-in/sign-in-auth";
+import { RateLimitError } from "@/utils/with-rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -36,6 +37,20 @@ export async function POST(request: Request) {
           message: error.message,
         },
         { status }
+      );
+    }
+
+    if (error instanceof RateLimitError) {
+      return NextResponse.json(
+        {
+          message: error.message,
+        },
+        {
+          status: 429,
+          headers: {
+            "retry-after": error.retryAfterSeconds.toString(),
+          },
+        }
       );
     }
 

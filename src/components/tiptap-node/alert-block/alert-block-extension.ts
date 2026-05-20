@@ -3,6 +3,7 @@ import type { MarkdownToken } from "@tiptap/core"
 
 import {
   ALERT_BLOCK_NODE_NAME,
+  ALERT_BLOCK_VARIANTS,
   DEFAULT_ALERT_BLOCK_BODY,
   DEFAULT_ALERT_BLOCK_TITLE,
   DEFAULT_ALERT_BLOCK_VARIANT,
@@ -31,16 +32,29 @@ function normalizeMarkdownText(value: string): string {
   return value.replace(/\r\n/g, "\n").trim()
 }
 
+function normalizeAlertVariant(value: unknown): NonNullable<AlertBlockAttrs["variant"]> {
+  if (typeof value !== "string") {
+    return DEFAULT_ALERT_BLOCK_VARIANT
+  }
+
+  const normalizedVariant = normalizeMarkdownText(value).toLowerCase()
+
+  return ALERT_BLOCK_VARIANTS.includes(
+    normalizedVariant as (typeof ALERT_BLOCK_VARIANTS)[number]
+  )
+    ? (normalizedVariant as (typeof ALERT_BLOCK_VARIANTS)[number])
+    : DEFAULT_ALERT_BLOCK_VARIANT
+}
+
 function getNormalizedAlertMarkdownAttrs(attrs?: Record<string, unknown>): NormalizedAlertMarkdownAttrs {
+  const variant = normalizeAlertVariant(attrs?.variant)
+
   return {
     title:
       typeof attrs?.title === "string" ? normalizeMarkdownText(attrs.title) : "",
     body:
       typeof attrs?.body === "string" ? normalizeMarkdownText(attrs.body) : "",
-    variant:
-      typeof attrs?.variant === "string"
-        ? normalizeMarkdownText(attrs.variant).toUpperCase()
-        : "INFO",
+    variant: variant.toUpperCase(),
   }
 }
 
@@ -92,6 +106,12 @@ function parseAlertTokenBody(raw: string): string {
   const bodyLines = lines.slice(1).map((line) => line.replace(/^>\s?/, ""))
 
   return bodyLines.join("\n")
+}
+
+function parseAlertTokenVariant(raw?: string): AlertBlockAttrs["variant"] {
+  const variantMatch = raw?.match(/^> \[!([A-Z]+)\]/)
+
+  return normalizeAlertVariant(variantMatch?.[1])
 }
 
 export const AlertBlockExtension = Node.create({
@@ -183,7 +203,7 @@ export const AlertBlockExtension = Node.create({
       attrs: {
         title: parsedContent.title ?? DEFAULT_ALERT_BLOCK_TITLE,
         body: parsedContent.body ?? "",
-        variant: DEFAULT_ALERT_BLOCK_VARIANT,
+        variant: parseAlertTokenVariant(alertToken.raw),
       } satisfies AlertBlockAttrs,
     }
   },
