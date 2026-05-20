@@ -1,7 +1,9 @@
 "use client"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export type SpacerOrientation = "horizontal" | "vertical"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface SpacerProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: SpacerOrientation
   size?: string | number

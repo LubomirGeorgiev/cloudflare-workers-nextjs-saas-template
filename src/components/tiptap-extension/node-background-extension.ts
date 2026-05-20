@@ -14,6 +14,7 @@ declare module "@tiptap/core" {
   }
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface NodeBackgroundOptions {
   /**
    * Node types that should support background colors
@@ -46,6 +47,7 @@ function getToggleColor(
   return null
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const NodeBackground = Extension.create<NodeBackgroundOptions>({
   name: "nodeBackground",
 

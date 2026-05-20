@@ -23,6 +23,7 @@ const badgeVariants = cva(
   }
 )
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof badgeVariants> {}
@@ -35,5 +36,6 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 
 export {
   Badge,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   badgeVariants
 }

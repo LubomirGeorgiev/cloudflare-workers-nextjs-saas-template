@@ -43,6 +43,7 @@ export interface UseCodeBlockConfig {
 /**
  * Checks if code block can be toggled in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggle(
   editor: Editor | null,
   turnInto: boolean = true
@@ -83,6 +84,7 @@ export function canToggle(
 /**
  * Toggles code block in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleCodeBlock(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggle(editor)) return false
@@ -147,6 +149,7 @@ export function toggleCodeBlock(editor: Editor | null): boolean {
 /**
  * Determines if the code block button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

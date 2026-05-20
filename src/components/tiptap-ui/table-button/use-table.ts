@@ -18,6 +18,7 @@ export interface UseTableConfig {
   withHeaderRow?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertTable(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!isNodeInSchema("table", editor)) return false
@@ -25,6 +26,7 @@ export function canInsertTable(editor: Editor | null): boolean {
   return true
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertTable(
   editor: Editor | null,
   options?: { rows?: number; cols?: number; withHeaderRow?: boolean }
@@ -43,6 +45,7 @@ export function insertTable(
   }
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

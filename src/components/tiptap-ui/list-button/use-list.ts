@@ -52,6 +52,7 @@ export const listIcons = {
   taskList: ListTodoIcon,
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const listLabels: Record<ListType, string> = {
   bulletList: "Bullet List",
   orderedList: "Ordered List",
@@ -141,6 +142,7 @@ export function isListActive(editor: Editor | null, type: ListType): boolean {
 /**
  * Toggles list in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleList(editor: Editor | null, type: ListType): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggleList(editor, type)) return false
@@ -221,6 +223,7 @@ export function toggleList(editor: Editor | null, type: ListType): boolean {
 /**
  * Determines if the list button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   type: ListType

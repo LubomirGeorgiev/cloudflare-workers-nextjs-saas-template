@@ -19,6 +19,7 @@ import {
 import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon"
 
 export const COLOR_HIGHLIGHT_SHORTCUT_KEY = "mod+shift+h"
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const HIGHLIGHT_COLORS = [
   {
     label: "Default background",
@@ -73,6 +74,7 @@ export const HIGHLIGHT_COLORS = [
 ]
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export type HighlightMode = "mark" | "node"
 
 /**
@@ -129,6 +131,7 @@ export function pickHighlightColorsByValue(values: string[]) {
 /**
  * Checks if highlight can be applied based on the mode and current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canColorHighlight(
   editor: Editor | null,
   mode: HighlightMode = "mark"
@@ -157,6 +160,7 @@ export function canColorHighlight(
 /**
  * Checks if highlight is currently active
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isColorHighlightActive(
   editor: Editor | null,
   highlightColor?: string,
@@ -192,6 +196,7 @@ export function isColorHighlightActive(
 /**
  * Removes highlight based on the mode
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function removeHighlight(
   editor: Editor | null,
   mode: HighlightMode = "mark"
@@ -209,6 +214,7 @@ export function removeHighlight(
 /**
  * Determines if the highlight button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

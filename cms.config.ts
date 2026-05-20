@@ -13,6 +13,7 @@ const blogFieldsSchema = z.object({
   excerpt: z.string().max(200).optional(),
 });
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS config exports are consumed by tooling and extension points.
 export type BlogFields = z.infer<typeof blogFieldsSchema>;
 
 const blogCollection = {
@@ -61,6 +62,7 @@ export const cmsConfig = {
 export type CollectionsUnion = keyof typeof cmsConfig.collections;
 export type CmsNavigationKey = keyof typeof cmsConfig.navigations;
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS config exports are consumed by tooling and extension points.
 export const collectionSlugs = Object.keys(cmsConfig.collections) as [CollectionsUnion, ...CollectionsUnion[]];
 export const zodCollectionEnum = z.enum(collectionSlugs);
 export const cmsNavigationKeys = Object.keys(cmsConfig.navigations) as [

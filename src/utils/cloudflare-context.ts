@@ -6,6 +6,7 @@ import { cache } from "react";
 
 import { CF_CONTEXT_FIELDS, type CloudflareRequestContext } from "./cf-context-fields";
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Utility modules intentionally expose shared app/tooling contracts.
 export interface CloudflareContext {
   cf?: CloudflareRequestContext;
   env: typeof workerEnv;

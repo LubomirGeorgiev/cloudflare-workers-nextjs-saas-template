@@ -7,11 +7,13 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import { TableIcon } from "@/components/tiptap-icons/table-icon"
 import { isNodeInSchema } from "@/lib/tiptap-utils"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface UseTableDropdownMenuConfig {
   editor?: Editor | null
   hideWhenUnavailable?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowTableMenu(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

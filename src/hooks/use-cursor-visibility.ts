@@ -5,6 +5,7 @@ import { useWindowSize } from "@/hooks/use-window-size"
 import { useBodyRect } from "@/hooks/use-element-rect"
 import { useEffect } from "react"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export interface CursorVisibilityOptions {
   /**
    * The Tiptap editor instance

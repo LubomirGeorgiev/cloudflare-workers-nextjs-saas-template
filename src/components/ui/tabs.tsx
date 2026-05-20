@@ -56,5 +56,6 @@ export {
   Tabs,
   TabsList,
   TabsTrigger,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   TabsContent
 }

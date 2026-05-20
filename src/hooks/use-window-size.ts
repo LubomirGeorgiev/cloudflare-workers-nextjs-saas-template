@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useThrottledCallback } from "@/hooks/use-throttled-callback"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export interface WindowSizeState {
   /**
    * The width of the window's visual viewport in pixels.

@@ -330,6 +330,7 @@ export const getCmsNavigationTree = cache(async ({
   });
 });
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function getDocsNavigationTree({
   status = CMS_ENTRY_STATUS.PUBLISHED,
 }: Omit<GetCmsNavigationTreeParams, "navigationKey"> = {}): Promise<CmsNavigationTreeNode[]> {
@@ -381,6 +382,7 @@ export async function getCmsNavigationRootPath({
   );
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function getDocsNavigationRootPath(): Promise<string | null> {
   return getCmsNavigationRootPath({
     navigationKey: "docs",

@@ -15,6 +15,7 @@ export interface UseHorizontalRuleConfig {
   onInserted?: () => void
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertHorizontalRule(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!isNodeInSchema("horizontalRule", editor)) return false
@@ -22,6 +23,7 @@ export function canInsertHorizontalRule(editor: Editor | null): boolean {
   return editor.can().setHorizontalRule()
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertHorizontalRule(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canInsertHorizontalRule(editor)) return false
@@ -34,6 +36,7 @@ export function insertHorizontalRule(editor: Editor | null): boolean {
   }
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

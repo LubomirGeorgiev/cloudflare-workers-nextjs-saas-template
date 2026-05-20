@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "nextjs", "jsx-a11y", "import"],
+  "jsPlugins": ["./tools/oxlint-rules/index.js"],
   "categories": {
     "correctness": "off"
   },
@@ -28,6 +29,7 @@
       }
     ],
     "no-unused-expressions": "warn",
+    "project/no-unused-module-exports": "error",
     "no-var": "error",
     "prefer-const": "error",
     "prefer-rest-params": "error",

@@ -25,6 +25,7 @@ import {
 /**
  * Configuration for the list dropdown menu functionality
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface UseListDropdownMenuConfig {
   /**
    * The Tiptap editor instance.
@@ -42,12 +43,14 @@ export interface UseListDropdownMenuConfig {
   hideWhenUnavailable?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ListOption {
   label: string
   type: ListType
   icon: React.ElementType
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const listOptions: ListOption[] = [
   {
     label: "Bullet List",
@@ -66,6 +69,7 @@ export const listOptions: ListOption[] = [
   },
 ]
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggleAnyList(
   editor: Editor | null,
   listTypes: ListType[]
@@ -74,6 +78,7 @@ export function canToggleAnyList(
   return listTypes.some((type) => canToggleList(editor, type))
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isAnyListActive(
   editor: Editor | null,
   listTypes: ListType[]
@@ -82,6 +87,7 @@ export function isAnyListActive(
   return listTypes.some((type) => isListActive(editor, type))
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function getFilteredListOptions(
   availableTypes: ListType[]
 ): typeof listOptions {
@@ -90,6 +96,7 @@ export function getFilteredListOptions(
   )
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowListDropdown(params: {
   editor: Editor | null
   listTypes: ListType[]
@@ -113,6 +120,7 @@ export function shouldShowListDropdown(params: {
 /**
  * Gets the currently active list type from the available types
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function getActiveListType(
   editor: Editor | null,
   availableTypes: ListType[]

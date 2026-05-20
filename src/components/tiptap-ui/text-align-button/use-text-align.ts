@@ -51,6 +51,7 @@ export const TEXT_ALIGN_SHORTCUT_KEYS: Record<TextAlign, string> = {
   justify: "mod+shift+j",
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const textAlignIcons = {
   left: AlignLeftIcon,
   center: AlignCenterIcon,
@@ -58,6 +59,7 @@ export const textAlignIcons = {
   justify: AlignJustifyIcon,
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const textAlignLabels: Record<TextAlign, string> = {
   left: "Align left",
   center: "Align center",
@@ -68,6 +70,7 @@ export const textAlignLabels: Record<TextAlign, string> = {
 /**
  * Checks if text alignment can be performed in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canSetTextAlign(
   editor: Editor | null,
   align: TextAlign
@@ -82,6 +85,7 @@ export function canSetTextAlign(
   return editor.can().setTextAlign(align)
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function hasSetTextAlign(
   commands: ChainedCommands
 ): commands is ChainedCommands & {
@@ -93,6 +97,7 @@ export function hasSetTextAlign(
 /**
  * Checks if the text alignment is currently active
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isTextAlignActive(
   editor: Editor | null,
   align: TextAlign
@@ -104,6 +109,7 @@ export function isTextAlignActive(
 /**
  * Sets text alignment in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canSetTextAlign(editor, align)) return false
@@ -119,6 +125,7 @@ export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
 /**
  * Determines if the text align button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

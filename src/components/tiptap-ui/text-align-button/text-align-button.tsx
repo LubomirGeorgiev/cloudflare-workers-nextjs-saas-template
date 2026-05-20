@@ -26,6 +26,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 type IconProps = React.SVGProps<SVGSVGElement>
 type IconComponent = ({ className, ...props }: IconProps) => React.ReactElement
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface TextAlignButtonProps
   extends Omit<ButtonProps, "type">,
     UseTextAlignConfig {
@@ -44,6 +45,7 @@ export interface TextAlignButtonProps
   icon?: React.MemoExoticComponent<IconComponent> | React.FC<IconProps>
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function TextAlignShortcutBadge({
   align,
   shortcutKeys = TEXT_ALIGN_SHORTCUT_KEYS[align],

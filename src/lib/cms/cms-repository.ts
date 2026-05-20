@@ -37,7 +37,6 @@ import {
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
-// TODO Replace Radix with BaseUI
 // Zod Schemas for validation
 // TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
 const cmsEntryStatusOrAllSchema = z.enum(cmsStatusFilterTuple);
@@ -290,6 +289,7 @@ export async function invalidateCmsCollectionCache({
   await invalidateCacheByPrefix(prefix);
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function invalidateCmsCollectionCountCache({
   collectionSlug,
 }: {

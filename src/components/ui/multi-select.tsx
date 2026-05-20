@@ -30,6 +30,7 @@ import {
 /**
  * Animation types and configurations
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
 export interface AnimationConfig {
   /** Badge animation type */
   badgeAnimation?: "bounce" | "pulse" | "wiggle" | "fade" | "slide" | "none";
@@ -1218,4 +1219,5 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 );
 
 MultiSelect.displayName = "MultiSelect";
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
 export type { MultiSelectOption, MultiSelectGroup, MultiSelectProps };

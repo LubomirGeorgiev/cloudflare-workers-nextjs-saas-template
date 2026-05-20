@@ -23,6 +23,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 type IconProps = React.SVGProps<SVGSVGElement>
 type IconComponent = ({ className, ...props }: IconProps) => React.ReactElement
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ImageUploadButtonProps
   extends Omit<ButtonProps, "type">,
     UseImageUploadConfig {
@@ -41,6 +42,7 @@ export interface ImageUploadButtonProps
   icon?: React.MemoExoticComponent<IconComponent> | React.FC<IconProps>
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function ImageShortcutBadge({
   shortcutKeys = IMAGE_UPLOAD_SHORTCUT_KEY,
 }: {

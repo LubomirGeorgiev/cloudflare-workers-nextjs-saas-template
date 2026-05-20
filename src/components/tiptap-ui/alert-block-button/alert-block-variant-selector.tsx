@@ -30,6 +30,7 @@ const variantLabels = {
   destructive: "Destructive",
 } as const
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface AlertBlockVariantSelectorProps {
   editor?: Editor | null
 }

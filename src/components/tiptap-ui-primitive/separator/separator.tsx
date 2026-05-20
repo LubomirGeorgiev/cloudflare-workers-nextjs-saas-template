@@ -4,8 +4,10 @@ import { forwardRef } from "react"
 import "@/components/tiptap-ui-primitive/separator/separator.scss"
 import { cn } from "@/lib/tiptap-utils"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export type Orientation = "horizontal" | "vertical"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface SeparatorProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: Orientation
   decorative?: boolean

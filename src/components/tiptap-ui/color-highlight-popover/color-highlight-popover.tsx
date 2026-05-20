@@ -38,6 +38,7 @@ import {
   useColorHighlight,
 } from "@/components/tiptap-ui/color-highlight-button"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ColorHighlightPopoverContentProps {
   /**
    * The Tiptap editor instance.
@@ -50,6 +51,7 @@ export interface ColorHighlightPopoverContentProps {
   colors?: HighlightColor[]
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ColorHighlightPopoverProps
   extends Omit<ButtonProps, "type">,
     Pick<

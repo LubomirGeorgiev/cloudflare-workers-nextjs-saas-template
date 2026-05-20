@@ -38,6 +38,7 @@ export interface UseLinkPopoverConfig {
 /**
  * Configuration for the link handler functionality
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface LinkHandlerProps {
   /**
    * The Tiptap editor instance.
@@ -52,6 +53,7 @@ export interface LinkHandlerProps {
 /**
  * Checks if a link can be set in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canSetLink(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
 
@@ -64,6 +66,7 @@ export function canSetLink(editor: Editor | null): boolean {
 /**
  * Checks if a link is currently active in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isLinkActive(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   return editor.isActive("link")
@@ -72,6 +75,7 @@ export function isLinkActive(editor: Editor | null): boolean {
 /**
  * Determines if the link button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowLinkButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean
@@ -94,6 +98,7 @@ export function shouldShowLinkButton(props: {
 /**
  * Custom hook for handling link operations in a Tiptap editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function useLinkHandler(props: LinkHandlerProps) {
   const { editor, onSetLink } = props
   const [url, setUrl] = useState<string | null>(null)
@@ -180,6 +185,7 @@ export function useLinkHandler(props: LinkHandlerProps) {
 /**
  * Custom hook for link popover state management
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function useLinkState(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

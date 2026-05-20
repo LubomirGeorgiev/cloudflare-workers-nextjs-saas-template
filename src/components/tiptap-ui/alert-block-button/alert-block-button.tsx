@@ -8,6 +8,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface AlertBlockButtonProps
   extends Omit<ButtonProps, "type">,
     UseAlertBlockConfig {

@@ -17,6 +17,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface MarkButtonProps
   extends Omit<ButtonProps, "type">,
     UseMarkConfig {
@@ -31,6 +32,7 @@ export interface MarkButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function MarkShortcutBadge({
   type,
   shortcutKeys = MARK_SHORTCUT_KEYS[type],

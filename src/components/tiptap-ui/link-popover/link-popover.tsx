@@ -33,6 +33,7 @@ import {
 } from "@/components/tiptap-ui-primitive/card"
 import { Input, InputGroup } from "@/components/tiptap-ui-primitive/input"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface LinkMainProps {
   /**
    * The URL to set for the link.
@@ -60,6 +61,7 @@ export interface LinkMainProps {
   isActive: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface LinkPopoverProps
   extends Omit<ButtonProps, "type">,
     UseLinkPopoverConfig {

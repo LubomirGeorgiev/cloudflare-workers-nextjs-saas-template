@@ -17,6 +17,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 import type { ListType, UseListConfig } from "@/components/tiptap-ui/list-button"
 import { LIST_SHORTCUT_KEYS, useList } from "@/components/tiptap-ui/list-button"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ListButtonProps
   extends Omit<ButtonProps, "type">,
     UseListConfig {
@@ -31,6 +32,7 @@ export interface ListButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function ListShortcutBadge({
   type,
   shortcutKeys = LIST_SHORTCUT_KEYS[type],

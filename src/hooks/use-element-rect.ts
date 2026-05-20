@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react"
 import { useThrottledCallback } from "@/hooks/use-throttled-callback"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export type RectState = Omit<DOMRect, "toJSON">
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export interface ElementRectOptions {
   /**
    * The element to track. Can be an Element, ref, or selector string.
@@ -50,6 +52,7 @@ const isClientSide = (): boolean => !isSSR
  * @param options Configuration options for element rect tracking
  * @returns The current bounding rectangle of the element
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export function useElementRect({
   element,
   enabled = true,
@@ -158,6 +161,7 @@ export function useBodyRect(
 /**
  * Convenience hook for tracking a ref element's rect
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export function useRefRect<T extends Element>(
   ref: React.RefObject<T>,
   options: Omit<ElementRectOptions, "element"> = {}

@@ -9,6 +9,7 @@ interface UseScrollingOptions {
   fallbackToDocument?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export function useScrolling(
   target?: ScrollTarget,
   options: UseScrollingOptions = {}

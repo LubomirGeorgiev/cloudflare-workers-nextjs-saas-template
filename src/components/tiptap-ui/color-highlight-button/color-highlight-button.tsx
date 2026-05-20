@@ -23,6 +23,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 // --- Styles ---
 import "@/components/tiptap-ui/color-highlight-button/color-highlight-button.scss"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ColorHighlightButtonProps
   extends Omit<ButtonProps, "type">,
     UseColorHighlightConfig {
@@ -37,6 +38,7 @@ export interface ColorHighlightButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function ColorHighlightShortcutBadge({
   shortcutKeys = COLOR_HIGHLIGHT_SHORTCUT_KEY,
 }: {

@@ -191,13 +191,18 @@ SelectSeparator.displayName = SelectPrimitive.Separator.displayName
 
 export {
   Select,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SelectGroup,
   SelectValue,
   SelectTrigger,
   SelectContent,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SelectLabel,
   SelectItem,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SelectSeparator,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SelectScrollUpButton,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SelectScrollDownButton,
 }

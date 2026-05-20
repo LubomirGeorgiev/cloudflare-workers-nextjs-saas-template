@@ -20,6 +20,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface BlockquoteButtonProps
   extends Omit<ButtonProps, "type">,
     UseBlockquoteConfig {
@@ -34,6 +35,7 @@ export interface BlockquoteButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function BlockquoteShortcutBadge({
   shortcutKeys = BLOCKQUOTE_SHORTCUT_KEY,
 }: {

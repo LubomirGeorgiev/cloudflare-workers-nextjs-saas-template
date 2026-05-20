@@ -25,6 +25,7 @@ import {
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
 import { Card, CardBody } from "@/components/tiptap-ui-primitive/card"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ListDropdownMenuProps extends Omit<ButtonProps, "type"> {
   /**
    * The Tiptap editor instance.

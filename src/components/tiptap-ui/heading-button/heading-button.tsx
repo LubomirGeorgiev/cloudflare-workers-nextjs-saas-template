@@ -21,6 +21,7 @@ import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface HeadingButtonProps
   extends Omit<ButtonProps, "type">,
     UseHeadingConfig {
@@ -35,6 +36,7 @@ export interface HeadingButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function HeadingShortcutBadge({
   level,
   shortcutKeys = HEADING_SHORTCUT_KEYS[level],

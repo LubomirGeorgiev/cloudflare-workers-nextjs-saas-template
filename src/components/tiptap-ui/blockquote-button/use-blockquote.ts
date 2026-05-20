@@ -43,6 +43,7 @@ export interface UseBlockquoteConfig {
 /**
  * Checks if blockquote can be toggled in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggleBlockquote(
   editor: Editor | null,
   turnInto: boolean = true
@@ -80,6 +81,7 @@ export function canToggleBlockquote(
 /**
  * Toggles blockquote formatting for a specific node or the current selection
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleBlockquote(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggleBlockquote(editor)) return false
@@ -144,6 +146,7 @@ export function toggleBlockquote(editor: Editor | null): boolean {
 /**
  * Determines if the blockquote button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

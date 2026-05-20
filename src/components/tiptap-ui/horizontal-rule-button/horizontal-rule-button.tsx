@@ -13,6 +13,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface HorizontalRuleButtonProps
   extends Omit<ButtonProps, "type">,
     UseHorizontalRuleConfig {
@@ -20,6 +21,7 @@ export interface HorizontalRuleButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function HorizontalRuleShortcutBadge({
   shortcutKeys = HORIZONTAL_RULE_SHORTCUT_KEY,
 }: {

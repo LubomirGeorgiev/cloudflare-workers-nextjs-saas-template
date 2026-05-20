@@ -109,9 +109,11 @@ export {
   Table,
   TableHeader,
   TableBody,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   TableFooter,
   TableHead,
   TableRow,
   TableCell,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   TableCaption,
 }

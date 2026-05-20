@@ -2,6 +2,7 @@ import { generateSlug } from "@/utils/slugify"
 
 const AUTHOR_ROUTE_ID_SEPARATOR = "--"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Utility modules intentionally expose shared app/tooling contracts.
 export interface AuthorUrlIdentity {
   id: string
   firstName?: string | null

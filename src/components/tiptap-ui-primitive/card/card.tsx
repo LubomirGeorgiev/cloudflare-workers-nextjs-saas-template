@@ -76,4 +76,5 @@ const CardFooter = forwardRef<HTMLDivElement, React.ComponentProps<"div">>(
 )
 CardFooter.displayName = "CardFooter"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export { Card, CardHeader, CardFooter, CardBody, CardItemGroup, CardGroupLabel }

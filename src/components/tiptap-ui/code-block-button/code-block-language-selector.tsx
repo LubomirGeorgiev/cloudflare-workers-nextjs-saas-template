@@ -44,6 +44,7 @@ const COMMON_LANGUAGES = [
   { value: "graphql", label: "GraphQL" },
 ]
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface CodeBlockLanguageSelectorProps {
   /**
    * The Tiptap editor instance.

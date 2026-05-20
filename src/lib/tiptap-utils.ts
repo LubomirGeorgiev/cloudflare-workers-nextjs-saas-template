@@ -16,6 +16,7 @@ import { uploadImageAction } from "@/actions/upload-image.action"
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const MAC_SYMBOLS: Record<string, string> = {
   mod: "⌘",
   command: "⌘",
@@ -32,6 +33,7 @@ export const MAC_SYMBOLS: Record<string, string> = {
   capslock: "⇪",
 } as const
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const SR_ONLY = {
   position: "absolute",
   width: "1px",
@@ -54,6 +56,7 @@ export function cn(
  * Determines if the current platform is macOS
  * @returns boolean indicating if the current platform is Mac
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isMac(): boolean {
   return (
     typeof navigator !== "undefined" &&
@@ -68,6 +71,7 @@ export function isMac(): boolean {
  * @param capitalize - Whether to capitalize the key (default: true)
  * @returns Formatted shortcut key symbol
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const formatShortcutKey = (
   key: string,
   isMac: boolean,
@@ -207,6 +211,7 @@ export function isExtensionAvailable(
  * @param position The position in the document to find the node
  * @returns The node at the specified position, or null if not found
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function findNodeAtPosition(editor: Editor, position: number) {
   try {
     const node = editor.state.doc.nodeAt(position)
@@ -437,6 +442,7 @@ const ATTR_WHITESPACE =
   // oxlint-disable-next-line no-control-regex
   /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isAllowedUri(
   uri: string | undefined,
   protocols?: ProtocolConfig
@@ -549,6 +555,7 @@ export function updateNodesAttr<A extends string = string, V = unknown>(
  * If the selection is not empty, it does nothing.
  * @param editor The Tiptap editor instance
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function selectCurrentBlockContent(editor: Editor) {
   const { selection, doc } = editor.state
 

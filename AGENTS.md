@@ -12,7 +12,7 @@ Primary stack:
 - TypeScript
 - Tailwind CSS
 - Vinext and Vite
-- Shadcn UI / Radix UI
+- Shadcn UI / Base UI
 - Drizzle ORM
 - Cloudflare Workers, D1, KV, R2, Images
 - Lucia Auth
@@ -91,7 +91,7 @@ Suggested homes:
 - Use dynamic loading for non-critical UI when useful.
 - Use `nuqs` for URL search parameter state.
 - Use declarative JSX and concise conditionals.
-- Use Tailwind, Shadcn UI, and Radix UI consistently with the existing design system.
+- Use Tailwind, Shadcn UI, and Base UI consistently with the existing design system.
 - Implement responsive, mobile-first layouts and support light/dark mode.
 - When using a `container` class, also use `mx-auto`.
 

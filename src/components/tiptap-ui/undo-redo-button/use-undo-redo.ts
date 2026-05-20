@@ -43,11 +43,13 @@ export const UNDO_REDO_SHORTCUT_KEYS: Record<UndoRedoAction, string> = {
   redo: "mod+shift+z",
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const historyActionLabels: Record<UndoRedoAction, string> = {
   undo: "Undo",
   redo: "Redo",
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const historyIcons = {
   undo: Undo2Icon,
   redo: Redo2Icon,
@@ -56,6 +58,7 @@ export const historyIcons = {
 /**
  * Checks if a history action can be executed
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canExecuteUndoRedoAction(
   editor: Editor | null,
   action: UndoRedoAction
@@ -69,6 +72,7 @@ export function canExecuteUndoRedoAction(
 /**
  * Executes a history action on the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function executeUndoRedoAction(
   editor: Editor | null,
   action: UndoRedoAction
@@ -83,6 +87,7 @@ export function executeUndoRedoAction(
 /**
  * Determines if the history button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

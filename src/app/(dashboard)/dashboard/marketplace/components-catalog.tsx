@@ -1,3 +1,4 @@
+// oxlint-disable-next-line project/no-unused-module-exports -- Marketplace catalog exports are part of the module contract.
 export interface MarketplaceComponent {
   id: string
   name: string

@@ -41,6 +41,7 @@ export interface UseHeadingDropdownMenuConfig {
 /**
  * Gets the currently active heading level from the available levels
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function getActiveHeadingLevel(
   editor: Editor | null,
   levels: Level[] = [1, 2, 3, 4, 5, 6]

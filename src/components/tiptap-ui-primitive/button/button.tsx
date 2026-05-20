@@ -24,6 +24,7 @@ export interface ButtonProps
   shortcutKeys?: string
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({
   shortcuts,
 }) => {

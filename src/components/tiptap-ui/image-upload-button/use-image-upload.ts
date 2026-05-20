@@ -38,6 +38,7 @@ export interface UseImageUploadConfig {
 /**
  * Checks if image can be inserted in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertImage(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!isExtensionAvailable(editor, "imageUpload")) return false
@@ -48,6 +49,7 @@ export function canInsertImage(editor: Editor | null): boolean {
 /**
  * Checks if image is currently active
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isImageActive(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   return editor.isActive("imageUpload")
@@ -56,6 +58,7 @@ export function isImageActive(editor: Editor | null): boolean {
 /**
  * Inserts an image in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertImage(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canInsertImage(editor)) return false
@@ -76,6 +79,7 @@ export function insertImage(editor: Editor | null): boolean {
 /**
  * Determines if the image button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   hideWhenUnavailable: boolean

@@ -231,6 +231,7 @@ export {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   CommandShortcut,
   CommandSeparator,
 }

@@ -50,6 +50,7 @@ export interface UseMarkConfig {
   onToggled?: () => void
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const markIcons = {
   bold: BoldIcon,
   italic: ItalicIcon,
@@ -73,6 +74,7 @@ export const MARK_SHORTCUT_KEYS: Record<Mark, string> = {
 /**
  * Checks if a mark can be toggled in the current editor state
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggleMark(editor: Editor | null, type: Mark): boolean {
   if (!editor || !editor.isEditable) return false
   if (!isMarkInSchema(type, editor) || isNodeTypeSelected(editor, ["image"]))
@@ -84,6 +86,7 @@ export function canToggleMark(editor: Editor | null, type: Mark): boolean {
 /**
  * Checks if a mark is currently active
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isMarkActive(editor: Editor | null, type: Mark): boolean {
   if (!editor || !editor.isEditable) return false
   return editor.isActive(type)
@@ -92,6 +95,7 @@ export function isMarkActive(editor: Editor | null, type: Mark): boolean {
 /**
  * Toggles a mark in the editor
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleMark(editor: Editor | null, type: Mark): boolean {
   if (!editor || !editor.isEditable) return false
   if (!canToggleMark(editor, type)) return false
@@ -102,6 +106,7 @@ export function toggleMark(editor: Editor | null, type: Mark): boolean {
 /**
  * Determines if the mark button should be shown
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
   type: Mark
@@ -122,6 +127,7 @@ export function shouldShowButton(props: {
 /**
  * Gets the formatted mark name
  */
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function getFormattedMarkName(type: Mark): string {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }

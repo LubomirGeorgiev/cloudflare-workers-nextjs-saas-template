@@ -13,6 +13,7 @@ import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Badge } from "@/components/tiptap-ui-primitive/badge"
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface TableButtonProps
   extends Omit<ButtonProps, "type">,
     UseTableConfig {
@@ -20,6 +21,7 @@ export interface TableButtonProps
   showShortcut?: boolean
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function TableShortcutBadge({
   shortcutKeys = TABLE_SHORTCUT_KEY,
 }: {

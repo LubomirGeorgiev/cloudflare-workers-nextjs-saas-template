@@ -17,6 +17,7 @@ const DEFAULT_CMS_SEARCH_LIMIT = 8;
 const MAX_SEARCH_TOKENS = 6;
 const CMS_SEARCH_CACHE_TTL = "6 hours";
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export interface CmsSearchResult {
   entryId: string;
   title: string;
@@ -148,6 +149,7 @@ export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion
   }
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function invalidateDocsSearchCache(): Promise<void> {
   await invalidateCmsSearchCache(DOCS_SLUG);
 }
@@ -260,6 +262,7 @@ export async function removeCmsEntrySearch({
   await optimizeCmsSearchIndex(d1);
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function searchCmsCollection({
   collectionSlug,
   query,
@@ -328,6 +331,7 @@ export async function searchCmsCollection({
   });
 }
 
+// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export type DocsSearchResult = CmsSearchResult;
 
 export async function searchDocs({

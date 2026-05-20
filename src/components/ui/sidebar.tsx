@@ -738,23 +738,29 @@ export {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarGroupAction,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarInput,
   SidebarInset,
   SidebarMenu,
   SidebarMenuAction,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
