@@ -1,4 +1,4 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { NextResponse } from "next/server";
 import { CMS_IMAGES_BASE_PATH } from "@/constants";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
@@ -18,7 +18,7 @@ export async function GET(
 ) {
   return withRateLimit(async () => {
     try {
-      const { env } = getCloudflareContext();
+      const { env } = await getCloudflareContext();
 
       if (!env.NEXT_INC_CACHE_R2_BUCKET) {
         return NextResponse.json(

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { headers } from "next/headers";
 
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/auth";
@@ -70,7 +70,7 @@ export interface KVSession {
 export const CURRENT_SESSION_VERSION = 4;
 
 async function getKV() {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   return env.NEXT_INC_CACHE_KV;
 }
 
@@ -90,7 +90,7 @@ export async function createKVSession({
   teams,
   selectedTeam
 }: CreateKVSessionParams): Promise<KVSession> {
-  const { cf } = await getCloudflareContext({ async: true });
+  const { cf } = await getCloudflareContext();
   const headersList = await headers();
   const kv = await getKV();
 

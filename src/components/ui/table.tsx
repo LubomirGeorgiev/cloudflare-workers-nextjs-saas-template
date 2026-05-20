@@ -109,11 +109,9 @@ export {
   Table,
   TableHeader,
   TableBody,
-  // eslint-disable-next-line import/no-unused-modules
   TableFooter,
   TableHead,
   TableRow,
   TableCell,
-  // eslint-disable-next-line import/no-unused-modules
   TableCaption,
 }

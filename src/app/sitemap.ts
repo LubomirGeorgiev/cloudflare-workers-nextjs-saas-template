@@ -1,4 +1,3 @@
-/* eslint-disable import/no-unused-modules */
 import "server-only"
 import { getCmsCollection } from "@/lib/cms/cms-repository"
 import { SITE_URL } from "@/constants"
@@ -44,7 +43,7 @@ function dedupeSitemapUrls(entries: MetadataRoute.Sitemap): MetadataRoute.Sitema
 async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
   const sitemapCollections = (Object.entries(cmsConfig.collections) as Array<
     [CollectionsUnion, DefineCmsCollection]
-  >).filter(([collectionSlug, collection]) =>
+  >).filter(([__collectionSlug, collection]) =>
     collection.includeInSitemap !== false && !collection.navigationKey
   )
 
@@ -54,7 +53,7 @@ async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
 
   const uniqueUrls = new Map<string, MetadataRoute.Sitemap[number]>()
 
-  sitemapCollections.forEach(([_, collection], collectionIndex) => {
+  sitemapCollections.forEach(([__, collection], collectionIndex) => {
     const previewUrl = collection.previewUrl
     if (!previewUrl) {
       return

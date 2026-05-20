@@ -27,6 +27,20 @@ import {
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -643,6 +657,7 @@ export function CmsNavigationManager({
   const [items, setItems] = useState<CmsNavigationFlatNode[]>(
     flattenNavigationTree(initialTree)
   );
+  const [isAddPageDialogOpen, setIsAddPageDialogOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     initialTree[0]?.id ?? null
   );
@@ -715,50 +730,42 @@ export function CmsNavigationManager({
       ),
     [assignedEntryIds, entries, selectedNode?.entryId]
   );
+  const unassignedEntries = useMemo(
+    () => entries.filter((entry) => !assignedEntryIds.has(entry.id)),
+    [assignedEntryIds, entries]
+  );
 
   const addGroup = () => {
-    const nextItems = [
-      ...items,
-      {
-        id: createTempId(),
-        parentId: null,
-        nodeType: CMS_NAVIGATION_NODE_TYPES.GROUP,
-        title: "New Group",
-        entryId: null,
-        slugSegment: null,
-        sortOrder: tree.length,
-      },
-    ];
+    const nextNode: CmsNavigationFlatNode = {
+      id: createTempId(),
+      parentId: null,
+      nodeType: CMS_NAVIGATION_NODE_TYPES.GROUP,
+      title: "New Group",
+      entryId: null,
+      slugSegment: null,
+      sortOrder: buildEditableTree(items).length,
+    };
+    const nextItems = [...items, nextNode];
 
     setItems(nextItems);
-    setSelectedNodeId(nextItems[nextItems.length - 1]?.id ?? null);
+    setSelectedNodeId(nextNode.id);
   };
 
-  const addPage = () => {
-    const firstAvailableEntry = entries.find(
-      (entry) => !assignedEntryIds.has(entry.id)
-    );
-
-    if (!firstAvailableEntry) {
-      toast.error(`Create another ${collectionLabelSingular.toLowerCase()} entry before adding a new navigation page`);
-      return;
-    }
-
-    const nextItems = [
-      ...items,
-      {
-        id: createTempId(),
-        parentId: null,
-        nodeType: CMS_NAVIGATION_NODE_TYPES.PAGE,
-        title: firstAvailableEntry.title,
-        entryId: firstAvailableEntry.id,
-        slugSegment: firstAvailableEntry.slug,
-        sortOrder: tree.length,
-      },
-    ];
+  const addPage = (entry: GetCmsCollectionResult) => {
+    const nextNode: CmsNavigationFlatNode = {
+      id: createTempId(),
+      parentId: null,
+      nodeType: CMS_NAVIGATION_NODE_TYPES.PAGE,
+      title: entry.title,
+      entryId: entry.id,
+      slugSegment: entry.slug,
+      sortOrder: buildEditableTree(items).length,
+    };
+    const nextItems = [...items, nextNode];
 
     setItems(nextItems);
-    setSelectedNodeId(nextItems[nextItems.length - 1]?.id ?? null);
+    setSelectedNodeId(nextNode.id);
+    setIsAddPageDialogOpen(false);
   };
 
   const updateNode = (
@@ -916,9 +923,18 @@ export function CmsNavigationManager({
               <Plus className="h-4 w-4 mr-2" />
               Add Group
             </Button>
-            <Button variant="outline" onClick={addPage}>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddPageDialogOpen(true)}
+              className="relative"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Page
+              {unassignedEntries.length > 0 ? (
+                <span className="absolute -right-2 -top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white shadow-sm">
+                  {unassignedEntries.length}
+                </span>
+              ) : null}
             </Button>
             <Button
               onClick={() =>
@@ -977,6 +993,47 @@ export function CmsNavigationManager({
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isAddPageDialogOpen} onOpenChange={setIsAddPageDialogOpen}>
+        <DialogContent className="p-0 sm:max-w-xl">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Add Navigation Page</DialogTitle>
+            <DialogDescription>
+              Choose which {collectionLabelSingular.toLowerCase()} entry to add to the {navigationLabel.toLowerCase()} tree.
+            </DialogDescription>
+          </DialogHeader>
+          <Command className="rounded-none border-t">
+            <CommandInput
+              placeholder={`Search ${collectionLabelSingular.toLowerCase()} entries...`}
+            />
+            <CommandList className="max-h-[420px]">
+              <CommandEmpty className="px-6 py-8 text-sm text-muted-foreground">
+                {entries.some((entry) => !assignedEntryIds.has(entry.id))
+                  ? `No matching ${collectionLabelSingular.toLowerCase()} entries found.`
+                  : `Create another ${collectionLabelSingular.toLowerCase()} entry before adding a new navigation page.`}
+              </CommandEmpty>
+              {unassignedEntries.map((entry) => (
+                  <CommandItem
+                    key={entry.id}
+                    value={`${entry.title} ${entry.slug}`}
+                    onSelect={() => addPage(entry)}
+                    className="flex items-start justify-between gap-4 px-6 py-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{entry.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        /{entry.slug}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      Add page
+                    </span>
+                  </CommandItem>
+                ))}
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

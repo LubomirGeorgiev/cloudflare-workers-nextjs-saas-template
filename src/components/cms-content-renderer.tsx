@@ -7,6 +7,11 @@ import { renderToReactElement } from "@tiptap/static-renderer/pm/react";
 import { getTiptapBaseExtensions, sharedLowlight } from "@/lib/tiptap-base-extensions";
 import { cn } from "@/lib/utils";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
+import { AlertBlock } from "@/components/tiptap-node/alert-block/alert-block";
+import {
+  ALERT_BLOCK_NODE_NAME,
+  type AlertBlockAttrs,
+} from "@/components/tiptap-node/alert-block/alert-block-types";
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss"
 
@@ -105,7 +110,7 @@ function CodeBlockRenderer({
   language: propLanguage,
   children,
   node,
-  ..._rest
+  ...__rest
 }: CodeBlockRendererProps) {
 
   // Extract language from node.attrs if available, fallback to prop
@@ -178,7 +183,7 @@ function ImageComponent({
         />
       ) : (
         // External images - use regular img tag
-        // eslint-disable-next-line @next/next/no-img-element
+        // oxlint-disable-next-line nextjs/no-img-element
         <img
           src={src as string}
           alt={(alt as string) || ""}
@@ -216,6 +221,12 @@ export function CmsContentRenderer({ content, className, onRendered }: CmsConten
         image: ImageComponent,
         // Map the 'codeBlock' node to our custom syntax highlighting component
         codeBlock: CodeBlockRenderer,
+        // Render custom CMS alert blocks with shared alert styles.
+        [ALERT_BLOCK_NODE_NAME]: ({ node }: { node: { attrs?: Record<string, unknown> } }) => (
+          <AlertBlock
+            {...(node.attrs as AlertBlockAttrs | undefined)}
+          />
+        ),
       },
     },
   });

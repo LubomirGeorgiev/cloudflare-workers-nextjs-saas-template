@@ -22,7 +22,7 @@ const baseCmsEntrySchema = z.object({
 function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
   return schema
     .refine(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       (data: any) => {
         // If publishedAt is in the future, status must be scheduled
         if (data.publishedAt) {
@@ -40,7 +40,7 @@ function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
       }
     )
     .refine(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // oxlint-disable-next-line typescript/no-explicit-any
       (data: any) => {
         // If status is scheduled, publishedAt must be provided and in the future
         if (data.status === CMS_ENTRY_STATUS.SCHEDULED) {

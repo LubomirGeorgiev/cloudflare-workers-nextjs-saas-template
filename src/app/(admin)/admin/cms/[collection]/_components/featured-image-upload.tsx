@@ -36,7 +36,7 @@ interface FeaturedImageUploadProps {
 
 export function FeaturedImageUpload({
   collection,
-  value: _value,
+  value: __value,
   featuredImage,
   featuredImageUrl,
   onChange,
@@ -121,9 +121,9 @@ export function FeaturedImageUpload({
 
   const handleMediaLibrarySelect = (
     url: string,
-    _alt?: string,
-    _width?: number,
-    _height?: number
+    __alt?: string,
+    __width?: number,
+    __height?: number
   ) => {
     // Extract the bucket key from the URL
     const bucketKey = url.replace(/^\/api\/cms-images\//, "");

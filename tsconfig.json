@@ -26,18 +26,14 @@
       "@/*": [
         "./src/*"
       ]
-    },
-    "types": [
-      "./cloudflare-env.d.ts",
-      "node"
-    ]
+    }
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "custom-env.d.ts",
+    "worker-configuration.d.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [

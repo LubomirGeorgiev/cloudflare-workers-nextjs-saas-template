@@ -50,3 +50,9 @@ dist
 !.env*example
 *.log
 backups
+.vinext
+worker
+worker-dist
+
+# Localflare generated files
+.localflare/

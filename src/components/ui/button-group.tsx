@@ -11,7 +11,7 @@ export const ButtonGroup = React.forwardRef<HTMLDivElement, ButtonGroupProps>(
     <div
       ref={ref}
       className={cn(
-        "inline-flex w-fit items-stretch [&>*:not(:first-child)]:rounded-l-none [&>*:not(:last-child)]:rounded-r-none",
+        "inline-flex w-fit items-stretch [&>*:not(:first-child)]:-ml-px [&>*:not(:first-child)]:rounded-l-none [&>*:not(:last-child)]:rounded-r-none [&>*]:relative [&>*]:focus-visible:z-10",
         className
       )}
       data-slot="button-group"

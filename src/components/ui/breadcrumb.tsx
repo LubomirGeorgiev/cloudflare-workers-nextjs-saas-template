@@ -111,6 +111,5 @@ export {
   BreadcrumbLink,
   BreadcrumbPage,
   BreadcrumbSeparator,
-  // eslint-disable-next-line import/no-unused-modules
   BreadcrumbEllipsis,
 }

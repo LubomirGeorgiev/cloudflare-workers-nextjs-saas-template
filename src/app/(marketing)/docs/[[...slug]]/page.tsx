@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Route } from "next";
 import type { JSONContent } from "@tiptap/core";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { CopyDocsMarkdownButton } from "@/app/(marketing)/docs/_components/copy-docs-markdown-button";
 import { DocsArticleBody } from "@/app/(marketing)/docs/_components/docs-article-body";
@@ -27,6 +28,7 @@ import {
 } from "@/lib/cms/cms-navigation-repository";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 
 interface DocsPageProps {
@@ -451,21 +453,30 @@ export default async function DocsPage({ params }: DocsPageProps) {
             />
 
             {(previous || next) ? (
-              <div className="mt-12 grid gap-4 border-t pt-8 md:grid-cols-2">
+              <div className="mt-12 grid gap-4 pt-8 md:grid-cols-2">
                 {previous ? (
                   <Link
                     href={(previous.resolvedPath ?? docsBasePath) as Route}
-                    className="rounded-xl border p-4 transition-colors hover:bg-muted/50"
+                    className="group rounded-2xl border border-border/70 bg-card/60 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/40 hover:shadow-sm"
                   >
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Previous
-                    </p>
-                    <p className="mt-2 font-medium">{previous.title}</p>
-                    {previousSeoDescription ? (
-                      <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-                        {previousSeoDescription}
-                      </p>
-                    ) : null}
+                    <div className="flex items-start gap-4">
+                      <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
+                        <ArrowLeft className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                          Previous
+                        </p>
+                        <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
+                          {previous.title}
+                        </p>
+                        {previousSeoDescription ? (
+                          <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                            {previousSeoDescription}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
                   </Link>
                 ) : (
                   <div />
@@ -473,17 +484,34 @@ export default async function DocsPage({ params }: DocsPageProps) {
                 {next ? (
                   <Link
                     href={(next.resolvedPath ?? docsBasePath) as Route}
-                    className="rounded-xl border p-4 text-left transition-colors hover:bg-muted/50"
+                    className={cn(
+                      "group rounded-2xl border border-border/70 bg-card/60 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/40 hover:shadow-sm",
+                      previous ? "text-left md:text-right" : "text-right md:col-start-2",
+                    )}
                   >
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                      Next
-                    </p>
-                    <p className="mt-2 font-medium">{next.title}</p>
-                    {nextSeoDescription ? (
-                      <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-                        {nextSeoDescription}
-                      </p>
-                    ) : null}
+                    <div
+                      className={cn(
+                        "flex items-start gap-4",
+                        previous ? "md:flex-row-reverse" : "flex-row-reverse",
+                      )}
+                    >
+                      <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
+                        <ArrowRight className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                          Next
+                        </p>
+                        <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
+                          {next.title}
+                        </p>
+                        {nextSeoDescription ? (
+                          <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                            {nextSeoDescription}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
                   </Link>
                 ) : null}
               </div>

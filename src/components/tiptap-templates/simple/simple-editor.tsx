@@ -18,6 +18,7 @@ import {
 
 // --- Tiptap Node ---
 import { ImageUploadNode } from "@/components/tiptap-node/image-upload-node/image-upload-node-extension"
+import { AlertBlockEditorExtension } from "@/components/tiptap-node/alert-block/alert-block-editor-extension"
 import "@/components/tiptap-node/blockquote-node/blockquote-node.scss"
 import "@/components/tiptap-node/code-block-node/code-block-node.scss"
 import "@/components/tiptap-templates/simple/code-highlighting.scss"
@@ -38,6 +39,10 @@ import { ListDropdownMenu } from "@/components/tiptap-ui/list-dropdown-menu"
 import { BlockquoteButton } from "@/components/tiptap-ui/blockquote-button"
 import { CodeBlockButton, CodeBlockLanguageSelector } from "@/components/tiptap-ui/code-block-button"
 import { HorizontalRuleButton } from "@/components/tiptap-ui/horizontal-rule-button"
+import {
+  AlertBlockButton,
+  AlertBlockVariantSelector,
+} from "@/components/tiptap-ui/alert-block-button"
 import { TableButton } from "@/components/tiptap-ui/table-button"
 import { TableDropdownMenu } from "@/components/tiptap-ui/table-dropdown-menu"
 import {
@@ -105,6 +110,8 @@ const MainToolbarContent = ({
           portal={isMobile}
         />
         <BlockquoteButton />
+        <AlertBlockButton />
+        <AlertBlockVariantSelector />
         <CodeBlockButton />
         <CodeBlockLanguageSelector />
         <HorizontalRuleButton />
@@ -201,6 +208,7 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
     },
     extensions: [
       ...getTiptapBaseExtensions({
+        alertBlockExtension: AlertBlockEditorExtension,
         starterKitConfig: {
           link: {
             openOnClick: false,

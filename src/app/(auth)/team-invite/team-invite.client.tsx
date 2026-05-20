@@ -54,7 +54,6 @@ export default function TeamInviteClientComponent() {
         router.push("/sign-in");
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   if (isExecuting) {

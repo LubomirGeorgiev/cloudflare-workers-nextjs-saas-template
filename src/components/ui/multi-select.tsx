@@ -328,7 +328,6 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
       animationConfig,
       maxCount = 3,
       modalPopover = false,
-      asChild = false,
       className,
       hideSelectAll = false,
       searchable = true,
@@ -820,6 +819,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
               disabled={disabled}
               role="combobox"
               aria-expanded={isPopoverOpen}
+              // oxlint-disable-next-line jsx_a11y/role-supports-aria-props
               aria-haspopup="listbox"
               aria-controls={isPopoverOpen ? listboxId : undefined}
               aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
@@ -1221,5 +1221,4 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 );
 
 MultiSelect.displayName = "MultiSelect";
-// eslint-disable-next-line import/no-unused-modules
 export type { MultiSelectOption, MultiSelectGroup, MultiSelectProps };

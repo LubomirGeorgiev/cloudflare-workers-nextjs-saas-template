@@ -740,29 +740,23 @@ export {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarGroupAction,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarInput,
   SidebarInset,
   SidebarMenu,
   SidebarMenuAction,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarMenuSkeleton,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
-  // eslint-disable-next-line import/no-unused-modules
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,

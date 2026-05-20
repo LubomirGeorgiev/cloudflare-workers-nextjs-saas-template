@@ -1,32 +1,40 @@
 import "server-only";
 
 import type { JSONContent } from "@tiptap/core";
-import { renderToMarkdown } from "@tiptap/static-renderer/pm/markdown";
-import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions";
+
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
+import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
+
+function extractNodeText(node: JSONContent | undefined): string {
+  if (!node) {
+    return "";
+  }
+
+  if (typeof node.text === "string") {
+    return node.text;
+  }
+
+  if (node.type === "image") {
+    return typeof node.attrs?.alt === "string" ? node.attrs.alt : "";
+  }
+
+  if (node.type === ALERT_BLOCK_NODE_NAME) {
+    return [node.attrs?.title, node.attrs?.body]
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .join(" ");
+  }
+
+  return (node.content ?? []).map((child) => extractNodeText(child)).join(" ");
+}
 
 /**
- * Extract plain text from TipTap JSON content using official markdown renderer
- * Used for generating meta descriptions and other text-only contexts
+ * Extract plain text from TipTap JSON content for metadata and search indexing.
  */
 export function extractTextFromContent(content: JSONContent): string {
   if (!content) return "";
 
   try {
-    // Use TipTap's official markdown renderer with our base extensions
-    const markdown = renderToMarkdown({
-      extensions: getTiptapBaseExtensions(),
-      content,
-    });
-
-    // Strip markdown formatting to get plain text
-    // Remove markdown syntax like **bold**, *italic*, [links](url), etc.
-    return markdown
-      .replace(/[*_~`#]/g, "") // Remove markdown formatting characters
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // Convert links to just text
-      .replace(/!\[([^\]]*)\]\([^)]+\)/g, "") // Remove images
-      .replace(/\n+/g, " ") // Convert newlines to spaces
-      .trim();
+    return extractNodeText(content).replace(/\s+/g, " ").trim();
   } catch (error) {
     console.error("Error extracting text from content:", error);
     return "";

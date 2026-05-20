@@ -15,6 +15,16 @@ interface MediaLibraryPickerProps {
   onCancel: () => void;
 }
 
+interface MediaLibraryItem {
+  id: string;
+  bucketKey: string;
+  fileName: string;
+  mimeType: string;
+  alt: string | null;
+  width: number | null;
+  height: number | null;
+}
+
 export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerProps) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -81,7 +91,7 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
           ))
         ) : data?.media && data.media.length > 0 ? (
           // Media grid
-          data.media.map((media: any) => {
+          data.media.map((media: MediaLibraryItem) => {
             const imageUrl = `${CMS_IMAGES_API_ROUTE}/${media.bucketKey}`;
             return (
               <button

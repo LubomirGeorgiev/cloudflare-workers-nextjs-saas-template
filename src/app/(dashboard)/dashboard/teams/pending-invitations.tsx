@@ -107,7 +107,7 @@ export function PendingInvitations() {
             <div className="flex items-center gap-3">
               {invitation.team.avatarUrl ? (
                 <div className="h-10 w-10 rounded-md overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {/* oxlint-disable-next-line nextjs/no-img-element */}
                   <img
                     src={invitation.team.avatarUrl}
                     alt={`${invitation.team.name} logo`}

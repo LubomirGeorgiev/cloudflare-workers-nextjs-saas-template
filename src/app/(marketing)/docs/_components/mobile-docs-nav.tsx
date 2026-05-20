@@ -24,21 +24,17 @@ export function MobileDocsNav({ nodes }: MobileDocsNavProps) {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Documentation
-          </p>
-        </div>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Menu className="size-4" />
-            Browse docs
-          </Button>
-        </SheetTrigger>
-      </div>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm" className="h-11 gap-2 px-4">
+          <Menu className="size-4" />
+          Browse docs
+        </Button>
+      </SheetTrigger>
 
-      <SheetContent side="left" className="w-[280px] p-0 sm:max-w-[280px]">
+      <SheetContent
+        side="left"
+        className="w-[280px] bg-muted p-0 sm:max-w-[280px]"
+      >
         <SheetHeader className="border-b px-4 py-4 text-left">
           <SheetTitle>Documentation</SheetTitle>
         </SheetHeader>

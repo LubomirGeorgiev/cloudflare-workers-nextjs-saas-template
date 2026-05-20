@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { type CmsNavigationKey } from "@/../cms.config";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -85,7 +85,7 @@ function getCmsRedirectCacheKey({
 }
 
 async function invalidateCacheByPrefix(prefix: string): Promise<void> {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
   const kv = env.NEXT_INC_CACHE_KV;
 
   if (!kv) {

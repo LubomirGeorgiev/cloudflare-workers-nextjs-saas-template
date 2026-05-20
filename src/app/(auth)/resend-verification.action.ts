@@ -4,7 +4,7 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { createId } from "@paralleldrive/cuid2";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { sendVerificationEmail } from "@/utils/email";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -32,7 +32,7 @@ export const resendVerificationAction = actionClient
           );
         }
 
-        const { env } = getCloudflareContext();
+        const { env } = await getCloudflareContext();
 
         // Generate verification token
         const verificationToken = createId();
@@ -66,4 +66,3 @@ export const resendVerificationAction = actionClient
       RATE_LIMITS.EMAIL
     );
   });
-

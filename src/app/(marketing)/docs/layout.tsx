@@ -17,7 +17,7 @@ export default async function DocsLayout({
   return (
     <div className="border-t">
       <div className="mx-auto max-w-screen-2xl lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="hidden border-r py-10 lg:block">
+        <aside className="hidden border-r bg-muted/20 py-10 lg:block">
           <div className="sticky top-10 flex max-h-[calc(100vh-5rem)] flex-col">
             <p className="mb-4 px-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Documentation
@@ -35,8 +35,13 @@ export default async function DocsLayout({
         <div className="min-w-0">
           <div className="border-b px-4 py-4 lg:hidden">
             <div className="space-y-3">
-              <MobileDocsNav nodes={sidebarTree} />
-              <DocsSearch />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Documentation
+              </p>
+              <div className="flex items-center gap-3">
+                <DocsSearch className="h-11 flex-1 justify-start" />
+                <MobileDocsNav nodes={sidebarTree} />
+              </div>
             </div>
           </div>
           {children}

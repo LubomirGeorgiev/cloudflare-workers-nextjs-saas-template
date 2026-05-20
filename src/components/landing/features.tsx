@@ -19,13 +19,13 @@ const features = [
   {
     name: "Database & Email",
     description:
-      "Drizzle ORM with Cloudflare D1 for the database, and React Email with Resend for beautiful email templates.",
+      "Drizzle ORM with Cloudflare D1 for the database, and React Email with Resend or Brevo for transactional email.",
     icon: EnvelopeIcon,
   },
   {
     name: "Modern Stack",
     description:
-      "Next.js 15 App Router with React Server Components, Server Actions, and Edge Runtime for optimal performance.",
+      "Next.js App Router with React Server Components, Vinext, Vite, and Cloudflare Workers for edge-first performance.",
     icon: BoltIcon,
   },
   {
@@ -43,7 +43,7 @@ const features = [
   {
     name: "Developer Experience",
     description:
-      "GitHub Actions for deployment, comprehensive documentation, and TypeScript for type safety.",
+      "Vinext and Vite builds, Oxlint, GitHub Actions deployment, comprehensive documentation, and TypeScript for type safety.",
     icon: CommandLineIcon,
   },
   {

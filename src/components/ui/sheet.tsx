@@ -130,15 +130,10 @@ function SheetDescription({
 export {
   Sheet,
   SheetTrigger,
-  // eslint-disable-next-line import/no-unused-modules
   SheetClose,
   SheetContent,
-  // eslint-disable-next-line import/no-unused-modules
   SheetHeader,
-  // eslint-disable-next-line import/no-unused-modules
   SheetFooter,
-  // eslint-disable-next-line import/no-unused-modules
   SheetTitle,
-  // eslint-disable-next-line import/no-unused-modules
   SheetDescription,
 }

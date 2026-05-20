@@ -7,7 +7,7 @@ import { requireAdmin } from "@/utils/auth";
 import { getDB } from "@/db";
 import { cmsMediaTable, cmsEntryTable, cmsEntryMediaTable } from "@/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
@@ -308,7 +308,7 @@ export const deleteCmsMediaAction = actionClient
       await requireAdmin();
 
       const db = getDB();
-      const { env } = getCloudflareContext();
+      const { env } = await getCloudflareContext();
 
       if (!env.NEXT_INC_CACHE_R2_BUCKET) {
         throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");

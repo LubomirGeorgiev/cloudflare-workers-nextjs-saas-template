@@ -5,7 +5,7 @@ import {
   SITE_DOMAIN,
   SITE_URL,
 } from "@/constants";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getCloudflareContext } from "@/utils/cloudflare-context";
 import isProd from "./is-prod";
 
 interface BrevoEmailOptions {
@@ -37,7 +37,7 @@ interface EmailTemplate {
 }
 
 async function getEmailEnv() {
-  const { env } = await getCloudflareContext({ async: true });
+  const { env } = await getCloudflareContext();
 
   return {
     emailFrom: env.EMAIL_FROM,
@@ -58,6 +58,7 @@ async function getEmailProvider(): Promise<EmailProvider> {
   return null;
 }
 
+// TODO Migrate to https://blog.cloudflare.com/email-for-agents/
 async function sendResendEmail({
   to,
   subject,

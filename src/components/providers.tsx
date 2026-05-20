@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { HeroUIProvider } from "@heroui/react"
 import type { SessionValidationResult } from "@/types"
 import { useSessionStore } from "@/state/session"
 import { Suspense, useEffect, useRef, RefObject, useCallback } from "react"
@@ -37,13 +36,11 @@ function RouterChecker() {
       fetchSession?.();
       _refresh();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     done();
     fetchSession?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams, params]);
 
   return null;
@@ -107,7 +104,7 @@ export function ThemeProvider({
   }, [doFetchSession])
 
   return (
-    <HeroUIProvider>
+    <>
       <Suspense>
         <RouterChecker />
       </Suspense>
@@ -115,6 +112,6 @@ export function ThemeProvider({
         {children}
         <EmailVerificationDialog />
       </NextThemesProvider>
-    </HeroUIProvider>
+    </>
   )
 }

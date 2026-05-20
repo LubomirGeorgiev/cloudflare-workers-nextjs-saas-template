@@ -32,6 +32,7 @@ export function CopyMarkdownButton() {
     <Button
       type="button"
       data-style="ghost"
+      className="cursor-pointer"
       onClick={handleCopyMarkdown}
       disabled={!editor}
       title="Copy as Markdown"
