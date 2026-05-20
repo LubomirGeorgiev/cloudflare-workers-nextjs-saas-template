@@ -1,9 +1,8 @@
 {
   "recommendations": [
     "EditorConfig.EditorConfig",
-    "tamasfe.even-better-toml",
     "bradlc.vscode-tailwindcss",
-    "dbaeumer.vscode-eslint",
-    "mattpocock.ts-error-translator"
+    "oxc.oxc-vscode",
+    "yoavbls.pretty-ts-errors"
   ]
 }

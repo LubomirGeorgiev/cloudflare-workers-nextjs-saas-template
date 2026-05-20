@@ -15,6 +15,7 @@
     ".vinext/**",
     ".wrangler/**",
     "dist/**",
+    "tools/**",
     "worker-dist/**",
     "worker-configuration.d.ts"
   ],

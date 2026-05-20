@@ -582,19 +582,35 @@ export const passKeyCredentialRelations = relations(passKeyCredentialTable, ({ o
   }),
 }));
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type User = InferSelectModel<typeof userTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type PassKeyCredential = InferSelectModel<typeof passKeyCredentialTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CreditTransaction = InferSelectModel<typeof creditTransactionTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type PurchasedItem = InferSelectModel<typeof purchasedItemsTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type Team = InferSelectModel<typeof teamTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type TeamMembership = InferSelectModel<typeof teamMembershipTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type TeamRole = InferSelectModel<typeof teamRoleTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type TeamInvitation = InferSelectModel<typeof teamInvitationTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntry = InferSelectModel<typeof cmsEntryTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsMedia = InferSelectModel<typeof cmsMediaTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntryMedia = InferSelectModel<typeof cmsEntryMediaTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsTag = InferSelectModel<typeof cmsTagTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntryTag = InferSelectModel<typeof cmsEntryTagTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntryVersion = InferSelectModel<typeof cmsEntryVersionTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsNavigationItem = InferSelectModel<typeof cmsNavigationItemTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsNavigationRedirect = InferSelectModel<typeof cmsNavigationRedirectTable>;
