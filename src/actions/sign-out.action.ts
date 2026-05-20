@@ -12,16 +12,15 @@ export const signOutAction = async () => {
     async () => {
       const session = await getSessionFromCookie()
 
-      if (!session) return;
+      if (session) {
+        await invalidateSession(
+          session.id,
+          session.userId
+        );
+      }
 
-      await invalidateSession(
-        session.id,
-        session.userId
-      );
-
-      deleteSessionTokenCookie();
+      await deleteSessionTokenCookie();
     },
     RATE_LIMITS.SIGN_OUT
   );
 };
-

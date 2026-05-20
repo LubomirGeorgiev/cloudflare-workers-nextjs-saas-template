@@ -180,9 +180,7 @@ export function NavUser() {
             <DropdownMenuItem
               onClick={() => {
                 setOpenMobile(false)
-                signOut().then(() => {
-                  router.push('/')
-                })
+                void signOut()
               }}
               className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
             >
