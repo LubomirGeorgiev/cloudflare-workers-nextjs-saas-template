@@ -26,6 +26,9 @@ export default function VerifyEmailClientComponent() {
       toast.loading("Verifying your email...");
     },
     onSuccess: () => {
+      // TODO(vinext): Keep client-side navigation here until
+      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
+      // remove the matching server-action redirect guard from the auth pages.
       toast.dismiss();
       toast.success("Email verified successfully");
 

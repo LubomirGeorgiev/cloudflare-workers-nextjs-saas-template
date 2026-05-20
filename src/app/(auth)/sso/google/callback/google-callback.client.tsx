@@ -32,6 +32,9 @@ export default function GoogleCallbackClientComponent() {
       });
     },
     onSuccess: () => {
+      // TODO(vinext): Keep client-side navigation here until
+      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
+      // remove the matching server-action redirect guard from the auth pages.
       toast.success("Signed in successfully", {
         id: GOOGLE_SSO_TOAST_ID,
       });
