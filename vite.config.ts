@@ -30,7 +30,6 @@ export default defineConfig({
     noExternal: [/^@tiptap\//, /^prosemirror-/],
   },
   plugins: [
-    // TODO Wire up the cache
     vinext(),
     cloudflare({
       viteEnvironment: {

@@ -1,19 +1,25 @@
 import { useSessionStore } from "@/state/session";
 import { signOutAction } from "@/actions/sign-out.action";
 import { toast } from "sonner";
+
 const useSignOut = () => {
   const { clearSession } = useSessionStore();
 
   const signOut = async () => {
-    toast.loading("Signing out...")
-    await signOutAction();
-    clearSession();
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    toast.dismiss()
-    toast.success("Signed out successfully")
-  }
+    const toastId = toast.loading("Signing out...");
 
-  return { signOut }
-}
+    try {
+      await signOutAction();
+      clearSession();
+      toast.dismiss(toastId);
+      window.location.replace("/");
+    } catch (error) {
+      toast.dismiss(toastId);
+      toast.error(error instanceof Error ? error.message : "Failed to sign out");
+    }
+  };
+
+  return { signOut };
+};
 
 export default useSignOut;
