@@ -43,30 +43,35 @@ export function CopyDocsMarkdownButton({
         {copied ? "Copied" : "Copy Markdown"}
       </Button>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="icon" aria-label="More options">
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="More options"
+            />
+          }
+        >
             <MoreHorizontal className="h-4 w-4" />
-          </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <a target="_blank" rel="noreferrer" href={rawMarkdownUrl}>
+            <DropdownMenuItem
+              render={<a target="_blank" rel="noreferrer" href={rawMarkdownUrl} />}
+            >
                 <ExternalLink className="h-4 w-4" />
                 Open as Markdown
-              </a>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a target="_blank" rel="noreferrer" href={DOCS_LLMS_TXT_PATH}>
+            <DropdownMenuItem
+              render={<a target="_blank" rel="noreferrer" href={DOCS_LLMS_TXT_PATH} />}
+            >
                 <Bot className="h-4 w-4" />
                 llms.txt
-              </a>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={downloadUrl}>
+            <DropdownMenuItem render={<a href={downloadUrl} />}>
                 <Download className="h-4 w-4" />
                 Download
-              </a>
             </DropdownMenuItem>
           </DropdownMenuGroup>
         </DropdownMenuContent>

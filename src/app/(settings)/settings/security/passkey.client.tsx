@@ -149,8 +149,10 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                 <div>
                   {!isCurrentPasskey(passkey) && (
                     <Dialog>
-                      <DialogTrigger asChild>
-                        <Button size="sm" variant="destructive" className="w-full sm:w-auto">Delete passkey</Button>
+                      <DialogTrigger
+                        render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
+                      >
+                        Delete passkey
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
@@ -160,8 +162,11 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="mt-6 sm:mt-0">
-                          <DialogClose ref={dialogCloseRef} asChild>
-                            <Button variant="outline">Cancel</Button>
+                          <DialogClose
+                            ref={dialogCloseRef}
+                            render={<Button variant="outline" />}
+                          >
+                            Cancel
                           </DialogClose>
                           <Button
                             variant="destructive"

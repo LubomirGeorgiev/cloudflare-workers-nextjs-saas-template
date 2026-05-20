@@ -120,11 +120,13 @@ export function DataTable<TData, TValue>({
 
   const columnsDropdown = (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className={filterComponents ? "" : "ml-auto"}>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="outline" className={filterComponents ? "" : "ml-auto"} />
+        }
+      >
           Columns
           <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {table

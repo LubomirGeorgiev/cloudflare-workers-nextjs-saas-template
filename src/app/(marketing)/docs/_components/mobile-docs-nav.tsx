@@ -24,11 +24,11 @@ export function MobileDocsNav({ nodes }: MobileDocsNavProps) {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="h-11 gap-2 px-4">
+      <SheetTrigger
+        render={<Button variant="outline" size="sm" className="h-11 gap-2 px-4" />}
+      >
           <Menu className="size-4" />
           Browse docs
-        </Button>
       </SheetTrigger>
 
       <SheetContent

@@ -71,11 +71,14 @@ export function TeamSwitcher({
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
+          <DropdownMenuTrigger
+            render={
+              <SidebarMenuButton
+                size="lg"
+                className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
+              />
+            }
+          >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <LogoComponent className="size-4" />
               </div>
@@ -86,10 +89,9 @@ export function TeamSwitcher({
                 <span className="truncate text-xs capitalize">{activeTeam?.role || "Member"}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
-            </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 rounded-lg"
+            className="w-[var(--anchor-width)] min-w-56 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
@@ -121,16 +123,19 @@ export function TeamSwitcher({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2 cursor-pointer" asChild>
-              <Link
-                href="/dashboard/teams/create"
-                onClick={() => setOpenMobile(false)}
-              >
+            <DropdownMenuItem
+              className="gap-2 p-2 cursor-pointer"
+              render={
+                <Link
+                  href="/dashboard/teams/create"
+                  onClick={() => setOpenMobile(false)}
+                />
+              }
+            >
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Plus className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">Add team</div>
-              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

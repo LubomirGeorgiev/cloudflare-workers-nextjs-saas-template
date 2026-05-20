@@ -102,22 +102,24 @@ export function TableDropdownMenu({
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOnOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          data-style="ghost"
-          data-active-state={isActive ? "on" : "off"}
-          role="button"
-          tabIndex={-1}
-          disabled={!isInsideTable}
-          data-disabled={!isInsideTable}
-          aria-label="Table options"
-          tooltip={isInsideTable ? "Table options" : "Select a table cell first"}
-          {...props}
-        >
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            data-style="ghost"
+            data-active-state={isActive ? "on" : "off"}
+            role="button"
+            tabIndex={-1}
+            disabled={!isInsideTable}
+            data-disabled={!isInsideTable}
+            aria-label="Table options"
+            tooltip={isInsideTable ? "Table options" : "Select a table cell first"}
+            {...props}
+          />
+        }
+      >
           <Icon className="tiptap-button-icon" />
           <ChevronDownIcon className="tiptap-button-dropdown-small" />
-        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" portal={portal}>
@@ -128,41 +130,47 @@ export function TableDropdownMenu({
                 Columns
               </div>
               <ButtonGroup>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleAddColumnBefore}
-                    disabled={!canAddColumnBefore}
-                    className="w-full justify-start"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleAddColumnBefore}
+                      disabled={!canAddColumnBefore}
+                      className="w-full justify-start"
+                    />
+                  }
+                >
                     <TableColumnPlusIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Insert column before</span>
-                  </Button>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleAddColumnAfter}
-                    disabled={!canAddColumnAfter}
-                    className="w-full justify-start"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleAddColumnAfter}
+                      disabled={!canAddColumnAfter}
+                      className="w-full justify-start"
+                    />
+                  }
+                >
                     <TableColumnPlusIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Insert column after</span>
-                  </Button>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleDeleteColumn}
-                    disabled={!canDeleteColumn}
-                    className="w-full justify-start text-destructive"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleDeleteColumn}
+                      disabled={!canDeleteColumn}
+                      className="w-full justify-start text-destructive"
+                    />
+                  }
+                >
                     <TrashIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Delete column</span>
-                  </Button>
                 </DropdownMenuItem>
               </ButtonGroup>
 
@@ -172,58 +180,66 @@ export function TableDropdownMenu({
                 Rows
               </div>
               <ButtonGroup>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleAddRowBefore}
-                    disabled={!canAddRowBefore}
-                    className="w-full justify-start"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleAddRowBefore}
+                      disabled={!canAddRowBefore}
+                      className="w-full justify-start"
+                    />
+                  }
+                >
                     <TableRowPlusIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Insert row above</span>
-                  </Button>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleAddRowAfter}
-                    disabled={!canAddRowAfter}
-                    className="w-full justify-start"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleAddRowAfter}
+                      disabled={!canAddRowAfter}
+                      className="w-full justify-start"
+                    />
+                  }
+                >
                     <TableRowPlusIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Insert row below</span>
-                  </Button>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleDeleteRow}
-                    disabled={!canDeleteRow}
-                    className="w-full justify-start text-destructive"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleDeleteRow}
+                      disabled={!canDeleteRow}
+                      className="w-full justify-start text-destructive"
+                    />
+                  }
+                >
                     <TrashIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Delete row</span>
-                  </Button>
                 </DropdownMenuItem>
               </ButtonGroup>
 
               <div className="border-t border-border my-1" />
 
               <ButtonGroup>
-                <DropdownMenuItem asChild>
-                  <Button
-                    type="button"
-                    data-style="ghost"
-                    onClick={handleDeleteTable}
-                    disabled={!canDeleteTable}
-                    className="w-full justify-start text-destructive"
-                  >
+                <DropdownMenuItem
+                  render={
+                    <Button
+                      type="button"
+                      data-style="ghost"
+                      onClick={handleDeleteTable}
+                      disabled={!canDeleteTable}
+                      className="w-full justify-start text-destructive"
+                    />
+                  }
+                >
                     <TrashIcon className="tiptap-button-icon" />
                     <span className="tiptap-button-text">Delete table</span>
-                  </Button>
                 </DropdownMenuItem>
               </ButtonGroup>
             </div>

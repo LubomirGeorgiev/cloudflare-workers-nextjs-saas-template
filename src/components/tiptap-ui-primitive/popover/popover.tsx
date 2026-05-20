@@ -1,6 +1,6 @@
 "use client"
 
-import * as PopoverPrimitive from "@radix-ui/react-popover"
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover"
 import { cn } from "@/lib/tiptap-utils"
 import "@/components/tiptap-ui-primitive/popover/popover.scss"
 
@@ -10,26 +10,36 @@ function Popover({
   return <PopoverPrimitive.Root {...props} />
 }
 
-function PopoverTrigger({
-  ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {
+function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
   return <PopoverPrimitive.Trigger {...props} />
 }
 
 function PopoverContent({
   className,
   align = "center",
+  alignOffset = 0,
+  side = "bottom",
   sideOffset = 4,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: PopoverPrimitive.Popup.Props &
+  Pick<
+    PopoverPrimitive.Positioner.Props,
+    "align" | "alignOffset" | "side" | "sideOffset"
+  >) {
   return (
     <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
+      <PopoverPrimitive.Positioner
         align={align}
+        alignOffset={alignOffset}
+        side={side}
         sideOffset={sideOffset}
-        className={cn("tiptap-popover", className)}
-        {...props}
-      />
+        className="isolate z-50"
+      >
+        <PopoverPrimitive.Popup
+          className={cn("tiptap-popover", className as string)}
+          {...props}
+        />
+      </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
   )
 }

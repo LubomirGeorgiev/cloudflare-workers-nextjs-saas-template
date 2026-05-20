@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { GITHUB_REPO_URL } from "@/constants";
 import Link from "next/link";
 import ShinyButton from "@/components/ui/shiny-button";
@@ -28,15 +28,22 @@ export function Hero() {
               Vinext, Cloudflare Workers, and everything you need to launch quickly.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-4 md:gap-x-6">
-              <Button size="lg" className="rounded-full" asChild>
-                <a href={GITHUB_REPO_URL} target="_blank">
-                  View on GitHub
-                </a>
-              </Button>
-              <Link href="/sign-in">
-                <Button variant="outline" size="lg" className="rounded-full">
-                  Try Demo
-                </Button>
+              <a
+                href={GITHUB_REPO_URL}
+                target="_blank"
+                className={buttonVariants({ size: "lg", className: "rounded-full" })}
+              >
+                View on GitHub
+              </a>
+              <Link
+                href="/sign-in"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "rounded-full",
+                })}
+              >
+                Try Demo
               </Link>
             </div>
           </div>

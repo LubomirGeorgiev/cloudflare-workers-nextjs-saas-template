@@ -44,8 +44,8 @@ interface TooltipProviderProps {
 
 interface TooltipTriggerProps
   extends Omit<React.HTMLProps<HTMLElement>, "ref"> {
-  asChild?: boolean
-  children: React.ReactNode
+  render?: React.ReactElement
+  children?: React.ReactNode
 }
 
 interface TooltipContentProps
@@ -161,29 +161,31 @@ export function Tooltip({ children, ...props }: TooltipProviderProps) {
 }
 
 export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
-  function TooltipTrigger({ children, asChild = false, ...props }, propRef) {
+  function TooltipTrigger({ children, render, ...props }, propRef) {
     const context = useTooltipContext()
-    const childrenRef = isValidElement(children)
+    const renderRef = isValidElement(render)
       ? parseInt(version, 10) >= 19
         ? // oxlint-disable-next-line typescript/no-explicit-any
-          (children as { props: { ref?: React.Ref<any> } }).props.ref
+          (render as { props: { ref?: React.Ref<any> } }).props.ref
         : // oxlint-disable-next-line typescript/no-explicit-any
-          (children as any).ref
+          (render as any).ref
       : undefined
-    const ref = useMergeRefs([context.refs.setReference, propRef, childrenRef])
+    const ref = useMergeRefs([context.refs.setReference, propRef, renderRef])
 
-    if (asChild && isValidElement(children)) {
+    if (isValidElement(render)) {
+      const renderProps = render.props as { children?: React.ReactNode }
       const dataAttributes = {
         "data-tooltip-state": context.open ? "open" : "closed",
       }
 
       return cloneElement(
-        children,
+        render,
         context.getReferenceProps({
           ref,
           ...props,
-          ...(typeof children.props === "object" ? children.props : {}),
+          ...(typeof render.props === "object" ? render.props : {}),
           ...dataAttributes,
+          children: children ?? renderProps.children,
         })
       )
     }

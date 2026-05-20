@@ -82,22 +82,24 @@ export function ListDropdownMenu({
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={handleOnOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          data-style="ghost"
-          data-active-state={isActive ? "on" : "off"}
-          role="button"
-          tabIndex={-1}
-          disabled={!canToggle}
-          data-disabled={!canToggle}
-          aria-label="List options"
-          tooltip="List"
-          {...props}
-        >
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            data-style="ghost"
+            data-active-state={isActive ? "on" : "off"}
+            role="button"
+            tabIndex={-1}
+            disabled={!canToggle}
+            data-disabled={!canToggle}
+            aria-label="List options"
+            tooltip="List"
+            {...props}
+          />
+        }
+      >
           <Icon className="tiptap-button-icon" />
           <ChevronDownIcon className="tiptap-button-dropdown-small" />
-        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" portal={portal}>
@@ -105,14 +107,17 @@ export function ListDropdownMenu({
           <CardBody>
             <ButtonGroup>
               {filteredLists.map((option) => (
-                <DropdownMenuItem key={option.type} asChild>
-                  <ListButton
-                    editor={editor}
-                    type={option.type}
-                    text={option.label}
-                    showTooltip={false}
-                  />
-                </DropdownMenuItem>
+                <DropdownMenuItem
+                  key={option.type}
+                  render={
+                    <ListButton
+                      editor={editor}
+                      type={option.type}
+                      text={option.label}
+                      showTooltip={false}
+                    />
+                  }
+                />
               ))}
             </ButtonGroup>
           </CardBody>

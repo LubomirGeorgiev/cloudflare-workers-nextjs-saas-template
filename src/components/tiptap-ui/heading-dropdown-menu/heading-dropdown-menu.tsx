@@ -81,24 +81,26 @@ export const HeadingDropdownMenu = forwardRef<
 
     return (
       <DropdownMenu modal open={isOpen} onOpenChange={handleOpenChange}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            data-style="ghost"
-            data-active-state={isActive ? "on" : "off"}
-            role="button"
-            tabIndex={-1}
-            disabled={!canToggle}
-            data-disabled={!canToggle}
-            aria-label="Format text as heading"
-            aria-pressed={isActive}
-            tooltip="Heading"
-            {...buttonProps}
-            ref={ref}
-          >
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              data-style="ghost"
+              data-active-state={isActive ? "on" : "off"}
+              role="button"
+              tabIndex={-1}
+              disabled={!canToggle}
+              data-disabled={!canToggle}
+              aria-label="Format text as heading"
+              aria-pressed={isActive}
+              tooltip="Heading"
+              {...buttonProps}
+              ref={ref}
+            />
+          }
+        >
             <Icon className="tiptap-button-icon" />
             <ChevronDownIcon className="tiptap-button-dropdown-small" />
-          </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" portal={portal}>
@@ -106,14 +108,17 @@ export const HeadingDropdownMenu = forwardRef<
             <CardBody>
               <ButtonGroup>
                 {levels.map((level) => (
-                  <DropdownMenuItem key={`heading-${level}`} asChild>
-                    <HeadingButton
-                      editor={editor}
-                      level={level}
-                      text={`Heading ${level}`}
-                      showTooltip={false}
-                    />
-                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    key={`heading-${level}`}
+                    render={
+                      <HeadingButton
+                        editor={editor}
+                        level={level}
+                        text={`Heading ${level}`}
+                        showTooltip={false}
+                      />
+                    }
+                  />
                 ))}
               </ButtonGroup>
             </CardBody>

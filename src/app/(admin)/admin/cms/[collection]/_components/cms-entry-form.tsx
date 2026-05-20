@@ -419,11 +419,8 @@ export function CmsEntryForm({
               size="icon"
               onClick={handleNavigateBack}
               disabled={isExecuting}
-              asChild
             >
-              <span>
-                <ArrowLeft className="h-4 w-4" />
-              </span>
+              <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
               <h1 className="text-3xl font-bold tracking-tight">
@@ -458,11 +455,8 @@ export function CmsEntryForm({
               variant="outline"
               onClick={handleNavigateBack}
               disabled={isExecuting}
-              asChild
             >
-              <span>
-                Cancel
-              </span>
+              Cancel
             </Button>
             <Button type="submit" disabled={isExecuting}>
               {isExecuting ? (
@@ -573,21 +567,23 @@ export function CmsEntryForm({
                             />
                             <TooltipProvider>
                               <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-2 top-2 h-8 w-8"
-                                    onClick={handleGenerateSeoDescription}
-                                    disabled={isGeneratingSeo || !entry?.id}
-                                  >
+                                <TooltipTrigger
+                                  render={
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="absolute right-2 top-2 h-8 w-8"
+                                      onClick={handleGenerateSeoDescription}
+                                      disabled={isGeneratingSeo || !entry?.id}
+                                    />
+                                  }
+                                >
                                     {isGeneratingSeo ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <WandSparkles className="h-4 w-4" />
                                     )}
-                                  </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>Auto-generate SEO description using AI</p>

@@ -5,7 +5,13 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   optimizeDeps: {
+    include: [
+      "use-sync-external-store/shim",
+      "use-sync-external-store/shim/with-selector",
+    ],
     exclude: [
+      "@base-ui/react",
+      "@base-ui/utils",
       "@tiptap/core",
       "@tiptap/pm",
       "@tiptap/static-renderer",

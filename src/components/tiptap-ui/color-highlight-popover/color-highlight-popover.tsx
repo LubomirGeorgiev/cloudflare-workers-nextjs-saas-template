@@ -188,18 +188,20 @@ export function ColorHighlightPopover({
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <ColorHighlightPopoverButton
-          disabled={!canColorHighlight}
-          data-active-state={isActive ? "on" : "off"}
-          data-disabled={!canColorHighlight}
-          aria-pressed={isActive}
-          aria-label={label}
-          tooltip={label}
-          {...props}
-        >
+      <PopoverTrigger
+        render={
+          <ColorHighlightPopoverButton
+            disabled={!canColorHighlight}
+            data-active-state={isActive ? "on" : "off"}
+            data-disabled={!canColorHighlight}
+            aria-pressed={isActive}
+            aria-label={label}
+            tooltip={label}
+            {...props}
+          />
+        }
+      >
           <Icon className="tiptap-button-icon" />
-        </ColorHighlightPopoverButton>
       </PopoverTrigger>
       <PopoverContent aria-label="Highlight colors">
         <ColorHighlightPopoverContent editor={editor} colors={colors} />

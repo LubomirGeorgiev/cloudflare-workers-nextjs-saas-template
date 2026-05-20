@@ -7,7 +7,7 @@ import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { getSessionFromCookie } from "@/utils/auth";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { getTeamMembers } from "@/lib/teams/team-members";
@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 
 interface TeamPageProps {
   params: Promise<{
@@ -92,11 +93,9 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
               {`You don't have permission to access team "${team.name}". Please contact the team owner to request access.`}
             </AlertDescription>
           </Alert>
-          <Button asChild className="mt-4">
-            <Link href="/dashboard/teams">
-              Return to Teams
-            </Link>
-          </Button>
+          <Link href="/dashboard/teams" className={cn(buttonVariants(), "mt-4")}>
+            Return to Teams
+          </Link>
         </div>
       </>
     );

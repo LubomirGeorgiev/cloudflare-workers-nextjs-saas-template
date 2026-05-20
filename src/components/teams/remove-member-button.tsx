@@ -63,8 +63,9 @@ export function RemoveMemberButton({
     return (
       <TooltipProvider delayDuration={300}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div>
+          <TooltipTrigger
+            render={<div />}
+          >
               <Button
                 variant="ghost"
                 size="icon"
@@ -74,7 +75,6 @@ export function RemoveMemberButton({
               <TrashIcon className="h-4 w-4" />
               <span className="sr-only">Cannot remove member</span>
               </Button>
-            </div>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={5} className="text-sm font-medium">
             {tooltipText}
@@ -86,15 +86,17 @@ export function RemoveMemberButton({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-        >
+      <DialogTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+          />
+        }
+      >
           <TrashIcon className="h-4 w-4" />
           <span className="sr-only">Remove member</span>
-        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -104,8 +106,11 @@ export function RemoveMemberButton({
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4 flex flex-col gap-4 sm:flex-row">
-          <DialogClose ref={dialogCloseRef} asChild>
-            <Button variant="outline" className="sm:w-auto w-full">Cancel</Button>
+          <DialogClose
+            ref={dialogCloseRef}
+            render={<Button variant="outline" className="sm:w-auto w-full" />}
+          >
+            Cancel
           </DialogClose>
           <Button
             variant="destructive"

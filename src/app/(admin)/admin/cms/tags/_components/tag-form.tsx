@@ -208,11 +208,17 @@ export function TagForm({ mode, tag }: TagFormProps) {
 
         {mode === "edit" && (
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" type="button" disabled={isExecuting}>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  variant="destructive"
+                  type="button"
+                  disabled={isExecuting}
+                />
+              }
+            >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
-              </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>

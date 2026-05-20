@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { getCmsTags } from "@/lib/cms/cms-repository";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Plus, Tag } from "lucide-react";
 import {
@@ -32,11 +32,12 @@ export default async function TagsPage() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/admin/cms">
+          <Link
+            href="/admin/cms"
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+          >
               <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+          </Link>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Tags</h1>
             <p className="text-muted-foreground mt-2">
@@ -44,12 +45,10 @@ export default async function TagsPage() {
             </p>
           </div>
         </div>
-        <Button asChild>
-          <Link href="/admin/cms/tags/new">
+        <Link href="/admin/cms/tags/new" className={buttonVariants()}>
             <Plus className="h-4 w-4 mr-2" />
             Create Tag
-          </Link>
-        </Button>
+        </Link>
       </div>
 
       <div className="border rounded-lg">
@@ -101,9 +100,12 @@ export default async function TagsPage() {
                     <span className="text-muted-foreground">{tag.entryCount}</span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/admin/cms/tags/${tag.id}`}>Edit</Link>
-                    </Button>
+                    <Link
+                      href={`/admin/cms/tags/${tag.id}`}
+                      className={buttonVariants({ variant: "ghost", size: "sm" })}
+                    >
+                      Edit
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))

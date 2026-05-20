@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 
 export default function BlogPostNotFound() {
   return (
@@ -9,9 +9,9 @@ export default function BlogPostNotFound() {
         <p className="text-xl text-muted-foreground mb-8">
           The blog post you&apos;re looking for doesn&apos;t exist or has been removed.
         </p>
-        <Button asChild>
-          <Link href="/blog">Back to Blog</Link>
-        </Button>
+        <Link href="/blog" className={buttonVariants()}>
+          Back to Blog
+        </Link>
       </div>
     </div>
   )

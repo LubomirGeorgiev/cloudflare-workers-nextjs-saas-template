@@ -159,12 +159,6 @@ interface MultiSelectProps
   modalPopover?: boolean;
 
   /**
-   * If true, renders the multi-select component as a child of another component.
-   * Optional, defaults to false.
-   */
-  asChild?: boolean;
-
-  /**
    * Additional class names to apply custom styles to the multi-select component.
    * Optional, can be used to add custom styles.
    */
@@ -811,32 +805,36 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 .join(", ")}`}
           </div>
 
-          <PopoverTrigger asChild>
-            <Button
-              ref={buttonRef}
-              {...props}
-              onClick={handleTogglePopover}
-              disabled={disabled}
-              role="combobox"
-              aria-expanded={isPopoverOpen}
-              // oxlint-disable-next-line jsx_a11y/role-supports-aria-props
-              aria-haspopup="listbox"
-              aria-controls={isPopoverOpen ? listboxId : undefined}
-              aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
-              aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length
-                } options selected. ${placeholder}`}
-              className={cn(
-                "flex p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
-                autoSize ? "w-auto" : "w-full",
-                responsiveSettings.compactMode && "min-h-8 text-sm",
-                screenSize === "mobile" && "min-h-12 text-base",
-                disabled && "opacity-50 cursor-not-allowed",
-                className
-              )}
-              style={{
-                ...widthConstraints,
-                maxWidth: `min(${widthConstraints.maxWidth}, 100%)`,
-              }}>
+          <PopoverTrigger
+            render={
+              <Button
+                ref={buttonRef}
+                {...props}
+                onClick={handleTogglePopover}
+                disabled={disabled}
+                role="combobox"
+                aria-expanded={isPopoverOpen}
+                // oxlint-disable-next-line jsx_a11y/role-supports-aria-props
+                aria-haspopup="listbox"
+                aria-controls={isPopoverOpen ? listboxId : undefined}
+                aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
+                aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length
+                  } options selected. ${placeholder}`}
+                className={cn(
+                  "flex p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
+                  autoSize ? "w-auto" : "w-full",
+                  responsiveSettings.compactMode && "min-h-8 text-sm",
+                  screenSize === "mobile" && "min-h-12 text-base",
+                  disabled && "opacity-50 cursor-not-allowed",
+                  className
+                )}
+                style={{
+                  ...widthConstraints,
+                  maxWidth: `min(${widthConstraints.maxWidth}, 100%)`,
+                }}
+              />
+            }
+          >
               {selectedValues.length > 0 ? (
                 <div className="flex justify-between items-center w-full">
                   <div
@@ -1012,7 +1010,6 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                   <ChevronDown className="h-4 cursor-pointer text-muted-foreground mx-2" />
                 </div>
               )}
-            </Button>
           </PopoverTrigger>
           <PopoverContent
             id={listboxId}

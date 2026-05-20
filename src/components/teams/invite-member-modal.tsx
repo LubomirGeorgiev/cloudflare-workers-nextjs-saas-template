@@ -28,7 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface InviteMemberModalProps {
   teamId: string;
-  trigger: React.ReactNode;
+  trigger: React.ReactElement;
   onInviteSuccess?: () => void;
 }
 
@@ -79,9 +79,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger}
-      </DialogTrigger>
+      <DialogTrigger render={trigger} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
@@ -108,10 +106,10 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
             />
 
             <div className="flex justify-end gap-2 pt-2">
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
+              <DialogClose
+                render={<Button type="button" variant="outline" />}
+              >
+                Cancel
               </DialogClose>
 
               <Button type="submit">

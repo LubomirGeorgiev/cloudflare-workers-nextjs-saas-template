@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { Button } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 import { cn } from "@/lib/utils";
 import AgenticDevStudioLogo from "./agenticdev-studio-logo";
 import { ChevronLeft, X } from "lucide-react";
@@ -80,9 +80,13 @@ export function AgenticDevStudioStickyBanner() {
                 Transform operations with AI solutions that adapt to your actual needs—automating routine tasks or solving complex challenges through customized systems. Focus on growth while we handle the tech specifics that matter most to your business.
                 </div>
               </a>
-              <Button size="sm" className="mt-4" asChild>
-                <a href="https://agenticdev.agency?ref=saas-template-sticky-banner" target="_blank">Book a free consultation</a>
-              </Button>
+              <a
+                href="https://agenticdev.agency?ref=saas-template-sticky-banner"
+                target="_blank"
+                className={buttonVariants({ size: "sm", className: "mt-4" })}
+              >
+                Book a free consultation
+              </a>
             </div>
           </div>
         </div>

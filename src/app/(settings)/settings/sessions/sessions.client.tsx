@@ -72,8 +72,10 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
               <div>
                 {!session?.isCurrentSession && (
                   <Dialog>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="destructive" className="w-full sm:w-auto">Delete session</Button>
+                    <DialogTrigger
+                      render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
+                    >
+                      Delete session
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
@@ -83,8 +85,11 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter className="mt-6 sm:mt-0">
-                        <DialogClose ref={dialogCloseRef} asChild>
-                          <Button variant="outline">Cancel</Button>
+                        <DialogClose
+                          ref={dialogCloseRef}
+                          render={<Button variant="outline" />}
+                        >
+                          Cancel
                         </DialogClose>
                         <Button
                           variant="destructive"

@@ -2,11 +2,12 @@ import Link from "next/link";
 import { SiX as XIcon, SiGithub as GithubIcon } from '@icons-pack/react-simple-icons'
 import ThemeSwitch from "@/components/theme-switch";
 import { GITHUB_REPO_URL, SITE_NAME } from "@/constants";
-import { Button } from "./ui/button";
+import { buttonVariants } from "./ui/button";
 import AgenticDevStudioLogo from "./agenticdev-studio-logo";
 import { getGithubStars } from "@/utils/stats";
 import { Suspense } from "react";
 import { StarIcon } from "@heroicons/react/24/solid";
+import { cn } from "@/lib/utils";
 
 export function Footer() {
   return (
@@ -111,13 +112,15 @@ async function GithubButton() {
   const starsCount = await getGithubStars();
 
   return (
-    <Button variant="outline" size="lg" className="w-full" asChild>
-      <a
-        href={GITHUB_REPO_URL!}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center space-x-2"
-      >
+    <a
+      href={GITHUB_REPO_URL!}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        buttonVariants({ variant: "outline", size: "lg" }),
+        "w-full space-x-2"
+      )}
+    >
         <GithubIcon className="h-6! w-6!" />
         <span className="whitespace-nowrap inline-flex items-center justify-center">
           {starsCount ? (
@@ -129,24 +132,24 @@ async function GithubButton() {
             "Fork on Github"
           )}
         </span>
-      </a>
-    </Button>
+    </a>
   );
 }
 
 // Fallback while loading stars count
 function GithubButtonFallback() {
   return (
-    <Button variant="outline" size="sm" className="w-full md:w-auto h-9" asChild>
-      <a
-        href={GITHUB_REPO_URL!}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center space-x-2"
-      >
+    <a
+      href={GITHUB_REPO_URL!}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        buttonVariants({ variant: "outline", size: "sm" }),
+        "w-full md:w-auto h-9 space-x-2"
+      )}
+    >
         <GithubIcon className="h-4 w-4" />
         <span className="whitespace-nowrap inline-flex items-center gap-1">Fork on Github</span>
-      </a>
-    </Button>
+    </a>
   );
 }

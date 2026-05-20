@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 
@@ -62,9 +62,9 @@ export default async function PrivacyPage() {
       )}
 
       <div className="mt-12 text-center">
-        <Button asChild>
-          <Link href="/">Return to Home</Link>
-        </Button>
+        <Link href="/" className={buttonVariants()}>
+          Return to Home
+        </Link>
       </div>
     </>
   );

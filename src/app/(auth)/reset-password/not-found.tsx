@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,15 +19,12 @@ export default function ResetPasswordNotFound() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            variant="outline"
-            className="w-full"
-            asChild
+          <Link
+            href="/forgot-password"
+            className={buttonVariants({ variant: "outline", className: "w-full" })}
           >
-            <Link href="/forgot-password">
               Request New Reset Link
-            </Link>
-          </Button>
+          </Link>
         </CardContent>
       </Card>
     </div>

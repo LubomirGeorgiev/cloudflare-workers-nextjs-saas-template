@@ -3,7 +3,7 @@ import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { getCmsTagById, getCmsEntriesByTagId } from "@/lib/cms/cms-repository";
 import { TagForm } from "../_components/tag-form";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -43,11 +43,12 @@ export default async function EditTagPage({
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/admin/cms/tags">
+        <Link
+          href="/admin/cms/tags"
+          className={buttonVariants({ variant: "ghost", size: "icon" })}
+        >
             <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+        </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Edit Tag</h1>
           <p className="text-muted-foreground mt-2">

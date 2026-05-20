@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { cmsConfig } from "@/../cms.config";
 import { FileText, Tag, Image, PanelLeft } from "lucide-react";
@@ -55,12 +55,21 @@ export default async function CmsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Button asChild className="flex-1">
-                  <Link href={`/admin/cms/${slug}`}>View Entries</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href={`/admin/cms/${slug}/new`}>Create New</Link>
-                </Button>
+                <Link
+                  href={`/admin/cms/${slug}`}
+                  className={buttonVariants({ className: "flex-1" })}
+                >
+                  View Entries
+                </Link>
+                <Link
+                  href={`/admin/cms/${slug}/new`}
+                  className={buttonVariants({
+                    variant: "outline",
+                    className: "flex-1",
+                  })}
+                >
+                  Create New
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -95,9 +104,12 @@ export default async function CmsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex gap-2">
-                <Button asChild className="flex-1">
-                  <Link href={`/admin/cms/navigation/${navigation.navigationKey}`}>Open Builder</Link>
-                </Button>
+                <Link
+                  href={`/admin/cms/navigation/${navigation.navigationKey}`}
+                  className={buttonVariants({ className: "flex-1" })}
+                >
+                  Open Builder
+                </Link>
               </div>
             </CardContent>
           </Card>
@@ -121,9 +133,12 @@ export default async function CmsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              <Button asChild className="flex-1">
-                <Link href="/admin/cms/media">View Media</Link>
-              </Button>
+              <Link
+                href="/admin/cms/media"
+                className={buttonVariants({ className: "flex-1" })}
+              >
+                View Media
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -146,9 +161,12 @@ export default async function CmsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2">
-              <Button asChild className="flex-1">
-                <Link href="/admin/cms/tags">Manage Tags</Link>
-              </Button>
+              <Link
+                href="/admin/cms/tags"
+                className={buttonVariants({ className: "flex-1" })}
+              >
+                Manage Tags
+              </Link>
             </div>
           </CardContent>
         </Card>

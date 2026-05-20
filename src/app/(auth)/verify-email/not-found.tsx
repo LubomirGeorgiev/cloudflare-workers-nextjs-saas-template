@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -26,24 +26,18 @@ export default function NotFound() {
           </ul>
 
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full"
-              asChild
+            <Link
+              href="/sign-in"
+              className={buttonVariants({ variant: "outline", className: "w-full" })}
             >
-              <Link href="/sign-in">
                 Sign In
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              asChild
+            </Link>
+            <Link
+              href="/"
+              className={buttonVariants({ variant: "outline", className: "w-full" })}
             >
-              <Link href="/">
                 Go to Home
-              </Link>
-            </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Eye, FileImage } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
@@ -129,11 +129,12 @@ export async function MediaListTable({ page }: MediaListTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/admin/cms/media/${item.id}`}>
+                    <Link
+                      href={`/admin/cms/media/${item.id}`}
+                      className={buttonVariants({ variant: "ghost", size: "icon" })}
+                    >
                         <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    </Link>
                     <MediaTableActions mediaId={item.id} usageCount={item.usageCount} />
                   </div>
                 </TableCell>
@@ -150,34 +151,30 @@ export async function MediaListTable({ page }: MediaListTableProps) {
             Page {pagination.page} of {pagination.pages} ({pagination.total} total)
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page === 1}
-              asChild={pagination.page > 1}
-            >
-              {pagination.page > 1 ? (
-                <Link href={`/admin/cms/media?page=${pagination.page - 1}`}>
-                  Previous
-                </Link>
-              ) : (
-                <span>Previous</span>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page === pagination.pages}
-              asChild={pagination.page < pagination.pages}
-            >
-              {pagination.page < pagination.pages ? (
-                <Link href={`/admin/cms/media?page=${pagination.page + 1}`}>
-                  Next
-                </Link>
-              ) : (
-                <span>Next</span>
-              )}
-            </Button>
+            {pagination.page > 1 ? (
+              <Link
+                href={`/admin/cms/media?page=${pagination.page - 1}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Previous
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Previous
+              </Button>
+            )}
+            {pagination.page < pagination.pages ? (
+              <Link
+                href={`/admin/cms/media?page=${pagination.page + 1}`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Next
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled>
+                Next
+              </Button>
+            )}
           </div>
         </div>
       )}

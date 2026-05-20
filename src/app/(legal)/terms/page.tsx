@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { CREDITS_EXPIRATION_YEARS } from "@/constants";
 
@@ -66,9 +66,9 @@ export default function TermsPage() {
       </section>
 
       <div className="mt-12 text-center">
-        <Button asChild>
-          <Link href="/">Return to Home</Link>
-        </Button>
+        <Link href="/" className={buttonVariants()}>
+          Return to Home
+        </Link>
       </div>
     </>
   );

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
@@ -58,11 +58,12 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/admin/cms/media">
+        <Link
+          href="/admin/cms/media"
+          className={buttonVariants({ variant: "ghost", size: "icon" })}
+        >
             <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
+        </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Media Details</h1>
           <p className="text-muted-foreground mt-2">{media.fileName}</p>
@@ -92,12 +93,15 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
               </div>
             )}
             <div className="mt-4 flex gap-2">
-              <Button variant="outline" size="sm" asChild>
-                <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Open in New Tab
-                </a>
-              </Button>
+              </a>
             </div>
           </CardContent>
         </Card>

@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { listCmsEntriesAction, deleteCmsEntryAction } from "../../../_actions/cms-entry-actions";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { CmsEntryTags } from "@/components/cms-entry-tags";
@@ -139,11 +139,12 @@ export function CmsEntriesTable({
       header: () => <div className="text-right">Actions</div>,
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <a href={`/admin/cms/${collection}/${row.original.id}`}>
+          <a
+            href={`/admin/cms/${collection}/${row.original.id}`}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
               <Edit className="h-4 w-4" />
-            </a>
-          </Button>
+          </a>
           <Button
             variant="ghost"
             size="sm"

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   type TableOfContentsNode,
@@ -10,6 +17,11 @@ import { cn } from "@/lib/utils";
 
 /** Aligns with `scroll-mt-24` on article headings (6rem). */
 const VIEWPORT_TOP_OFFSET_PX = 96;
+
+interface TableOfContentsLinkClickArgs {
+  event: MouseEvent<HTMLAnchorElement>;
+  id: string;
+}
 
 function computeActiveSectionId(orderedIds: string[]): string | null {
   if (orderedIds.length === 0) {
@@ -36,10 +48,12 @@ function TableOfContentsBranch({
   nodes,
   activeId,
   depth,
+  onLinkClick,
 }: {
   nodes: TableOfContentsNode[];
   activeId: string | null;
   depth: number;
+  onLinkClick: (args: TableOfContentsLinkClickArgs) => void;
 }) {
   return (
     <ul
@@ -53,6 +67,7 @@ function TableOfContentsBranch({
           <a
             href={`#${node.id}`}
             data-active={activeId === node.id}
+            onClick={(event) => onLinkClick({ event, id: node.id })}
             className={cn(
               "block py-1 pl-3 text-sm transition-colors",
               activeId === node.id
@@ -67,6 +82,7 @@ function TableOfContentsBranch({
               nodes={node.children}
               activeId={activeId}
               depth={depth + 1}
+              onLinkClick={onLinkClick}
             />
           ) : null}
         </li>
@@ -89,6 +105,28 @@ export function ContentTableOfContentsNav({
   const updateActive = useCallback(() => {
     setActiveId(computeActiveSectionId(orderedIds));
   }, [orderedIds]);
+
+  const handleLinkClick = useCallback(
+    ({ event, id }: TableOfContentsLinkClickArgs) => {
+      const target = document.getElementById(id);
+      if (!target) {
+        return;
+      }
+
+      event.preventDefault();
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+
+      target.scrollIntoView({
+        block: "start",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+      window.history.pushState(null, "", `#${id}`);
+      setActiveId(id);
+    },
+    []
+  );
 
   useEffect(() => {
     updateActive();
@@ -138,7 +176,12 @@ export function ContentTableOfContentsNav({
       className="mt-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3"
       aria-label="On this page"
     >
-      <TableOfContentsBranch nodes={nodes} activeId={activeId} depth={0} />
+      <TableOfContentsBranch
+        nodes={nodes}
+        activeId={activeId}
+        depth={0}
+        onLinkClick={handleLinkClick}
+      />
     </nav>
   );
 }

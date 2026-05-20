@@ -54,8 +54,9 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
     <>
       <TooltipProvider delayDuration={200}>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <div className="inline-flex">
+          <TooltipTrigger
+            render={<div className="inline-flex" />}
+          >
               <Button
                 variant="ghost"
                 size="icon"
@@ -69,7 +70,6 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
                   <Trash2 className="h-4 w-4" />
                 )}
               </Button>
-            </div>
           </TooltipTrigger>
           <TooltipContent>
             {usageCount > 0 ? (

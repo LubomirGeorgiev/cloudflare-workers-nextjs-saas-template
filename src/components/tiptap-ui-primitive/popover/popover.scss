@@ -16,21 +16,21 @@
 .tiptap-popover {
   z-index: 50;
   outline: none;
-  transform-origin: var(--radix-popover-content-transform-origin);
-  max-height: var(--radix-popover-content-available-height);
+  transform-origin: var(--transform-origin);
+  max-height: var(--available-height);
 
   > * {
-    max-height: var(--radix-popover-content-available-height);
+    max-height: var(--available-height);
   }
 
   /* Animation states */
-  &[data-state="open"] {
+  &[data-open] {
     animation:
       fadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1),
       zoomIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  &[data-state="closed"] {
+  &[data-closed] {
     animation:
       fadeOut 150ms cubic-bezier(0.16, 1, 0.3, 1),
       zoomOut 150ms cubic-bezier(0.16, 1, 0.3, 1);

@@ -66,11 +66,14 @@ export function SettingsNav() {
     <Tabs value={pathname}>
       <TabsList className="h-auto p-1">
         {settingsNavItems.map((item) => (
-          <TabsTrigger key={item.href} value={item.href} asChild>
-            <Link href={item.href} className="flex items-center gap-2">
+          <TabsTrigger
+            key={item.href}
+            value={item.href}
+            nativeButton={false}
+            render={<Link href={item.href} className="flex items-center gap-2" />}
+          >
               <item.icon className="h-4 w-4" />
               {item.title}
-            </Link>
           </TabsTrigger>
         ))}
       </TabsList>
@@ -91,16 +94,18 @@ export function SettingsNav() {
       )}
 
       <Dialog>
-        <DialogTrigger asChild>
-          <button
-            className={cn(
-              buttonVariants({ variant: "destructive" }),
-              "justify-start hover:no-underline whitespace-nowrap bg-red-700/25 hover:bg-red-600/40"
-            )}
-          >
+        <DialogTrigger
+          render={
+            <button
+              className={cn(
+                buttonVariants({ variant: "destructive" }),
+                "justify-start hover:no-underline whitespace-nowrap bg-red-700/25 hover:bg-red-600/40"
+              )}
+            />
+          }
+        >
             <LogOut className="mr-2 h-4 w-4" />
             Sign out
-          </button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -110,8 +115,11 @@ export function SettingsNav() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 flex flex-col gap-4">
-            <DialogClose ref={dialogCloseRef} asChild>
-              <Button variant="outline">Cancel</Button>
+            <DialogClose
+              ref={dialogCloseRef}
+              render={<Button variant="outline" />}
+            >
+              Cancel
             </DialogClose>
             <Button
               variant="destructive"

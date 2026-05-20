@@ -2,7 +2,7 @@ import { getSessionFromCookie } from "@/utils/auth";
 import { getUserTeamsAction } from "@/actions/team-actions";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusIcon, Users } from "lucide-react";
 import type { Route } from "next";
@@ -65,12 +65,13 @@ export default async function TeamsIndexPage() {
             <h1 className="text-4xl font-bold">My Teams</h1>
             <p className="text-muted-foreground mt-2">Manage your teams and collaborations</p>
           </div>
-          <Button asChild>
-            <Link href={"/dashboard/teams/create" as Route}>
+          <Link
+            href={"/dashboard/teams/create" as Route}
+            className={buttonVariants()}
+          >
               <PlusIcon className="h-4 w-4 mr-2" />
               Create Team
-            </Link>
-          </Button>
+          </Link>
         </div>
 
         {/* Show pending invitations */}
@@ -88,12 +89,13 @@ export default async function TeamsIndexPage() {
               <Users className="h-16 w-16 text-muted-foreground/50" />
             </CardContent>
             <CardFooter className="flex justify-center pb-8">
-              <Button asChild>
-                <Link href={"/dashboard/teams/create" as Route}>
+              <Link
+                href={"/dashboard/teams/create" as Route}
+                className={buttonVariants()}
+              >
                   <PlusIcon className="h-4 w-4 mr-2" />
                   Create your first team
-                </Link>
-              </Button>
+              </Link>
             </CardFooter>
           </Card>
         ) : (

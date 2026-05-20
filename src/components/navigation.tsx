@@ -4,7 +4,7 @@ import Link from "next/link"
 import type { Route } from 'next'
 import { usePathname } from "next/navigation"
 import { ComponentIcon, Menu } from 'lucide-react'
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useSessionStore } from "@/state/session"
 import { cn } from "@/lib/utils"
@@ -33,9 +33,13 @@ const ActionButtons = () => {
   }
 
   return (
-    <Button asChild onClick={() => setIsOpen(false)}>
-      <Link href="/sign-in">Sign In</Link>
-    </Button>
+    <Link
+      href="/sign-in"
+      className={buttonVariants()}
+      onClick={() => setIsOpen(false)}
+    >
+      Sign In
+    </Link>
   )
 }
 
@@ -109,11 +113,11 @@ export function Navigation() {
           </div>
           <div className="md:hidden flex items-center">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="p-6">
+              <SheetTrigger
+                render={<Button variant="ghost" size="icon" className="p-6" />}
+              >
                   <Menu className="w-9 h-9" />
                   <span className="sr-only">Open menu</span>
-                </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-[240px] sm:w-[300px]">
                 <div className="mt-6 flow-root">

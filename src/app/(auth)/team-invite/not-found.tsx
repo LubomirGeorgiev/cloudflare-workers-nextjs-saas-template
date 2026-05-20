@@ -1,5 +1,6 @@
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export default function NotFound() {
@@ -23,11 +24,9 @@ export default function NotFound() {
               <li>The invitation has expired</li>
             </ul>
             <div className="pt-4">
-              <Button asChild className="w-full">
-                <Link href="/dashboard">
-                  Go to Dashboard
-                </Link>
-              </Button>
+              <Link href="/dashboard" className={cn(buttonVariants(), "w-full")}>
+                Go to Dashboard
+              </Link>
             </div>
           </div>
         </CardContent>

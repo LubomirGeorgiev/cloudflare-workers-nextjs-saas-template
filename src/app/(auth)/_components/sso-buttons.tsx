@@ -1,8 +1,9 @@
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import Link from "next/link";
 import { useConfigStore } from "@/state/config";
 import Google from "@/icons/google";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export default function SSOButtons({
   isSignIn = false
@@ -21,12 +22,13 @@ export default function SSOButtons({
     <>
       {isGoogleSSOEnabled && (
         <>
-          <Button className="w-full" asChild size='lg'>
-            <Link href="/sso/google">
+          <Link
+            href="/sso/google"
+            className={cn(buttonVariants({ size: "lg" }), "w-full")}
+          >
               <Google className="w-[22px] h-[22px] mr-1" />
               {isSignIn ? "Sign in with Google" : "Sign up with Google"}
-            </Link>
-          </Button>
+          </Link>
         </>
       )}
     </>
