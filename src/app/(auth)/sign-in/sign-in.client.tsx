@@ -18,6 +18,8 @@ import { KeyIcon } from "lucide-react";
 import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(settings)/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
 
+const PASSKEY_AUTHENTICATION_TOAST_ID = "passkey-authentication";
+
 interface SignInClientProps {
   redirectPath: string;
 }
@@ -32,19 +34,22 @@ interface PasskeyAuthenticationButtonProps {
 function PasskeyAuthenticationButton({ className, disabled, children, redirectPath }: PasskeyAuthenticationButtonProps) {
   const { executeAsync: generateOptions } = useAction(generateAuthenticationOptionsAction, {
     onError: ({ error }) => {
-      toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to get authentication options");
+      toast.error(error.serverError?.message || "Failed to get authentication options", {
+        id: PASSKEY_AUTHENTICATION_TOAST_ID,
+      });
     },
   });
 
   const { executeAsync: verifyAuthentication } = useAction(verifyAuthenticationAction, {
     onError: ({ error }) => {
-      toast.dismiss();
-      toast.error(error.serverError?.message || "Authentication failed");
+      toast.error(error.serverError?.message || "Authentication failed", {
+        id: PASSKEY_AUTHENTICATION_TOAST_ID,
+      });
     },
     onSuccess: () => {
-      toast.dismiss();
-      toast.success("Authentication successful");
+      toast.success("Authentication successful", {
+        id: PASSKEY_AUTHENTICATION_TOAST_ID,
+      });
       window.location.href = redirectPath;
     },
   });
@@ -54,7 +59,9 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
   const handleAuthenticate = async () => {
     try {
       setIsAuthenticating(true);
-      toast.loading("Authenticating with passkey...");
+      toast.loading("Authenticating with passkey...", {
+        id: PASSKEY_AUTHENTICATION_TOAST_ID,
+      });
 
       // Get authentication options from the server
       const { data: options, serverError } = await generateOptions({});
@@ -79,8 +86,9 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
       });
     } catch (error) {
       console.error("Passkey authentication error:", error);
-      toast.dismiss();
-      toast.error("Authentication failed");
+      toast.error("Authentication failed", {
+        id: PASSKEY_AUTHENTICATION_TOAST_ID,
+      });
     } finally {
       setIsAuthenticating(false);
     }

@@ -11,6 +11,8 @@ import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 
+const GOOGLE_SSO_TOAST_ID = "google-sso-callback";
+
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,15 +22,19 @@ export default function GoogleCallbackClientComponent() {
 
   const { execute: handleCallback, isExecuting, result } = useAction(googleSSOCallbackAction, {
     onError: ({ error }) => {
-      toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to sign in with Google");
+      toast.error(error.serverError?.message || "Failed to sign in with Google", {
+        id: GOOGLE_SSO_TOAST_ID,
+      });
     },
     onExecute: () => {
-      toast.loading("Signing you in with Google...");
+      toast.loading("Signing you in with Google...", {
+        id: GOOGLE_SSO_TOAST_ID,
+      });
     },
     onSuccess: () => {
-      toast.dismiss();
-      toast.success("Signed in successfully");
+      toast.success("Signed in successfully", {
+        id: GOOGLE_SSO_TOAST_ID,
+      });
       window.location.href = REDIRECT_AFTER_SIGN_IN;
     },
   });
@@ -41,7 +47,9 @@ export default function GoogleCallbackClientComponent() {
         hasCalledCallback.current = true;
         handleCallback(result.data);
       } else {
-        toast.error("Invalid callback parameters");
+        toast.error("Invalid callback parameters", {
+          id: GOOGLE_SSO_TOAST_ID,
+        });
         router.push("/sign-in");
       }
     }
