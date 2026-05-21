@@ -53,6 +53,7 @@ backups
 .vinext
 worker
 worker-dist
+tmp
 
 # Localflare generated files
 .localflare/

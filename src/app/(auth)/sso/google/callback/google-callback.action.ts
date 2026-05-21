@@ -14,6 +14,7 @@ import { userTable } from "@/db/schema";
 import { canSignUp, createAndStoreSession } from "@/utils/auth";
 import { isGoogleSSOEnabled } from "@/flags";
 import { getIP } from "@/utils/get-IP";
+import { sendUserVerificationEmail } from "@/utils/email-verification";
 
 type GoogleSSOResponse = {
   /**
@@ -147,7 +148,13 @@ export const googleSSOCallbackAction = actionClient
           })
           .returning();
 
-        // TODO: If the user is not verified, send a verification email
+        if (!user.emailVerified && user.email) {
+          await sendUserVerificationEmail({
+            userId: user.id,
+            email: user.email,
+            username: user.firstName || user.email,
+          });
+        }
 
         await createAndStoreSession(user.id, "google-oauth");
         return { success: true };

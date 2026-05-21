@@ -7,16 +7,12 @@ import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { createId } from "@paralleldrive/cuid2";
 import { cookies, headers } from "next/headers";
 import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp } from "@/utils/auth";
 import type { RegistrationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/types";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
-import { getVerificationTokenKey } from "@/utils/auth-utils";
-import { sendVerificationEmail } from "@/utils/email";
-import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
+import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { passkeyEmailSchema } from "@/schemas/passkey.schema";
 import ms from "ms";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
@@ -160,31 +156,9 @@ export const completePasskeyRegistrationAction = actionClient
         );
       }
 
-      // Generate verification token
-      const { env } = await getCloudflareContext();
-      const verificationToken = createId();
-      const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS * 1000);
-
-      if (!env?.NEXT_INC_CACHE_KV) {
-        throw new Error("Can't connect to KV store");
-      }
-
-      // Save verification token in KV with expiration
-      await env.NEXT_INC_CACHE_KV.put(
-        getVerificationTokenKey(verificationToken),
-        JSON.stringify({
-          userId: user.id,
-          expiresAt: expiresAt.toISOString(),
-        }),
-        {
-          expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
-        }
-      );
-
-      // Send verification email
-      await sendVerificationEmail({
+      await sendUserVerificationEmail({
+        userId: user.id,
         email: user.email,
-        verificationToken,
         username: user.firstName || user.email,
       });
 
