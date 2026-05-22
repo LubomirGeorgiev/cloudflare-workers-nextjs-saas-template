@@ -49,7 +49,6 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       const { serverError: verificationError } = await verifyRegistrationAction({
         email,
         response: registrationResponse,
-        challenge: options.challenge,
       });
 
       if (verificationError) {

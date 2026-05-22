@@ -5,10 +5,10 @@ import type {
   AuthenticationResponseJSON,
   AuthenticatorTransport,
   RegistrationResponseJSON,
-} from "@simplewebauthn/types";
+} from "@simplewebauthn/server";
 import { getDB } from "@/db";
 import { passKeyCredentialTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import isProd from "./is-prod";
 import { SITE_NAME, SITE_DOMAIN, SITE_URL } from "@/constants";
 
@@ -79,12 +79,15 @@ export async function verifyPasskeyRegistration({
   return verification;
 }
 
-export async function generatePasskeyAuthenticationOptions() {
+export async function generatePasskeyAuthenticationOptions(userId: string) {
   const db = getDB();
-  const credentials = await db.query.passKeyCredentialTable.findMany();
+  const credentials = await db.query.passKeyCredentialTable.findMany({
+    where: eq(passKeyCredentialTable.userId, userId),
+  });
 
   const options = await generateAuthenticationOptions({
     rpID,
+    userVerification: "required",
     allowCredentials: credentials.map(cred => ({
       id: cred.credentialId,
       type: "public-key",
@@ -97,13 +100,19 @@ export async function generatePasskeyAuthenticationOptions() {
 
 export async function verifyPasskeyAuthentication(
   response: AuthenticationResponseJSON,
-  challenge: string
+  challenge: string,
+  expectedUserId?: string
 ) {
   const credentialId = response.id;
 
   const db = getDB();
   const credential = await db.query.passKeyCredentialTable.findFirst({
-    where: eq(passKeyCredentialTable.credentialId, credentialId),
+    where: expectedUserId
+      ? and(
+        eq(passKeyCredentialTable.credentialId, credentialId),
+        eq(passKeyCredentialTable.userId, expectedUserId)
+      )
+      : eq(passKeyCredentialTable.credentialId, credentialId),
   });
 
   if (!credential) {

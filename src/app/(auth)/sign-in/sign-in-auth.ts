@@ -2,7 +2,7 @@ import "server-only";
 
 import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
-import { userTable } from "@/db/schema";
+import { passKeyCredentialTable, userTable } from "@/db/schema";
 import { verifyPassword } from "@/utils/password-hasher";
 import { createAndStoreSession } from "@/utils/auth";
 import { eq } from "drizzle-orm";
@@ -56,6 +56,20 @@ export async function signInWithPassword({
           throw new ActionError(
             "NOT_AUTHORIZED",
             "Invalid email or password"
+          );
+        }
+
+        const passkey = await db.query.passKeyCredentialTable.findFirst({
+          where: eq(passKeyCredentialTable.userId, user.id),
+          columns: {
+            id: true,
+          },
+        });
+
+        if (passkey) {
+          throw new ActionError(
+            "FORBIDDEN",
+            "Please sign in with your passkey instead."
           );
         }
 

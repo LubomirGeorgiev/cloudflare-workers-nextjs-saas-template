@@ -9,19 +9,26 @@ import {
 } from "@/utils/webauthn";
 import { getDB } from "@/db";
 import { userTable, passKeyCredentialTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireVerifiedEmail, createAndStoreSession } from "@/utils/auth";
-import type { User } from "@/db/schema";
-import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/types";
-import { headers } from "next/headers";
+import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/server";
+import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import isProd from "@/utils/is-prod";
+import ms from "ms";
+import { passkeyAuthenticationOptionsSchema } from "@/schemas/passkey.schema";
 
 const generateRegistrationOptionsSchema = z.object({
   email: z.string().email(),
 });
+
+const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challenge";
+const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_challenge";
+const PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME = "passkey_authentication_user_id";
+const PASSKEY_CHALLENGE_TTL_SECONDS = Math.floor(ms("10 minutes") / 1000);
 
 export const generateRegistrationOptionsAction = actionClient
   .inputSchema(generateRegistrationOptionsSchema)
@@ -58,6 +65,16 @@ export const generateRegistrationOptionsAction = actionClient
       }
 
       const options = await generatePasskeyRegistrationOptions(user.id, input.email);
+      const cookieStore = await cookies();
+
+      cookieStore.set(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME, options.challenge, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: "strict",
+        path: "/",
+        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
+      });
+
       return options;
     }, RATE_LIMITS.SETTINGS);
   });
@@ -65,7 +82,6 @@ export const generateRegistrationOptionsAction = actionClient
 const verifyRegistrationSchema = z.object({
   email: z.string().email(),
   response: z.custom<RegistrationResponseJSON>(),
-  challenge: z.string(),
 });
 
 export const verifyRegistrationAction = actionClient
@@ -89,15 +105,32 @@ export const verifyRegistrationAction = actionClient
         throw new ActionError("FORBIDDEN", "You can only register passkeys for your own account");
       }
 
-      await verifyPasskeyRegistration({
-        userId: user.id,
-        response: input.response,
-        challenge: input.challenge,
-        userAgent: (await headers()).get("user-agent"),
-        ipAddress: await getIP(),
-      });
-      await createAndStoreSession(user.id, "passkey", input.response.id);
-      return { success: true };
+      const cookieStore = await cookies();
+      const challenge = cookieStore.get(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME)?.value;
+
+      if (!challenge) {
+        throw new ActionError("PRECONDITION_FAILED", "Invalid registration session");
+      }
+
+      try {
+        await verifyPasskeyRegistration({
+          userId: user.id,
+          response: input.response,
+          challenge,
+          userAgent: (await headers()).get("user-agent"),
+          ipAddress: await getIP(),
+        });
+        await createAndStoreSession(user.id, "passkey", input.response.id);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw error;
+        }
+
+        throw new ActionError("PRECONDITION_FAILED", "Failed to register passkey");
+      } finally {
+        cookieStore.delete(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME);
+      }
     }, RATE_LIMITS.SETTINGS);
   });
 
@@ -110,6 +143,11 @@ export const deletePasskeyAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const session = await requireVerifiedEmail();
+      const userId = session?.user?.id;
+
+      if (!userId) {
+        throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+      }
 
       // Prevent deletion of the current passkey
       if (session?.passkeyCredentialId === input.credentialId) {
@@ -121,16 +159,31 @@ export const deletePasskeyAction = actionClient
 
       const db = getDB();
 
+      const passkey = await db.query.passKeyCredentialTable.findFirst({
+        where: and(
+          eq(passKeyCredentialTable.credentialId, input.credentialId),
+          eq(passKeyCredentialTable.userId, userId)
+        ),
+      });
+
+      if (!passkey) {
+        throw new ActionError("NOT_FOUND", "Passkey not found");
+      }
+
       // Get all user's passkeys
       const passkeys = await db
         .select()
         .from(passKeyCredentialTable)
-        .where(eq(passKeyCredentialTable.userId, session?.user?.id ?? ""));
+        .where(eq(passKeyCredentialTable.userId, userId));
 
       // Get full user data to check password
       const user = await db.query.userTable.findFirst({
-        where: eq(userTable.id, session?.user?.id ?? ""),
-      }) as User;
+        where: eq(userTable.id, userId),
+      });
+
+      if (!user) {
+        throw new ActionError("NOT_FOUND", "User not found");
+      }
 
       // Check if this is the last passkey and if the user has a password
       if (passkeys.length === 1 && !user.passwordHash) {
@@ -142,17 +195,55 @@ export const deletePasskeyAction = actionClient
 
       await db
         .delete(passKeyCredentialTable)
-        .where(eq(passKeyCredentialTable.credentialId, input.credentialId));
+        .where(and(
+          eq(passKeyCredentialTable.credentialId, input.credentialId),
+          eq(passKeyCredentialTable.userId, userId)
+        ));
 
       return { success: true };
     }, RATE_LIMITS.SETTINGS);
   });
 
 export const generateAuthenticationOptionsAction = actionClient
-  .inputSchema(z.object({}))
-  .action(async () => {
+  .inputSchema(passkeyAuthenticationOptionsSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const options = await generatePasskeyAuthenticationOptions();
+      const db = getDB();
+      const cookieStore = await cookies();
+      const user = await db.query.userTable.findFirst({
+        where: eq(userTable.email, input.email),
+      });
+
+      if (!user) {
+        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
+        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
+        throw new ActionError("NOT_AUTHORIZED", "Passkey sign-in is not available for this email");
+      }
+
+      const options = await generatePasskeyAuthenticationOptions(user.id);
+
+      if (!options.allowCredentials?.length) {
+        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
+        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
+        throw new ActionError("NOT_AUTHORIZED", "Passkey sign-in is not available for this email");
+      }
+
+      cookieStore.set(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME, options.challenge, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: "strict",
+        path: "/",
+        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
+      });
+
+      cookieStore.set(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME, user.id, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: "strict",
+        path: "/",
+        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
+      });
+
       return options;
     }, RATE_LIMITS.SIGN_IN);
   });
@@ -161,20 +252,38 @@ const verifyAuthenticationSchema = z.object({
   response: z.custom<AuthenticationResponseJSON>((val): val is AuthenticationResponseJSON => {
     return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
   }, "Invalid authentication response"),
-  challenge: z.string(),
 });
 
 export const verifyAuthenticationAction = actionClient
   .inputSchema(verifyAuthenticationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const { verification, credential } = await verifyPasskeyAuthentication(input.response, input.challenge);
+      const cookieStore = await cookies();
+      const challenge = cookieStore.get(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME)?.value;
+      const userId = cookieStore.get(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME)?.value;
 
-      if (!verification.verified) {
-        throw new ActionError("FORBIDDEN", "Passkey authentication failed");
+      if (!challenge || !userId) {
+        throw new ActionError("PRECONDITION_FAILED", "Invalid authentication session");
       }
 
-      await createAndStoreSession(credential.userId, "passkey", input.response.id);
-      return { success: true };
+      try {
+        const { verification, credential } = await verifyPasskeyAuthentication(input.response, challenge, userId);
+
+        if (!verification.verified) {
+          throw new ActionError("FORBIDDEN", "Passkey authentication failed");
+        }
+
+        await createAndStoreSession(credential.userId, "passkey", input.response.id);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw error;
+        }
+
+        throw new ActionError("FORBIDDEN", "Passkey authentication failed");
+      } finally {
+        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
+        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
+      }
     }, RATE_LIMITS.SIGN_IN);
   });

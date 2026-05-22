@@ -1,12 +1,22 @@
 "use client";
 
 import { type SignInSchema, signInSchema } from "@/schemas/signin.schema";
-import { type ReactNode, useState } from "react";
+import {
+  type PasskeyAuthenticationOptionsSchema,
+  passkeyAuthenticationOptionsSchema,
+} from "@/schemas/passkey.schema";
+import { useState } from "react";
 
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SeparatorWithText from "@/components/separator-with-text";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,7 +25,10 @@ import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { KeyIcon } from "lucide-react";
-import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(settings)/settings/security/passkey-settings.actions";
+import {
+  generateAuthenticationOptionsAction,
+  verifyAuthenticationAction,
+} from "@/app/(settings)/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
 
 interface SignInClientProps {
@@ -23,13 +36,20 @@ interface SignInClientProps {
 }
 
 interface PasskeyAuthenticationButtonProps {
-  className?: string;
-  disabled?: boolean;
-  children?: ReactNode;
   redirectPath: string;
 }
 
-function PasskeyAuthenticationButton({ className, disabled, children, redirectPath }: PasskeyAuthenticationButtonProps) {
+function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  const form = useForm<PasskeyAuthenticationOptionsSchema>({
+    resolver: zodResolver(passkeyAuthenticationOptionsSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
+
   const { executeAsync: generateOptions } = useAction(generateAuthenticationOptionsAction, {
     onError: ({ error }) => {
       toast.dismiss();
@@ -52,15 +72,13 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
     },
   });
 
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  const handleAuthenticate = async () => {
+  const onSubmit = async (data: PasskeyAuthenticationOptionsSchema) => {
     try {
       setIsAuthenticating(true);
       toast.loading("Authenticating with passkey...");
 
       // Get authentication options from the server
-      const { data: options, serverError } = await generateOptions({});
+      const { data: options, serverError } = await generateOptions(data);
 
       if (serverError) {
         throw new Error(serverError.message);
@@ -78,25 +96,64 @@ function PasskeyAuthenticationButton({ className, disabled, children, redirectPa
       // Send the response back to the server for verification
       await verifyAuthentication({
         response: authenticationResponse,
-        challenge: options.challenge,
       });
     } catch (error) {
       console.error("Passkey authentication error:", error);
       toast.dismiss();
-      toast.error("Authentication failed");
+      toast.error(error instanceof Error ? error.message : "Authentication failed");
     } finally {
       setIsAuthenticating(false);
     }
   };
 
   return (
-    <Button
-      onClick={handleAuthenticate}
-      disabled={isAuthenticating || disabled}
-      className={className}
-    >
-      {isAuthenticating ? "Authenticating..." : children || "Sign in with a Passkey"}
-    </Button>
+    <>
+      <Button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full"
+      >
+        <KeyIcon className="w-5 h-5 mr-2" />
+        Sign in with a Passkey
+      </Button>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in with a Passkey</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="Email address"
+                        className="w-full px-3 py-2"
+                        disabled={isAuthenticating}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isAuthenticating}
+              >
+                {isAuthenticating ? "Authenticating..." : "Continue"}
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -108,6 +165,7 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
       password: "",
     },
   });
+
   const onSubmit = async (data: SignInSchema) => {
     try {
       toast.loading("Signing you in...");
@@ -155,10 +213,7 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
         <div className="space-y-4">
           <SSOButtons isSignIn />
 
-          <PasskeyAuthenticationButton className="w-full" redirectPath={redirectPath}>
-            <KeyIcon className="w-5 h-5 mr-2" />
-            Sign in with a Passkey
-          </PasskeyAuthenticationButton>
+          <PasskeyAuthenticationDialog redirectPath={redirectPath} />
         </div>
 
         <SeparatorWithText>

@@ -8,4 +8,9 @@ export const passkeyEmailSchema = z.object({
   captchaToken: captchaSchema,
 });
 
+export const passkeyAuthenticationOptionsSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+});
+
 export type PasskeyEmailSchema = z.infer<typeof passkeyEmailSchema>;
+export type PasskeyAuthenticationOptionsSchema = z.infer<typeof passkeyAuthenticationOptionsSchema>;
