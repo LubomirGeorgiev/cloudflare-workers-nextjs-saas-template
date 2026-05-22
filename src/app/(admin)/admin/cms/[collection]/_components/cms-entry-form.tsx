@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
 import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionAction } from "../../../_actions/cms-entry-actions";
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
-import { cmsEntryFormSchema, type CmsEntryFormData } from "@/schemas/cms-entry.schema";
+import { cmsEntryFormSchema, type CmsEntryFormData, type CmsEntryFormInput } from "@/schemas/cms-entry.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -107,7 +107,7 @@ export function CmsEntryForm({
     return fields;
   }, [customFields, entry?.fields]);
 
-  const form = useForm<CmsEntryFormData>({
+  const form = useForm<CmsEntryFormInput, unknown, CmsEntryFormData>({
     resolver: zodResolver(cmsEntryFormSchema),
     defaultValues: {
       title: entry?.title || "",
@@ -154,7 +154,11 @@ export function CmsEntryForm({
     },
   });
 
-  const { execute: loadTags, result: tagsResult, isExecuting: isLoadingTags } = useAction(listCmsTagsAction);
+  const { execute: loadTags, result: tagsResult, isExecuting: isLoadingTags } = useAction(listCmsTagsAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to load tags");
+    },
+  });
   const { execute: createTag, isExecuting: isCreatingTag } = useAction(createCmsTagAction, {
     onSuccess: ({ data }) => {
       if (data) {
@@ -726,13 +730,7 @@ export function CmsEntryForm({
                         <FormControl>
                           <Input
                             type="datetime-local"
-                            value={
-                              field.value
-                                ? new Date(field.value.getTime() - field.value.getTimezoneOffset() * 60000)
-                                    .toISOString()
-                                    .slice(0, 16)
-                                : ""
-                            }
+                            value={formatDateTimeLocalValue(field.value)}
                             onChange={(e) => {
                               const dateValue = e.target.value
                                 ? new Date(e.target.value)
@@ -855,4 +853,19 @@ export function CmsEntryForm({
       </form>
     </Form>
   );
+}
+
+function formatDateTimeLocalValue(value: unknown): string {
+  if (!value) {
+    return "";
+  }
+
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 }

@@ -10,6 +10,7 @@ export default defineConfig({
       "use-sync-external-store/shim/with-selector",
     ],
     exclude: [
+      // TODO Check if future version of @base-ui are optimized for Vite and remove from this list
       "@base-ui/react",
       "@base-ui/utils",
       "@tiptap/core",

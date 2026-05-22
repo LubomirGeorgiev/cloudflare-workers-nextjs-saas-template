@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import { cache } from "react"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
 import type { Route } from "next"
@@ -38,6 +39,21 @@ function blogSlugWithoutMdSuffix(slug: string): string | undefined {
   return base || undefined
 }
 
+const getCachedBlogEntryBySlug = cache(async (slug: string) => {
+  return getCmsEntryBySlug({
+    collectionSlug: "blog",
+    slug,
+    includeRelations: { tags: true, createdByUser: true },
+  })
+})
+
+const getCachedBlogMarkdownEntryBySlug = cache(async (slug: string) => {
+  return getCmsEntryBySlug({
+    collectionSlug: "blog",
+    slug,
+  })
+})
+
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
@@ -45,10 +61,7 @@ export async function generateMetadata({
 
   const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
   if (slugForMarkdown !== undefined) {
-    const mdEntry = await getCmsEntryBySlug({
-      collectionSlug: "blog",
-      slug: slugForMarkdown,
-    })
+    const mdEntry = await getCachedBlogMarkdownEntryBySlug(slugForMarkdown)
     if (mdEntry) {
       redirect(
         buildCmsEntryMarkdownPath({
@@ -74,10 +87,7 @@ export async function generateMetadata({
     return getBlogListPageMetadata({ page: validPageNumber })
   }
 
-  const entry = await getCmsEntryBySlug({
-    collectionSlug: 'blog',
-    slug,
-  })
+  const entry = await getCachedBlogEntryBySlug(slug)
 
   if (!entry) {
     return {
@@ -85,20 +95,13 @@ export async function generateMetadata({
     }
   }
 
-  // Get entry with relations for full metadata
-  const fullEntry = await getCmsEntryBySlug({
-    collectionSlug: 'blog',
-    slug,
-    includeRelations: { tags: true, createdByUser: true },
-  })
-
   const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
   const featuredImageUrl = entry.featuredImageUrl ? `${SITE_URL}${entry.featuredImageUrl}` : undefined
-  const author = fullEntry?.createdByUser
+  const author = entry.createdByUser
   const authorName = author
     ? [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email
     : undefined
-  const tags = fullEntry?.tags?.map(({ tag }) => tag.name) || []
+  const tags = entry.tags?.map(({ tag }) => tag.name) || []
 
   const { publishedDate, modifiedDate } = getCmsEntryDates({
     publishedAt: entry.publishedAt,
@@ -148,10 +151,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
   if (slugForMarkdown !== undefined) {
-    const mdEntry = await getCmsEntryBySlug({
-      collectionSlug: "blog",
-      slug: slugForMarkdown,
-    })
+    const mdEntry = await getCachedBlogMarkdownEntryBySlug(slugForMarkdown)
     if (mdEntry) {
       redirect(
         buildCmsEntryMarkdownPath({
@@ -179,11 +179,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     return <BlogListPage page={validPageNumber} />
   }
 
-  const entry = await getCmsEntryBySlug({
-    collectionSlug: 'blog',
-    slug,
-    includeRelations: { tags: true, createdByUser: true },
-  })
+  const entry = await getCachedBlogEntryBySlug(slug)
 
   if (!entry) {
     notFound()

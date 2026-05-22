@@ -398,7 +398,7 @@ function validateEntryFields(
 
   const parseResult = collection.fieldsSchema.safeParse(fields);
   if (!parseResult.success) {
-    throw new Error(`Invalid fields: ${parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`);
+    throw new Error(`Invalid fields: ${parseResult.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', ')}`);
   }
 
   return parseResult.data;
@@ -444,6 +444,14 @@ type CmsIncludeRelations = {
   media?: boolean;
   tags?: boolean;
 };
+
+function serializeCmsIncludeRelations(includeRelations?: CmsIncludeRelations): string {
+  return JSON.stringify(includeRelations ?? null);
+}
+
+function deserializeCmsIncludeRelations(value: string): CmsIncludeRelations | undefined {
+  return JSON.parse(value) ?? undefined;
+}
 
 /**
  * Helper function to build the 'with' clause for including relations in CMS queries
@@ -544,11 +552,14 @@ export type GetCmsCollectionResult = CmsEntry & {
  *   includeRelations: { media: true }
  * });
  */
-export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.collections>(
-  params: GetCmsCollectionParams<T>
+const getCachedCmsCollection = cache(async (
+  collectionSlug: string,
+  status: CmsStatusFilter,
+  includeRelationsKey: string,
+  limit?: number,
+  offset?: number,
 ): Promise<GetCmsCollectionResult[]> => {
-  const validated = getCmsCollectionParamsSchema.parse(params);
-  const { collectionSlug, status, includeRelations, limit, offset } = validated;
+  const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
 
   // Generate a unique cache key based on the query parameters
   const cacheKey = getCmsCollectionCacheKey({
@@ -618,6 +629,20 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
   return processedEntries;
 });
 
+export function getCmsCollection<T extends keyof typeof cmsConfig.collections>(
+  params: GetCmsCollectionParams<T>
+): Promise<GetCmsCollectionResult[]> {
+  const validated = getCmsCollectionParamsSchema.parse(params);
+
+  return getCachedCmsCollection(
+    validated.collectionSlug,
+    validated.status,
+    serializeCmsIncludeRelations(validated.includeRelations),
+    validated.limit,
+    validated.offset,
+  );
+}
+
 /**
  * Get the total count of CMS entries in a collection
  *
@@ -628,11 +653,10 @@ export const getCmsCollection = cache(async <T extends keyof typeof cmsConfig.co
  *   status: 'published'
  * });
  */
-export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConfig.collections>(
-  params: z.infer<typeof getCmsCollectionCountParamsSchema> & { collectionSlug: T }
+const getCachedCmsCollectionCount = cache(async (
+  collectionSlug: string,
+  status: CmsStatusFilter,
 ): Promise<number> => {
-  const validated = getCmsCollectionCountParamsSchema.parse(params);
-  const { collectionSlug, status } = validated;
 
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
@@ -667,6 +691,14 @@ export const getCmsCollectionCount = cache(async <T extends keyof typeof cmsConf
   });
 });
 
+export function getCmsCollectionCount<T extends keyof typeof cmsConfig.collections>(
+  params: z.infer<typeof getCmsCollectionCountParamsSchema> & { collectionSlug: T }
+): Promise<number> {
+  const validated = getCmsCollectionCountParamsSchema.parse(params);
+
+  return getCachedCmsCollectionCount(validated.collectionSlug, validated.status);
+}
+
 
 type GetCmsEntryByIdParams = z.infer<typeof getCmsEntryByIdParamsSchema>;
 
@@ -683,9 +715,11 @@ type GetCmsEntryByIdParams = z.infer<typeof getCmsEntryByIdParamsSchema>;
  *   includeRelations: { createdByUser: true, media: true }
  * });
  */
-export const getCmsEntryById = cache(async (params: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> => {
-  const validated = getCmsEntryByIdParamsSchema.parse(params);
-  const { id, includeRelations } = validated;
+const getCachedCmsEntryById = cache(async (
+  id: string,
+  includeRelationsKey: string,
+): Promise<GetCmsCollectionResult | null> => {
+  const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
 
   const db = getDB();
 
@@ -706,6 +740,15 @@ export const getCmsEntryById = cache(async (params: GetCmsEntryByIdParams): Prom
 
   return result;
 });
+
+export function getCmsEntryById(params: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> {
+  const validated = getCmsEntryByIdParamsSchema.parse(params);
+
+  return getCachedCmsEntryById(
+    validated.id,
+    serializeCmsIncludeRelations(validated.includeRelations),
+  );
+}
 
 type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = Omit<z.infer<typeof getCmsEntryBySlugParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
@@ -1211,10 +1254,7 @@ export const getCmsTagById = cache(async (id: z.infer<typeof getCmsTagByIdParams
 /**
  * Get all CMS entries that use a specific tag, grouped by collection
  */
-export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status?: CmsStatusFilter }) => {
-  const validated = getCmsEntriesByTagIdParamsSchema.parse(params);
-  const { tagId, status } = validated;
-
+const getCachedCmsEntriesByTagId = cache(async (tagId: string, status: CmsStatusFilter) => {
   const db = getDB();
 
   // Build the where conditions
@@ -1250,6 +1290,12 @@ export const getCmsEntriesByTagId = cache(async (params: { tagId: string; status
 
   return entriesByCollection;
 });
+
+export function getCmsEntriesByTagId(params: { tagId: string; status?: CmsStatusFilter }) {
+  const validated = getCmsEntriesByTagIdParamsSchema.parse(params);
+
+  return getCachedCmsEntriesByTagId(validated.tagId, validated.status);
+}
 
 export async function createCmsTag(params: z.infer<typeof createCmsTagParamsSchema>) {
   const validated = createCmsTagParamsSchema.parse(params);

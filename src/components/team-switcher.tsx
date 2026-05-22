@@ -44,7 +44,7 @@ export function TeamSwitcher({
       console.error("Failed to update selected team:", error);
       // Revert optimistic update
       setSelectedTeam(selectedTeamId);
-      toast.error("Failed to update selected team");
+      toast.error(error.serverError?.message || "Failed to update selected team");
     },
   })
 

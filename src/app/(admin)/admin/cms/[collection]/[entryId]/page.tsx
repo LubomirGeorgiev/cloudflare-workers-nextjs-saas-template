@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { cache } from "react";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
@@ -11,6 +12,15 @@ import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { CmsEntryForm } from "../_components/cms-entry-form";
 import { Route } from "next";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+
+const getCachedCmsEntryById = cache(async (entryId: string) => {
+  return getCmsEntryById({
+    id: entryId,
+    includeRelations: {
+      tags: true,
+    },
+  });
+});
 
 export async function generateMetadata({
   params,
@@ -26,12 +36,7 @@ export async function generateMetadata({
     };
   }
 
-  const entry = await getCmsEntryById({
-    id: entryId,
-    includeRelations: {
-      tags: false,
-    }
-  });
+  const entry = await getCachedCmsEntryById(entryId);
 
   return {
     title: `Edit ${collectionConfig.labels.singular} | Admin`,
@@ -58,12 +63,7 @@ export default async function EditEntryPage({
     return redirect("/admin/cms");
   }
 
-  const entry = await getCmsEntryById({
-    id: entryId,
-    includeRelations: {
-      tags: true,
-    }
-  });
+  const entry = await getCachedCmsEntryById(entryId);
   if (!entry) {
     return redirect(`/admin/cms/${collection}`);
   }

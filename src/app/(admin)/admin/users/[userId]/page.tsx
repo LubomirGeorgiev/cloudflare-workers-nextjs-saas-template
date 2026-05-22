@@ -1,4 +1,5 @@
 import { getUserData } from "../../_actions/get-user.action"
+import { cache } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -28,39 +29,34 @@ interface UserDetailPageProps {
   params: Promise<{ userId: string }>
 }
 
+const getCachedUserData = cache(async (userId: string) => {
+  return getUserData({ userId })
+})
+
 export async function generateMetadata({ params }: UserDetailPageProps): Promise<Metadata> {
   const { userId } = await params
 
-  try {
-    const data = await getUserData(userId)
-    if (!data) {
-      throw new Error("User not found")
-    }
-    const { user } = data
-
-    return {
-      title: `${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email} - User Details`,
-      description: `User details for ${user.email}`,
-    }
-  } catch {
+  const { data, serverError } = await getCachedUserData(userId)
+  if (serverError || !data) {
     return {
       title: "User Not Found",
       description: "The requested user could not be found",
     }
+  }
+
+  const { user } = data
+
+  return {
+    title: `${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email} - User Details`,
+    description: `User details for ${user.email}`,
   }
 }
 
 export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const { userId } = await params
 
-  let data
-  try {
-    data = await getUserData(userId)
-  } catch {
-    notFound()
-  }
-
-  if (!data) {
+  const { data, serverError } = await getCachedUserData(userId)
+  if (serverError || !data) {
     notFound()
   }
 

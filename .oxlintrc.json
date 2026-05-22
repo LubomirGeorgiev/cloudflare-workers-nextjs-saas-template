@@ -31,6 +31,7 @@
     ],
     "no-unused-expressions": "warn",
     "project/no-unused-module-exports": "error",
+    "project/no-object-params-in-react-cache": "error",
     "no-var": "error",
     "prefer-const": "error",
     "prefer-rest-params": "error",

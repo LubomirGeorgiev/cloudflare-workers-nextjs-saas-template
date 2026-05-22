@@ -288,10 +288,10 @@ function getTreeAncestorChain({
   return chain;
 }
 
-export const getCmsNavigationTree = cache(async ({
-  navigationKey,
-  status = CMS_ENTRY_STATUS.PUBLISHED,
-}: GetCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> => {
+const getCachedCmsNavigationTree = cache(async (
+  navigationKey: CmsNavigationKey,
+  status: CmsStatusFilter,
+): Promise<CmsNavigationTreeNode[]> => {
   const cacheKey = getCmsNavigationCacheKey({
     navigationKey,
     status,
@@ -329,6 +329,13 @@ export const getCmsNavigationTree = cache(async ({
     ttl: "8 hours",
   });
 });
+
+export function getCmsNavigationTree({
+  navigationKey,
+  status = CMS_ENTRY_STATUS.PUBLISHED,
+}: GetCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> {
+  return getCachedCmsNavigationTree(navigationKey, status);
+}
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export async function getDocsNavigationTree({

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { searchDocsAction } from "../_actions/search-docs.action";
+import { toast } from "sonner";
 
 const MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -100,6 +101,12 @@ export function DocsSearch({
         });
 
         if (searchRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        if (response?.serverError) {
+          toast.error(response.serverError.message);
+          setResults([]);
           return;
         }
 

@@ -16,8 +16,8 @@ export function UsersTable() {
   const [emailFilter, setEmailFilter] = useQueryState("email", { defaultValue: "" })
 
   const { execute: fetchUsers, result, status } = useAction(getUsersAction, {
-    onError: () => {
-      toast.error("Failed to fetch users")
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to fetch users")
     },
   })
   const data = result.data
@@ -62,7 +62,7 @@ export function UsersTable() {
           {status === 'executing' || status === 'idle' ? (
             <div>Loading...</div>
           ) : error ? (
-            <div>Error: Failed to fetch users</div>
+            <div>Error: {error.message}</div>
           ) : !data ? (
             <div>No users found</div>
           ) : (

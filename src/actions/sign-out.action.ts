@@ -1,5 +1,6 @@
 "use server";
 
+import { actionClient } from "@/lib/safe-action";
 import {
   deleteSessionTokenCookie,
   getSessionFromCookie,
@@ -7,7 +8,7 @@ import {
 } from "@/utils/auth";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
-export const signOutAction = async () => {
+export const signOutAction = actionClient.action(async () => {
   return withRateLimit(
     async () => {
       const session = await getSessionFromCookie()
@@ -20,7 +21,8 @@ export const signOutAction = async () => {
       }
 
       await deleteSessionTokenCookie();
+      return { success: true };
     },
     RATE_LIMITS.SIGN_OUT
   );
-};
+});

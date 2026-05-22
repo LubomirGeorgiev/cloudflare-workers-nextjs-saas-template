@@ -60,7 +60,7 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       router.refresh();
     } catch (error) {
       console.error("Passkey registration error:", error);
-      toast.error("Failed to register passkey");
+      toast.error(error instanceof Error ? error.message : "Failed to register passkey");
     } finally {
       setIsRegistering(false);
     }
@@ -97,6 +97,9 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
   const router = useRouter();
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const { execute: deletePasskey } = useAction(deletePasskeyAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete passkey");
+    },
     onSuccess: () => {
       toast.success("Passkey deleted");
       dialogCloseRef.current?.click();

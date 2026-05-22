@@ -21,6 +21,18 @@ export type FieldConfig = {
   };
 };
 
+type ZodCheckDef = {
+  check?: string;
+  format?: string;
+  inclusive?: boolean;
+  kind?: string;
+  maximum?: number;
+  minimum?: number;
+  pattern?: RegExp;
+  regex?: RegExp;
+  value?: number;
+};
+
 /**
  * Introspects a Zod schema and generates field configurations for form rendering
  * This runs at runtime on the client side
@@ -55,10 +67,10 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
   ) {
     if (currentType instanceof z.ZodOptional || currentType instanceof z.ZodNullable) {
       isOptional = true;
-      currentType = currentType._def.innerType;
+      currentType = currentType.unwrap() as z.ZodTypeAny;
     } else {
-      defaultValue = currentType._def.defaultValue();
-      currentType = currentType._def.innerType;
+      defaultValue = getDefaultValue(currentType);
+      currentType = currentType.unwrap() as z.ZodTypeAny;
     }
   }
 
@@ -80,12 +92,19 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
     const validation: FieldConfig["validation"] = {};
 
     for (const check of checks) {
-      if (check.kind === "min") {
-        validation.minLength = check.value;
-      } else if (check.kind === "max") {
-        validation.maxLength = check.value;
-      } else if (check.kind === "regex") {
-        validation.pattern = check.regex.source;
+      const checkDef = getCheckDef(check);
+      if (checkDef.kind === "min" && typeof checkDef.value === "number") {
+        validation.minLength = checkDef.value;
+      } else if (checkDef.check === "min_length" && typeof checkDef.minimum === "number") {
+        validation.minLength = checkDef.minimum;
+      } else if (checkDef.kind === "max" && typeof checkDef.value === "number") {
+        validation.maxLength = checkDef.value;
+      } else if (checkDef.check === "max_length" && typeof checkDef.maximum === "number") {
+        validation.maxLength = checkDef.maximum;
+      } else if (checkDef.kind === "regex" && checkDef.regex) {
+        validation.pattern = checkDef.regex.source;
+      } else if (checkDef.check === "string_format" && checkDef.format === "regex" && checkDef.pattern) {
+        validation.pattern = checkDef.pattern.source;
       }
     }
 
@@ -105,10 +124,15 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
     const validation: FieldConfig["validation"] = {};
 
     for (const check of checks) {
-      if (check.kind === "min") {
-        validation.min = check.value;
-      } else if (check.kind === "max") {
-        validation.max = check.value;
+      const checkDef = getCheckDef(check);
+      if (checkDef.kind === "min" && typeof checkDef.value === "number") {
+        validation.min = checkDef.value;
+      } else if (checkDef.check === "greater_than" && checkDef.inclusive && typeof checkDef.value === "number") {
+        validation.min = checkDef.value;
+      } else if (checkDef.kind === "max" && typeof checkDef.value === "number") {
+        validation.max = checkDef.value;
+      } else if (checkDef.check === "less_than" && checkDef.inclusive && typeof checkDef.value === "number") {
+        validation.max = checkDef.value;
       }
     }
 
@@ -138,18 +162,32 @@ function zodTypeToFieldConfig(name: string, zodType: z.ZodTypeAny): FieldConfig 
     return {
       ...baseConfig,
       type: "select",
-      options: currentType.options.map((option: string) => ({
-        label: option
-          .replace(/([A-Z])/g, " $1")
-          .replace(/[-_]/g, " ")
-          .replace(/^./, (str: string) => str.toUpperCase())
-          .trim(),
-        value: option,
-      })),
+      options: currentType.options.map((option) => {
+        const value = String(option);
+
+        return {
+          label: value
+            .replace(/([A-Z])/g, " $1")
+            .replace(/[-_]/g, " ")
+            .replace(/^./, (str: string) => str.toUpperCase())
+            .trim(),
+          value,
+        };
+      }),
     } as FieldConfig;
   }
 
   // Unsupported type
   console.warn(`Unsupported Zod type for field "${name}":`, currentType.constructor.name);
   return null;
+}
+
+function getCheckDef(check: unknown): ZodCheckDef {
+  return ((check as { _zod?: { def?: ZodCheckDef } })._zod?.def ?? check) as ZodCheckDef;
+}
+
+function getDefaultValue(schema: z.ZodTypeAny): unknown {
+  const defaultValue = (schema as unknown as { _def: { defaultValue: unknown } })._def.defaultValue;
+
+  return typeof defaultValue === "function" ? defaultValue() : defaultValue;
 }

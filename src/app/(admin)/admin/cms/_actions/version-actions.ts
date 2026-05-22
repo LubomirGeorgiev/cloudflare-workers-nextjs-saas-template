@@ -9,8 +9,8 @@ export const getCmsEntryVersionsAction = actionClient
   .inputSchema(z.object({
     entryId: z.string(),
   }))
-  .action(async ({ parsedInput: input, ctx }) => {
-    await requireAdmin(ctx);
+  .action(async ({ parsedInput: input }) => {
+    await requireAdmin();
 
     const versions = await getCmsEntryVersions(input.entryId);
     return versions;
@@ -21,8 +21,8 @@ export const revertCmsEntryVersionAction = actionClient
     entryId: z.string(),
     versionId: z.string(),
   }))
-  .action(async ({ parsedInput: input, ctx }) => {
-    await requireAdmin(ctx);
+  .action(async ({ parsedInput: input }) => {
+    await requireAdmin();
 
     const updatedEntry = await revertCmsEntryToVersion({
       entryId: input.entryId,
@@ -36,8 +36,8 @@ export const deleteCmsEntryVersionAction = actionClient
     entryId: z.string(),
     versionId: z.string(),
   }))
-  .action(async ({ parsedInput: input, ctx }) => {
-    await requireAdmin(ctx);
+  .action(async ({ parsedInput: input }) => {
+    await requireAdmin();
 
     await deleteCmsEntryVersion({
       entryId: input.entryId,

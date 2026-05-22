@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
+import { toast } from "sonner";
 
 interface MediaLibraryPickerProps {
   onSelect: (url: string, alt?: string, width?: number, height?: number) => void;
@@ -30,8 +31,13 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
   const [page, setPage] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { execute, result, isExecuting } = useAction(listCmsMediaForPickerAction);
+  const { execute, result, isExecuting } = useAction(listCmsMediaForPickerAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to load media");
+    },
+  });
   const data = result.data;
+  const error = result.serverError;
 
   // Debounce search input
   useEffect(() => {
@@ -89,6 +95,11 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
           Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="tiptap-media-library-item-skeleton" />
           ))
+        ) : error ? (
+          <div className="tiptap-media-library-empty">
+            <ImageIcon className="h-12 w-12 text-muted-foreground" />
+            <p className="text-muted-foreground">{error.message}</p>
+          </div>
         ) : data?.media && data.media.length > 0 ? (
           // Media grid
           data.media.map((media: MediaLibraryItem) => {

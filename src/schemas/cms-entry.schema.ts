@@ -75,25 +75,26 @@ export function withPublishedAtLifecycleValidation<T extends z.ZodTypeAny>(schem
 
 export const cmsEntryFormSchema = withStatusPublishedAtValidation(
   baseCmsEntrySchema.extend({
-    fields: z.record(z.any()).optional(),
+    fields: z.record(z.string(), z.any()).optional(),
   })
 );
 
 export const createCmsEntrySchema = withStatusPublishedAtValidation(
   baseCmsEntrySchema.extend({
     collection: zodCollectionEnum,
-    fields: z.record(z.any()),
+    fields: z.record(z.string(), z.any()),
   })
 );
 
 export const updateCmsEntrySchema = withStatusPublishedAtValidation(
   baseCmsEntrySchema
     .extend({
-      fields: z.record(z.any()),
+      fields: z.record(z.string(), z.any()),
     })
     .partial()
     .extend({
       id: z.string(),
     })
 );
+export type CmsEntryFormInput = z.input<typeof cmsEntryFormSchema>;
 export type CmsEntryFormData = z.infer<typeof cmsEntryFormSchema>;

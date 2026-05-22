@@ -1,5 +1,6 @@
 import "server-only"
 import Link from "next/link"
+import { cache } from "react"
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsCollection } from "@/lib/cms/cms-repository"
@@ -20,6 +21,13 @@ type AuthorPageProps = {
   }>
 }
 
+const getCachedBlogEntriesWithAuthors = cache(async () => {
+  return getCmsCollection({
+    collectionSlug: "blog",
+    includeRelations: { createdByUser: true, tags: true },
+  })
+})
+
 export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
@@ -32,10 +40,7 @@ export async function generateMetadata({
     }
   }
 
-  const blogEntries = await getCmsCollection({
-    collectionSlug: 'blog',
-    includeRelations: { createdByUser: true, tags: true },
-  })
+  const blogEntries = await getCachedBlogEntriesWithAuthors()
 
   const authorEntries = blogEntries.filter(
     entry => entry.createdByUser?.id === parsedAuthorId
@@ -87,10 +92,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     notFound()
   }
 
-  const blogEntries = await getCmsCollection({
-    collectionSlug: 'blog',
-    includeRelations: { createdByUser: true, tags: true },
-  })
+  const blogEntries = await getCachedBlogEntriesWithAuthors()
 
   const authorEntries = blogEntries.filter(
     entry => entry.createdByUser?.id === parsedAuthorId

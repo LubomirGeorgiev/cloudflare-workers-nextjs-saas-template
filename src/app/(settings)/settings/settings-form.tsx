@@ -30,7 +30,7 @@ export function SettingsForm() {
   const { execute: updateUserProfile } = useAction(updateUserProfileAction, {
     onError: ({ error }) => {
       toast.dismiss()
-      toast.error(error.serverError?.message)
+      toast.error(error.serverError?.message ?? "Failed to update profile")
     },
     onExecute: () => {
       toast.loading("Signing you in...")

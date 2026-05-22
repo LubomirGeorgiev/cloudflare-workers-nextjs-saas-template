@@ -568,7 +568,11 @@ export function VersionHistory({
   const [revertVersionToRestore, setRevertVersionToRestore] = useState<CmsEntryVersion | null>(null);
 
   // Fetch versions lazily when the sheet is opened
-  const { execute: fetchVersions, result: versionsResult, isExecuting: isLoadingVersions } = useAction(getCmsEntryVersionsAction);
+  const { execute: fetchVersions, result: versionsResult, isExecuting: isLoadingVersions } = useAction(getCmsEntryVersionsAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to load versions");
+    },
+  });
 
   // Fetch versions when sheet opens
   useEffect(() => {

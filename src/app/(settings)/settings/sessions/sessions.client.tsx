@@ -35,6 +35,9 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
   const router = useRouter();
   const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
   const { execute: deleteSession } = useAction(deleteSessionAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete session");
+    },
     onSuccess: () => {
       toast.success("Session deleted");
       dialogCloseRef.current?.click();

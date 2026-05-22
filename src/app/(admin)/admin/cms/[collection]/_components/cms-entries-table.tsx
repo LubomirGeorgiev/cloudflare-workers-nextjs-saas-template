@@ -32,6 +32,7 @@ import { type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { toast } from "sonner";
 
 export function CmsEntriesTable({
   collection,
@@ -50,8 +51,15 @@ export function CmsEntriesTable({
   );
   const hasNavigation = Boolean(getCmsCollectionNavigationKey(collection));
 
-  const { execute: listEntries, result, isExecuting } = useAction(listCmsEntriesAction);
+  const { execute: listEntries, result, isExecuting } = useAction(listCmsEntriesAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to load entries");
+    },
+  });
   const { execute: deleteEntry, isExecuting: isDeleting } = useAction(deleteCmsEntryAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to delete entry");
+    },
     onSuccess: () => {
       listEntries({
         collection,
@@ -171,6 +179,7 @@ export function CmsEntriesTable({
   };
 
   const data = result.data;
+  const error = result.serverError;
   const entries = data?.entries ?? [];
   const totalCount = data?.totalCount ?? 0;
   const pageCount = Math.ceil(totalCount / pageSize);
@@ -180,6 +189,10 @@ export function CmsEntriesTable({
       {isExecuting ? (
         <div className="flex items-center justify-center py-8">
           <div className="text-sm text-muted-foreground">Loading entries...</div>
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="text-sm text-muted-foreground">{error.message}</div>
         </div>
       ) : (
         <DataTable

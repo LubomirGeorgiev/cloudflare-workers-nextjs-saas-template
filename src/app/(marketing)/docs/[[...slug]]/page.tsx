@@ -1,5 +1,6 @@
 import { type Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import type { Route } from "next";
 import type { JSONContent } from "@tiptap/core";
@@ -35,6 +36,10 @@ interface DocsPageProps {
   params: Promise<{
     slug?: string[];
   }>;
+}
+
+function getDocsSlugCacheKey(slugParts?: string[]): string {
+  return JSON.stringify(slugParts ?? []);
 }
 
 function getRoutableGroupChildren(node: CmsNavigationTreeNode): CmsNavigationTreeNode[] {
@@ -150,11 +155,16 @@ async function resolveDocsPage(slugParts?: string[]) {
   };
 }
 
+const resolveCachedDocsPage = cache(async (slugCacheKey: string) => {
+  const slugParts = JSON.parse(slugCacheKey) as string[];
+  return resolveDocsPage(slugParts.length > 0 ? slugParts : undefined);
+});
+
 export async function generateMetadata({
   params,
 }: DocsPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const result = await resolveDocsPage(slug);
+  const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug));
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
   if (result.type === "markdown-redirect") {
@@ -244,7 +254,7 @@ export async function generateMetadata({
 
 export default async function DocsPage({ params }: DocsPageProps) {
   const { slug } = await params;
-  const result = await resolveDocsPage(slug);
+  const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug));
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
 

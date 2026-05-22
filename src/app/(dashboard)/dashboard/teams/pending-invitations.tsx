@@ -44,13 +44,18 @@ export function PendingInvitations() {
     const fetchPendingInvitations = async () => {
       setIsLoading(true);
       try {
-        const { data: result } = await getPendingInvitationsForCurrentUserAction();
+        const { data: result, serverError } = await getPendingInvitationsForCurrentUserAction();
+
+        if (serverError) {
+          throw new Error(serverError.message);
+        }
 
         if (result?.success && result.data) {
           setPendingInvitations(result.data as PendingInvitation[]);
         }
       } catch (err) {
         console.error("Failed to fetch pending invitations:", err);
+        toast.error(err instanceof Error ? err.message : "Failed to fetch pending invitations");
       } finally {
         setIsLoading(false);
       }
@@ -78,8 +83,8 @@ export function PendingInvitations() {
         // Refresh the page to show the new team
         router.refresh();
       }
-    } catch {
-      toast.error("Failed to accept invitation");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to accept invitation");
     } finally {
       setIsAccepting(prev => ({ ...prev, [token]: false }));
     }

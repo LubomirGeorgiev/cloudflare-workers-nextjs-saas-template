@@ -43,14 +43,24 @@ export function CreditPackages() {
 
   const handlePurchase = async (pkg: CreditPackage) => {
     try {
-      const { clientSecret } = await createPaymentIntent({
+      const { data, serverError } = await createPaymentIntent({
         packageId: pkg.id,
       });
-      setClientSecret(clientSecret);
+
+      if (serverError) {
+        throw new Error(serverError.message);
+      }
+
+      if (!data?.clientSecret) {
+        throw new Error("Failed to create payment intent");
+      }
+
+      setClientSecret(data.clientSecret);
       setSelectedPackage(pkg);
       setIsDialogOpen(true);
     } catch (error) {
       console.error("Error creating payment intent:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to start checkout");
     }
   };
 

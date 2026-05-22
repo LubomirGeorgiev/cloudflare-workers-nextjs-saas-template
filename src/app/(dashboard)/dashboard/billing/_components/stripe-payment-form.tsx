@@ -51,12 +51,16 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
         // The payment was successful
         const paymentIntent = await stripe.retrievePaymentIntent(clientSecret);
         if (paymentIntent.paymentIntent) {
-          const { success } = await confirmPayment({
+          const { data, serverError } = await confirmPayment({
             packageId,
             paymentIntentId: paymentIntent.paymentIntent.id,
           });
 
-          if (success) {
+          if (serverError) {
+            throw new Error(serverError.message);
+          }
+
+          if (data?.success) {
             toast.success("Payment successful!");
             onSuccess();
           } else {
@@ -68,7 +72,7 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
       }
     } catch (error) {
       console.error("Payment error:", error);
-      toast.error("An unexpected error occurred");
+      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setIsProcessing(false);
     }

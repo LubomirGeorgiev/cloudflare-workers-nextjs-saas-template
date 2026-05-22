@@ -9,7 +9,12 @@ const useSignOut = () => {
     const toastId = toast.loading("Signing out...");
 
     try {
-      await signOutAction();
+      const { serverError } = await signOutAction();
+
+      if (serverError) {
+        throw new Error(serverError.message);
+      }
+
       clearSession();
       toast.dismiss(toastId);
       window.location.replace("/");

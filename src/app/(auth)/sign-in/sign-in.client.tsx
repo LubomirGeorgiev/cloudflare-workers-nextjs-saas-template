@@ -30,6 +30,7 @@ import {
   verifyAuthenticationAction,
 } from "@/app/(settings)/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
+import { signInAction } from "./sign-in.action";
 
 interface SignInClientProps {
   redirectPath: string;
@@ -166,34 +167,24 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
     },
   });
 
-  const onSubmit = async (data: SignInSchema) => {
-    try {
+  const { execute: signIn, isExecuting: isSigningIn } = useAction(signInAction, {
+    onError: ({ error }) => {
+      toast.dismiss();
+      toast.error(error.serverError?.message ?? "Something went wrong");
+    },
+    onExecute: () => {
       toast.loading("Signing you in...");
-
-      const response = await fetch("/api/auth/sign-in", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json() as { message?: string };
-
-      if (!response.ok) {
-        throw new Error(result.message ?? "Something went wrong");
-      }
-
+    },
+    onSuccess: () => {
       toast.dismiss();
       toast.success("Signed in successfully");
       window.location.href = redirectPath;
-    } catch (error) {
-      toast.dismiss();
-      toast.error(
-        error instanceof Error ? error.message : "Something went wrong"
-      );
-    }
-  }
+    },
+  });
+
+  const onSubmit = (data: SignInSchema) => {
+    signIn(data);
+  };
 
   return (
     <div className="min-h-[90vh] flex flex-col items-center px-4 justify-center bg-background my-6 md:my-10">
@@ -261,8 +252,9 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
             <Button
               type="submit"
               className="w-full flex justify-center py-2.5"
+              disabled={isSigningIn}
             >
-              Sign In with Password
+              {isSigningIn ? "Signing in..." : "Sign In with Password"}
             </Button>
           </form>
         </Form>

@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { cache } from "react";
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { notFound, redirect } from "next/navigation";
@@ -31,14 +32,18 @@ interface TeamPageProps {
   }>;
 }
 
+const getCachedTeamBySlug = cache(async (teamSlug: string) => {
+  const db = getDB();
+
+  return db.query.teamTable.findFirst({
+    where: eq(teamTable.slug, teamSlug),
+  });
+});
+
 // TODO Test the removal process
 export async function generateMetadata({ params }: TeamPageProps) {
   const { teamSlug } = await params;
-  const db = getDB();
-
-  const team = await db.query.teamTable.findFirst({
-    where: eq(teamTable.slug, teamSlug),
-  });
+  const team = await getCachedTeamBySlug(teamSlug);
 
   if (!team) {
     return {
@@ -60,12 +65,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
     return redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`) as Route);
   }
 
-  const db = getDB();
-
-  // Find the team by slug
-  const team = await db.query.teamTable.findFirst({
-    where: eq(teamTable.slug, teamSlug),
-  });
+  const team = await getCachedTeamBySlug(teamSlug);
 
   if (!team) {
     notFound();

@@ -20,7 +20,7 @@ import { useTransactionStore } from "@/state/transaction";
 import { useQueryState } from "nuqs";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 
-type TransactionData = Awaited<ReturnType<typeof getTransactions>>
+type TransactionData = NonNullable<Awaited<ReturnType<typeof getTransactions>>["data"]>
 
 function isTransactionExpired(transaction: TransactionData["transactions"][number]): boolean {
   return transaction.expirationDate ? isPast(new Date(transaction.expirationDate)) : false;
@@ -36,8 +36,13 @@ export function TransactionHistory() {
     const fetchTransactions = async () => {
       setIsLoading(true);
       try {
-        const result = await getTransactions({ page: parseInt(page) });
-        setData(result);
+        const { data: result, serverError } = await getTransactions({ page: parseInt(page) });
+
+        if (serverError) {
+          throw new Error(serverError.message);
+        }
+
+        setData(result ?? null);
       } catch (error) {
         console.error("Failed to fetch transactions:", error);
       } finally {
