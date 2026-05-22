@@ -4,6 +4,8 @@ import { getIP } from "./get-IP";
 import ms from "ms";
 import isProd from "./is-prod";
 
+const UNKNOWN_IP_RATE_LIMIT_KEY = "unknown-ip";
+
 interface RateLimitConfig {
   /**
    * The key to use for the rate limit. Usually an IP address or a user ID.
@@ -46,9 +48,16 @@ export async function withRateLimit<T>(
   }
 
   const ip = await getIP();
+  const key = config.userIdentifier || ip || UNKNOWN_IP_RATE_LIMIT_KEY;
+
+  if (!config.userIdentifier && !ip) {
+    console.warn(
+      `Rate limit "${config.identifier}" used ${UNKNOWN_IP_RATE_LIMIT_KEY} because the trusted client IP header was unavailable.`
+    );
+  }
 
   const rateLimitResult = await checkRateLimit({
-    key: config?.userIdentifier || ip || "",
+    key,
     options: {
       identifier: config.identifier,
       limit: config.limit,

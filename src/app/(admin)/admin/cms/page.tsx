@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { cmsConfig } from "@/../cms.config";
-import { FileText, Tag, Image, PanelLeft } from "lucide-react";
+import { FileText, Image as ImageIcon, PanelLeft, Tag } from "lucide-react";
 import { getCmsNavigations } from "@/lib/cms/cms-navigation-config";
 import { CmsSystemActions } from "./_components/cms-system-actions";
 
@@ -120,7 +120,7 @@ export default async function CmsPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-primary/10 rounded-lg">
-                  <Image className="h-6 w-6 text-primary" />
+                  <ImageIcon className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <CardTitle>Media Library</CardTitle>

@@ -1,16 +1,114 @@
 import "server-only";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, teamInvitationTable, teamMembershipTable, userTable, teamRoleTable, teamTable } from "@/db/schema";
-import { getSessionFromCookie, requireVerifiedEmail } from "@/utils/auth";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershipTable, userTable, teamRoleTable, teamTable } from "@/db/schema";
+import { canSignUp, getSessionFromCookie } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
 import { eq, and, isNull, count } from "drizzle-orm";
-import { TEAM_PERMISSIONS } from "@/db/schema";
 import { requireTeamPermission } from "@/utils/team-auth";
-import { updateAllSessionsOfUser } from "@/utils/kv-session";
-import { canSignUp } from "@/utils/auth";
+import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
+
+const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
+
+interface ResolvedInvitationRole {
+  roleId: string;
+  isSystemRole: boolean;
+  permissions: string[];
+}
+
+function getSystemRolePermissions(roleId: string): string[] {
+  if (roleId === SYSTEM_ROLES_ENUM.ADMIN) {
+    return Object.values(TEAM_PERMISSIONS);
+  }
+
+  if (roleId === SYSTEM_ROLES_ENUM.MEMBER) {
+    return [
+      TEAM_PERMISSIONS.ACCESS_DASHBOARD,
+      TEAM_PERMISSIONS.CREATE_COMPONENTS,
+      TEAM_PERMISSIONS.EDIT_COMPONENTS,
+    ];
+  }
+
+  if (roleId === SYSTEM_ROLES_ENUM.GUEST) {
+    return [
+      TEAM_PERMISSIONS.ACCESS_DASHBOARD,
+    ];
+  }
+
+  throw new ActionError("BAD_REQUEST", "Invalid team role");
+}
+
+async function resolveInvitationRole({
+  db,
+  teamId,
+  roleId,
+  isSystemRole,
+}: {
+  db: ReturnType<typeof getDB>;
+  teamId: string;
+  roleId: string;
+  isSystemRole: boolean;
+}): Promise<ResolvedInvitationRole> {
+  if (isSystemRole) {
+    if (roleId === SYSTEM_ROLES_ENUM.OWNER) {
+      throw new ActionError("FORBIDDEN", "Team owners cannot be assigned through invitations");
+    }
+
+    return {
+      roleId,
+      isSystemRole: true,
+      permissions: getSystemRolePermissions(roleId),
+    };
+  }
+
+  const role = await db.query.teamRoleTable.findFirst({
+    where: and(
+      eq(teamRoleTable.id, roleId),
+      eq(teamRoleTable.teamId, teamId)
+    ),
+  });
+
+  if (!role) {
+    throw new ActionError("NOT_FOUND", "Team role not found");
+  }
+
+  return {
+    roleId: role.id,
+    isSystemRole: false,
+    permissions: role.permissions,
+  };
+}
+
+function requirePermissionToAssignRole({
+  session,
+  teamId,
+  role,
+}: {
+  session: KVSession;
+  teamId: string;
+  role: ResolvedInvitationRole;
+}) {
+  if (role.isSystemRole && role.roleId === DEFAULT_INVITATION_ROLE_ID) {
+    return;
+  }
+
+  const team = session.teams?.find((sessionTeam) => sessionTeam.id === teamId);
+  const permissions = new Set(team?.permissions ?? []);
+  const canAssignRoles = permissions.has(TEAM_PERMISSIONS.ASSIGN_ROLES)
+    || permissions.has(TEAM_PERMISSIONS.CHANGE_MEMBER_ROLES);
+
+  if (!canAssignRoles) {
+    throw new ActionError("FORBIDDEN", "You don't have permission to assign this role");
+  }
+
+  const canGrantRolePermissions = role.permissions.every((permission) => permissions.has(permission));
+
+  if (!canGrantRolePermissions) {
+    throw new ActionError("FORBIDDEN", "You cannot assign a role with permissions you do not have");
+  }
+}
 
 /**
  * Get all members of a team
@@ -137,9 +235,7 @@ export async function inviteUserToTeam({
   isSystemRole?: boolean;
 }) {
   // Check if user has permission to invite members
-  await requireTeamPermission(teamId, TEAM_PERMISSIONS.INVITE_MEMBERS);
-
-  const session = await requireVerifiedEmail();
+  const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.INVITE_MEMBERS);
 
   if (!session) {
     throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
@@ -156,6 +252,18 @@ export async function inviteUserToTeam({
   }
 
   const db = getDB();
+  const invitationRole = await resolveInvitationRole({
+    db,
+    teamId,
+    roleId,
+    isSystemRole,
+  });
+
+  requirePermissionToAssignRole({
+    session,
+    teamId,
+    role: invitationRole,
+  });
 
   // Get team name for email
   const team = await db.query.teamTable.findFirst({
@@ -207,8 +315,8 @@ export async function inviteUserToTeam({
     await db.insert(teamMembershipTable).values({
       teamId,
       userId: existingUser.id,
-      roleId,
-      isSystemRole: isSystemRole ? 1 : 0,
+      roleId: invitationRole.roleId,
+      isSystemRole: invitationRole.isSystemRole ? 1 : 0,
       invitedBy: session.userId,
       invitedAt: new Date(),
       joinedAt: new Date(),
@@ -242,8 +350,8 @@ export async function inviteUserToTeam({
     // Update the existing invitation
     await db.update(teamInvitationTable)
       .set({
-        roleId,
-        isSystemRole: isSystemRole ? 1 : 0,
+        roleId: invitationRole.roleId,
+        isSystemRole: invitationRole.isSystemRole ? 1 : 0,
         token,
         expiresAt,
         invitedBy: session.userId,
@@ -271,8 +379,8 @@ export async function inviteUserToTeam({
   const newInvitation = await db.insert(teamInvitationTable).values({
     teamId,
     email,
-    roleId,
-    isSystemRole: isSystemRole ? 1 : 0,
+    roleId: invitationRole.roleId,
+    isSystemRole: invitationRole.isSystemRole ? 1 : 0,
     token,
     invitedBy: session.userId,
     expiresAt,
@@ -367,12 +475,19 @@ export async function acceptTeamInvitation(token: string) {
     throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams you can join.`);
   }
 
+  const invitationRole = await resolveInvitationRole({
+    db,
+    teamId: invitation.teamId,
+    roleId: invitation.roleId,
+    isSystemRole: Boolean(invitation.isSystemRole),
+  });
+
   // Add user to the team
   await db.insert(teamMembershipTable).values({
     teamId: invitation.teamId,
     userId: session.userId,
-    roleId: invitation.roleId,
-    isSystemRole: Number(invitation.isSystemRole),
+    roleId: invitationRole.roleId,
+    isSystemRole: invitationRole.isSystemRole ? 1 : 0,
     invitedBy: invitation.invitedBy,
     invitedAt: invitation.createdAt ? new Date(invitation.createdAt) : new Date(),
     joinedAt: new Date(),
