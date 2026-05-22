@@ -1,9 +1,8 @@
 import { Metadata } from "next";
-import { getSessionFromCookie } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import VerifyEmailClientComponent from "./verify-email.client";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
-import { isServerActionRequest } from "@/utils/is-server-action-request";
+import { redirectAuthenticatedUser } from "@/utils/auth-redirect";
 
 export const metadata: Metadata = {
   title: "Verify Email",
@@ -15,17 +14,12 @@ export default async function VerifyEmailPage({
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
-  const session = await getSessionFromCookie();
-  const isActionRequest = await isServerActionRequest();
   const token = (await searchParams).token;
 
-  // TODO(vinext): Remove this server-action guard once cloudflare/vinext#654
-  // and cloudflare/vinext#1347 are fixed. This action updates the session,
-  // then Vinext re-renders this page and currently turns this redirect into an
-  // action redirect response before next-safe-action can finish onSuccess.
-  if (session?.user.emailVerified && !isActionRequest) {
-    return redirect(REDIRECT_AFTER_SIGN_IN);
-  }
+  await redirectAuthenticatedUser({
+    redirectPath: REDIRECT_AFTER_SIGN_IN,
+    shouldRedirect: (session) => Boolean(session.user.emailVerified),
+  });
 
   if (!token) {
     return redirect('/sign-in');

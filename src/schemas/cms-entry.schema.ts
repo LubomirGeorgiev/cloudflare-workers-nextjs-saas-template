@@ -7,7 +7,7 @@ import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 // Zod schema for CMS entry status validation
 export const cmsEntryStatusSchema = z.enum(cmsEntryStatusTuple);
 
-const baseCmsEntrySchema = z.object({
+export const baseCmsEntrySchema = z.object({
   title: z.string().min(1, "Title is required"),
   slug: z.string().min(1, "Slug is required"),
   content: z.any(),
@@ -58,6 +58,19 @@ function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
         path: ['publishedAt'],
       }
     );
+}
+
+export function withPublishedAtLifecycleValidation<T extends z.ZodTypeAny>(schema: T) {
+  return withStatusPublishedAtValidation(schema).transform(
+    // oxlint-disable-next-line typescript/no-explicit-any
+    (data: any) => {
+      if (data.status === CMS_ENTRY_STATUS.PUBLISHED && !data.publishedAt) {
+        return { ...data, publishedAt: new Date() };
+      }
+
+      return data;
+    }
+  );
 }
 
 export const cmsEntryFormSchema = withStatusPublishedAtValidation(

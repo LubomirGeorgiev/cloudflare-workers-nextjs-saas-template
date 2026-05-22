@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
 import { useRouter, useSearchParams } from "next/navigation";
 import { resetPasswordAction } from "./reset-password.action";
 import { useAction } from "next-safe-action/hooks";
@@ -60,25 +61,12 @@ export default function ResetPasswordClientComponent() {
 
   if (hasSucceeded) {
     return (
-      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Password Reset Successfully</CardTitle>
-            <CardDescription>
-              Your password has been reset. You can now log in with your new password.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/sign-in")}
-            >
-              Go to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthStatusCard
+        title="Password Reset Successfully"
+        description="Your password has been reset. You can now log in with your new password."
+        actionLabel="Go to Login"
+        onAction={() => router.push("/sign-in")}
+      />
     );
   }
 

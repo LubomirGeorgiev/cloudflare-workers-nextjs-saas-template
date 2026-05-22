@@ -3,13 +3,12 @@
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useAction } from "next-safe-action/hooks";
 import { googleSSOCallbackAction } from "./google-callback.action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
+import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
 
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
@@ -52,65 +51,32 @@ export default function GoogleCallbackClientComponent() {
 
   if (isExecuting) {
     return (
-      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="flex flex-col items-center space-y-4">
-              <Spinner size="large" />
-              <CardTitle>Signing in with Google</CardTitle>
-              <CardDescription>
-                Please wait while we complete your sign in...
-              </CardDescription>
-            </div>
-          </CardHeader>
-        </Card>
-      </div>
+      <AuthStatusCard
+        title="Signing in with Google"
+        description="Please wait while we complete your sign in..."
+        headerClassName="text-center"
+        headerContent={<Spinner size="large" />}
+      />
     );
   }
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Sign in failed</CardTitle>
-            <CardDescription>
-              {error?.message || "Failed to sign in with Google"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/sign-in")}
-            >
-              Back to sign in
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthStatusCard
+        title="Sign in failed"
+        description={error?.message || "Failed to sign in with Google"}
+        actionLabel="Back to sign in"
+        onAction={() => router.push("/sign-in")}
+      />
     );
   }
 
   return (
-    <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Invalid callback</CardTitle>
-          <CardDescription>
-            The sign in callback is invalid or has expired. Please try signing in again.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => router.push("/sign-in")}
-          >
-            Back to sign in
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthStatusCard
+      title="Invalid callback"
+      description="The sign in callback is invalid or has expired. Please try signing in again."
+      actionLabel="Back to sign in"
+      onAction={() => router.push("/sign-in")}
+    />
   );
 }

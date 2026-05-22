@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { forgotPasswordAction } from "./forgot-password.action";
@@ -65,25 +66,12 @@ export default function ForgotPasswordClientComponent() {
 
   if (hasSucceeded) {
     return (
-      <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Check your email</CardTitle>
-            <CardDescription>
-              If an account exists with that email, we&apos;ve sent you instructions to reset your password.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => router.push("/sign-in")}
-            >
-              Back to login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthStatusCard
+        title="Check your email"
+        description="If an account exists with that email, we've sent you instructions to reset your password."
+        actionLabel="Back to login"
+        onAction={() => router.push("/sign-in")}
+      />
     );
   }
 

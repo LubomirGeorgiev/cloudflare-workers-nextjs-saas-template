@@ -1,7 +1,7 @@
 "use server";
 
-import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
+import { runVerifiedAction } from "@/lib/verified-action";
 import { z } from "zod";
 import {
   acceptTeamInvitation,
@@ -10,7 +10,6 @@ import {
   getPendingInvitationsForCurrentUser
 } from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { requireVerifiedEmail } from "@/utils/auth";
 
 // Invite user schema
 const inviteUserSchema = z.object({
@@ -37,27 +36,11 @@ export const inviteUserAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const session = await requireVerifiedEmail();
-
-        if (!session) {
-          throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
-        }
-
-        try {
-          const result = await inviteUserToTeam(input);
-          return { success: true, data: result };
-        } catch (error) {
-          console.error("Failed to invite user:", error);
-
-          if (error instanceof ActionError) {
-            throw error;
-          }
-
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            "Failed to invite user"
-          );
-        }
+        return runVerifiedAction({
+          actionName: "Failed to invite user",
+          failureMessage: "Failed to invite user",
+          handler: () => inviteUserToTeam(input),
+        });
       },
       RATE_LIMITS.TEAM_INVITE
     );
@@ -69,27 +52,11 @@ export const inviteUserAction = actionClient
 export const removeTeamMemberAction = actionClient
   .inputSchema(removeMemberSchema)
   .action(async ({ parsedInput: input }) => {
-    const session = await requireVerifiedEmail();
-
-    if (!session) {
-      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
-    }
-
-    try {
-      await removeTeamMember(input);
-      return { success: true };
-    } catch (error) {
-      console.error("Failed to remove team member:", error);
-
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
-      throw new ActionError(
-        "INTERNAL_SERVER_ERROR",
-        "Failed to remove team member"
-      );
-    }
+    return runVerifiedAction({
+      actionName: "Failed to remove team member",
+      failureMessage: "Failed to remove team member",
+      handler: () => removeTeamMember(input),
+    });
   });
 
 /**
@@ -98,27 +65,11 @@ export const removeTeamMemberAction = actionClient
 export const acceptInvitationAction = actionClient
   .inputSchema(invitationTokenSchema)
   .action(async ({ parsedInput: input }) => {
-    const session = await requireVerifiedEmail();
-
-    if (!session) {
-      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
-    }
-
-    try {
-      const result = await acceptTeamInvitation(input.token);
-      return { success: true, data: result };
-    } catch (error) {
-      console.error("Failed to accept invitation:", error);
-
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
-      throw new ActionError(
-        "INTERNAL_SERVER_ERROR",
-        "Failed to accept invitation"
-      );
-    }
+    return runVerifiedAction({
+      actionName: "Failed to accept invitation",
+      failureMessage: "Failed to accept invitation",
+      handler: () => acceptTeamInvitation(input.token),
+    });
   });
 
 /**
@@ -126,25 +77,9 @@ export const acceptInvitationAction = actionClient
  */
 export const getPendingInvitationsForCurrentUserAction = actionClient
   .action(async () => {
-    const session = await requireVerifiedEmail();
-
-    if (!session) {
-      throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
-    }
-
-    try {
-      const invitations = await getPendingInvitationsForCurrentUser();
-      return { success: true, data: invitations };
-    } catch (error) {
-      console.error("Failed to get pending team invitations:", error);
-
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
-      throw new ActionError(
-        "INTERNAL_SERVER_ERROR",
-        "Failed to get pending team invitations"
-      );
-    }
+    return runVerifiedAction({
+      actionName: "Failed to get pending team invitations",
+      failureMessage: "Failed to get pending team invitations",
+      handler: getPendingInvitationsForCurrentUser,
+    });
   });

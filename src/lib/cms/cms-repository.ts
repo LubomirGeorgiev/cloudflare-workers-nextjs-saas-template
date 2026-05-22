@@ -16,7 +16,11 @@ import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
-import { cmsEntryStatusSchema } from "@/schemas/cms-entry.schema";
+import {
+  baseCmsEntrySchema,
+  cmsEntryStatusSchema,
+  withPublishedAtLifecycleValidation,
+} from "@/schemas/cms-entry.schema";
 import {
   invalidateCmsSearchCache,
   isCollectionSearchEnabled,
@@ -37,8 +41,6 @@ import {
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
-// Zod Schemas for validation
-// TODO We already define those for the front-end in cms-entry.schema.ts. We should use them here too for the server actions.
 const cmsEntryStatusOrAllSchema = z.enum(cmsStatusFilterTuple);
 
 const cmsIncludeRelationsSchema = z.object({
@@ -72,71 +74,20 @@ const getCmsEntryBySlugParamsSchema = z.object({
   includeRelations: cmsIncludeRelationsSchema,
 });
 
-const cmsEntryBaseSchema = z.object({
-  slug: z.string().min(1),
-  title: z.string().min(1),
-  content: z.any(), // JSONContent - complex type, validated separately
+const repositoryCmsEntryBaseSchema = baseCmsEntrySchema.extend({
   fields: z.unknown(),
-  seoDescription: z.string().max(CMS_SEO_DESCRIPTION_MAX_LENGTH).optional(),
-  status: cmsEntryStatusSchema.optional(),
-  publishedAt: z.date().optional(),
-  tagIds: z.array(z.string()).optional(),
-  featuredImageId: z.string().nullable().optional(),
+  status: cmsEntryStatusSchema.default(CMS_ENTRY_STATUS.DRAFT),
 });
 
-// Helper function to add status/publishedAt validation and transformation
-function withStatusPublishedAtValidation<T extends z.ZodTypeAny>(schema: T) {
-  return schema.refine(
-    // oxlint-disable-next-line typescript/no-explicit-any
-    (data: any) => {
-      // If publishedAt is in the future, status must be scheduled
-      if (data.publishedAt && data.publishedAt instanceof Date && data.publishedAt > new Date()) {
-        return data.status === CMS_ENTRY_STATUS.SCHEDULED;
-      }
-      return true;
-    },
-    {
-      message: "Status must be 'scheduled' when publishedAt is set to a future date",
-      path: ['status'],
-    }
-  ).refine(
-    // oxlint-disable-next-line typescript/no-explicit-any
-    (data: any) => {
-      // If status is scheduled, publishedAt must be provided and in the future
-      if (data.status === CMS_ENTRY_STATUS.SCHEDULED) {
-        if (!data.publishedAt) {
-          return false;
-        }
-        return data.publishedAt instanceof Date && data.publishedAt > new Date();
-      }
-      return true;
-    },
-    {
-      message: "publishedAt is required and must be in the future for scheduled entries",
-      path: ['publishedAt'],
-    }
-  ).transform(
-    // oxlint-disable-next-line typescript/no-explicit-any
-    (data: any) => {
-      // If status is published and no publishedAt, set it to now
-      if (data.status === CMS_ENTRY_STATUS.PUBLISHED && !data.publishedAt) {
-        return { ...data, publishedAt: new Date() };
-      }
-      return data;
-    }
-  );
-}
-
-const createCmsEntryParamsSchema = withStatusPublishedAtValidation(
-  cmsEntryBaseSchema.extend({
+const createCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
+  repositoryCmsEntryBaseSchema.extend({
     collectionSlug: z.string(),
-    status: cmsEntryStatusSchema.optional().default(CMS_ENTRY_STATUS.DRAFT),
     createdBy: z.string().min(1),
   })
 );
 
-const updateCmsEntryParamsSchema = withStatusPublishedAtValidation(
-  cmsEntryBaseSchema.partial().extend({
+const updateCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
+  repositoryCmsEntryBaseSchema.partial().extend({
     id: z.string().min(1),
   })
 );

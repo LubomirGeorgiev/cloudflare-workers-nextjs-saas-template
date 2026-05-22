@@ -7,13 +7,13 @@ import { userTable } from "@/db/schema";
 import { sendPasswordResetEmail } from "@/utils/email";
 import { init } from "@paralleldrive/cuid2";
 import { eq } from "drizzle-orm";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { isTurnstileEnabled } from "@/flags";
+import { createExpiringToken } from "@/utils/kv-token";
 
 const createId = init({
   length: 32,
@@ -36,7 +36,6 @@ export const forgotPasswordAction = actionClient
         }
 
         const db = getDB();
-        const { env } = await getCloudflareContext();
 
         try {
           // Find user by email
@@ -49,25 +48,14 @@ export const forgotPasswordAction = actionClient
             return { success: true };
           }
 
-          // Generate reset token
-          const token = createId();
-          const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS * 1000);
-
-          if (!env?.NEXT_INC_CACHE_KV) {
-            throw new Error("Can't connect to KV store");
-          }
-
-          // Save reset token in KV with expiration
-          await env.NEXT_INC_CACHE_KV.put(
-            getResetTokenKey(token),
-            JSON.stringify({
+          const token = await createExpiringToken({
+            key: getResetTokenKey,
+            expiresInSeconds: PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS,
+            payload: {
               userId: user.id,
-              expiresAt: expiresAt.toISOString(),
-            }),
-            {
-              expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
-            }
-          );
+            },
+            createToken: createId,
+          });
 
           // Send reset email
           if (user?.email) {

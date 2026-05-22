@@ -7,9 +7,9 @@ import { userTable } from "@/db/schema";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
 import { hashPassword } from "@/utils/password-hasher";
 import { eq } from "drizzle-orm";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
 
 export const resetPasswordAction = actionClient
   .inputSchema(resetPasswordSchema)
@@ -17,34 +17,20 @@ export const resetPasswordAction = actionClient
     return withRateLimit(
       async () => {
         const db = getDB();
-        const { env } = await getCloudflareContext();
-
-        if (!env?.NEXT_INC_CACHE_KV) {
-          throw new Error("Can't connect to KV store");
-        }
 
         try {
-          // Find valid reset token
-          const resetTokenStr = await env.NEXT_INC_CACHE_KV.get(getResetTokenKey(input.token));
-          if (!resetTokenStr) {
-            throw new ActionError(
-              "NOT_FOUND",
-              "Invalid or expired reset token"
-            );
-          }
-
-          const resetToken = JSON.parse(resetTokenStr) as {
-            userId: string;
-            expiresAt: string;
-          };
-
-          // Check if token is expired (although KV should have auto-deleted it)
-          if (new Date() > new Date(resetToken.expiresAt)) {
-            throw new ActionError(
-              "PRECONDITION_FAILED",
-              "Reset token has expired"
-            );
-          }
+          const resetToken = await getValidExpiringToken({
+            token: input.token,
+            key: getResetTokenKey,
+            notFoundError: {
+              code: "NOT_FOUND",
+              message: "Invalid or expired reset token",
+            },
+            expiredError: {
+              code: "PRECONDITION_FAILED",
+              message: "Reset token has expired",
+            },
+          });
 
           // Find user
           const user = await db.query.userTable.findFirst({
@@ -65,7 +51,10 @@ export const resetPasswordAction = actionClient
             .where(eq(userTable.id, resetToken.userId));
 
           // Delete the used token
-          await env.NEXT_INC_CACHE_KV.delete(getResetTokenKey(input.token));
+          await deleteExpiringToken({
+            token: input.token,
+            key: getResetTokenKey,
+          });
 
           return { success: true };
         } catch (error) {
