@@ -36,10 +36,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# OpenNext
-/.open-next
-dist
-
 # wrangler files
 .wrangler
 .env
@@ -51,6 +47,7 @@ dist
 *.log
 backups
 .vinext
+dist
 worker
 worker-dist
 tmp
