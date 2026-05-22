@@ -1,19 +1,15 @@
 import "server-only";
 
+import ipaddr from "ipaddr.js";
 import { headers } from "next/headers";
+
+import { TRUSTED_CLIENT_IP_HEADER } from "./trusted-client-ip";
 
 export async function getIP() {
   const headersList = await headers();
+  const ip = headersList.get(TRUSTED_CLIENT_IP_HEADER);
 
-  const ip = headersList.get('cf-connecting-ip')
-    || headersList.get('x-forwarded-for')
-    || headersList.get('x-real-ip')
-    || headersList.get('true-client-ip')
-    || headersList.get('x-client-ip')
-    || headersList.get('x-cluster-client-ip')
-    || null;
-
-  if (!ip) {
+  if (!ip || !ipaddr.isValid(ip)) {
     return null
   }
 

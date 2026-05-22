@@ -16,6 +16,10 @@ import {
 } from "vinext/server/image-optimization";
 import { setCacheHandler } from "vinext/shims/cache";
 import { CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
+import {
+  CLIENT_IP_HEADERS_TO_STRIP,
+  TRUSTED_CLIENT_IP_HEADER,
+} from "./src/utils/trusted-client-ip";
 
 const VINEXT_CACHE_PREFIX = "vinext-cache";
 
@@ -74,12 +78,24 @@ const worker = {
 
 // Only set here (never trusted from the inbound request) to prevent client spoofing.
 function withForwardedCfHeaders(request: Request): Request {
-  const cf = request.cf;
-  if (!cf) return request;
-
   const forwarded = new Request(request);
-  for (const { key, header } of CF_CONTEXT_FIELDS) {
+  for (const header of CLIENT_IP_HEADERS_TO_STRIP) {
     forwarded.headers.delete(header);
+  }
+
+  for (const { header } of CF_CONTEXT_FIELDS) {
+    forwarded.headers.delete(header);
+  }
+
+  const trustedClientIp = request.headers.get("cf-connecting-ip");
+  if (trustedClientIp) {
+    forwarded.headers.set(TRUSTED_CLIENT_IP_HEADER, trustedClientIp);
+  }
+
+  const cf = request.cf;
+  if (!cf) return forwarded;
+
+  for (const { key, header } of CF_CONTEXT_FIELDS) {
     const value = cf[key];
     if (value !== undefined && value !== null && value !== "") {
       forwarded.headers.set(header, String(value));
