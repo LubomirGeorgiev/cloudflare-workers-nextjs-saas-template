@@ -159,13 +159,13 @@ jobs:
             return Math.round(Number(value) * base ** power);
           }
 
-          const totalBytes = toBytes(totalValueRaw, totalUnitRaw);
-          const gzipBytes = toBytes(gzipValueRaw, gzipUnitRaw);
-          const metricsPath = path.join("metrics", "deploy-size-history.jsonl");
           const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
           const projectName = packageJson.name;
+          const metricsPath = path.join("metrics", `${projectName}-deploy-size-history.jsonl`);
+          const totalBytes = toBytes(totalValueRaw, totalUnitRaw);
+          const gzipBytes = toBytes(gzipValueRaw, gzipUnitRaw);
           const now = new Date().toISOString();
-          const sha = process.env.GITHUB_SHA ?? "";
+          const sha = (process.env.GITHUB_SHA ?? "").slice(0, 5);
           const runId = process.env.GITHUB_RUN_ID ?? "";
           const runNumber = process.env.GITHUB_RUN_NUMBER ?? "";
           const branch = process.env.GITHUB_REF_NAME ?? "";
@@ -173,15 +173,14 @@ jobs:
           fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
           const line = JSON.stringify({
             timestamp: now,
-            projectName,
             branch,
+            totalUploadRaw: `${totalValueRaw} ${totalUnitRaw}`,
+            gzipRaw: `${gzipValueRaw} ${gzipUnitRaw}`,
+            totalUploadBytes: totalBytes,
+            gzipBytes,
             commitSha: sha,
             runId,
             runNumber,
-            totalUploadBytes: totalBytes,
-            gzipBytes,
-            totalUploadRaw: `${totalValueRaw} ${totalUnitRaw}`,
-            gzipRaw: `${gzipValueRaw} ${gzipUnitRaw}`,
           });
 
           fs.appendFileSync(metricsPath, `${line}\n`);
@@ -195,7 +194,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add metrics/deploy-size-history.jsonl
+          git add metrics/*-deploy-size-history.jsonl
           if git diff --cached --quiet; then
             echo "No deploy size metrics changes to commit."
             exit 0
