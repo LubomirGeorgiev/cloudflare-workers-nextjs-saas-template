@@ -11,38 +11,31 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-// Common programming languages supported by lowlight
 const COMMON_LANGUAGES = [
   { value: "plaintext", label: "Plain Text" },
-  { value: "javascript", label: "JavaScript" },
-  { value: "typescript", label: "TypeScript" },
+  { value: "js", label: "JavaScript" },
+  { value: "ts", label: "TypeScript" },
   { value: "jsx", label: "JSX" },
   { value: "tsx", label: "TSX" },
-  { value: "python", label: "Python" },
-  { value: "java", label: "Java" },
-  { value: "c", label: "C" },
-  { value: "cpp", label: "C++" },
-  { value: "csharp", label: "C#" },
-  { value: "php", label: "PHP" },
-  { value: "ruby", label: "Ruby" },
-  { value: "go", label: "Go" },
-  { value: "rust", label: "Rust" },
-  { value: "swift", label: "Swift" },
-  { value: "kotlin", label: "Kotlin" },
-  { value: "sql", label: "SQL" },
+  { value: "json", label: "JSON" },
   { value: "bash", label: "Bash" },
   { value: "shell", label: "Shell" },
-  { value: "json", label: "JSON" },
-  { value: "yaml", label: "YAML" },
-  { value: "xml", label: "XML" },
-  { value: "html", label: "HTML" },
   { value: "css", label: "CSS" },
-  { value: "scss", label: "SCSS" },
-  { value: "markdown", label: "Markdown" },
+  { value: "html", label: "HTML" },
+  { value: "xml", label: "XML" },
+  { value: "yaml", label: "YAML" },
+  { value: "sql", label: "SQL" },
   { value: "docker", label: "Docker" },
-  { value: "nginx", label: "Nginx" },
-  { value: "graphql", label: "GraphQL" },
+  { value: "markdown", label: "Markdown" },
+  { value: "python", label: "Python" },
 ]
+
+const LANGUAGE_ALIASES: Record<string, string> = {
+  javascript: "js",
+  typescript: "ts",
+  dockerfile: "docker",
+  yml: "yaml",
+}
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface CodeBlockLanguageSelectorProps {
@@ -146,8 +139,9 @@ export function CodeBlockLanguageSelector({
   }
 
   // Ensure the current language is valid, otherwise use plaintext
-  const validLanguage = COMMON_LANGUAGES.some(lang => lang.value === currentLanguage) 
-    ? currentLanguage 
+  const normalizedLanguage = LANGUAGE_ALIASES[currentLanguage] ?? currentLanguage
+  const validLanguage = COMMON_LANGUAGES.some(lang => lang.value === normalizedLanguage) 
+    ? normalizedLanguage 
     : "plaintext"
 
   return (
