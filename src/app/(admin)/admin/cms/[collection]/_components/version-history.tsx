@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { parseDiffFromFile } from "@pierre/diffs";
-import { FileDiff } from "@pierre/diffs/react";
+import type { Change } from "diff";
+import { diffLines } from "diff/lib/diff/line.js";
+import { diffWordsWithSpace } from "diff/lib/diff/word.js";
 import type { JSONContent } from "@tiptap/core";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -26,19 +27,21 @@ import { toast } from "sonner";
 import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
 import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
 
-const DIFF_RENDER_OPTIONS = {
-  disableFileHeader: true,
-  disableLineNumbers: true,
-  diffStyle: "unified",
-  expandUnchanged: true,
-  lineDiffType: "word",
-  overflow: "wrap",
-  theme: {
-    dark: "pierre-dark",
-    light: "pierre-light",
-  },
-  themeType: "system",
-} as const;
+interface DiffSegment {
+  type: "changed" | "unchanged";
+  value: string;
+}
+
+interface DiffLine {
+  id: string;
+  segments: DiffSegment[];
+  type: "added" | "context" | "removed";
+}
+
+interface LocalDiff {
+  hasChanges: boolean;
+  lines: DiffLine[];
+}
 
 function createContentDiff({
   currentContent,
@@ -47,18 +50,10 @@ function createContentDiff({
   currentContent: JSONContent;
   selectedContent: JSONContent;
 }) {
-  return parseDiffFromFile(
-    {
-      name: "current.md",
-      contents: contentToMarkdown(currentContent),
-      lang: "markdown",
-    },
-    {
-      name: "version.md",
-      contents: contentToMarkdown(selectedContent),
-      lang: "markdown",
-    }
-  );
+  return createUnifiedDiff({
+    currentValue: contentToMarkdown(currentContent),
+    selectedValue: contentToMarkdown(selectedContent),
+  });
 }
 
 function createTextDiff({
@@ -68,18 +63,158 @@ function createTextDiff({
   currentValue: string;
   selectedValue: string;
 }) {
-  return parseDiffFromFile(
-    {
-      name: "current.txt",
-      contents: `${currentValue}\n`,
-      lang: "text",
-    },
-    {
-      name: "version.txt",
-      contents: `${selectedValue}\n`,
-      lang: "text",
+  return createUnifiedDiff({
+    currentValue: currentValue || "None",
+    selectedValue: selectedValue || "None",
+  });
+}
+
+function createUnifiedDiff({
+  currentValue,
+  selectedValue,
+}: {
+  currentValue: string;
+  selectedValue: string;
+}): LocalDiff {
+  const changes = diffLines(currentValue, selectedValue);
+  const lines: DiffLine[] = [];
+
+  for (let index = 0; index < changes.length; index += 1) {
+    const change = changes[index];
+    const nextChange = changes[index + 1];
+
+    if (change.removed && nextChange?.added) {
+      lines.push(...createChangedLinePair({
+        addedValue: nextChange.value,
+        removedValue: change.value,
+        startIndex: lines.length,
+      }));
+      index += 1;
+      continue;
     }
+
+    lines.push(...createDiffLinesFromChange({
+      change,
+      startIndex: lines.length,
+    }));
+  }
+
+  return {
+    hasChanges: changes.some((change) => change.added || change.removed),
+    lines,
+  };
+}
+
+function createChangedLinePair({
+  addedValue,
+  removedValue,
+  startIndex,
+}: {
+  addedValue: string;
+  removedValue: string;
+  startIndex: number;
+}): DiffLine[] {
+  const addedLines = splitDiffLines(addedValue);
+  const removedLines = splitDiffLines(removedValue);
+  const lineCount = Math.max(addedLines.length, removedLines.length);
+  const lines: DiffLine[] = [];
+
+  for (let index = 0; index < lineCount; index += 1) {
+    const addedLine = addedLines[index];
+    const removedLine = removedLines[index];
+
+    if (removedLine !== undefined && addedLine !== undefined) {
+      const wordDiff = diffWordsWithSpace(removedLine, addedLine);
+      lines.push({
+        id: `${startIndex + lines.length}-removed`,
+        segments: createWordSegments({ changeType: "removed", wordDiff }),
+        type: "removed",
+      });
+      lines.push({
+        id: `${startIndex + lines.length}-added`,
+        segments: createWordSegments({ changeType: "added", wordDiff }),
+        type: "added",
+      });
+      continue;
+    }
+
+    if (removedLine !== undefined) {
+      lines.push(createDiffLine({
+        id: `${startIndex + lines.length}-removed`,
+        type: "removed",
+        value: removedLine,
+      }));
+    }
+
+    if (addedLine !== undefined) {
+      lines.push(createDiffLine({
+        id: `${startIndex + lines.length}-added`,
+        type: "added",
+        value: addedLine,
+      }));
+    }
+  }
+
+  return lines;
+}
+
+function createDiffLinesFromChange({
+  change,
+  startIndex,
+}: {
+  change: Change;
+  startIndex: number;
+}): DiffLine[] {
+  const type = change.added ? "added" : change.removed ? "removed" : "context";
+
+  return splitDiffLines(change.value).map((value, index) =>
+    createDiffLine({
+      id: `${startIndex + index}-${type}`,
+      type,
+      value,
+    })
   );
+}
+
+function createDiffLine({
+  id,
+  type,
+  value,
+}: {
+  id: string;
+  type: DiffLine["type"];
+  value: string;
+}): DiffLine {
+  return {
+    id,
+    segments: [{ type: type === "context" ? "unchanged" : "changed", value }],
+    type,
+  };
+}
+
+function createWordSegments({
+  changeType,
+  wordDiff,
+}: {
+  changeType: "added" | "removed";
+  wordDiff: Change[];
+}): DiffSegment[] {
+  return wordDiff
+    .filter((part) => changeType === "added" ? !part.removed : !part.added)
+    .map((part) => ({
+      type: part.added || part.removed ? "changed" : "unchanged",
+      value: part.value,
+    }));
+}
+
+function splitDiffLines(value: string): string[] {
+  const lines = value.split("\n");
+
+  if (lines.at(-1) === "") {
+    lines.pop();
+  }
+
+  return lines.length > 0 ? lines : [""];
 }
 
 function contentToMarkdown(content: JSONContent): string {
@@ -297,6 +432,41 @@ function normalizeMarkdown(value: string): string {
     .trim();
 }
 
+function DiffViewer({
+  className,
+  diff,
+}: {
+  className: string;
+  diff: LocalDiff;
+}) {
+  return (
+    <div className={className}>
+      <div className="cms-version-diff-lines">
+        {diff.lines.map((line) => (
+          <div
+            className={`cms-version-diff-line cms-version-diff-line-${line.type}`}
+            key={line.id}
+          >
+            <span className="cms-version-diff-marker">
+              {line.type === "added" ? "+" : line.type === "removed" ? "-" : " "}
+            </span>
+            <span className="cms-version-diff-code">
+              {line.segments.map((segment, index) => (
+                <span
+                  className={segment.type === "changed" ? "cms-version-diff-word" : undefined}
+                  key={`${line.id}-${index}`}
+                >
+                  {segment.value || " "}
+                </span>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function FieldDiff({
   currentValue,
   label,
@@ -328,12 +498,10 @@ function ValueDiff({
     selectedValue: selected,
   });
 
-  return diff.hunks.length > 0 ? (
-    <FileDiff
+  return diff.hasChanges ? (
+    <DiffViewer
       className="cms-version-field-diff"
-      disableWorkerPool
-      fileDiff={diff}
-      options={DIFF_RENDER_OPTIONS}
+      diff={diff}
     />
   ) : (
     <span>{current}</span>
@@ -414,7 +582,7 @@ export function VersionHistory({
       selectedContent: selectedVersion.content as JSONContent,
     });
   }, [currentVersion, selectedVersion]);
-  const hasContentChanges = Boolean(contentDiff?.hunks.length);
+  const hasContentChanges = Boolean(contentDiff?.hasChanges);
 
   const handleRevert = () => {
     if (!selectedVersion) return;
@@ -455,6 +623,8 @@ export function VersionHistory({
           border: 1px solid hsl(var(--border));
           border-radius: 0.375rem;
           background: hsl(var(--background));
+          font-size: 0.8125rem;
+          line-height: 1.6;
         }
 
         .cms-version-field-diff {
@@ -464,20 +634,71 @@ export function VersionHistory({
           border: 1px solid hsl(var(--border));
           border-radius: 0.375rem;
           background: hsl(var(--background));
+          font-size: 0.8125rem;
+          font-weight: 400;
+          line-height: 1.45;
           vertical-align: top;
         }
 
-        .cms-version-field-diff {
-          --diffs-gap-block: 0px;
-          --diffs-line-height: 1.45;
+        .cms-version-diff-lines {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         }
 
-        .cms-version-content-diff pre,
-        .cms-version-field-diff pre {
-          margin: 0;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-          font-size: 0.8125rem !important;
-          line-height: 1.6 !important;
+        .cms-version-diff-line {
+          display: grid;
+          grid-template-columns: 2rem minmax(0, 1fr);
+          min-height: 1.6em;
+        }
+
+        .cms-version-diff-line-context {
+          color: hsl(var(--muted-foreground));
+        }
+
+        .cms-version-diff-line-added {
+          background: rgb(220 252 231);
+          color: rgb(22 101 52);
+        }
+
+        .cms-version-diff-line-removed {
+          background: rgb(254 226 226);
+          color: rgb(153 27 27);
+        }
+
+        .dark .cms-version-diff-line-added {
+          background: rgb(20 83 45 / 0.32);
+          color: rgb(187 247 208);
+        }
+
+        .dark .cms-version-diff-line-removed {
+          background: rgb(127 29 29 / 0.34);
+          color: rgb(254 202 202);
+        }
+
+        .cms-version-diff-marker {
+          user-select: none;
+          padding-inline: 0.75rem;
+          text-align: center;
+          color: currentColor;
+          opacity: 0.72;
+        }
+
+        .cms-version-diff-code {
+          min-width: 0;
+          padding-right: 0.75rem;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        .cms-version-diff-word {
+          border-radius: 0.1875rem;
+          background: rgb(34 197 94 / 0.22);
+          box-decoration-break: clone;
+          -webkit-box-decoration-break: clone;
+        }
+
+        .cms-version-diff-line-removed .cms-version-diff-word {
+          background: rgb(239 68 68 / 0.22);
+          text-decoration: line-through;
         }
       `}</style>
 
@@ -636,11 +857,9 @@ export function VersionHistory({
                     <div>
                       <h4 className="text-sm font-medium text-muted-foreground mb-2">Content</h4>
                       {hasContentChanges && contentDiff ? (
-                        <FileDiff
+                        <DiffViewer
                           className="cms-version-content-diff"
-                          disableWorkerPool
-                          fileDiff={contentDiff}
-                          options={DIFF_RENDER_OPTIONS}
+                          diff={contentDiff}
                         />
                       ) : contentDiff ? (
                         <div className="border rounded-md p-4 text-muted-foreground">
