@@ -47,6 +47,7 @@ next-env.d.ts
 *.log
 backups
 .vinext
+.bundle-analysis
 dist
 worker
 worker-dist

@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireVerifiedEmail } from "@/utils/auth";
@@ -16,22 +15,24 @@ import { MAX_TRANSACTIONS_PER_PAGE, CREDITS_EXPIRATION_YEARS, DISABLE_CREDIT_BIL
 import ms from "ms";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
+import { requiredString, v } from "@/lib/validation";
 
-const getTransactionsSchema = z.object({
-  page: z.number().min(1, "Invalid page"),
-  limit: z.number().min(1, "Invalid limit").max(
-    MAX_TRANSACTIONS_PER_PAGE,
-    `Limit cannot be greater than ${MAX_TRANSACTIONS_PER_PAGE}`
-  ).default(MAX_TRANSACTIONS_PER_PAGE),
+const getTransactionsSchema = v.object({
+  page: v.pipe(v.number(), v.minValue(1, "Invalid page")),
+  limit: v.optional(v.pipe(
+    v.number(),
+    v.minValue(1, "Invalid limit"),
+    v.maxValue(MAX_TRANSACTIONS_PER_PAGE, `Limit cannot be greater than ${MAX_TRANSACTIONS_PER_PAGE}`)
+  ), MAX_TRANSACTIONS_PER_PAGE),
 });
 
-const createPaymentIntentSchema = z.object({
-  packageId: z.string().min(1, "Package is required"),
+const createPaymentIntentSchema = v.object({
+  packageId: requiredString("Package is required"),
 });
 
-const confirmPaymentSchema = z.object({
-  packageId: z.string().min(1, "Package is required"),
-  paymentIntentId: z.string().min(1, "Payment intent is required"),
+const confirmPaymentSchema = v.object({
+  packageId: requiredString("Package is required"),
+  paymentIntentId: requiredString("Payment intent is required"),
 });
 
 export const getTransactions = actionClient

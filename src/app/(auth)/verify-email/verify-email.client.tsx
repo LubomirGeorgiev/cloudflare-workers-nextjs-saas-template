@@ -9,6 +9,7 @@ import { verifyEmailSchema } from "@/schemas/verify-email.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
+import { v } from "@/lib/validation";
 
 export default function VerifyEmailClientComponent() {
   const router = useRouter();
@@ -42,10 +43,10 @@ export default function VerifyEmailClientComponent() {
 
   useEffect(() => {
     if (token && !hasCalledVerification.current) {
-      const result = verifyEmailSchema.safeParse({ token });
+      const result = v.safeParse(verifyEmailSchema, { token });
       if (result.success) {
         hasCalledVerification.current = true;
-        handleVerification(result.data);
+        handleVerification(result.output);
       } else {
         toast.error("Invalid verification token");
         router.push("/sign-in");

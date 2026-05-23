@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { FieldConfig } from "@/lib/cms/zod-to-field-config";
+import type { FieldConfig } from "@/lib/cms/valibot-to-field-config";
 
 type CmsDynamicFieldProps = {
   field: FieldConfig;

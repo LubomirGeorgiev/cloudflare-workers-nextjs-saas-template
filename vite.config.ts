@@ -2,6 +2,7 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import { analyzeBundle } from "./tools/vite-bundle-analyzer";
 
 export default defineConfig({
   optimizeDeps: {
@@ -45,5 +46,6 @@ export default defineConfig({
       },
     }),
     tailwindcss(),
+    ...(process.env.ANALYZE_BUNDLE ? [analyzeBundle()] : []),
   ],
 });

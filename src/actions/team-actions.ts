@@ -1,13 +1,13 @@
 "use server";
 
-import { z } from "zod";
 import { createTeam, getUserTeams } from "@/lib/teams/teams";
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
+import { maxString, requiredString, v } from "@/lib/validation";
 
-const createTeamSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100, "Name is too long"),
-  description: z.string().max(1000, "Description is too long").optional(),
+const createTeamSchema = v.object({
+  name: v.pipe(requiredString("Name is required"), v.maxLength(100, "Name is too long")),
+  description: v.optional(maxString(1000, "Description is too long")),
 });
 
 export const createTeamAction = actionClient

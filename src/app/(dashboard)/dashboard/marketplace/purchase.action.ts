@@ -2,7 +2,6 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { z } from "zod";
 import { getSessionFromCookie } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { hasEnoughCredits, consumeCredits } from "@/utils/credits";
@@ -11,10 +10,11 @@ import { purchasedItemsTable, PURCHASABLE_ITEM_TYPE } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
+import { v } from "@/lib/validation";
 
-const purchaseSchema = z.object({
-  itemId: z.string(),
-  itemType: z.enum([PURCHASABLE_ITEM_TYPE.COMPONENT]), // Add more types as they become available
+const purchaseSchema = v.object({
+  itemId: v.string(),
+  itemType: v.picklist([PURCHASABLE_ITEM_TYPE.COMPONENT]), // Add more types as they become available
 });
 
 export const purchaseAction = actionClient

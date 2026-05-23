@@ -1,6 +1,6 @@
-import type { z } from "zod";
+import type { GenericSchema } from "valibot";
 
-export type DefineCmsCollection<TFieldsSchema extends z.ZodTypeAny = z.ZodTypeAny> = {
+export type DefineCmsCollection<TFieldsSchema extends GenericSchema = GenericSchema> = {
   slug: string;
   labels: {
     singular: string;

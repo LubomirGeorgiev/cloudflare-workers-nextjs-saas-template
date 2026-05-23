@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "rm -rf node_modules/.vite .vinext/cache dist vinext worker worker-dist && vinext build --verbose",
+    "analyze:bundle": "ANALYZE_BUNDLE=1 pnpm build",
     "build:prod": "vinext deploy --dry-run",
     "start": "vinext start",
     "lint": "oxlint",
@@ -88,7 +89,7 @@
     "ua-parser-js": "^2.0.0",
     "use-sync-external-store": "1.6.0",
     "usehooks-ts": "^3.1.0",
-    "zod": "^4.4.3",
+    "valibot": "^1.4.0",
     "zustand": "^5.0.13"
   },
   "devDependencies": {

@@ -1,8 +1,8 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
+import type { InferOutput } from "valibot";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -24,6 +24,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
+type UserSettingsFormValues = InferOutput<typeof userSettingsSchema>;
+
 export function SettingsForm() {
   const router = useRouter()
 
@@ -43,8 +45,8 @@ export function SettingsForm() {
   })
 
   const { session, isLoading } = useSessionStore();
-  const form = useForm<z.infer<typeof userSettingsSchema>>({
-    resolver: zodResolver(userSettingsSchema)
+  const form = useForm<UserSettingsFormValues>({
+    resolver: valibotResolver(userSettingsSchema)
   });
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function SettingsForm() {
     );
   }
 
-  async function onSubmit(values: z.infer<typeof userSettingsSchema>) {
+  async function onSubmit(values: UserSettingsFormValues) {
     updateUserProfile(values)
   }
 

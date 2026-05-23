@@ -3,15 +3,15 @@
 import { actionClient } from "@/lib/safe-action"
 import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
-import { z } from "zod"
 import { sql } from "drizzle-orm"
 import { userTable } from "@/db/schema"
 import { PAGE_SIZE_OPTIONS } from "../admin-constants"
+import { v } from "@/lib/validation"
 
-const getUsersSchema = z.object({
-  page: z.number().min(1).default(1),
-  pageSize: z.number().min(1).max(Math.max(...PAGE_SIZE_OPTIONS)).default(PAGE_SIZE_OPTIONS[0]),
-  emailFilter: z.string().optional(),
+const getUsersSchema = v.object({
+  page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
+  pageSize: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(Math.max(...PAGE_SIZE_OPTIONS))), PAGE_SIZE_OPTIONS[0]),
+  emailFilter: v.optional(v.string()),
 })
 
 export const getUsersAction = actionClient

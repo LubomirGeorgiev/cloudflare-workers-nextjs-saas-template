@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import {
   generatePasskeyRegistrationOptions,
   verifyPasskeyRegistration,
@@ -20,9 +19,10 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import isProd from "@/utils/is-prod";
 import ms from "ms";
 import { passkeyAuthenticationOptionsSchema } from "@/schemas/passkey.schema";
+import { emailString, v } from "@/lib/validation";
 
-const generateRegistrationOptionsSchema = z.object({
-  email: z.string().email(),
+const generateRegistrationOptionsSchema = v.object({
+  email: emailString(),
 });
 
 const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challenge";
@@ -79,9 +79,9 @@ export const generateRegistrationOptionsAction = actionClient
     }, RATE_LIMITS.SETTINGS);
   });
 
-const verifyRegistrationSchema = z.object({
-  email: z.string().email(),
-  response: z.custom<RegistrationResponseJSON>(),
+const verifyRegistrationSchema = v.object({
+  email: emailString(),
+  response: v.custom<RegistrationResponseJSON>(() => true),
 });
 
 export const verifyRegistrationAction = actionClient
@@ -134,8 +134,8 @@ export const verifyRegistrationAction = actionClient
     }, RATE_LIMITS.SETTINGS);
   });
 
-const deletePasskeySchema = z.object({
-  credentialId: z.string(),
+const deletePasskeySchema = v.object({
+  credentialId: v.string(),
 });
 
 export const deletePasskeyAction = actionClient
@@ -248,8 +248,8 @@ export const generateAuthenticationOptionsAction = actionClient
     }, RATE_LIMITS.SIGN_IN);
   });
 
-const verifyAuthenticationSchema = z.object({
-  response: z.custom<AuthenticationResponseJSON>((val): val is AuthenticationResponseJSON => {
+const verifyAuthenticationSchema = v.object({
+  response: v.custom<AuthenticationResponseJSON>((val): val is AuthenticationResponseJSON => {
     return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
   }, "Invalid authentication response"),
 });

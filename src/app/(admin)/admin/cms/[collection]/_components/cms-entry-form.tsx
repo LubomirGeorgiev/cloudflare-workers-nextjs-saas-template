@@ -4,7 +4,7 @@ import { useEffect, useCallback, useMemo, useRef, useState, MouseEvent } from "r
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { formatDistanceToNow } from "date-fns";
 import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionAction } from "../../../_actions/cms-entry-actions";
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
@@ -49,7 +49,7 @@ import useBeforeUnload from "@/hooks/use-before-unload";
 import { SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { Route } from "next";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
+import { valibotSchemaToFieldConfigs } from "@/lib/cms/valibot-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
 import { CMS_ENTRY_STATUS_CONFIG, getStatusConfig } from "@/lib/cms/cms-entry-status-config";
 import { FeaturedImageUpload } from "./featured-image-upload";
@@ -81,7 +81,7 @@ export function CmsEntryForm({
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
 
-  // Get field configurations from the Zod schema
+  // Get field configurations from the collection schema
   const collectionDefinition = cmsConfig.collections[collection as CollectionsUnion];
   const customFields = useMemo(() => {
     if (
@@ -91,7 +91,7 @@ export function CmsEntryForm({
     ) {
       return [];
     }
-    return zodSchemaToFieldConfigs(collectionDefinition.fieldsSchema);
+    return valibotSchemaToFieldConfigs(collectionDefinition.fieldsSchema);
   }, [collectionDefinition]);
 
   // Initialize default field values
@@ -109,7 +109,7 @@ export function CmsEntryForm({
   }, [customFields, entry?.fields]);
 
   const form = useForm<CmsEntryFormInput, unknown, CmsEntryFormData>({
-    resolver: zodResolver(cmsEntryFormSchema),
+    resolver: valibotResolver(cmsEntryFormSchema),
     defaultValues: {
       title: entry?.title || "",
       slug: entry?.slug || "",

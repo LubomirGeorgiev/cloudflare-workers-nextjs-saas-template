@@ -2,7 +2,6 @@
 
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
-import { z } from "zod";
 import {
   acceptTeamInvitation,
   inviteUserToTeam,
@@ -10,22 +9,23 @@ import {
   getPendingInvitationsForCurrentUser
 } from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { emailString, requiredString, v } from "@/lib/validation";
 
 // Invite user schema
-const inviteUserSchema = z.object({
-  teamId: z.string().min(1, "Team ID is required"),
-  email: z.string().email("Invalid email").max(255, "Email is too long"),
-  roleId: z.string().min(1, "Role is required"),
-  isSystemRole: z.boolean().optional().default(true),
+const inviteUserSchema = v.object({
+  teamId: requiredString("Team ID is required"),
+  email: v.pipe(emailString("Invalid email"), v.maxLength(255, "Email is too long")),
+  roleId: requiredString("Role is required"),
+  isSystemRole: v.optional(v.boolean(), true),
 });
 
-const removeMemberSchema = z.object({
-  teamId: z.string().min(1, "Team ID is required"),
-  userId: z.string().min(1, "User ID is required"),
+const removeMemberSchema = v.object({
+  teamId: requiredString("Team ID is required"),
+  userId: requiredString("User ID is required"),
 });
 
-const invitationTokenSchema = z.object({
-  token: z.string().min(1, "Invitation token is required"),
+const invitationTokenSchema = v.object({
+  token: requiredString("Invitation token is required"),
 });
 
 /**

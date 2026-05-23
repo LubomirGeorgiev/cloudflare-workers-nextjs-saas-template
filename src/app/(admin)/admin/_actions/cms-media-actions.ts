@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
@@ -12,14 +11,15 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateCmsEntryCache, invalidateCmsCollectionCache } from "@/lib/cms/cms-repository";
+import { v } from "@/lib/validation";
 
 /**
  * List all media files with pagination and entry relationships
  */
 export const listCmsMediaAction = actionClient
-  .inputSchema(z.object({
-    page: z.number().min(1).default(1),
-    limit: z.number().min(1).max(100).default(20),
+  .inputSchema(v.object({
+    page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
+    limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100)), 20),
   }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -71,8 +71,8 @@ export const listCmsMediaAction = actionClient
  * Get media details with all related entries
  */
 export const getCmsMediaDetailsAction = actionClient
-  .inputSchema(z.object({
-    mediaId: z.string(),
+  .inputSchema(v.object({
+    mediaId: v.string(),
   }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -166,11 +166,11 @@ function updateImageNodesInContent(
  * Also updates the content JSON in all related cms_entry records
  */
 export const updateCmsMediaAction = actionClient
-  .inputSchema(z.object({
-    mediaId: z.string(),
-    alt: z.string().optional(),
-    width: z.number().optional(),
-    height: z.number().optional(),
+  .inputSchema(v.object({
+    mediaId: v.string(),
+    alt: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
   }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -273,8 +273,8 @@ export const updateCmsMediaAction = actionClient
  * Get media by bucket key (used for featured image selection)
  */
 export const getCmsMediaByBucketKeyAction = actionClient
-  .inputSchema(z.object({
-    bucketKey: z.string(),
+  .inputSchema(v.object({
+    bucketKey: v.string(),
   }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -300,8 +300,8 @@ export const getCmsMediaByBucketKeyAction = actionClient
  * Delete media file from both R2 and database
  */
 export const deleteCmsMediaAction = actionClient
-  .inputSchema(z.object({
-    mediaId: z.string(),
+  .inputSchema(v.object({
+    mediaId: v.string(),
   }))
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {

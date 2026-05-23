@@ -3,7 +3,6 @@ import "server-only";
 import { cache } from "react";
 import { eq, and, desc, count, sql } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
-import { z } from "zod";
 
 import { getDB } from "@/db"
 import { cmsConfig, CollectionsUnion } from "@/../cms.config";
@@ -12,6 +11,7 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { withKVCache, CACHE_KEYS } from "@/utils/with-kv-cache";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
+import { ActionError } from "@/lib/action-error";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
@@ -33,6 +33,7 @@ import {
   type CmsEntryStatus,
   type CmsStatusFilter,
 } from "@/types/cms";
+import { requiredString, v } from "@/lib/validation";
 
 // TODO Check if the tiptap editor supports warning and error blocks
 // TODO If an admin is logged in we need to show a button on blogs and docs to edit it in the CMS admin panel
@@ -41,96 +42,107 @@ import {
 // TODO Automatically add cms entries to the sitemap and also add the option to hide certain entries from the sitemap
 // TODO Explain how to use the CMS in the README.md file
 // TODO Uploading images from the editor and a dedicated media collection admin page
-const cmsEntryStatusOrAllSchema = z.enum(cmsStatusFilterTuple);
+const cmsEntryStatusOrAllSchema = v.picklist(cmsStatusFilterTuple);
 
-const cmsIncludeRelationsSchema = z.object({
-  createdByUser: z.boolean().optional(),
-  media: z.boolean().optional(),
-  tags: z.boolean().optional(),
-}).optional();
+const cmsIncludeRelationsSchema = v.optional(v.object({
+  createdByUser: v.optional(v.boolean()),
+  media: v.optional(v.boolean()),
+  tags: v.optional(v.boolean()),
+}));
 
-const getCmsCollectionParamsSchema = z.object({
-  collectionSlug: z.string(),
-  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+const getCmsCollectionParamsSchema = v.object({
+  collectionSlug: v.string(),
+  status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
   includeRelations: cmsIncludeRelationsSchema,
-  limit: z.number().positive().optional(),
-  offset: z.number().nonnegative().optional(),
+  limit: v.optional(v.pipe(v.number(), v.minValue(1))),
+  offset: v.optional(v.pipe(v.number(), v.minValue(0))),
 });
 
-const getCmsCollectionCountParamsSchema = z.object({
-  collectionSlug: z.string(),
-  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+const getCmsCollectionCountParamsSchema = v.object({
+  collectionSlug: v.string(),
+  status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
 });
 
-const getCmsEntryByIdParamsSchema = z.object({
-  id: z.string().min(1),
-  includeRelations: cmsIncludeRelationsSchema,
-});
-
-const getCmsEntryBySlugParamsSchema = z.object({
-  collectionSlug: z.string(),
-  slug: z.string().min(1),
-  status: cmsEntryStatusOrAllSchema.optional().default(CMS_ENTRY_STATUS.PUBLISHED),
+const getCmsEntryByIdParamsSchema = v.object({
+  id: requiredString(),
   includeRelations: cmsIncludeRelationsSchema,
 });
 
-const repositoryCmsEntryBaseSchema = baseCmsEntrySchema.extend({
-  fields: z.unknown(),
-  status: cmsEntryStatusSchema.default(CMS_ENTRY_STATUS.DRAFT),
+const getCmsEntryBySlugParamsSchema = v.object({
+  collectionSlug: v.string(),
+  slug: requiredString(),
+  status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
+  includeRelations: cmsIncludeRelationsSchema,
+});
+
+const repositoryCmsEntryBaseSchema = v.object({
+  ...baseCmsEntrySchema.entries,
+  fields: v.unknown(),
+  status: v.optional(cmsEntryStatusSchema, CMS_ENTRY_STATUS.DRAFT),
 });
 
 const createCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
-  repositoryCmsEntryBaseSchema.extend({
-    collectionSlug: z.string(),
-    createdBy: z.string().min(1),
+  v.object({
+    ...repositoryCmsEntryBaseSchema.entries,
+    collectionSlug: v.string(),
+    createdBy: requiredString(),
   })
 );
 
 const updateCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
-  repositoryCmsEntryBaseSchema.partial().extend({
-    id: z.string().min(1),
+  v.object({
+    title: v.optional(repositoryCmsEntryBaseSchema.entries.title),
+    slug: v.optional(repositoryCmsEntryBaseSchema.entries.slug),
+    content: v.optional(repositoryCmsEntryBaseSchema.entries.content),
+    seoDescription: v.optional(repositoryCmsEntryBaseSchema.entries.seoDescription),
+    status: v.optional(cmsEntryStatusSchema),
+    publishedAt: v.optional(repositoryCmsEntryBaseSchema.entries.publishedAt),
+    tagIds: v.optional(repositoryCmsEntryBaseSchema.entries.tagIds),
+    featuredImageId: v.optional(repositoryCmsEntryBaseSchema.entries.featuredImageId),
+    fields: v.optional(v.unknown()),
+    id: requiredString(),
   })
 );
 
-const deleteCmsEntryParamsSchema = z.object({
-  id: z.string().min(1),
+const deleteCmsEntryParamsSchema = v.object({
+  id: requiredString(),
 });
 
-const getCmsTagByIdParamsSchema = z.string().min(1);
+const getCmsTagByIdParamsSchema = requiredString();
 
-const getCmsEntriesByTagIdParamsSchema = z.object({
-  tagId: z.string().min(1),
-  status: cmsEntryStatusOrAllSchema.optional().default(CMS_STATUS_FILTER_ALL),
+const getCmsEntriesByTagIdParamsSchema = v.object({
+  tagId: requiredString(),
+  status: v.optional(cmsEntryStatusOrAllSchema, CMS_STATUS_FILTER_ALL),
 });
 
-const createCmsTagParamsSchema = z.object({
-  name: z.string().min(1),
-  slug: z.string().min(1),
-  description: z.string().optional(),
-  color: z.string().optional(),
-  createdBy: z.string().min(1),
+const createCmsTagParamsSchema = v.object({
+  name: requiredString(),
+  slug: requiredString(),
+  description: v.optional(v.string()),
+  color: v.optional(v.string()),
+  createdBy: requiredString(),
 });
 
-const updateCmsTagParamsSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).optional(),
-  slug: z.string().min(1).optional(),
-  description: z.string().optional(),
-  color: z.string().optional(),
+const updateCmsTagParamsSchema = v.object({
+  id: requiredString(),
+  name: v.optional(requiredString()),
+  slug: v.optional(requiredString()),
+  description: v.optional(v.string()),
+  color: v.optional(v.string()),
 });
 
-const deleteCmsTagParamsSchema = z.string().min(1);
+const deleteCmsTagParamsSchema = requiredString();
 
-const getCmsEntryVersionsParamsSchema = z.string().min(1);
+const getCmsEntryVersionsParamsSchema = requiredString();
 
-const deleteCmsEntryVersionParamsSchema = z.object({
-  entryId: z.string().min(1),
-  versionId: z.string().min(1),
+const deleteCmsEntryVersionParamsSchema = v.object({
+  entryId: requiredString(),
+  versionId: requiredString(),
 });
 
-const revertCmsEntryToVersionParamsSchema = z.object({
-  entryId: z.string().min(1),
-  versionId: z.string().min(1),
+const revertCmsEntryToVersionParamsSchema = v.object({
+  entryId: requiredString(),
+  versionId: requiredString(),
 });
 
 function getCmsEntryCacheKey({
@@ -386,7 +398,7 @@ function buildStatusWhereCondition(status: CmsStatusFilter) {
 }
 
 /**
- * Helper function to validate entry fields using collection's Zod schema
+ * Helper function to validate entry fields using the collection schema
  */
 function validateEntryFields(
   fields: unknown,
@@ -396,12 +408,21 @@ function validateEntryFields(
     return fields;
   }
 
-  const parseResult = collection.fieldsSchema.safeParse(fields);
+  const parseResult = v.safeParse(collection.fieldsSchema, fields);
   if (!parseResult.success) {
-    throw new Error(`Invalid fields: ${parseResult.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join(', ')}`);
+    throw new ActionError(
+      "INPUT_PARSE_ERROR",
+      `Invalid fields: ${parseResult.issues.map(formatValibotIssue).join(", ")}`
+    );
   }
 
-  return parseResult.data;
+  return parseResult.output;
+}
+
+function formatValibotIssue(issue: { path?: Array<{ key: unknown }>; message: string }): string {
+  const path = issue.path?.map((item) => item.key).join(".");
+
+  return path ? `${path}: ${issue.message}` : issue.message;
 }
 
 /**
@@ -496,7 +517,7 @@ function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   return relations;
 }
 
-type GetCmsCollectionParams<T extends CollectionsUnion> = Omit<z.infer<typeof getCmsCollectionParamsSchema>, 'collectionSlug' | 'status'> & {
+type GetCmsCollectionParams<T extends CollectionsUnion> = Omit<v.InferOutput<typeof getCmsCollectionParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
   status?: CmsStatusFilter;
 };
@@ -632,7 +653,7 @@ const getCachedCmsCollection = cache(async (
 export function getCmsCollection<T extends keyof typeof cmsConfig.collections>(
   params: GetCmsCollectionParams<T>
 ): Promise<GetCmsCollectionResult[]> {
-  const validated = getCmsCollectionParamsSchema.parse(params);
+  const validated = v.parse(getCmsCollectionParamsSchema, params);
 
   return getCachedCmsCollection(
     validated.collectionSlug,
@@ -692,15 +713,15 @@ const getCachedCmsCollectionCount = cache(async (
 });
 
 export function getCmsCollectionCount<T extends keyof typeof cmsConfig.collections>(
-  params: z.infer<typeof getCmsCollectionCountParamsSchema> & { collectionSlug: T }
+  params: v.InferOutput<typeof getCmsCollectionCountParamsSchema> & { collectionSlug: T }
 ): Promise<number> {
-  const validated = getCmsCollectionCountParamsSchema.parse(params);
+  const validated = v.parse(getCmsCollectionCountParamsSchema, params);
 
   return getCachedCmsCollectionCount(validated.collectionSlug, validated.status);
 }
 
 
-type GetCmsEntryByIdParams = z.infer<typeof getCmsEntryByIdParamsSchema>;
+type GetCmsEntryByIdParams = v.InferOutput<typeof getCmsEntryByIdParamsSchema>;
 
 /**
  * Get a single CMS entry by ID (for admin/edit interfaces)
@@ -742,7 +763,7 @@ const getCachedCmsEntryById = cache(async (
 });
 
 export function getCmsEntryById(params: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> {
-  const validated = getCmsEntryByIdParamsSchema.parse(params);
+  const validated = v.parse(getCmsEntryByIdParamsSchema, params);
 
   return getCachedCmsEntryById(
     validated.id,
@@ -750,7 +771,7 @@ export function getCmsEntryById(params: GetCmsEntryByIdParams): Promise<GetCmsCo
   );
 }
 
-type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = Omit<z.infer<typeof getCmsEntryBySlugParamsSchema>, 'collectionSlug' | 'status'> & {
+type GetCmsEntryBySlugParams<T extends keyof typeof cmsConfig.collections> = Omit<v.InferOutput<typeof getCmsEntryBySlugParamsSchema>, 'collectionSlug' | 'status'> & {
   collectionSlug: T;
   status?: CmsStatusFilter;
 };
@@ -774,7 +795,7 @@ type GetCmsEntryBySlugResult = GetCmsCollectionResult;
 export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collections>(
   params: GetCmsEntryBySlugParams<T>
 ): Promise<GetCmsEntryBySlugResult | null> {
-  const validated = getCmsEntryBySlugParamsSchema.parse(params);
+  const validated = v.parse(getCmsEntryBySlugParamsSchema, params);
   const { collectionSlug, slug, status, includeRelations } = validated;
 
   const collection = cmsConfig.collections[collectionSlug as T];
@@ -843,7 +864,7 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
   return processedEntry;
 }
 
-type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = z.infer<typeof createCmsEntryParamsSchema> & {
+type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = v.InferOutput<typeof createCmsEntryParamsSchema> & {
   collectionSlug: T;
   content: JSONContent;
 };
@@ -866,7 +887,7 @@ type CreateCmsEntryParams<T extends keyof typeof cmsConfig.collections> = z.infe
 export async function createCmsEntry<T extends keyof typeof cmsConfig.collections>(
   params: CreateCmsEntryParams<T>
 ): Promise<CmsEntry> {
-  const validated = createCmsEntryParamsSchema.parse(params);
+  const validated = v.parse(createCmsEntryParamsSchema, params);
   const { collectionSlug, slug, title, content, fields, seoDescription, status, publishedAt, createdBy, tagIds, featuredImageId } = validated;
 
   const db = getDB();
@@ -972,7 +993,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
   return newEntry;
 }
 
-type UpdateCmsEntryParams = z.infer<typeof updateCmsEntryParamsSchema> & {
+type UpdateCmsEntryParams = v.InferOutput<typeof updateCmsEntryParamsSchema> & {
   content?: JSONContent;
 };
 
@@ -990,7 +1011,7 @@ type UpdateCmsEntryParams = z.infer<typeof updateCmsEntryParamsSchema> & {
  * });
  */
 export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsEntry | null> {
-  const validated = updateCmsEntryParamsSchema.parse(params);
+  const validated = v.parse(updateCmsEntryParamsSchema, params);
   const { id, slug, title, content, fields, seoDescription, status, publishedAt, tagIds, featuredImageId } = validated;
 
   const db = getDB();
@@ -1178,7 +1199,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   return updatedEntry || null;
 }
 
-type DeleteCmsEntryParams = z.infer<typeof deleteCmsEntryParamsSchema>;
+type DeleteCmsEntryParams = v.InferOutput<typeof deleteCmsEntryParamsSchema>;
 
 /**
  * Delete a CMS entry and its associated media relations
@@ -1190,7 +1211,7 @@ type DeleteCmsEntryParams = z.infer<typeof deleteCmsEntryParamsSchema>;
  * await deleteCmsEntry({ id: 'cms_ent_abc123' });
  */
 export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void> {
-  const validated = deleteCmsEntryParamsSchema.parse(params);
+  const validated = v.parse(deleteCmsEntryParamsSchema, params);
   const { id } = validated;
 
   const db = getDB();
@@ -1242,8 +1263,8 @@ export const getCmsTags = cache(async () => {
   return tags;
 });
 
-export const getCmsTagById = cache(async (id: z.infer<typeof getCmsTagByIdParamsSchema>) => {
-  const validated = getCmsTagByIdParamsSchema.parse(id);
+export const getCmsTagById = cache(async (id: v.InferOutput<typeof getCmsTagByIdParamsSchema>) => {
+  const validated = v.parse(getCmsTagByIdParamsSchema, id);
 
   const db = getDB();
   return await db.query.cmsTagTable.findFirst({
@@ -1292,13 +1313,13 @@ const getCachedCmsEntriesByTagId = cache(async (tagId: string, status: CmsStatus
 });
 
 export function getCmsEntriesByTagId(params: { tagId: string; status?: CmsStatusFilter }) {
-  const validated = getCmsEntriesByTagIdParamsSchema.parse(params);
+  const validated = v.parse(getCmsEntriesByTagIdParamsSchema, params);
 
   return getCachedCmsEntriesByTagId(validated.tagId, validated.status);
 }
 
-export async function createCmsTag(params: z.infer<typeof createCmsTagParamsSchema>) {
-  const validated = createCmsTagParamsSchema.parse(params);
+export async function createCmsTag(params: v.InferOutput<typeof createCmsTagParamsSchema>) {
+  const validated = v.parse(createCmsTagParamsSchema, params);
   const { name, slug, description, color, createdBy } = validated;
 
   const db = getDB();
@@ -1322,8 +1343,8 @@ export async function createCmsTag(params: z.infer<typeof createCmsTagParamsSche
   return newTag;
 }
 
-export async function updateCmsTag(params: z.infer<typeof updateCmsTagParamsSchema>) {
-  const validated = updateCmsTagParamsSchema.parse(params);
+export async function updateCmsTag(params: v.InferOutput<typeof updateCmsTagParamsSchema>) {
+  const validated = v.parse(updateCmsTagParamsSchema, params);
   const { id, name, slug, description, color } = validated;
 
   const db = getDB();
@@ -1363,8 +1384,8 @@ export async function updateCmsTag(params: z.infer<typeof updateCmsTagParamsSche
   return updatedTag;
 }
 
-export async function deleteCmsTag(id: z.infer<typeof deleteCmsTagParamsSchema>) {
-  const validated = deleteCmsTagParamsSchema.parse(id);
+export async function deleteCmsTag(id: v.InferOutput<typeof deleteCmsTagParamsSchema>) {
+  const validated = v.parse(deleteCmsTagParamsSchema, id);
 
   const db = getDB();
 
@@ -1376,8 +1397,8 @@ export async function deleteCmsTag(id: z.infer<typeof deleteCmsTagParamsSchema>)
 
 // Version Management Functions
 
-export const getCmsEntryVersions = cache(async (entryId: z.infer<typeof getCmsEntryVersionsParamsSchema>): Promise<CmsEntryVersion[]> => {
-  const validated = getCmsEntryVersionsParamsSchema.parse(entryId);
+export const getCmsEntryVersions = cache(async (entryId: v.InferOutput<typeof getCmsEntryVersionsParamsSchema>): Promise<CmsEntryVersion[]> => {
+  const validated = v.parse(getCmsEntryVersionsParamsSchema, entryId);
 
   const db = getDB();
   return await db.query.cmsEntryVersionTable.findMany({
@@ -1397,8 +1418,8 @@ export const getCmsEntryVersions = cache(async (entryId: z.infer<typeof getCmsEn
   });
 });
 
-export const getCmsEntryVersionCount = cache(async (entryId: z.infer<typeof getCmsEntryVersionsParamsSchema>): Promise<number> => {
-  const validated = getCmsEntryVersionsParamsSchema.parse(entryId);
+export const getCmsEntryVersionCount = cache(async (entryId: v.InferOutput<typeof getCmsEntryVersionsParamsSchema>): Promise<number> => {
+  const validated = v.parse(getCmsEntryVersionsParamsSchema, entryId);
 
   const db = getDB();
   const result = await db
@@ -1409,8 +1430,8 @@ export const getCmsEntryVersionCount = cache(async (entryId: z.infer<typeof getC
   return result[0]?.count ?? 0;
 });
 
-export async function deleteCmsEntryVersion(params: z.infer<typeof deleteCmsEntryVersionParamsSchema>): Promise<void> {
-  const validated = deleteCmsEntryVersionParamsSchema.parse(params);
+export async function deleteCmsEntryVersion(params: v.InferOutput<typeof deleteCmsEntryVersionParamsSchema>): Promise<void> {
+  const validated = v.parse(deleteCmsEntryVersionParamsSchema, params);
   const { entryId, versionId } = validated;
 
   const db = getDB();
@@ -1461,8 +1482,8 @@ export async function deleteCmsEntryVersion(params: z.infer<typeof deleteCmsEntr
   }
 }
 
-export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEntryToVersionParamsSchema>): Promise<CmsEntry> {
-  const validated = revertCmsEntryToVersionParamsSchema.parse(params);
+export async function revertCmsEntryToVersion(params: v.InferOutput<typeof revertCmsEntryToVersionParamsSchema>): Promise<CmsEntry> {
+  const validated = v.parse(revertCmsEntryToVersionParamsSchema, params);
   const { entryId, versionId } = validated;
 
   const db = getDB();

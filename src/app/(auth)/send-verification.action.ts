@@ -5,10 +5,10 @@ import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { z } from "zod";
+import { v } from "@/lib/validation";
 
 export const sendVerificationAction = actionClient
-  .inputSchema(z.void())
+  .inputSchema(v.void())
   .action(async () => {
     return withRateLimit(
       async () => {

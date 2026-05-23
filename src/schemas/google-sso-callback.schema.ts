@@ -1,6 +1,6 @@
-import { z } from "zod";
+import { requiredString, v } from "@/lib/validation";
 
-export const googleSSOCallbackSchema = z.object({
-  code: z.string().min(1, "Authorization code is required"),
-  state: z.string().min(1, "State parameter is required"),
+export const googleSSOCallbackSchema = v.object({
+  code: requiredString("Authorization code is required"),
+  state: requiredString("State parameter is required"),
 });

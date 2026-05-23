@@ -2,7 +2,6 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { z } from "zod";
 import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@/utils/webauthn";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
@@ -17,6 +16,7 @@ import { passkeyEmailSchema } from "@/schemas/passkey.schema";
 import ms from "ms";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
+import { v } from "@/lib/validation";
 
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
 const PASSKEY_USER_ID_COOKIE_NAME = "passkey_user_id";
@@ -113,8 +113,8 @@ export const startPasskeyRegistrationAction = actionClient
     );
   });
 
-const completePasskeyRegistrationSchema = z.object({
-  response: z.custom<RegistrationResponseJSON>((val): val is RegistrationResponseJSON => {
+const completePasskeyRegistrationSchema = v.object({
+  response: v.custom<RegistrationResponseJSON>((val): val is RegistrationResponseJSON => {
     return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
   }, "Invalid registration response"),
 });

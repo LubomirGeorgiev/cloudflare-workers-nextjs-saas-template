@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAction } from "next-safe-action/hooks";
 import { inviteUserAction } from "@/actions/team-membership-actions";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { toast } from "sonner";
 import {
   Form,
@@ -18,13 +17,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { emailString, v } from "@/lib/validation";
 
 // Define the form schema with validation
-const formSchema = z.object({
-  email: z.string().email("Please enter a valid email address").min(1, "Email is required")
+const formSchema = v.object({
+  email: v.pipe(emailString("Please enter a valid email address"), v.minLength(1, "Email is required"))
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = v.InferOutput<typeof formSchema>;
 
 interface InviteMemberModalProps {
   teamId: string;
@@ -37,7 +37,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
 
   // Initialize react-hook-form
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: valibotResolver(formSchema),
     defaultValues: {
       email: ""
     }

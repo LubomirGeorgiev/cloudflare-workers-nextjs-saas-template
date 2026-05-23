@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
@@ -13,6 +12,7 @@ import { CMS_IMAGE_MAX_FILE_SIZE, CMS_ALLOWED_IMAGE_TYPES } from "@/constants";
 import { getCmsImageR2Key, getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
+import { requiredString, v } from "@/lib/validation";
 
 /**
  * Validates and sanitizes the filename
@@ -43,9 +43,9 @@ function generateUniqueFilename({
   return `${uniqueId}-${nameWithoutExt}.${extension}`;
 }
 
-const uploadImageSchema = z.object({
-  file: z.instanceof(File),
-  collection: z.string().min(1, "Collection slug is required"),
+const uploadImageSchema = v.object({
+  file: v.instance(File),
+  collection: requiredString("Collection slug is required"),
 });
 
 /**

@@ -1,5 +1,5 @@
-import { z } from "zod";
+import { requiredString, v } from "@/lib/validation";
 
-export const verifyEmailSchema = z.object({
-  token: z.string().min(1, "Verification token is required"),
+export const verifyEmailSchema = v.object({
+  token: requiredString("Verification token is required"),
 });

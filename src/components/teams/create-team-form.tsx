@@ -2,8 +2,7 @@
 
 import type { Route } from "next";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,14 +11,18 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { createTeamAction } from "@/actions/team-actions";
+import { maxString, requiredString, v } from "@/lib/validation";
 
-const formSchema = z.object({
-  name: z.string().min(1, "Team name is required").max(100, "Team name is too long"),
-  description: z.string().max(1000, "Description is too long").optional(),
-  avatarUrl: z.string().url("Invalid URL").max(600, "URL is too long").optional().or(z.literal("")),
+const formSchema = v.object({
+  name: v.pipe(requiredString("Team name is required"), v.maxLength(100, "Team name is too long")),
+  description: v.optional(maxString(1000, "Description is too long")),
+  avatarUrl: v.optional(v.union([
+    v.pipe(v.string(), v.url("Invalid URL"), v.maxLength(600, "URL is too long")),
+    v.literal(""),
+  ])),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = v.InferOutput<typeof formSchema>;
 
 export function CreateTeamForm() {
   const router = useRouter();
@@ -41,7 +44,7 @@ export function CreateTeamForm() {
   });
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: valibotResolver(formSchema),
     defaultValues: {
       name: "",
       description: "",

@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Captcha } from "@/components/captcha";
 
 import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
@@ -101,11 +101,11 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
   })
 
   const form = useForm<SignUpSchema>({
-    resolver: zodResolver(signUpSchema),
+    resolver: valibotResolver(signUpSchema),
   });
 
   const passkeyForm = useForm<PasskeyEmailSchema>({
-    resolver: zodResolver(passkeyEmailSchema),
+    resolver: valibotResolver(passkeyEmailSchema),
   });
 
   const captchaToken = useWatch({ control: form.control, name: 'captchaToken' });

@@ -1,13 +1,13 @@
 "use server";
 
-import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { updateKVSessionSelectedTeam } from "@/utils/kv-session";
+import { v } from "@/lib/validation";
 
-const updateSelectedTeamSchema = z.object({
-  selectedTeam: z.string().optional(),
+const updateSelectedTeamSchema = v.object({
+  selectedTeam: v.optional(v.string()),
 });
 
 /**

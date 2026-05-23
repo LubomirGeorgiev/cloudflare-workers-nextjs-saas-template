@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import Link from "next/link";
@@ -45,7 +45,7 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const form = useForm<PasskeyAuthenticationOptionsSchema>({
-    resolver: zodResolver(passkeyAuthenticationOptionsSchema),
+    resolver: valibotResolver(passkeyAuthenticationOptionsSchema),
     defaultValues: {
       email: "",
     },
@@ -160,7 +160,7 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
 
 const SignInPage = ({ redirectPath }: SignInClientProps) => {
   const form = useForm<SignInSchema>({
-    resolver: zodResolver(signInSchema),
+    resolver: valibotResolver(signInSchema),
     defaultValues: {
       email: "",
       password: "",

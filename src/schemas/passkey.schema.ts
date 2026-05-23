@@ -1,16 +1,16 @@
-import { z } from "zod";
+import { emailString, minMaxString, v } from "@/lib/validation";
 import { captchaSchema } from "./captcha.schema";
 
-export const passkeyEmailSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  firstName: z.string().min(2, "First name must be at least 2 characters").max(255),
-  lastName: z.string().min(2, "Last name must be at least 2 characters").max(255),
+export const passkeyEmailSchema = v.object({
+  email: emailString("Please enter a valid email address"),
+  firstName: minMaxString({ min: 2, max: 255, minMessage: "First name must be at least 2 characters" }),
+  lastName: minMaxString({ min: 2, max: 255, minMessage: "Last name must be at least 2 characters" }),
   captchaToken: captchaSchema,
 });
 
-export const passkeyAuthenticationOptionsSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+export const passkeyAuthenticationOptionsSchema = v.object({
+  email: emailString("Please enter a valid email address"),
 });
 
-export type PasskeyEmailSchema = z.infer<typeof passkeyEmailSchema>;
-export type PasskeyAuthenticationOptionsSchema = z.infer<typeof passkeyAuthenticationOptionsSchema>;
+export type PasskeyEmailSchema = v.InferOutput<typeof passkeyEmailSchema>;
+export type PasskeyAuthenticationOptionsSchema = v.InferOutput<typeof passkeyAuthenticationOptionsSchema>;

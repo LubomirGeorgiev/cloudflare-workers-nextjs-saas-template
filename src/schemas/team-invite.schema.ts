@@ -1,5 +1,5 @@
-import { z } from "zod";
+import { requiredString, v } from "@/lib/validation";
 
-export const teamInviteSchema = z.object({
-  token: z.string().min(1, "Invitation token is required"),
+export const teamInviteSchema = v.object({
+  token: requiredString("Invitation token is required"),
 });

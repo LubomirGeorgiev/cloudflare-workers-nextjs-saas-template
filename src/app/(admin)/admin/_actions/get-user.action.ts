@@ -1,15 +1,15 @@
 "use server"
 
-import { z } from "zod"
 import { ActionError } from "@/lib/action-error"
 import { actionClient } from "@/lib/safe-action"
 import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
 import { userTable, creditTransactionTable, passKeyCredentialTable } from "@/db/schema"
 import { eq, desc } from "drizzle-orm"
+import { requiredString, v } from "@/lib/validation"
 
-const getUserDataSchema = z.object({
-  userId: z.string().min(1, "User ID is required"),
+const getUserDataSchema = v.object({
+  userId: requiredString("User ID is required"),
 })
 
 export const getUserData = actionClient

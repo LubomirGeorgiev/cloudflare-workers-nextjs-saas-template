@@ -14,7 +14,7 @@ import { resetPasswordAction } from "./reset-password.action";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
@@ -27,7 +27,7 @@ export default function ResetPasswordClientComponent() {
   const token = searchParams.get("token");
 
   const form = useForm<ResetPasswordSchema>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: valibotResolver(resetPasswordSchema),
     defaultValues: {
       token: token || "",
       password: "",

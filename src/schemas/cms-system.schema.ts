@@ -1,19 +1,19 @@
-import { z } from "zod";
-import { zodCollectionEnum } from "@/../cms.config";
+import { collectionSchema } from "@/../cms.config";
+import { v } from "@/lib/validation";
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Schemas intentionally export validation contracts and inferred types together.
-export const cmsSystemActionTypeSchema = z.enum([
+export const cmsSystemActionTypeSchema = v.picklist([
   "rebuild-search-index",
   "clear-search-cache",
   "clear-cms-cache",
 ]);
 
-export const cmsSystemActionSchema = z.object({
+export const cmsSystemActionSchema = v.object({
   type: cmsSystemActionTypeSchema,
-  collection: zodCollectionEnum.optional(),
+  collection: v.optional(collectionSchema),
 });
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Schemas intentionally export validation contracts and inferred types together.
-export type CmsSystemAction = z.infer<typeof cmsSystemActionSchema>;
+export type CmsSystemAction = v.InferOutput<typeof cmsSystemActionSchema>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Schemas intentionally export validation contracts and inferred types together.
-export type CmsSystemActionType = z.infer<typeof cmsSystemActionTypeSchema>;
+export type CmsSystemActionType = v.InferOutput<typeof cmsSystemActionTypeSchema>;

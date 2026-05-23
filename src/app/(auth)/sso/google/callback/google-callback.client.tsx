@@ -9,6 +9,7 @@ import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
+import { v } from "@/lib/validation";
 
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
@@ -38,10 +39,10 @@ export default function GoogleCallbackClientComponent() {
 
   useEffect(() => {
     if (code && state && !hasCalledCallback.current) {
-      const result = googleSSOCallbackSchema.safeParse({ code, state });
+      const result = v.safeParse(googleSSOCallbackSchema, { code, state });
       if (result.success) {
         hasCalledCallback.current = true;
-        handleCallback(result.data);
+        handleCallback(result.output);
       } else {
         toast.error("Invalid callback parameters");
         router.push("/sign-in");

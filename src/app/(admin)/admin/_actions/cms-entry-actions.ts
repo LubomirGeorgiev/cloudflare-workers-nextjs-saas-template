@@ -1,11 +1,10 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { cmsConfig, zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
+import { cmsConfig, collectionSchema, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
@@ -17,8 +16,9 @@ import {
 } from "@/lib/cms/cms-repository";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { cmsStatusFilterTuple } from "@/types/cms";
+import { requiredString, v } from "@/lib/validation";
 
-const listStatusEnum = z.enum(cmsStatusFilterTuple);
+const listStatusEnum = v.picklist(cmsStatusFilterTuple);
 
 function revalidateCmsEntryPaths({
   collection,
@@ -53,11 +53,11 @@ function revalidateCmsEntryPaths({
 
 export const listCmsEntriesAction = actionClient
   .inputSchema(
-    z.object({
-      collection: zodCollectionEnum,
-      status: listStatusEnum.optional().default("all"),
-      limit: z.number().optional().default(20),
-      offset: z.number().optional().default(0),
+    v.object({
+      collection: collectionSchema,
+      status: v.optional(listStatusEnum, "all"),
+      limit: v.optional(v.number(), 20),
+      offset: v.optional(v.number(), 0),
     })
   )
   .action(async ({ parsedInput: input }) => {
@@ -130,7 +130,7 @@ export const updateCmsEntryAction = actionClient
   });
 
 export const deleteCmsEntryAction = actionClient
-  .inputSchema(z.object({ id: z.string() }))
+  .inputSchema(v.object({ id: v.string() }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -141,8 +141,8 @@ export const deleteCmsEntryAction = actionClient
 
 export const generateSeoDescriptionAction = actionClient
   .inputSchema(
-    z.object({
-      id: z.string().min(1, "Entry ID is required"),
+    v.object({
+      id: requiredString("Entry ID is required"),
     })
   )
   .action(async ({ parsedInput: input }) => {

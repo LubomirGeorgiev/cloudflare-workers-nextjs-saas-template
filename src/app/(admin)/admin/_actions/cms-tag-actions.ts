@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
@@ -10,6 +9,7 @@ import {
   updateCmsTag,
   deleteCmsTag,
 } from "@/lib/cms/cms-repository";
+import { requiredString, v } from "@/lib/validation";
 
 export const listCmsTagsAction = actionClient
   .action(async () => {
@@ -20,11 +20,11 @@ export const listCmsTagsAction = actionClient
 
 export const createCmsTagAction = actionClient
   .inputSchema(
-    z.object({
-      name: z.string().min(1, "Name is required"),
-      slug: z.string().min(1, "Slug is required"),
-      description: z.string().optional(),
-      color: z.string().optional(),
+    v.object({
+      name: requiredString("Name is required"),
+      slug: requiredString("Slug is required"),
+      description: v.optional(v.string()),
+      color: v.optional(v.string()),
     })
   )
   .action(async ({ parsedInput: input }) => {
@@ -47,12 +47,12 @@ export const createCmsTagAction = actionClient
 
 export const updateCmsTagAction = actionClient
   .inputSchema(
-    z.object({
-      id: z.string(),
-      name: z.string().min(1, "Name is required").optional(),
-      slug: z.string().min(1, "Slug is required").optional(),
-      description: z.string().optional(),
-      color: z.string().optional(),
+    v.object({
+      id: v.string(),
+      name: v.optional(requiredString("Name is required")),
+      slug: v.optional(requiredString("Slug is required")),
+      description: v.optional(v.string()),
+      color: v.optional(v.string()),
     })
   )
   .action(async ({ parsedInput: input }) => {
@@ -74,7 +74,7 @@ export const updateCmsTagAction = actionClient
   });
 
 export const deleteCmsTagAction = actionClient
-  .inputSchema(z.object({ id: z.string() }))
+  .inputSchema(v.object({ id: v.string() }))
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 

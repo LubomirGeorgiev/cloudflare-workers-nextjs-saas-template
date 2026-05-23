@@ -8,6 +8,7 @@ import { acceptTeamInviteAction } from "./team-invite.action";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
+import { v } from "@/lib/validation";
 
 export default function TeamInviteClientComponent() {
   const router = useRouter();
@@ -44,10 +45,10 @@ export default function TeamInviteClientComponent() {
 
   useEffect(() => {
     if (token && !hasCalledAcceptInvite.current) {
-      const result = teamInviteSchema.safeParse({ token });
+      const result = v.safeParse(teamInviteSchema, { token });
       if (result.success) {
         hasCalledAcceptInvite.current = true;
-        handleAcceptInvite(result.data);
+        handleAcceptInvite(result.output);
       } else {
         toast.error("Invalid invitation token");
         router.push("/sign-in");

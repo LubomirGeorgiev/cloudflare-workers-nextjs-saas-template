@@ -1,12 +1,19 @@
-import { z } from "zod";
+import { minString, v } from "@/lib/validation";
 
-export const resetPasswordSchema = z.object({
-  token: z.string(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+export const resetPasswordSchema = v.pipe(
+  v.object({
+    token: v.string(),
+    password: minString(8, "Password must be at least 8 characters"),
+    confirmPassword: v.string(),
+  }),
+  v.forward(
+    v.partialCheck(
+      [["password"], ["confirmPassword"]],
+      (data) => data.password === data.confirmPassword,
+      "Passwords do not match"
+    ),
+    ["confirmPassword"]
+  )
+);
 
-export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordSchema = v.InferOutput<typeof resetPasswordSchema>;

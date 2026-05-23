@@ -7,14 +7,14 @@ import {
   DOCS_BASE_PATH,
   DOCS_SLUG,
 } from "@/lib/cms/docs-config";
-import z from "zod";
+import { maxString, v } from "@/lib/validation";
 
-const blogFieldsSchema = z.object({
-  excerpt: z.string().max(200).optional(),
+const blogFieldsSchema = v.object({
+  excerpt: v.optional(maxString(200)),
 });
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS config exports are consumed by tooling and extension points.
-export type BlogFields = z.infer<typeof blogFieldsSchema>;
+export type BlogFields = v.InferOutput<typeof blogFieldsSchema>;
 
 const blogCollection = {
   slug: "blog",
@@ -64,7 +64,7 @@ export type CmsNavigationKey = keyof typeof cmsConfig.navigations;
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS config exports are consumed by tooling and extension points.
 export const collectionSlugs = Object.keys(cmsConfig.collections) as [CollectionsUnion, ...CollectionsUnion[]];
-export const zodCollectionEnum = z.enum(collectionSlugs);
+export const collectionSchema = v.picklist(collectionSlugs);
 export const cmsNavigationKeys = Object.keys(cmsConfig.navigations) as [
   CmsNavigationKey,
   ...CmsNavigationKey[],

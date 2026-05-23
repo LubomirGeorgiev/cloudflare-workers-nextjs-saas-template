@@ -15,16 +15,16 @@ import { forgotPasswordAction } from "./forgot-password.action";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { z } from "zod";
 import { useSessionStore } from "@/state/session";
 import { Captcha } from "@/components/captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
 import { useConfigStore } from "@/state/config";
 import { useEffect } from "react";
+import { v } from "@/lib/validation";
 
-type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
+type ForgotPasswordSchema = v.InferOutput<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordClientComponent() {
   const { session } = useSessionStore()
@@ -32,7 +32,7 @@ export default function ForgotPasswordClientComponent() {
   const router = useRouter();
 
   const form = useForm<ForgotPasswordSchema>({
-    resolver: zodResolver(forgotPasswordSchema),
+    resolver: valibotResolver(forgotPasswordSchema),
   });
 
   useEffect(() => {

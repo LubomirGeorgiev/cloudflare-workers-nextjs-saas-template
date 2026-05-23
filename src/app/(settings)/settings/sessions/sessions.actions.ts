@@ -4,10 +4,10 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { getAllSessionIdsOfUser, getKVSession, deleteKVSession } from "@/utils/kv-session";
-import { z } from "zod";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { UAParser } from 'ua-parser-js';
 import { SessionWithMeta } from "@/types";
+import { v } from "@/lib/validation";
 
 function isValidSession(session: unknown): session is SessionWithMeta {
   if (!session || typeof session !== 'object') return false;
@@ -16,7 +16,7 @@ function isValidSession(session: unknown): session is SessionWithMeta {
 }
 
 export const getSessionsAction = actionClient
-  .inputSchema(z.void())
+  .inputSchema(v.void())
   .action(async () => {
     return withRateLimit(
       async () => {
@@ -76,8 +76,8 @@ export const getSessionsAction = actionClient
   });
 
 export const deleteSessionAction = actionClient
-  .inputSchema(z.object({
-    sessionId: z.string(),
+  .inputSchema(v.object({
+    sessionId: v.string(),
   }))
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

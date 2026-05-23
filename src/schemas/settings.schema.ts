@@ -1,10 +1,6 @@
-import { z } from "zod";
+import { minString, v } from "@/lib/validation";
 
-export const userSettingsSchema = z.object({
-  firstName: z.string().min(2, {
-    message: "First name must be at least 2 characters.",
-  }),
-  lastName: z.string().min(2, {
-    message: "Last name must be at least 2 characters.",
-  }),
+export const userSettingsSchema = v.object({
+  firstName: minString(2, "First name must be at least 2 characters."),
+  lastName: minString(2, "Last name must be at least 2 characters."),
 });

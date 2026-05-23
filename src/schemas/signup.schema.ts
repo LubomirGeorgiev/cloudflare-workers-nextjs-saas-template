@@ -1,12 +1,12 @@
-import { z } from "zod"
+import { emailString, minMaxString, minString, v } from "@/lib/validation"
 import { captchaSchema } from "./captcha.schema";
 
-export const signUpSchema = z.object({
-  email: z.string().email(),
-  firstName: z.string().min(2).max(255),
-  lastName: z.string().min(2).max(255),
-  password: z.string().min(6),
+export const signUpSchema = v.object({
+  email: emailString(),
+  firstName: minMaxString({ min: 2, max: 255 }),
+  lastName: minMaxString({ min: 2, max: 255 }),
+  password: minString(6),
   captchaToken: captchaSchema,
 })
 
-export type SignUpSchema = z.infer<typeof signUpSchema>
+export type SignUpSchema = v.InferOutput<typeof signUpSchema>
