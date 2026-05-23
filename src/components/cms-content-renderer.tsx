@@ -201,7 +201,7 @@ interface CmsContentRendererProps {
   onRendered?: () => void;
 }
 
-export const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
+const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
 
 /**
  * Renders TipTap JSON content as React components

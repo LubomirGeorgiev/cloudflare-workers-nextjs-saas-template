@@ -188,7 +188,7 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
 
 ## Deploying to Cloudflare with Github Actions
 
-1. Create D1, KV, and R2 resources, and make sure Cloudflare Images is available for the account.
+1. Create D1, KV, and R2 resources, and make sure Cloudflare Images is enabled for your account.
 2. Onboard your sending domain in Cloudflare Email Service, then update `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, and the `send_email.allowed_sender_addresses` entry in `wrangler.jsonc`. The Worker uses the `EMAIL` Email Service binding to send transactional email.
 3. Create a Turnstile catcha in your Cloudflare account, and set the `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a Github Actions variable.
 4. Set `TURNSTILE_SECRET_KEY` as a secret in your Cloudflare Worker.

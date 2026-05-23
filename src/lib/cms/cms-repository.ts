@@ -1397,6 +1397,18 @@ export const getCmsEntryVersions = cache(async (entryId: z.infer<typeof getCmsEn
   });
 });
 
+export const getCmsEntryVersionCount = cache(async (entryId: z.infer<typeof getCmsEntryVersionsParamsSchema>): Promise<number> => {
+  const validated = getCmsEntryVersionsParamsSchema.parse(entryId);
+
+  const db = getDB();
+  const result = await db
+    .select({ count: count() })
+    .from(cmsEntryVersionTable)
+    .where(eq(cmsEntryVersionTable.entryId, validated));
+
+  return result[0]?.count ?? 0;
+});
+
 export async function deleteCmsEntryVersion(params: z.infer<typeof deleteCmsEntryVersionParamsSchema>): Promise<void> {
   const validated = deleteCmsEntryVersionParamsSchema.parse(params);
   const { entryId, versionId } = validated;
@@ -1440,6 +1452,13 @@ export async function deleteCmsEntryVersion(params: z.infer<typeof deleteCmsEntr
       eq(cmsEntryVersionTable.id, versionId),
       eq(cmsEntryVersionTable.entryId, entryId)
     ));
+
+  if (versionCount[0]?.count === 2) {
+    // When pruning history down to the latest snapshot, restart numbering from 1.
+    await db.update(cmsEntryVersionTable)
+      .set({ versionNumber: 1 })
+      .where(eq(cmsEntryVersionTable.entryId, entryId));
+  }
 }
 
 export async function revertCmsEntryToVersion(params: z.infer<typeof revertCmsEntryToVersionParamsSchema>): Promise<CmsEntry> {

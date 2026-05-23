@@ -2,7 +2,7 @@
 
 import { actionClient } from "@/lib/safe-action";
 import { z } from "zod";
-import { getCmsEntryVersions, revertCmsEntryToVersion, deleteCmsEntryVersion } from "@/lib/cms/cms-repository";
+import { getCmsEntryVersions, getCmsEntryVersionCount, revertCmsEntryToVersion, deleteCmsEntryVersion } from "@/lib/cms/cms-repository";
 import { requireAdmin } from "@/utils/auth";
 
 export const getCmsEntryVersionsAction = actionClient
@@ -14,6 +14,17 @@ export const getCmsEntryVersionsAction = actionClient
 
     const versions = await getCmsEntryVersions(input.entryId);
     return versions;
+  });
+
+export const getCmsEntryVersionCountAction = actionClient
+  .inputSchema(z.object({
+    entryId: z.string(),
+  }))
+  .action(async ({ parsedInput: input }) => {
+    await requireAdmin();
+
+    const versionCount = await getCmsEntryVersionCount(input.entryId);
+    return versionCount;
   });
 
 export const revertCmsEntryVersionAction = actionClient

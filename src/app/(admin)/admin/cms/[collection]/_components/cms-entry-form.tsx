@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { formatDistanceToNow } from "date-fns";
 import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionAction } from "../../../_actions/cms-entry-actions";
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
+import { getCmsEntryVersionCountAction } from "../../_actions/version-actions";
 import { cmsEntryFormSchema, type CmsEntryFormData, type CmsEntryFormInput } from "@/schemas/cms-entry.schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +51,7 @@ import { Route } from "next";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { zodSchemaToFieldConfigs } from "@/lib/cms/zod-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
-import { CMS_ENTRY_STATUS_CONFIG } from "@/lib/cms/cms-entry-status-config";
+import { CMS_ENTRY_STATUS_CONFIG, getStatusConfig } from "@/lib/cms/cms-entry-status-config";
 import { FeaturedImageUpload } from "./featured-image-upload";
 import { VersionHistory } from "./version-history";
 import { History } from "lucide-react";
@@ -123,6 +124,29 @@ export function CmsEntryForm({
   });
 
   const statusValue = form.watch("status");
+  const getSavedFormValues = useCallback(
+    ({
+      savedEntry,
+      input,
+    }: {
+      savedEntry: Pick<
+        GetCmsCollectionResult,
+        "title" | "slug" | "content" | "seoDescription" | "status" | "publishedAt" | "fields" | "featuredImageId"
+      >;
+      input: Partial<CmsEntryFormInput>;
+    }): CmsEntryFormInput => ({
+      title: savedEntry.title,
+      slug: savedEntry.slug,
+      content: savedEntry.content,
+      seoDescription: savedEntry.seoDescription || "",
+      status: savedEntry.status,
+      publishedAt: toFormDate(savedEntry.publishedAt),
+      tagIds: input.tagIds || [],
+      fields: (savedEntry.fields as Record<string, unknown> | null) || input.fields || {},
+      featuredImageId: savedEntry.featuredImageId || undefined,
+    }),
+    []
+  );
 
   const { execute: createEntry, isExecuting: isCreating } = useAction(createCmsEntryAction, {
     onError: ({ error }) => {
@@ -132,10 +156,12 @@ export function CmsEntryForm({
     onExecute: () => {
       toast.loading(mode === "create" ? "Creating entry..." : "Updating entry...");
     },
-    onSuccess: () => {
+    onSuccess: ({ data, input }) => {
       toast.dismiss();
-      toast.success(mode === "create" ? "Entry created successfully" : "Entry updated successfully");
-      router.push(`/admin/cms/${collection}`);
+      toast.success("Entry created successfully");
+      form.reset(getSavedFormValues({ savedEntry: data, input }));
+      router.replace(`/admin/cms/${collection}/${data.id}` as Route);
+      router.refresh();
     },
   });
 
@@ -147,10 +173,15 @@ export function CmsEntryForm({
     onExecute: () => {
       toast.loading("Updating entry...");
     },
-    onSuccess: () => {
+    onSuccess: ({ data, input }) => {
       toast.dismiss();
       toast.success("Entry updated successfully");
-      router.push(`/admin/cms/${collection}`);
+      form.reset(getSavedFormValues({ savedEntry: data, input }));
+      router.refresh();
+
+      if (entry?.id) {
+        fetchVersionCount({ entryId: entry.id });
+      }
     },
   });
 
@@ -187,6 +218,29 @@ export function CmsEntryForm({
   });
 
   const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false);
+  const [versionCount, setVersionCount] = useState<number | null>(null);
+
+  const {
+    execute: fetchVersionCount,
+    result: versionCountResult,
+    isExecuting: isLoadingVersionCount,
+  } = useAction(getCmsEntryVersionCountAction, {
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message || "Failed to load version count");
+    },
+  });
+
+  useEffect(() => {
+    if (mode === "edit" && entry?.id) {
+      fetchVersionCount({ entryId: entry.id });
+    }
+  }, [entry?.id, fetchVersionCount, mode]);
+
+  useEffect(() => {
+    if (typeof versionCountResult.data === "number") {
+      setVersionCount(versionCountResult.data);
+    }
+  }, [versionCountResult.data]);
 
   const isExecuting = isCreating || isUpdating;
 
@@ -444,13 +498,17 @@ export function CmsEntryForm({
                   disabled={isExecuting}
                 >
                   <History className="h-4 w-4 mr-2" />
-                  History
+                  Version history
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {isLoadingVersionCount && versionCount === null ? "..." : versionCount ?? 0}
+                  </span>
                 </Button>
                 <VersionHistory
                   entryId={entry.id}
                   currentVersion={entry}
                   isOpen={isVersionHistoryOpen}
                   onOpenChange={setIsVersionHistoryOpen}
+                  onVersionCountChange={setVersionCount}
                 />
                </>
             )}
@@ -698,7 +756,18 @@ export function CmsEntryForm({
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue />
+                            <SelectValue>
+                              {(value: string | null) => {
+                                const status = value ? getStatusConfig(value) : undefined;
+
+                                return status ? (
+                                  <span className="flex items-center gap-2">
+                                    <span className={`h-2 w-2 rounded-full ${status.color}`} />
+                                    <span>{status.label}</span>
+                                  </span>
+                                ) : null;
+                              }}
+                            </SelectValue>
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -868,4 +937,14 @@ function formatDateTimeLocalValue(value: unknown): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
+}
+
+function toFormDate(value: unknown): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = value instanceof Date ? value : new Date(String(value));
+
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }

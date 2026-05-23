@@ -1,10 +1,11 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
+import { cmsConfig, zodCollectionEnum, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
@@ -18,6 +19,37 @@ import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { cmsStatusFilterTuple } from "@/types/cms";
 
 const listStatusEnum = z.enum(cmsStatusFilterTuple);
+
+function revalidateCmsEntryPaths({
+  collection,
+  entryId,
+  slugs,
+  includeCreatePath = false,
+}: {
+  collection: CollectionsUnion;
+  entryId: string;
+  slugs: string[];
+  includeCreatePath?: boolean;
+}) {
+  revalidatePath("/admin/cms");
+  revalidatePath(`/admin/cms/${collection}`);
+  revalidatePath(`/admin/cms/${collection}/${entryId}`);
+
+  if (includeCreatePath) {
+    revalidatePath(`/admin/cms/${collection}/new`);
+  }
+
+  const collectionConfig = cmsConfig.collections[collection];
+  const previewUrlBuilder = "previewUrl" in collectionConfig ? collectionConfig.previewUrl : undefined;
+
+  if (!previewUrlBuilder) {
+    return;
+  }
+
+  for (const slug of new Set(slugs.filter(Boolean))) {
+    revalidatePath(previewUrlBuilder(slug));
+  }
+}
 
 export const listCmsEntriesAction = actionClient
   .inputSchema(
@@ -66,6 +98,13 @@ export const createCmsEntryAction = actionClient
       createdBy: session.userId,
     });
 
+    revalidateCmsEntryPaths({
+      collection: input.collection as CollectionsUnion,
+      entryId: newEntry.id,
+      slugs: [newEntry.slug],
+      includeCreatePath: true,
+    });
+
     return newEntry;
   });
 
@@ -74,11 +113,18 @@ export const updateCmsEntryAction = actionClient
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
+    const previousEntry = await getCmsEntryById({ id: input.id });
     const updatedEntry = await updateCmsEntry(input);
 
     if (!updatedEntry) {
       throw new ActionError("NOT_FOUND", "Entry not found");
     }
+
+    revalidateCmsEntryPaths({
+      collection: updatedEntry.collection as CollectionsUnion,
+      entryId: updatedEntry.id,
+      slugs: [previousEntry?.slug, updatedEntry.slug].filter((slug): slug is string => Boolean(slug)),
+    });
 
     return updatedEntry;
   });
