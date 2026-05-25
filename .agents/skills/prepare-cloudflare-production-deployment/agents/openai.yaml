@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare Cloudflare Production Deployment"
+  short_description: "Production deploy runbook."
+  default_prompt: "Prepare this repository for production deployment on Cloudflare Workers using the prepare-cloudflare-production-deployment source-of-truth runbook, first confirming the authenticated Cloudflare MCP and GitHub accounts, then using Cloudflare MCP for account resources and gh for GitHub Actions secrets and variables."

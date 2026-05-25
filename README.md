@@ -110,7 +110,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - ⚡ Vinext and Vite Build Pipeline
   - 🔐 Type-safe Environment Variables
   - 🏗️ Cloudflare Types Generation
-  - 🤖 AI-powered Development with Cursor
+  - 🤖 AI-powered Development with AI Agents
   - 📚 Comprehensive Documentation
   - 📐 Project Structure Best Practices
 - ⚡ Edge Computing
@@ -178,33 +178,17 @@ After making a change to `wrangler.jsonc`, run `pnpm run cf-typegen` to regenera
 Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code through `cloudflare:workers` or the local helper in `src/utils/cloudflare-context.ts`. The custom Worker entry lives in `worker-entrypoint.ts` and is configured as the `main` entry in `wrangler.jsonc`.
 
 ## Things to change and customize before deploying to production
+
 1. Go to `src/constants.ts` and update it with your project details
 2. Update the `name` field in `package.json` to your project name so generated metrics and package metadata identify the reused template correctly
-3. Update `AGENTS.md` with your project specification so that Cursor AI can give you better suggestions
+3. Update `AGENTS.md` with your project specification so that AI coding agents can give you better suggestions
 4. Update the footer in `src/components/footer.tsx` with your project details and links
 5. Optional: Update the color palette in `src/app/globals.css`
 6. Update the metadata in `src/app/layout.tsx` with your project details
 7. Update `cms.config.ts` if necessary
 
-## Deploying to Cloudflare with Github Actions
+## Production deployment
 
-1. Create D1, KV, and R2 resources, and make sure Cloudflare Images is enabled for your account.
-2. Onboard your sending domain in Cloudflare Email Service, then update `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, and the `send_email.allowed_sender_addresses` entry in `wrangler.jsonc`. The Worker uses the `EMAIL` Email Service binding to send transactional email.
-3. Create a Turnstile catcha in your Cloudflare account, and set the `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a Github Actions variable.
-4. Set `TURNSTILE_SECRET_KEY` as a secret in your Cloudflare Worker.
-5. Update the `wrangler.jsonc` file with the new database, KV namespace, R2 bucket, env variables, Images binding, email binding, and account id. Search for "cloudflare-workers-nextjs-saas-template" recursively in the whole repository and change that to the name of your project.
-6. Go to https://dash.cloudflare.com/profile/api-tokens and click on "Use template" next to "Edit Cloudflare Workers". On the next, page add the following permissions in addition to the ones from the template:
-    - Account:AI Gateway:Edit
-    - Account:Workers AI:Edit
-    - Account:Workers AI:Read
-    - Account:Queues:Edit
-    - Account:Vectorize:Edit
-    - Account:D1:Edit
-    - Account:Cloudflare Images:Edit
-    - Account:Workers KV Storage:Edit
-    - Account:Email Sending:Edit
-    - Zone:Cache Purge:Purge
-7. Add the API token to the Github repository secrets as `CLOUDFLARE_API_TOKEN`
-8. Add the Cloudflare account id to the Github repository variables as `CLOUDFLARE_ACCOUNT_ID`
-9. Optional: If you want clear the CDN cache on deploy, add `CLOUDFLARE_ZONE_ID` to the Github repository variables for the zone id of your domain. This is the zone id of your domain, not the account id.
-10. Push to the main branch. The workflow installs with `pnpm install --frozen-lockfile`, runs lint and typecheck, deploys with `pnpm run deploy`, applies D1 migrations, optionally purges the CDN cache, and records deploy size metrics in `metrics/deploy-size-history.jsonl`.
+The source of truth for preparing and deploying this template to production is the repo-local AI agent skill at `.agents/skills/prepare-cloudflare-production-deployment/SKILL.md`.
+
+That skill covers Cloudflare resource provisioning with [Cloudflare MCP](https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/), GitHub Actions secrets and variables with the [GitHub CLI](https://cli.github.com/), `wrangler.jsonc` binding updates, Worker secrets, Turnstile, Email Sending, and deployment verification.

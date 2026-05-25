@@ -41,6 +41,33 @@ jobs:
         run: |
           echo "D1_DATABASE_NAME=$(node scripts/get-db-name.mjs)" >> $GITHUB_ENV
 
+      - name: Expose public GitHub variables
+        env:
+          GITHUB_VARIABLES_JSON: ${{ toJSON(vars) }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const variables = JSON.parse(process.env.GITHUB_VARIABLES_JSON || "{}");
+          const publicVariableNames = Object.keys(variables)
+            .filter((name) => /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(name))
+            .sort();
+
+          for (const name of publicVariableNames) {
+            const delimiter = `GITHUB_ENV_${name}_${Date.now()}`;
+            fs.appendFileSync(
+              process.env.GITHUB_ENV,
+              `${name}<<${delimiter}\n${variables[name]}\n${delimiter}\n`
+            );
+          }
+
+          console.log(
+            publicVariableNames.length > 0
+              ? `Exposed public variables: ${publicVariableNames.join(", ")}`
+              : "No NEXT_PUBLIC_* GitHub variables found."
+          );
+          NODE
+
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
 
@@ -51,12 +78,6 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # Here you can add env variables that will be available in Next.js
-          # NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
-          # NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
-          # NEXT_PUBLIC_POSTHOG_UI_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_UI_HOST }}
-          NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
-          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
 
       - name: Run DB migrations
         uses: cloudflare/wrangler-action@v3
