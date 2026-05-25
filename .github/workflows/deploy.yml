@@ -31,7 +31,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: pnpm run lint
+        uses: oxc-project/oxlint-action@v3.0.0
+        with:
+          version: 1.66.0
 
       - name: Typecheck
         run: pnpm run typecheck
@@ -39,7 +41,7 @@ jobs:
       - name: Set D1 environment variables
         id: set-d1-vars
         run: |
-          echo "D1_DATABASE_NAME=$(node scripts/get-db-name.mjs)" >> $GITHUB_ENV
+          echo "D1_DATABASE_NAME=$(node scripts/get-db-name.mjs)" >> "$GITHUB_ENV"
 
       - name: Expose public GitHub variables
         env:
@@ -221,4 +223,4 @@ jobs:
             exit 0
           fi
           git commit -m "chore: record deploy size metrics [skip ci]"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          git push origin "HEAD:${GITHUB_REF_NAME}"
