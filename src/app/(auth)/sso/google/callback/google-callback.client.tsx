@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
+import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
@@ -17,20 +18,18 @@ export default function GoogleCallbackClientComponent() {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const hasCalledCallback = useRef(false);
+  const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
 
   const { execute: handleCallback, isExecuting, result } = useAction(googleSSOCallbackAction, {
     onError: ({ error }) => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error.serverError?.message || "Failed to sign in with Google");
     },
     onExecute: () => {
-      toast.loading("Signing you in with Google...");
+      showLoadingToast("Signing you in with Google...");
     },
     onSuccess: () => {
-      // TODO(vinext): Keep client-side navigation here until
-      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
-      // remove the matching server-action redirect guard from the auth pages.
-      toast.dismiss();
+      dismissLoadingToast();
       toast.success("Signed in successfully");
       window.location.href = REDIRECT_AFTER_SIGN_IN;
     },

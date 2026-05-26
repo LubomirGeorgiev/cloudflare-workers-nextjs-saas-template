@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL } from "@/constants";
 import { getSessionFromCookie } from "@/utils/auth";
-import { isServerActionRequest } from "@/utils/is-server-action-request";
 import type { SessionValidationResult } from "@/types";
 
 interface RedirectAuthenticatedUserParams {
@@ -45,13 +44,8 @@ export async function redirectAuthenticatedUser({
   shouldRedirect,
 }: RedirectAuthenticatedUserParams): Promise<SessionValidationResult> {
   const session = await getSessionFromCookie();
-  const isActionRequest = await isServerActionRequest();
 
-  // TODO(vinext): Remove this server-action guard once cloudflare/vinext#654
-  // and cloudflare/vinext#1347 are fixed. Auth actions set or update session
-  // cookies, then Vinext re-renders auth pages and currently turns redirects
-  // into action redirect responses before next-safe-action can finish.
-  if (session && !isActionRequest && (!shouldRedirect || shouldRedirect(session))) {
+  if (session && (!shouldRedirect || shouldRedirect(session))) {
     return redirect(redirectPath);
   }
 

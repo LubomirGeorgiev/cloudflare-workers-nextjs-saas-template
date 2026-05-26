@@ -133,7 +133,7 @@ export function createE2EEnvironment() {
       ...getGitFiles(["ls-files", "--others", "--exclude-standard", "-z"]),
     ];
 
-    return [...new Set(gitFiles.filter(isBuildInputFile))].sort();
+    return [...new Set(gitFiles.filter((file) => isBuildInputFile(file) && fileExists(file)))].sort();
   }
 
   function getGitFiles(args) {
@@ -156,6 +156,10 @@ export function createE2EEnvironment() {
       buildInputPathPrefixes.some((prefix) => file.startsWith(prefix)) ||
       buildInputExtensions.has(getFileExtension(file))
     );
+  }
+
+  function fileExists(file) {
+    return existsSync(resolve(projectRoot, file));
   }
 
   function isIgnoredBuildInputFile(file) {

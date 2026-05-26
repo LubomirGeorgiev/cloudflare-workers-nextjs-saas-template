@@ -2,6 +2,7 @@ import { test } from "vitest";
 import {
   clickAppRole,
   expectAppLabelValue,
+  expectNoAppToast,
   expectAppPathname,
   expectAppText,
   expectAppToast,
@@ -79,6 +80,7 @@ async function signInSeededUser(
   await fillAppPlaceholder("Password", "password");
   await clickAppRole("button", "Sign In with Password");
   await expectAppPathname(expectedPathname);
+  await expectNoAppToast("Signing you in...");
 }
 
 test("shows sign-in password validation before submitting", async () => {
@@ -154,6 +156,7 @@ test("creates and verifies a new password account", async () => {
   await clickAppRole("button", "Create Account with Password");
 
   await expectAppPathname("/dashboard");
+  await expectNoAppToast("Creating your account...");
 
   const verificationUrl = await waitForVerificationUrl({
     email,
@@ -165,6 +168,7 @@ test("creates and verifies a new password account", async () => {
 
   await expectAppToast("Email verified successfully");
   await expectAppPathname("/dashboard");
+  await expectNoAppToast("Verifying your email...");
   await expectAppText("Dashboard", { exact: true });
 }, 40_000);
 

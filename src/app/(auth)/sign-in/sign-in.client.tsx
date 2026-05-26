@@ -31,6 +31,7 @@ import {
 } from "@/app/(settings)/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { signInAction } from "./sign-in.action";
+import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 
 interface SignInClientProps {
   redirectPath: string;
@@ -43,6 +44,7 @@ interface PasskeyAuthenticationButtonProps {
 function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
 
   const form = useForm<PasskeyAuthenticationOptionsSchema>({
     resolver: valibotResolver(passkeyAuthenticationOptionsSchema),
@@ -53,21 +55,18 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
 
   const { executeAsync: generateOptions } = useAction(generateAuthenticationOptionsAction, {
     onError: ({ error }) => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error.serverError?.message || "Failed to get authentication options");
     },
   });
 
   const { executeAsync: verifyAuthentication } = useAction(verifyAuthenticationAction, {
     onError: ({ error }) => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error.serverError?.message || "Authentication failed");
     },
     onSuccess: () => {
-      // TODO(vinext): Keep client-side navigation here until
-      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
-      // remove the matching server-action redirect guard from the auth pages.
-      toast.dismiss();
+      dismissLoadingToast();
       toast.success("Authentication successful");
       window.location.href = redirectPath;
     },
@@ -76,7 +75,7 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
   const onSubmit = async (data: PasskeyAuthenticationOptionsSchema) => {
     try {
       setIsAuthenticating(true);
-      toast.loading("Authenticating with passkey...");
+      showLoadingToast("Authenticating with passkey...");
 
       // Get authentication options from the server
       const { data: options, serverError } = await generateOptions(data);
@@ -100,7 +99,7 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
       });
     } catch (error) {
       console.error("Passkey authentication error:", error);
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error instanceof Error ? error.message : "Authentication failed");
     } finally {
       setIsAuthenticating(false);
@@ -159,6 +158,8 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
 }
 
 const SignInPage = ({ redirectPath }: SignInClientProps) => {
+  const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
+
   const form = useForm<SignInSchema>({
     resolver: valibotResolver(signInSchema),
     defaultValues: {
@@ -169,14 +170,14 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
 
   const { execute: signIn, isExecuting: isSigningIn } = useAction(signInAction, {
     onError: ({ error }) => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error.serverError?.message ?? "Something went wrong");
     },
     onExecute: () => {
-      toast.loading("Signing you in...");
+      showLoadingToast("Signing you in...");
     },
     onSuccess: () => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.success("Signed in successfully");
       window.location.href = redirectPath;
     },

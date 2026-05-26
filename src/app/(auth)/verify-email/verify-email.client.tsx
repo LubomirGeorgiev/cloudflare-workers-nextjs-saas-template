@@ -10,26 +10,25 @@ import { Spinner } from "@/components/ui/spinner";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
+import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 
 export default function VerifyEmailClientComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const hasCalledVerification = useRef(false);
+  const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
 
   const { execute: handleVerification, isExecuting, result } = useAction(verifyEmailAction, {
     onError: ({ error }) => {
-      toast.dismiss();
+      dismissLoadingToast();
       toast.error(error.serverError?.message || "Failed to verify email");
     },
     onExecute: () => {
-      toast.loading("Verifying your email...");
+      showLoadingToast("Verifying your email...");
     },
     onSuccess: () => {
-      // TODO(vinext): Keep client-side navigation here until
-      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
-      // remove the matching server-action redirect guard from the auth pages.
-      toast.dismiss();
+      dismissLoadingToast();
       toast.success("Email verified successfully");
 
       router.refresh();

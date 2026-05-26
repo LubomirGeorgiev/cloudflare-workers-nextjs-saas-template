@@ -24,6 +24,7 @@ import { startRegistration } from "@simplewebauthn/browser";
 import { KeyIcon } from 'lucide-react'
 import { useConfigStore } from "@/state/config";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
+import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 
 interface SignUpClientProps {
   redirectPath: string;
@@ -33,20 +34,18 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
   const { isTurnstileEnabled } = useConfigStore();
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
 
   const { execute: signUp } = useAction(signUpAction, {
     onError: ({ error }) => {
-      toast.dismiss()
+      dismissLoadingToast()
       toast.error(error.serverError?.message)
     },
     onExecute: () => {
-      toast.loading("Creating your account...")
+      showLoadingToast("Creating your account...")
     },
     onSuccess: () => {
-      // TODO(vinext): Keep client-side navigation here until
-      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
-      // remove the matching server-action redirect guard from the auth pages.
-      toast.dismiss()
+      dismissLoadingToast()
       toast.success("Account created successfully")
       window.location.href = redirectPath || REDIRECT_AFTER_SIGN_IN
     }
@@ -54,15 +53,12 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
 
   const { execute: completePasskeyRegistration } = useAction(completePasskeyRegistrationAction, {
     onError: ({ error }) => {
-      toast.dismiss()
+      dismissLoadingToast()
       toast.error(error.serverError?.message)
       setIsRegistering(false)
     },
     onSuccess: () => {
-      // TODO(vinext): Keep client-side navigation here until
-      // cloudflare/vinext#654 and cloudflare/vinext#1347 are fixed, then
-      // remove the matching server-action redirect guard from the auth pages.
-      toast.dismiss()
+      dismissLoadingToast()
       toast.success("Account created successfully")
       window.location.href = redirectPath || REDIRECT_AFTER_SIGN_IN
     }
@@ -70,16 +66,16 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
 
   const { execute: startPasskeyRegistration } = useAction(startPasskeyRegistrationAction, {
     onError: ({ error }) => {
-      toast.dismiss()
+      dismissLoadingToast()
       toast.error(error.serverError?.message)
       setIsRegistering(false)
     },
     onExecute: () => {
-      toast.loading("Starting passkey registration...")
+      showLoadingToast("Starting passkey registration...")
       setIsRegistering(true)
     },
     onSuccess: async ({ data }) => {
-      toast.dismiss()
+      dismissLoadingToast()
       if (!data?.optionsJSON) {
         toast.error("Failed to start passkey registration")
         setIsRegistering(false)
@@ -94,6 +90,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
         await completePasskeyRegistration({ response: attResp });
       } catch (error: unknown) {
         console.error("Failed to register passkey:", error);
+        dismissLoadingToast()
         toast.error("Failed to register passkey")
         setIsRegistering(false)
       }

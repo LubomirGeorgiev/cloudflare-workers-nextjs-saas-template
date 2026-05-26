@@ -130,6 +130,14 @@ export async function expectAppToast(text: string): Promise<void> {
     .waitFor({ state: "visible", timeout: 20_000 });
 }
 
+export async function expectNoAppToast(text: string): Promise<void> {
+  await getAppPage()
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: text })
+    .first()
+    .waitFor({ state: "detached", timeout: 5_000 });
+}
+
 export async function expectAppPathname(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname === pathname, { timeout: 20_000 });
 }
