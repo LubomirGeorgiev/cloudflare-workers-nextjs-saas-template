@@ -20,6 +20,7 @@ const buildFingerprintFile = resolve(tmpDir, "build-fingerprint.json");
 const baseUrl = process.env.E2E_BASE_URL ?? "http://127.0.0.1:18788";
 const previewPort = new URL(baseUrl).port || "18788";
 const buildCacheVersion = 3;
+const publicBuildEnv = getPublicBuildEnv(process.env);
 const buildInputExactFiles = [
   ".env",
   ".env.example",
@@ -65,6 +66,23 @@ const requiredBuildOutputs = [
   "dist/server/ssr/index.js",
   "dist/server/wrangler.json",
 ];
+
+function getPublicBuildEnv(env) {
+  return Object.fromEntries(
+    Object.entries(env)
+      .filter(([name, value]) => /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(name) && typeof value === "string")
+      .sort(([leftName], [rightName]) => leftName.localeCompare(rightName))
+  );
+}
+
+export function getE2EBuildEnv() {
+  return {
+    ...publicBuildEnv,
+    // Build production-shaped output so deploy can reuse the same dist after e2e.
+    // The Wrangler preview still runs with getE2ERuntimeEnv().
+    NODE_ENV: "production",
+  };
+}
 
 export function getE2ERuntimeEnv() {
   return {
@@ -153,11 +171,17 @@ export function createE2EEnvironment() {
     return extensionStart >= 0 ? file.slice(extensionStart) : "";
   }
 
-  function getBuildFingerprint() {
+  function getBuildFingerprint(buildEnv) {
     const hash = createHash("sha256");
 
     hash.update(`e2e-build-cache:${buildCacheVersion}\n`);
     hash.update(`node:${process.version}\n`);
+
+    for (const [name, value] of Object.entries(buildEnv).sort(([leftName], [rightName]) => {
+      return leftName.localeCompare(rightName);
+    })) {
+      hash.update(`env:${name}:${value}\n`);
+    }
 
     for (const file of getSortedBuildFiles()) {
       const absolutePath = resolve(projectRoot, file);
@@ -403,7 +427,8 @@ export function createE2EEnvironment() {
 
   async function buildPreview() {
     const startedAt = Date.now();
-    const fingerprint = getBuildFingerprint();
+    const buildEnv = getE2EBuildEnv();
+    const fingerprint = getBuildFingerprint(buildEnv);
 
     if (hasRequiredBuildOutputs() && readBuildFingerprint() === fingerprint) {
       log("Reusing fresh Vinext preview build");
@@ -411,7 +436,7 @@ export function createE2EEnvironment() {
     }
 
     log("Building Vinext preview");
-    await runCommandAsync("pnpm", ["build"], { env: runtimeEnv, quiet: true });
+    await runCommandAsync("pnpm", ["build"], { env: buildEnv, quiet: true });
     const missingBuildOutputs = getMissingRequiredBuildOutputs();
 
     if (missingBuildOutputs.length > 0) {
@@ -448,7 +473,6 @@ export function createE2EEnvironment() {
   }
 
   async function prepareAndStart() {
-    applyRuntimeEnv();
     ensureTmpDirectory();
     writeFileSync(previewLogFile, "");
 
@@ -456,6 +480,7 @@ export function createE2EEnvironment() {
     const dbName = runCommand("node", ["scripts/get-db-name.mjs"], { quiet: true });
 
     await Promise.all([prepareD1(dbName), buildPreview()]);
+    applyRuntimeEnv();
     log(`E2E setup ready (${formatDuration(setupStartedAt)})`);
     await startPreview();
   }

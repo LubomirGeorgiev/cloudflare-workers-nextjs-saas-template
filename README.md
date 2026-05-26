@@ -60,6 +60,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🔄 Comprehensive CI/CD Pipeline
   - 🧹 Cache Purging
   - ✅ Type Checking
+  - 🧪 End-to-end Tests
   - 📏 Deploy Size Tracking
 - 🎨 Modern UI
   - 🎨 Tailwind CSS
@@ -107,6 +108,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🧪 Local Development Setup
   - 📘 TypeScript Support
   - 🔍 Oxlint Configuration
+  - 🧪 Vitest and Playwright E2E Tests
   - ⚡ Vinext and Vite Build Pipeline
   - 🔐 Type-safe Environment Variables
   - 🏗️ Cloudflare Types Generation
