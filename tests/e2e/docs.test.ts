@@ -1,5 +1,11 @@
-import { test } from "vitest";
-import { expectAppRole, expectAppText, loadAppFrame } from "./app-frame";
+import { expect, test } from "vitest";
+import {
+  expectAppPathname,
+  expectAppRole,
+  expectAppText,
+  fetchAppPath,
+  loadAppFrame,
+} from "./app-frame";
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame("/docs/getting-started/introduction");
@@ -8,4 +14,40 @@ test("renders seeded docs navigation content from fresh D1 state", async () => {
   await expectAppText(
     "Learn how this template is structured and how to ship your first feature quickly."
   );
+});
+
+test("redirects the docs root to the first navigable docs page", async () => {
+  await loadAppFrame("/docs");
+
+  await expectAppPathname("/docs/getting-started/introduction");
+  await expectAppRole("heading", "Introduction", { exact: true });
+});
+
+test("honors seeded docs navigation redirects", async () => {
+  await loadAppFrame("/docs/getting-started/setup");
+
+  await expectAppPathname("/docs/getting-started/introduction");
+  await expectAppRole("heading", "Introduction", { exact: true });
+});
+
+test("serves docs markdown exports for AI and download workflows", async () => {
+  const response = await fetchAppPath("/markdown/docs/introduction");
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toContain("text/markdown");
+
+  const body = await response.text();
+  expect(body).toContain("# Introduction");
+  expect(body).toContain("Authentication and team management");
+});
+
+test("serves llms.txt from the docs navigation tree", async () => {
+  const response = await fetchAppPath("/docs/llms.txt");
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toContain("text/plain");
+
+  const body = await response.text();
+  expect(body).toContain("Introduction");
+  expect(body).toContain("/markdown/docs/introduction");
 });

@@ -9,6 +9,7 @@ import {
   Image,
   Tags,
   PanelLeft,
+  Bug,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -58,6 +59,11 @@ const adminNavItems: NavMainItem[] = [
     url: "/admin",
     icon: Users,
     isActive: true,
+  },
+  {
+    title: "Debug",
+    url: "/admin/debug",
+    icon: Bug,
   },
   {
     title: "CMS",

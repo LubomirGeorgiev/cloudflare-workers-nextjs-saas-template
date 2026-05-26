@@ -1,13 +1,14 @@
 import "server-only"
 
 import { cache } from "react"
+import { readRuntimeNodeEnv } from "@/utils/runtime-node-env"
 
 export async function isGoogleSSOEnabled() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 }
 
 export async function isTurnstileEnabled() {
-  if (process.env.NODE_ENV === "test") {
+  if (readRuntimeNodeEnv() === "test") {
     return false
   }
 

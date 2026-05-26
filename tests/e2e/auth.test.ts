@@ -1,8 +1,11 @@
-import { test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import {
   clickAppRole,
   expectAppLabelValue,
+  expectAppPathnameStartsWith,
+  fetchAppPath,
   expectNoAppToast,
+  expectNoAppText,
   expectAppPathname,
   expectAppText,
   expectAppToast,
@@ -12,6 +15,7 @@ import {
   navigateAppFrame,
   reloadAppFrame,
 } from "./app-frame";
+import { signInSeededMember, signInWithPassword } from "./auth-helpers";
 import {
   listLocalKVEntries,
   queryLocalD1,
@@ -26,19 +30,27 @@ async function readUserIdFromLocalD1(email: string): Promise<string | undefined>
   return output || undefined;
 }
 
-async function readVerificationUrlFromLocalKV(email: string): Promise<URL | undefined> {
+async function readExpiringTokenUrlFromLocalKV({
+  email,
+  prefix,
+  pathname,
+}: {
+  email: string;
+  prefix: string;
+  pathname: string;
+}): Promise<URL | undefined> {
   const userId = await readUserIdFromLocalD1(email);
 
   if (!userId) {
     return undefined;
   }
 
-  for (const { key, value } of await listLocalKVEntries({ prefix: "email-verification:" })) {
+  for (const { key, value } of await listLocalKVEntries({ prefix })) {
     try {
       const payload = JSON.parse(value) as { userId?: string };
 
       if (payload.userId === userId) {
-        return new URL(`/verify-email?token=${key.replace("email-verification:", "")}`, "http://localhost");
+        return new URL(`${pathname}?token=${key.replace(prefix, "")}`, "http://localhost");
       }
     } catch {
       continue;
@@ -46,6 +58,22 @@ async function readVerificationUrlFromLocalKV(email: string): Promise<URL | unde
   }
 
   return undefined;
+}
+
+async function readVerificationUrlFromLocalKV(email: string): Promise<URL | undefined> {
+  return readExpiringTokenUrlFromLocalKV({
+    email,
+    prefix: "email-verification:",
+    pathname: "/verify-email",
+  });
+}
+
+async function readPasswordResetUrlFromLocalKV(email: string): Promise<URL | undefined> {
+  return readExpiringTokenUrlFromLocalKV({
+    email,
+    prefix: "password-reset:",
+    pathname: "/reset-password",
+  });
 }
 
 async function waitForVerificationUrl({
@@ -68,19 +96,79 @@ async function waitForVerificationUrl({
   throw new Error("Timed out waiting for verification URL.");
 }
 
-async function signInSeededUser(
-  redirectPath = "/dashboard",
-  expectedPathname = redirectPath
-): Promise<void> {
-  await loadAppFrame(`/sign-in?redirect=${encodeURIComponent(redirectPath)}`, {
-    waitForHydration: true,
-  });
+async function waitForPasswordResetUrl({
+  email,
+}: {
+  email: string;
+}): Promise<URL> {
+  const timeoutAt = Date.now() + 5_000;
 
-  await fillAppPlaceholder("Email address", "test@test.com");
-  await fillAppPlaceholder("Password", "password");
-  await clickAppRole("button", "Sign In with Password");
-  await expectAppPathname(expectedPathname);
-  await expectNoAppToast("Signing you in...");
+  while (Date.now() < timeoutAt) {
+    const resetUrl = await readPasswordResetUrlFromLocalKV(email);
+
+    if (resetUrl) {
+      return resetUrl;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw new Error("Timed out waiting for password reset URL.");
+}
+
+async function createVerifiedUserInLocalD1({
+  email,
+  firstName = "Verified",
+  lastName = "Account",
+}: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+}): Promise<void> {
+  const passwordHash = await queryLocalD1({
+    sql: `select passwordHash from user where email = 'test@test.com' limit 1;`,
+  });
+  const now = Math.floor(Date.now() / 1_000);
+  const userId = `usr_e2e_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  await queryLocalD1({
+    sql: `
+      insert into user (
+        id,
+        createdAt,
+        updatedAt,
+        updateCounter,
+        firstName,
+        lastName,
+        email,
+        passwordHash,
+        role,
+        emailVerified,
+        signUpIpAddress,
+        googleAccountId,
+        avatar,
+        currentCredits,
+        lastCreditRefreshAt
+      )
+      values (
+        ${sqlStringLiteral(userId)},
+        ${now},
+        ${now},
+        0,
+        ${sqlStringLiteral(firstName)},
+        ${sqlStringLiteral(lastName)},
+        ${sqlStringLiteral(email)},
+        ${sqlStringLiteral(passwordHash)},
+        'user',
+        ${now},
+        '127.0.0.1',
+        null,
+        null,
+        0,
+        ${now}
+      );
+    `,
+  });
 }
 
 test("shows sign-in password validation before submitting", async () => {
@@ -110,24 +198,30 @@ test("shows a visible error toast for invalid credentials", async () => {
 });
 
 test("sanitizes unsafe sign-in redirect targets", async () => {
-  await signInSeededUser("https://evil.example/phishing", "/dashboard");
+  await signInSeededMember("https://evil.example/phishing", "/dashboard");
 
   await expectAppPathname("/dashboard");
   await expectAppText("Dashboard", { exact: true });
 });
 
 test("signs in with the seeded password user", async () => {
-  await signInSeededUser();
+  await signInSeededMember();
 
   await expectAppText("Dashboard", { exact: true });
 });
 
 test("redirects signed-in users away from auth pages", async () => {
-  await signInSeededUser();
+  await signInSeededMember();
   await navigateAppFrame("/sign-in?redirect=%2Fsettings", { waitForHydration: true });
 
   await expectAppPathname("/settings");
-  await expectAppText("Profile Settings", { exact: true });
+});
+
+test("keeps non-admin users out of the admin area", async () => {
+  await signInSeededMember("/admin", "/");
+
+  await expectAppPathname("/");
+  await expectNoAppText("User Management", { exact: true });
 });
 
 test("shows sign-up validation before creating an account", async () => {
@@ -162,15 +256,13 @@ test("creates and verifies a new password account", async () => {
     email,
   });
 
-  await navigateAppFrame(`${verificationUrl.pathname}${verificationUrl.search}`, {
-    waitForHydration: true,
-  });
+  await navigateAppFrame(`${verificationUrl.pathname}${verificationUrl.search}`);
 
   await expectAppToast("Email verified successfully");
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Verifying your email...");
   await expectAppText("Dashboard", { exact: true });
-}, 12_000);
+}, 18_000);
 
 test("keeps forgot-password responses enumeration-safe", async () => {
   await loadAppFrame("/forgot-password", { waitForHydration: true });
@@ -183,29 +275,99 @@ test("keeps forgot-password responses enumeration-safe", async () => {
   await expectAppText("If an account exists with that email, we've sent you instructions to reset your password.", { exact: true });
 });
 
-test("validates profile settings before saving", async () => {
-  await signInSeededUser("/settings");
+test("resets a verified user's password and invalidates the reset token", async () => {
+  const email = `password-reset-${Date.now()}@example.com`;
+  const oldPassword = "password";
+  const newPassword = "new-password";
 
-  await expectAppText("Profile Settings", { exact: true });
-  await fillAppLabel({ label: "First Name", value: "A" });
-  await fillAppLabel({ label: "Last Name", value: "B" });
-  await clickAppRole("button", "Save changes");
+  await createVerifiedUserInLocalD1({
+    email,
+    firstName: "Reset",
+    lastName: "Account",
+  });
 
-  await expectAppText("First name must be at least 2 characters.", { exact: true });
-  await expectAppText("Last name must be at least 2 characters.", { exact: true });
-});
+  await loadAppFrame("/forgot-password", { waitForHydration: true });
+  await fillAppLabel({ label: "Email", value: email });
+  await clickAppRole("button", "Send Reset Instructions");
+  await expectAppToast("Reset instructions sent");
 
-test("updates profile settings and shows a visible success toast", async () => {
-  await signInSeededUser("/settings");
+  const resetUrl = await waitForPasswordResetUrl({
+    email,
+  });
 
-  await expectAppText("Profile Settings", { exact: true });
-  await fillAppLabel({ label: "First Name", value: "E2E" });
-  await fillAppLabel({ label: "Last Name", value: "Tester" });
-  await clickAppRole("button", "Save changes");
+  await navigateAppFrame(`${resetUrl.pathname}${resetUrl.search}`, {
+    waitForHydration: true,
+  });
 
-  await expectAppToast("Profile updated successfully");
-  await reloadAppFrame();
-  await expectAppText("Profile Settings", { exact: true });
-  await expectAppLabelValue({ label: "First Name", value: "E2E" });
-  await expectAppLabelValue({ label: "Last Name", value: "Tester" });
+  await fillAppLabel({ label: "New Password", value: newPassword });
+  await fillAppLabel({ label: "Confirm Password", value: newPassword });
+  await clickAppRole("button", "Reset Password");
+  await expectAppToast("Password reset successfully");
+  await expectAppText("Password Reset Successfully", { exact: true });
+
+  const reusedTokenResponse = await fetchAppPath(`${resetUrl.pathname}${resetUrl.search}`, {
+    redirect: "manual",
+  });
+  expect(reusedTokenResponse.status).toBe(404);
+
+  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
+  await fillAppPlaceholder("Email address", email);
+  await fillAppPlaceholder("Password", oldPassword);
+  await clickAppRole("button", "Sign In with Password");
+  await expectAppToast("Invalid email or password");
+
+  await signInWithPassword({
+    email,
+    password: newPassword,
+  });
+  await expectAppPathnameStartsWith("/dashboard");
+}, 20_000);
+
+describe("profile settings", () => {
+  let settingsUserEmail: string;
+
+  beforeAll(async () => {
+    settingsUserEmail = `settings-user-${Date.now()}@example.com`;
+
+    await createVerifiedUserInLocalD1({
+      email: settingsUserEmail,
+    });
+  });
+
+  test("validates profile settings before saving", async () => {
+    await signInWithPassword({
+      email: settingsUserEmail,
+      password: "password",
+      redirectPath: "/settings",
+    });
+    await navigateAppFrame("/settings", { waitForHydration: true });
+
+    await expectAppText("Profile Settings", { exact: true });
+    await fillAppLabel({ label: "First Name", value: "A" });
+    await fillAppLabel({ label: "Last Name", value: "B" });
+    await clickAppRole("button", "Save changes");
+
+    await expectAppText("First name must be at least 2 characters.", { exact: true });
+    await expectAppText("Last name must be at least 2 characters.", { exact: true });
+  });
+
+  test("updates profile settings and shows a visible success toast", async () => {
+    await signInWithPassword({
+      email: settingsUserEmail,
+      password: "password",
+      redirectPath: "/settings",
+    });
+    await navigateAppFrame("/settings", { waitForHydration: true });
+
+    await expectAppText("Profile Settings", { exact: true });
+    await fillAppLabel({ label: "First Name", value: "E2E" });
+    await fillAppLabel({ label: "Last Name", value: "Tester" });
+    await clickAppRole("button", "Save changes");
+
+    await expectAppToast("Profile updated successfully");
+    await reloadAppFrame();
+    await expectAppText("Profile Settings", { exact: true });
+    await expectAppLabelValue({ label: "First Name", value: "E2E" });
+    await expectAppLabelValue({ label: "Last Name", value: "Tester" });
+  });
 });

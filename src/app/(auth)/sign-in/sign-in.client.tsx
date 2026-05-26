@@ -196,7 +196,11 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Or{" "}
-            <Link href={`/sign-up?redirect=${encodeURIComponent(redirectPath)}`} className="font-medium text-primary hover:text-primary/90 underline">
+            <Link
+              href={`/sign-up?redirect=${encodeURIComponent(redirectPath)}`}
+              prefetch={false}
+              className="font-medium text-primary hover:text-primary/90 underline"
+            >
               create a new account
             </Link>
           </p>
@@ -263,7 +267,11 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
 
       <div className="mt-6">
         <p className="text-center text-sm text-muted-foreground">
-          <Link href="/forgot-password" className="font-medium text-primary hover:text-primary/90">
+          <Link
+            href="/forgot-password"
+            prefetch={false}
+            className="font-medium text-primary hover:text-primary/90"
+          >
             Forgot your password?
           </Link>
         </p>

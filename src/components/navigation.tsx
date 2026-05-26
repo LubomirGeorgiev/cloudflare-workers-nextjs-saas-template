@@ -35,6 +35,7 @@ const ActionButtons = () => {
   return (
     <Link
       href="/sign-in"
+      prefetch={false}
       className={buttonVariants()}
       onClick={() => setIsOpen(false)}
     >
@@ -81,7 +82,7 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl md:text-2xl font-bold text-primary flex items-center gap-2 md:gap-3">
+            <Link href="/" prefetch={false} className="text-xl md:text-2xl font-bold text-primary flex items-center gap-2 md:gap-3">
               <ComponentIcon className="w-6 h-6 md:w-7 md:h-7" />
               {SITE_NAME}
             </Link>
@@ -99,6 +100,7 @@ export function Navigation() {
                   <Link
                     key={item.name}
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       "text-muted-foreground hover:text-foreground no-underline px-3 h-16 flex items-center text-sm font-medium transition-colors relative",
                       isActiveLink(item.href) && "text-foreground after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-full after:bg-foreground"
@@ -134,6 +136,7 @@ export function Navigation() {
                           <Link
                             key={item.name}
                             href={item.href}
+                            prefetch={false}
                             className={cn(
                               "block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 no-underline transition-colors relative",
                               isActiveLink(item.href) && "text-foreground"

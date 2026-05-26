@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { createTeamAction } from "@/actions/team-actions";
@@ -24,9 +23,18 @@ const formSchema = v.object({
 
 type FormValues = v.InferOutput<typeof formSchema>;
 
-export function CreateTeamForm() {
-  const router = useRouter();
+interface CreateTeamPayload {
+  slug?: string;
+  data?: {
+    slug?: string;
+  };
+}
 
+function getCreatedTeamSlug(payload: CreateTeamPayload | undefined): string | undefined {
+  return payload?.data?.slug ?? payload?.slug;
+}
+
+export function CreateTeamForm() {
   const { execute: createTeam } = useAction(createTeamAction, {
     onError: ({ error }) => {
       toast.dismiss();
@@ -38,8 +46,11 @@ export function CreateTeamForm() {
     onSuccess: ({ data }) => {
       toast.dismiss();
       toast.success("Team created successfully");
-      router.push(`/dashboard/teams/${data.data.slug}` as Route);
-      router.refresh();
+
+      const teamSlug = getCreatedTeamSlug(data);
+      const teamPath = teamSlug ? `/dashboard/teams/${teamSlug}` : "/dashboard/teams";
+
+      window.location.href = teamPath as Route;
     }
   });
 

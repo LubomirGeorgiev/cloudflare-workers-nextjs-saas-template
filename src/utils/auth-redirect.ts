@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Route } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL } from "@/constants";
@@ -44,8 +45,15 @@ export async function redirectAuthenticatedUser({
   shouldRedirect,
 }: RedirectAuthenticatedUserParams): Promise<SessionValidationResult> {
   const session = await getSessionFromCookie();
+  const requestHeaders = await headers();
+  const acceptHeader = requestHeaders.get("accept") ?? "";
+  const isRscRequest =
+    requestHeaders.get("rsc") === "1" ||
+    requestHeaders.has("next-router-state-tree") ||
+    acceptHeader.includes("text/x-component");
+  const isServerActionRequest = requestHeaders.has("next-action") || isRscRequest;
 
-  if (session && (!shouldRedirect || shouldRedirect(session))) {
+  if (session && !isServerActionRequest && (!shouldRedirect || shouldRedirect(session))) {
     return redirect(redirectPath);
   }
 

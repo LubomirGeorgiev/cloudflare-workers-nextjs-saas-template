@@ -74,7 +74,7 @@ export function ThemeProvider({
         clearSession()
       }
     } catch (error) {
-      console.error('Failed to fetch session:', error)
+      console.warn('Failed to fetch session:', error)
       clearSession()
     }
   }, [setSession, setConfig, clearSession, refetchSession])

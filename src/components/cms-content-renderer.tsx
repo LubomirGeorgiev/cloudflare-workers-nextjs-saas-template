@@ -141,8 +141,7 @@ function CodeBlockRenderer({
         <code className={`language-${language}`}>{highlightedContent}</code>
       </pre>
     );
-  } catch (error) {
-    console.error(`Failed to highlight ${language} code:`, error);
+  } catch {
     // Fallback to plain code if highlighting fails
     return (
       <pre>

@@ -125,7 +125,11 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Already have an account?{" "}
-            <Link href={`/sign-in?redirect=${encodeURIComponent(redirectPath)}`} className="font-medium text-primary hover:text-primary/90 underline">
+            <Link
+              href={`/sign-in?redirect=${encodeURIComponent(redirectPath)}`}
+              prefetch={false}
+              className="font-medium text-primary hover:text-primary/90 underline"
+            >
               Sign in
             </Link>
           </p>
@@ -239,11 +243,19 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
         <div className="mt-6">
           <p className="text-xs text-center text-muted-foreground">
             By signing up, you agree to our{" "}
-            <Link href="/terms" className="font-medium text-primary hover:text-primary/90 underline">
+            <Link
+              href="/terms"
+              prefetch={false}
+              className="font-medium text-primary hover:text-primary/90 underline"
+            >
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="font-medium text-primary hover:text-primary/90 underline">
+            <Link
+              href="/privacy"
+              prefetch={false}
+              className="font-medium text-primary hover:text-primary/90 underline"
+            >
               Privacy Policy
             </Link>
           </p>

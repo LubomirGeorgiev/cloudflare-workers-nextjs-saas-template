@@ -1,4 +1,4 @@
-import { afterAll } from "vitest";
+import { afterAll, afterEach } from "vitest";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
 
@@ -11,6 +11,7 @@ const pollIntervalMs = 50;
 let browser: Browser | undefined;
 let appContext: BrowserContext | undefined;
 let appPage: Page | undefined;
+let appConsoleErrors: string[] = [];
 
 async function getBrowser(): Promise<Browser> {
   browser ??= await chromium.launch({ headless: true });
@@ -23,6 +24,29 @@ function getAppPage(): Page {
   }
 
   return appPage;
+}
+
+function trackAppPageErrors(page: Page): void {
+  page.on("console", (message) => {
+    if (message.type() !== "error") {
+      return;
+    }
+
+    const location = message.location();
+    const source = location.url
+      ? `${location.url}:${location.lineNumber}:${location.columnNumber}`
+      : page.url();
+
+    appConsoleErrors.push(`[console.error] ${message.text()} (${source})`);
+  });
+
+  page.on("pageerror", (error) => {
+    appConsoleErrors.push(`[pageerror] ${error.stack || error.message}`);
+  });
+
+  page.on("crash", () => {
+    appConsoleErrors.push(`[pagecrash] ${page.url()}`);
+  });
 }
 
 interface LoadAppFrameOptions {
@@ -38,6 +62,7 @@ export async function loadAppFrame(
   const activeBrowser = await getBrowser();
   appContext = await activeBrowser.newContext();
   appPage = await appContext.newPage();
+  trackAppPageErrors(appPage);
   appPage.setDefaultTimeout(expectationTimeoutMs);
   appPage.setDefaultNavigationTimeout(navigationTimeoutMs);
 
@@ -130,6 +155,16 @@ export async function expectAppText(
     .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
 
+export async function expectNoAppText(
+  text: string,
+  options?: { exact?: boolean }
+): Promise<void> {
+  await getAppPage()
+    .getByText(text, { exact: options?.exact })
+    .first()
+    .waitFor({ state: "detached", timeout: absentExpectationTimeoutMs });
+}
+
 export async function expectAppToast(text: string): Promise<void> {
   await getAppPage()
     .locator("[data-sonner-toast]")
@@ -152,9 +187,58 @@ export async function expectAppPathname(pathname: string): Promise<void> {
   });
 }
 
+export async function expectAppPathnameStartsWith(pathname: string): Promise<void> {
+  await getAppPage().waitForURL((url) => url.pathname.startsWith(pathname), {
+    timeout: expectationTimeoutMs,
+  });
+}
+
+export async function expectAppPathnameNot(pathname: string): Promise<void> {
+  await getAppPage().waitForURL((url) => url.pathname !== pathname, {
+    timeout: expectationTimeoutMs,
+  });
+}
+
+export function getAppCurrentPathname(): string {
+  return new URL(getAppPage().url()).pathname;
+}
+
+export function fetchAppPath(path: string, init?: RequestInit): Promise<Response> {
+  return fetch(new URL(path, e2eBaseUrl), init);
+}
+
 export async function reloadAppFrame(): Promise<void> {
   await getAppPage().reload({ waitUntil: "networkidle", timeout: navigationTimeoutMs });
 }
+
+afterEach(async () => {
+  if (appPage && !appPage.isClosed()) {
+    await appPage.waitForTimeout(100);
+  }
+
+  const errors = [...appConsoleErrors];
+  let closeError: unknown;
+
+  if (appContext) {
+    try {
+      await appContext.close();
+    } catch (error) {
+      closeError = error;
+    }
+  }
+
+  appContext = undefined;
+  appPage = undefined;
+  appConsoleErrors = [];
+
+  if (closeError) {
+    throw closeError;
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Browser console/page errors were emitted:\n${errors.join("\n")}`);
+  }
+});
 
 afterAll(async () => {
   await appContext?.close();

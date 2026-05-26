@@ -44,8 +44,9 @@ export function NavMain({
                   tooltip={item.title}
                   render={
                     <Link
-                    href={item.url as Route}
-                    onClick={() => setOpenMobile(false)}
+                      href={item.url as Route}
+                      prefetch={false}
+                      onClick={() => setOpenMobile(false)}
                     />
                   }
                 >
@@ -80,6 +81,7 @@ export function NavMain({
                             subItem.url.startsWith('/') ? (
                               <Link
                                 href={subItem.url as Route}
+                                prefetch={false}
                                 onClick={() => setOpenMobile(false)}
                               />
                             ) : (

@@ -24,6 +24,7 @@ export default function SSOButtons({
         <>
           <Link
             href="/sso/google"
+            prefetch={false}
             className={cn(buttonVariants({ size: "lg" }), "w-full")}
           >
               <Google className="w-[22px] h-[22px] mr-1" />

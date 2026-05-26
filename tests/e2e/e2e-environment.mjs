@@ -17,6 +17,7 @@ const tmpDir = resolve(projectRoot, "tmp/e2e");
 const stateDir = resolve(tmpDir, "wrangler-state");
 const previewLogFile = resolve(tmpDir, "preview.log");
 const buildFingerprintFile = resolve(tmpDir, "build-fingerprint.json");
+const generatedPreviewConfigFile = resolve(projectRoot, "dist/server/wrangler.json");
 const baseUrl = process.env.E2E_BASE_URL ?? "http://127.0.0.1:18788";
 const previewPort = new URL(baseUrl).port || "18788";
 const buildCacheVersion = 3;
@@ -201,6 +202,21 @@ export function createE2EEnvironment() {
 
   function hasRequiredBuildOutputs() {
     return getMissingRequiredBuildOutputs().length === 0;
+  }
+
+  function patchGeneratedPreviewConfig() {
+    if (!existsSync(generatedPreviewConfigFile)) {
+      return;
+    }
+
+    const config = JSON.parse(readFileSync(generatedPreviewConfigFile, "utf8"));
+
+    config.vars = {
+      ...(config.vars ?? {}),
+      NODE_ENV: runtimeEnv.NODE_ENV,
+    };
+
+    writeFileSync(generatedPreviewConfigFile, `${JSON.stringify(config, null, 2)}\n`);
   }
 
   function getMissingRequiredBuildOutputs() {
@@ -436,6 +452,7 @@ export function createE2EEnvironment() {
 
     if (hasRequiredBuildOutputs() && readBuildFingerprint() === fingerprint) {
       log("Reusing fresh Vinext preview build");
+      patchGeneratedPreviewConfig();
       return;
     }
 
@@ -449,6 +466,7 @@ export function createE2EEnvironment() {
       );
     }
 
+    patchGeneratedPreviewConfig();
     writeBuildFingerprint(fingerprint);
     log(`Vinext preview built (${formatDuration(startedAt)})`);
   }

@@ -128,6 +128,7 @@ export function TeamSwitcher({
               render={
                 <Link
                   href="/dashboard/teams/create"
+                  prefetch={false}
                   onClick={() => setOpenMobile(false)}
                 />
               }

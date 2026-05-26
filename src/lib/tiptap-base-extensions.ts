@@ -33,8 +33,10 @@ export const sharedLowlight = createLowlight({
   bash,
   css,
   docker: dockerfile,
+  dockerfile,
   html: xml,
   js: javascript,
+  javascript,
   jsx: javascript,
   json,
   markdown,
@@ -43,6 +45,7 @@ export const sharedLowlight = createLowlight({
   sql,
   ts: typescript,
   tsx: typescript,
+  typescript,
   xml,
   yaml,
 })
