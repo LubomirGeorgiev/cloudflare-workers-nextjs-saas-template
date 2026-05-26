@@ -2,7 +2,7 @@ import { env as workerEnv } from "cloudflare:workers"
 import type { Metadata } from "next"
 
 import { PageHeader } from "@/components/page-header"
-import { readRuntimeNodeEnv } from "@/utils/runtime-node-env"
+import { isTestMode } from "@/utils/is-test-mode"
 
 export const dynamic = "force-dynamic"
 
@@ -12,10 +12,8 @@ export const metadata: Metadata = {
 }
 
 interface SerializableEnvDump {
-  nodeEnv: {
-    direct: string | undefined
-    runtime: string | undefined
-  }
+  appTestMode: boolean
+  nodeEnv: string | undefined
   processEnv: Record<string, string | undefined>
   workerEnv: Record<string, unknown>
 }
@@ -59,10 +57,8 @@ function buildEnvDump(): SerializableEnvDump {
   )
 
   return {
-    nodeEnv: {
-      direct: process.env.NODE_ENV,
-      runtime: readRuntimeNodeEnv(),
-    },
+    appTestMode: isTestMode(),
+    nodeEnv: process.env.NODE_ENV,
     processEnv: Object.fromEntries(processEntries),
     workerEnv: Object.fromEntries(workerEntries),
   }

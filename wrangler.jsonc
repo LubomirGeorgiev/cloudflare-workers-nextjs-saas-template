@@ -51,6 +51,7 @@
      * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
      */
     "vars": {
+        "APP_TEST_MODE": "false",
         "EMAIL_FROM": "no-reply@notifications.lubomirgeorgiev.com",
         "EMAIL_FROM_NAME": "Lubomir Georgiev",
         "EMAIL_REPLY_TO": "lubo@lubomirgeorgiev.com"

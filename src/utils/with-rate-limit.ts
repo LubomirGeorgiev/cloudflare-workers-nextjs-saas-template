@@ -3,7 +3,7 @@ import { checkRateLimit } from "./rate-limit";
 import { getIP } from "./get-IP";
 import ms from "ms";
 import isProd from "./is-prod";
-import { readRuntimeNodeEnv } from "./runtime-node-env";
+import { isTestMode } from "./is-test-mode";
 
 const UNKNOWN_IP_RATE_LIMIT_KEY = "unknown-ip";
 
@@ -43,7 +43,7 @@ export async function withRateLimit<T>(
   action: () => Promise<T>,
   config: RateLimitConfig
 ): Promise<T> {
-  if (!isProd || readRuntimeNodeEnv() === "test") {
+  if (!isProd || isTestMode()) {
     return action();
   }
 

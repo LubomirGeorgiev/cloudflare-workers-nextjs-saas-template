@@ -26,6 +26,7 @@ Use Cloudflare MCP to identify the authenticated Cloudflare account. Tell the us
 3. Confirm or remind the user about the required production customization checklist:
    - `src/constants.ts` has project details.
    - Read `SITE_URL` from `src/constants.ts`, derive the hostname, and check the domains/zones available in the authenticated Cloudflare account. Tell the user which matching or closest Cloudflare zone/domain was found and ask them to confirm it before proceeding. If the `SITE_URL` domain is not available in Cloudflare, stop and ask the user which Cloudflare zone/domain to use or whether they need to add the domain to Cloudflare first.
+   - When the app will use Cloudflare Images, verify Images against that same production zone/hostname, not only against the account. Confirm the `SITE_URL` hostname belongs to a Cloudflare zone in the authenticated account and is proxied or attached as the Worker custom domain/route that production will use. Then verify the account-level Images API works for that account with `/accounts/{account_id}/images/v1/variants` or `/accounts/{account_id}/images/v1/stats`. If custom-domain image delivery is expected, explicitly confirm the production zone can serve Images URLs at `https://<SITE_URL_HOSTNAME>/cdn-cgi/imagedelivery/<ACCOUNT_HASH>/<IMAGE_ID>/<VARIANT_NAME>`; Cloudflare supports this only for customer domains under the same account as the Images account. If the domain is in a different account, not proxied through Cloudflare, or not the domain being deployed to, stop and ask which zone/domain should be used before proceeding.
    - Read `package.json`, tell the user the current `name` value, and ask them to confirm it is the intended production project name. This value controls generated deploy-size metrics and package metadata, so do not proceed if it still identifies the reused template.
    - `AGENTS.md` has the project specification for AI coding agents.
    - `src/components/footer.tsx` has project links and details.
@@ -59,7 +60,7 @@ pnpm run build
 | Create D1 database | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/d1/database`; update `wrangler.jsonc` with `database_name` and `database_id`. |
 | Create KV namespace | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/storage/kv/namespaces`; update `wrangler.jsonc` namespace id. |
 | Create R2 bucket | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/r2/buckets`; update `wrangler.jsonc` bucket name. |
-| Enable or verify Cloudflare Images | Cloudflare MCP or dashboard | MCP can list/use Images endpoints. Account-level enablement or billing acceptance may still require dashboard interaction. |
+| Enable or verify Cloudflare Images | Cloudflare MCP or dashboard | Verify both the account-level Images API and the production `SITE_URL` zone/domain. MCP can list/use Images endpoints under `/accounts/{account_id}/images/v1`; custom-domain delivery requires a proxied/customer domain in the same Cloudflare account as Images, and billing acceptance may still require dashboard interaction. |
 | Onboard Email Sending domain | Cloudflare MCP or dashboard | MCP supports Email Sending subdomain create/preview/fix/status endpoints under zones. Domain ownership, DNS propagation, plan gating, or account approval can require waiting or dashboard follow-up. |
 | Update email vars and `send_email.allowed_sender_addresses` | File edits | Automatable after sender values are known. |
 | Create Turnstile widget | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/challenges/widgets`; set site key as GitHub variable and secret key as Worker secret. |
@@ -91,6 +92,8 @@ Worker secrets: /accounts/{account_id}/workers/scripts/{script_name}/secrets
 API tokens: /accounts/{account_id}/tokens
 Email Sending: /zones/{zone_id}/email/sending/subdomains
 Images: /accounts/{account_id}/images/v1
+Images variants and stats: /accounts/{account_id}/images/v1/variants, /accounts/{account_id}/images/v1/stats
+Images custom-domain delivery check: resolve SITE_URL hostname to a same-account zone, then verify or document delivery through https://<hostname>/cdn-cgi/imagedelivery/<ACCOUNT_HASH>/<IMAGE_ID>/<VARIANT_NAME>
 Cache purge: /zones/{zone_id}/purge_cache
 ```
 
