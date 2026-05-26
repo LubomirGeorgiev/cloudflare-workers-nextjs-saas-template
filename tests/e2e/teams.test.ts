@@ -1,8 +1,10 @@
 import { expect, test } from "vitest";
 import {
   clickAppRole,
+  expectAppPathname,
   expectAppPathnameNot,
   expectAppPathnameStartsWith,
+  expectNoAppToast,
   expectAppText,
   fillAppPlaceholder,
   getAppCurrentPathname,
@@ -67,6 +69,9 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   await fillAppPlaceholder("Last Name", "Owner");
   await fillAppPlaceholder("Password", "password");
   await clickAppRole("button", "Create Account with Password");
+
+  await expectAppPathname("/dashboard/teams/create");
+  await expectNoAppToast("Creating your account...");
 
   const verificationUrl = await waitForVerificationUrl({
     email,
