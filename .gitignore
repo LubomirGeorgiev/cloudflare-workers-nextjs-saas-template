@@ -52,6 +52,7 @@ dist
 worker
 worker-dist
 tmp
+.vitest-attachments
 
 # Localflare generated files
 .localflare/

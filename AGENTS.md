@@ -67,7 +67,8 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 
 - Use `pnpm run lint` to verify lint rules with Oxlint.
 - Use `pnpm run typecheck` to verify TypeScript correctness.
-- Run both commands after code changes when feasible, especially before handing work back.
+- Use `pnpm run test:e2e` to verify end-to-end flows when changes could affect user journeys, routing, auth, or other integrated behavior.
+- Run these commands after code changes when feasible, especially before handing work back.
 
 ## DRY Rules
 

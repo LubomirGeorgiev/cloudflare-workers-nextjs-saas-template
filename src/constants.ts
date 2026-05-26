@@ -2,7 +2,7 @@ import type { Route } from "next"
 
 export const SITE_NAME = "SaaS Template"
 export const SITE_DESCRIPTION = "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
-export const SITE_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://nextjs-saas-template.lubomirgeorgiev.com"
+export const SITE_URL = process.env.NODE_ENV === "production" ? "https://nextjs-saas-template.lubomirgeorgiev.com" : "http://localhost:3000"
 export const GITHUB_REPO_URL = "https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template"
 
 export const SITE_DOMAIN = new URL(SITE_URL).hostname

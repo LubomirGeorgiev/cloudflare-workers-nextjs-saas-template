@@ -7,6 +7,10 @@ export async function isGoogleSSOEnabled() {
 }
 
 export async function isTurnstileEnabled() {
+  if (process.env.NODE_ENV === "test") {
+    return false
+  }
+
   return Boolean(process.env.TURNSTILE_SECRET_KEY)
 }
 

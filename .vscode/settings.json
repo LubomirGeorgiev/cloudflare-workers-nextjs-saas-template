@@ -1,5 +1,6 @@
 {
   "files.associations": {
     "wrangler.json": "jsonc"
-  }
+  },
+  "vitest.rootConfig": "vitest.e2e.config.ts"
 }

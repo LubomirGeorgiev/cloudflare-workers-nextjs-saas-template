@@ -156,6 +156,35 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
 7. Go to http://localhost:3000/sign-in and login with the test user credentials: test@test.com / password
 8. Go to http://localhost:3000/admin to manage users and the CMS.
 
+## End-to-end tests
+
+E2E tests use Vitest with Playwright-driven Chromium pages and run against the production-style local Worker preview.
+
+After cloning the project, install the Playwright Chromium browser once on your machine:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+This browser binary is not downloaded automatically by `pnpm install`. It is kept outside the repo in Playwright's local browser cache, so you normally only need to run the install command after a fresh machine setup, a new Playwright version, or a cleared Playwright cache.
+
+Run the E2E suite with:
+
+```bash
+pnpm run test:e2e
+```
+
+The E2E runner stores its temporary files under `tmp/e2e`, creates a fresh local Wrangler/D1 state under `tmp/e2e/wrangler-state`, applies all D1 migrations, runs `src/db/seed.sql`, builds the app, starts Wrangler preview on that isolated state, then runs the browser tests against the preview Worker. If the existing `dist` output matches the current build input fingerprint, the runner reuses that fresh Vinext build instead of rebuilding. The build and D1 setup run in parallel, and Vitest runs test files in parallel with isolated Playwright browser contexts. This keeps E2E data separate from your normal local `.wrangler` development state.
+
+VS Code Vitest Explorer is configured through `.vscode/settings.json` to use `vitest.e2e.config.ts`. Running an individual E2E test from the editor uses Vitest global setup to create the same isolated Wrangler/D1 state and preview Worker before the selected test starts.
+
+In CI, install Chromium before running the suite:
+
+```bash
+pnpm exec playwright install --with-deps chromium
+pnpm run test:e2e
+```
+
 ## Useful commands
 
 | Command | Purpose |
@@ -164,6 +193,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
 | `pnpm build` | Build the app with Vinext and Vite |
 | `pnpm start` | Start the local Vinext production server |
 | `pnpm preview` | Build, then preview the Worker locally with Wrangler |
+| `pnpm run test:e2e` | Run Playwright-driven E2E tests against a clean local Wrangler/D1 preview |
 | `pnpm deploy` | Build and deploy with `vinext deploy` |
 | `pnpm deploy:dryrun` | Build and run a Wrangler deploy dry run into `worker-dist` |
 | `pnpm check:vinext` | Run the Vinext compatibility checker |

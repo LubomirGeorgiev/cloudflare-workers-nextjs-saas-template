@@ -11,10 +11,11 @@
     "start": "vinext start",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "check:vinext": "vinext check",
     "typecheck": "tsc --noEmit",
     "deploy": "vinext deploy",
-    "preview": "pnpm build && wrangler dev --local",
+    "preview": "pnpm build && wrangler dev --local ${WRANGLER_DEV_ARGS:-}",
     "deploy:dryrun": "rm -rf worker-dist && pnpm build && wrangler deploy --outdir worker-dist --dry-run",
     "cf-typegen": "wrangler types --env-file .env.example",
     "db:generate": "drizzle-kit generate --name",
@@ -107,6 +108,7 @@
     "@vitejs/plugin-rsc": "^0.5.26",
     "drizzle-kit": "^0.31.10",
     "oxlint": "^1.66.0",
+    "playwright": "^1.60.0",
     "react-server-dom-webpack": "^19.2.6",
     "sass": "^1.99.0",
     "schema-dts": "^1.1.5",
@@ -115,6 +117,7 @@
     "typescript": "^5.7.0",
     "vinext": "^0.0.52",
     "vite": "^8.0.14",
+    "vitest": "^4.1.7",
     "wrangler": "^4.94.0"
   }
 }

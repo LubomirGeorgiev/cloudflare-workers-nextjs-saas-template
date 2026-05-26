@@ -70,6 +70,23 @@ jobs:
           );
           NODE
 
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright system dependencies
+        run: pnpm exec playwright install-deps chromium
+
+      - name: Install Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: pnpm exec playwright install chromium
+
+      - name: End-to-end tests
+        run: pnpm run test:e2e
+
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
 

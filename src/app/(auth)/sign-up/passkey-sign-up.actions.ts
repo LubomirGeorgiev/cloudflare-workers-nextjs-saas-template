@@ -26,7 +26,14 @@ export const startPasskeyRegistrationAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        if (await isTurnstileEnabled() && input.captchaToken) {
+        if (await isTurnstileEnabled()) {
+          if (!input.captchaToken) {
+            throw new ActionError(
+              "INPUT_PARSE_ERROR",
+              "Please complete the captcha"
+            )
+          }
+
           const success = await validateTurnstileToken(input.captchaToken)
 
           if (!success) {

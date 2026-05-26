@@ -33,10 +33,7 @@ export default function VerifyEmailClientComponent() {
       toast.success("Email verified successfully");
 
       router.refresh();
-
-      setTimeout(() => {
-        router.push(REDIRECT_AFTER_SIGN_IN);
-      }, 500);
+      router.push(REDIRECT_AFTER_SIGN_IN);
     },
   });
   const error = result.serverError;

@@ -35,11 +35,11 @@ export function SettingsForm() {
       toast.error(error.serverError?.message ?? "Failed to update profile")
     },
     onExecute: () => {
-      toast.loading("Signing you in...")
+      toast.loading("Updating profile...")
     },
     onSuccess: () => {
       toast.dismiss()
-      toast.success("Signed in successfully")
+      toast.success("Profile updated successfully")
       router.refresh()
     }
   })

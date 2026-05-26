@@ -55,9 +55,6 @@ export const verifyEmailAction = actionClient
             key: getVerificationTokenKey,
           });
 
-          // Add a small delay to ensure all updates are processed
-          await new Promise((resolve) => setTimeout(resolve, 500));
-
           return { success: true };
         } catch (error) {
           console.error(error);
