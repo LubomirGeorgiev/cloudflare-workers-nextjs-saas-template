@@ -325,7 +325,7 @@ export function createE2EEnvironment() {
 
   async function waitForPreview() {
     const startedAt = Date.now();
-    const timeoutMs = 120_000;
+    const timeoutMs = 45_000;
     let lastError;
 
     while (Date.now() - startedAt < timeoutMs) {

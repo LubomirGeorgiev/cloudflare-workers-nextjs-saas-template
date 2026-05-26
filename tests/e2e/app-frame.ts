@@ -3,6 +3,10 @@ import { chromium, type Browser, type BrowserContext, type Page } from "playwrig
 import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
+const navigationTimeoutMs = 8_000;
+const expectationTimeoutMs = 5_000;
+const absentExpectationTimeoutMs = 1_500;
+const pollIntervalMs = 50;
 
 let browser: Browser | undefined;
 let appContext: BrowserContext | undefined;
@@ -34,13 +38,16 @@ export async function loadAppFrame(
   const activeBrowser = await getBrowser();
   appContext = await activeBrowser.newContext();
   appPage = await appContext.newPage();
+  appPage.setDefaultTimeout(expectationTimeoutMs);
+  appPage.setDefaultNavigationTimeout(navigationTimeoutMs);
 
   await appPage.goto(new URL(path, e2eBaseUrl).toString(), {
     waitUntil: "domcontentloaded",
+    timeout: navigationTimeoutMs,
   });
 
   if (options.waitForHydration) {
-    await appPage.waitForLoadState("networkidle");
+    await appPage.waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
   }
 }
 
@@ -50,10 +57,11 @@ export async function navigateAppFrame(
 ): Promise<void> {
   await getAppPage().goto(new URL(path, e2eBaseUrl).toString(), {
     waitUntil: "domcontentloaded",
+    timeout: navigationTimeoutMs,
   });
 
   if (options.waitForHydration) {
-    await getAppPage().waitForLoadState("networkidle");
+    await getAppPage().waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
   }
 }
 
@@ -87,15 +95,15 @@ export async function expectAppLabelValue({
   value: string;
 }): Promise<void> {
   const input = getAppPage().getByLabel(label, { exact: true });
-  await input.waitFor({ state: "visible", timeout: 20_000 });
+  await input.waitFor({ state: "visible", timeout: expectationTimeoutMs });
 
-  const timeoutAt = Date.now() + 20_000;
+  const timeoutAt = Date.now() + expectationTimeoutMs;
   while (Date.now() < timeoutAt) {
     if ((await input.inputValue()) === value) {
       return;
     }
 
-    await getAppPage().waitForTimeout(100);
+    await getAppPage().waitForTimeout(pollIntervalMs);
   }
 
   throw new Error(`Expected ${label} to have value ${value}`);
@@ -109,7 +117,7 @@ export async function expectAppRole(
   await getAppPage()
     .getByRole(role as never, { name, exact: options?.exact })
     .first()
-    .waitFor({ state: "visible", timeout: 20_000 });
+    .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
 
 export async function expectAppText(
@@ -119,7 +127,7 @@ export async function expectAppText(
   await getAppPage()
     .getByText(text, { exact: options?.exact })
     .first()
-    .waitFor({ state: "visible", timeout: 20_000 });
+    .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
 
 export async function expectAppToast(text: string): Promise<void> {
@@ -127,7 +135,7 @@ export async function expectAppToast(text: string): Promise<void> {
     .locator("[data-sonner-toast]")
     .filter({ hasText: text })
     .first()
-    .waitFor({ state: "visible", timeout: 20_000 });
+    .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
 
 export async function expectNoAppToast(text: string): Promise<void> {
@@ -135,15 +143,17 @@ export async function expectNoAppToast(text: string): Promise<void> {
     .locator("[data-sonner-toast]")
     .filter({ hasText: text })
     .first()
-    .waitFor({ state: "detached", timeout: 5_000 });
+    .waitFor({ state: "detached", timeout: absentExpectationTimeoutMs });
 }
 
 export async function expectAppPathname(pathname: string): Promise<void> {
-  await getAppPage().waitForURL((url) => url.pathname === pathname, { timeout: 20_000 });
+  await getAppPage().waitForURL((url) => url.pathname === pathname, {
+    timeout: expectationTimeoutMs,
+  });
 }
 
 export async function reloadAppFrame(): Promise<void> {
-  await getAppPage().reload({ waitUntil: "networkidle" });
+  await getAppPage().reload({ waitUntil: "networkidle", timeout: navigationTimeoutMs });
 }
 
 afterAll(async () => {

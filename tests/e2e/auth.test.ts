@@ -53,7 +53,7 @@ async function waitForVerificationUrl({
 }: {
   email: string;
 }): Promise<URL> {
-  const timeoutAt = Date.now() + 20_000;
+  const timeoutAt = Date.now() + 5_000;
 
   while (Date.now() < timeoutAt) {
     const verificationUrl = await readVerificationUrlFromLocalKV(email);
@@ -62,7 +62,7 @@ async function waitForVerificationUrl({
       return verificationUrl;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 
   throw new Error("Timed out waiting for verification URL.");
@@ -170,7 +170,7 @@ test("creates and verifies a new password account", async () => {
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Verifying your email...");
   await expectAppText("Dashboard", { exact: true });
-}, 40_000);
+}, 12_000);
 
 test("keeps forgot-password responses enumeration-safe", async () => {
   await loadAppFrame("/forgot-password", { waitForHydration: true });
