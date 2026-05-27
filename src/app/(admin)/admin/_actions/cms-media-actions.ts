@@ -10,7 +10,7 @@ import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
-import { invalidateCmsEntryCache, invalidateCmsCollectionCache } from "@/lib/cms/cms-repository";
+import { invalidateEntryAndCollection } from "@/lib/cms/cms-repository";
 import { v } from "@/lib/validation";
 
 /**
@@ -209,7 +209,6 @@ export const updateCmsMediaAction = actionClient
         .innerJoin(cmsEntryTable, eq(cmsEntryMediaTable.entryId, cmsEntryTable.id))
         .where(eq(cmsEntryMediaTable.mediaId, mediaId));
 
-      const affectedCollections = new Set<CollectionsUnion>();
       const entriesToInvalidate: Array<{ collectionSlug: CollectionsUnion; slug: string }> = [];
 
       // Update each entry's content
@@ -231,34 +230,24 @@ export const updateCmsMediaAction = actionClient
             .update(cmsEntryTable)
             .set({ content })
             .where(eq(cmsEntryTable.id, entry.id));
-
-          // Track entries and collections that need cache invalidation
-          affectedCollections.add(entry.collection);
-          entriesToInvalidate.push({
-            collectionSlug: entry.collection,
-            slug: entry.slug,
-          });
         }
+
+        entriesToInvalidate.push({
+          collectionSlug: entry.collection,
+          slug: entry.slug,
+        });
       }
 
       // Invalidate caches for all affected entries and collections
       if (entriesToInvalidate.length > 0) {
         const invalidationPromises: Promise<void>[] = [];
 
-        // Invalidate entry-specific caches
         for (const entry of entriesToInvalidate) {
           invalidationPromises.push(
-            invalidateCmsEntryCache({
+            invalidateEntryAndCollection({
               collectionSlug: entry.collectionSlug,
               slug: entry.slug,
             })
-          );
-        }
-
-        // Invalidate collection caches
-        for (const collection of affectedCollections) {
-          invalidationPromises.push(
-            invalidateCmsCollectionCache({ collectionSlug: collection })
           );
         }
 

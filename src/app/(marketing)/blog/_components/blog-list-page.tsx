@@ -1,6 +1,6 @@
 import "server-only"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import type { Blog, WithContext } from "schema-dts"
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/cms-repository"
@@ -57,6 +57,10 @@ export async function BlogListPage({ page }: BlogListPageProps) {
   ])
 
   const totalPages = Math.ceil(totalCount / BLOG_POSTS_PER_PAGE)
+
+  if (totalCount === 0 && page === 1) {
+    redirect("/")
+  }
 
   if (page < 1 || (page > 1 && (totalCount === 0 || page > totalPages))) {
     notFound()

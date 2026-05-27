@@ -1,5 +1,6 @@
 import "server-only"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsTags } from "@/lib/cms/cms-repository"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
@@ -29,6 +30,10 @@ export default async function BlogTagsPage() {
 
   // Only show tags that have entries
   const tagsWithEntries = tags.filter(tag => tag.entryCount > 0)
+
+  if (tagsWithEntries.length === 0) {
+    redirect("/")
+  }
 
   // JSON-LD structured data for CollectionPage
   const jsonLd: WithContext<CollectionPage> = {

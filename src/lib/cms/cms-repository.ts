@@ -149,13 +149,17 @@ function getCmsEntryCacheKey({
   collectionSlug,
   slug,
   status,
+  includeRelations,
 }: {
   collectionSlug: CollectionsUnion;
   slug: string;
   status?: CmsStatusFilter;
+  includeRelations?: CmsIncludeRelations;
 }): string {
   const base = `${CACHE_KEYS.CMS_ENTRY}:${collectionSlug}:${slug}`;
-  return status ? `${base}:${status}` : base;
+  return status || includeRelations
+    ? `${base}:${status ?? ""}:${JSON.stringify(includeRelations ?? null)}`
+    : base;
 }
 
 function getCmsCollectionCacheKey({
@@ -228,7 +232,7 @@ async function invalidateCacheByPrefix(prefix: string): Promise<void> {
   }
 }
 
-export async function invalidateCmsEntryCache({
+async function invalidateCmsEntryCache({
   collectionSlug,
   slug,
 }: {
@@ -243,7 +247,7 @@ export async function invalidateCmsEntryCache({
  * Invalidate all collection cache entries for a given collection
  * Uses kv.list to find and delete all cache keys matching the collection
  */
-export async function invalidateCmsCollectionCache({
+async function invalidateCmsCollectionCache({
   collectionSlug,
 }: {
   collectionSlug: CollectionsUnion;
@@ -296,11 +300,22 @@ async function invalidateSitemapCache(): Promise<void> {
   await kv.delete(CACHE_KEYS.SITEMAP);
 }
 
+async function invalidateCmsTagsCache(): Promise<void> {
+  const { env } = await getCloudflareContext();
+  const kv = env.NEXT_INC_CACHE_KV;
+
+  if (!kv) {
+    return;
+  }
+
+  await kv.delete(CACHE_KEYS.CMS_TAGS);
+}
+
 /**
  * Helper function to invalidate both entry-specific cache and collection listings
  * This is a common pattern used after creating, updating, or deleting CMS entries
  */
-async function invalidateEntryAndCollection({
+export async function invalidateEntryAndCollection({
   collectionSlug,
   slug,
 }: {
@@ -313,6 +328,7 @@ async function invalidateEntryAndCollection({
     invalidateCmsCollectionCountCache({ collectionSlug }),
     invalidateCmsNavigationCachesForCollection({ collectionSlug }),
     invalidateSitemapCache(),
+    invalidateCmsTagsCache(),
   ];
 
   if (isCollectionSearchEnabled(collectionSlug)) {
@@ -328,11 +344,13 @@ async function invalidateEntryAndCollection({
  */
 async function invalidateAllCmsCollectionCaches(): Promise<void> {
   await Promise.all([
+    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_ENTRY}:`),
     invalidateCacheByPrefix(getCmsCollectionCacheKey({})),
     invalidateCacheByPrefix(getCmsCollectionCountCacheKey({})),
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:`),
     invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:`),
     invalidateSitemapCache(),
+    invalidateCmsTagsCache(),
   ]);
 }
 
@@ -807,6 +825,7 @@ export async function getCmsEntryBySlug<T extends keyof typeof cmsConfig.collect
     collectionSlug: collection.slug as CollectionsUnion,
     slug,
     status,
+    includeRelations,
   });
 
   // Fetch entry from cache or DB (includes scheduled entries)
@@ -988,6 +1007,7 @@ export async function createCmsEntry<T extends keyof typeof cmsConfig.collection
       collectionSlug: collection.slug as CollectionsUnion,
     }),
     invalidateSitemapCache(),
+    invalidateCmsTagsCache(),
   ]);
 
   return newEntry;
@@ -1194,6 +1214,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     invalidateCmsCollectionCountCache({ collectionSlug }),
     invalidateCmsNavigationCachesForCollection({ collectionSlug }),
     invalidateSitemapCache(),
+    invalidateCmsTagsCache(),
   ]);
 
   return updatedEntry || null;
@@ -1240,27 +1261,32 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
 // Tag Management Functions
 
 export const getCmsTags = cache(async () => {
-  const db = getDB();
+  return withKVCache(async () => {
+    const db = getDB();
 
-  const tags = await db
-    .select({
-      id: cmsTagTable.id,
-      name: cmsTagTable.name,
-      slug: cmsTagTable.slug,
-      description: cmsTagTable.description,
-      color: cmsTagTable.color,
-      createdBy: cmsTagTable.createdBy,
-      createdAt: cmsTagTable.createdAt,
-      updatedAt: cmsTagTable.updatedAt,
-      updateCounter: cmsTagTable.updateCounter,
-      entryCount: count(cmsEntryTagTable.id),
-    })
-    .from(cmsTagTable)
-    .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
-    .groupBy(cmsTagTable.id)
-    .orderBy(desc(cmsTagTable.createdAt));
+    const tags = await db
+      .select({
+        id: cmsTagTable.id,
+        name: cmsTagTable.name,
+        slug: cmsTagTable.slug,
+        description: cmsTagTable.description,
+        color: cmsTagTable.color,
+        createdBy: cmsTagTable.createdBy,
+        createdAt: cmsTagTable.createdAt,
+        updatedAt: cmsTagTable.updatedAt,
+        updateCounter: cmsTagTable.updateCounter,
+        entryCount: count(cmsEntryTagTable.id),
+      })
+      .from(cmsTagTable)
+      .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
+      .groupBy(cmsTagTable.id)
+      .orderBy(desc(cmsTagTable.createdAt));
 
-  return tags;
+    return tags;
+  }, {
+    key: CACHE_KEYS.CMS_TAGS,
+    ttl: "8 hours",
+  });
 });
 
 export const getCmsTagById = cache(async (id: v.InferOutput<typeof getCmsTagByIdParamsSchema>) => {
@@ -1339,6 +1365,8 @@ export async function createCmsTag(params: v.InferOutput<typeof createCmsTagPara
     color,
     createdBy,
   }).returning();
+
+  await invalidateCmsTagsCache();
 
   return newTag;
 }

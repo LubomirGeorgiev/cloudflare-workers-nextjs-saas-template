@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { DocsLlmsTxtLink } from "./_components/docs-llms-txt-link";
@@ -13,6 +14,10 @@ export default async function DocsLayout({
   const sidebarTree = await getCmsNavigationTree({
     navigationKey: DOCS_SLUG,
   });
+
+  if (sidebarTree.length === 0) {
+    redirect("/");
+  }
 
   return (
     <div className="border-t">

@@ -1,6 +1,6 @@
 import "server-only"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsTags, getCmsCollection } from "@/lib/cms/cms-repository"
 import { BlogCard } from "@/components/blog-card"
@@ -63,6 +63,10 @@ export default async function TagPage({ params }: TagPageProps) {
     collectionSlug: 'blog',
     includeRelations: { tags: true, createdByUser: true },
   })
+
+  if (allBlogEntries.length === 0) {
+    redirect("/")
+  }
 
   const blogEntries = allBlogEntries.filter(entry =>
     entry.tags?.some(entryTag => entryTag.tag.id === tag.id)

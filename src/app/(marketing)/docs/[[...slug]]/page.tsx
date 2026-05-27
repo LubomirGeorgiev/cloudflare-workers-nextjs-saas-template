@@ -80,7 +80,9 @@ async function resolveDocsPage(slugParts?: string[]) {
 
     if (!rootPath) {
       return {
-        type: "not-found" as const,
+        type: "redirect" as const,
+        path: "/",
+        permanent: false,
       };
     }
 
@@ -98,6 +100,15 @@ async function resolveDocsPage(slugParts?: string[]) {
   const navigationTree = await getCmsNavigationTree({
     navigationKey: DOCS_SLUG,
   });
+
+  if (navigationTree.length === 0) {
+    return {
+      type: "redirect" as const,
+      path: "/",
+      permanent: false,
+    };
+  }
+
   const resolvedPath = buildCmsResolvedPath({
     basePath: docsNavigation.basePath,
     segments: segmentsForResolve,

@@ -1,5 +1,6 @@
 import "server-only"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getCmsCollection } from "@/lib/cms/cms-repository"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -32,6 +33,10 @@ export default async function BlogAuthorsPage() {
     collectionSlug: 'blog',
     includeRelations: { createdByUser: true },
   })
+
+  if (blogEntries.length === 0) {
+    redirect("/")
+  }
 
   // Group entries by author
   const authorMap = new Map<string, {

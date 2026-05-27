@@ -174,7 +174,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     ]
 
-    const blogSitemapUrls = isBlogIncludedInSitemap
+    const blogSitemapUrls = isBlogIncludedInSitemap && blogPosts.length > 0
       ? [
         {
           url: `${SITE_URL}/blog`,

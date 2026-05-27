@@ -4,7 +4,7 @@ import { cache } from "react"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
 import type { Route } from "next"
-import { getCmsEntryBySlug } from "@/lib/cms/cms-repository"
+import { getCmsCollectionCount, getCmsEntryBySlug } from "@/lib/cms/cms-repository"
 import { CmsEntryBody } from "@/components/cms-entry-body"
 import { ContentTableOfContentsNav } from "@/components/content-table-of-contents-nav"
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
@@ -166,6 +166,15 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       redirect(getBlogPagePath({ page: mdPageNumber }))
     }
 
+    const blogPostCount = await getCmsCollectionCount({
+      collectionSlug: "blog",
+      status: "published",
+    })
+
+    if (blogPostCount === 0) {
+      redirect("/")
+    }
+
     notFound()
   }
 
@@ -182,6 +191,15 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const entry = await getCachedBlogEntryBySlug(slug)
 
   if (!entry) {
+    const blogPostCount = await getCmsCollectionCount({
+      collectionSlug: "blog",
+      status: "published",
+    })
+
+    if (blogPostCount === 0) {
+      redirect("/")
+    }
+
     notFound()
   }
 

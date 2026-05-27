@@ -94,6 +94,10 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
 
   const blogEntries = await getCachedBlogEntriesWithAuthors()
 
+  if (blogEntries.length === 0) {
+    redirect("/")
+  }
+
   const authorEntries = blogEntries.filter(
     entry => entry.createdByUser?.id === parsedAuthorId
   )
