@@ -27,7 +27,7 @@ export function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCard
       href={`/blog/${entry.slug}`}
       className="group block h-full"
     >
-      <article className="h-full border rounded-lg overflow-hidden transition-all hover:shadow-lg hover:border-primary flex flex-col">
+      <article className="h-full border rounded-lg bg-muted/30 overflow-hidden transition-all hover:shadow-lg hover:border-primary flex flex-col">
         {entry.featuredImageUrl && (
           <div className="relative aspect-video w-full overflow-hidden border-b">
             <Image

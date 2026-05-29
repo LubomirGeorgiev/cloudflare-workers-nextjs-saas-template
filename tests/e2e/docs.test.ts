@@ -50,4 +50,26 @@ test("serves llms.txt from the docs navigation tree", async () => {
   const body = await response.text();
   expect(body).toContain("Introduction");
   expect(body).toContain("/markdown/docs/introduction");
+  expect(body).toContain("/api/docs/search?q=authentication&limit=8");
+});
+
+test("serves docs search results from the public API endpoint", async () => {
+  const response = await fetchAppPath("/api/docs/search?q=authentication&limit=3");
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toContain("application/json");
+
+  const body = await response.json() as {
+    results: Array<{
+      title: string;
+      resolvedPath: string;
+      snippet: string;
+    }>;
+  };
+
+  expect(body.results.length).toBeGreaterThan(0);
+  expect(body.results[0]?.title).toContain("Authentication");
+  expect(body.results[0]?.resolvedPath).toBe(
+    "https://nextjs-saas-template.lubomirgeorgiev.com/docs/getting-started/authentication"
+  );
 });

@@ -91,6 +91,7 @@ Suggested homes:
 - Prefer server components. Limit `use client`, `useEffect`, and local state.
 - Use client components only when needed for browser APIs or small interactive UI.
 - Wrap client components in `Suspense` where appropriate.
+- When layout or shell chrome needs independent async server data, move that data into a small server wrapper component and render it behind a local `Suspense` fallback. Do not make the entire layout async unless the layout must block for auth, redirects, request-scoped data, or other decisions that affect the whole route.
 - Use dynamic loading for non-critical UI when useful.
 - Use `nuqs` for URL search parameter state.
 - Use declarative JSX and concise conditionals.

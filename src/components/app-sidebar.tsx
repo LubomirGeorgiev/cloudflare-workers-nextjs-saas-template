@@ -1,21 +1,5 @@
 "use client"
 
-import { type ComponentType, useEffect, useState } from "react"
-import type { Route } from 'next'
-
-import {
-  Building2,
-  Frame,
-  Map,
-  PieChart,
-  Settings2,
-  ShoppingCart,
-  SquareTerminal,
-  CreditCard,
-  Users,
-  Shield,
-} from "lucide-react"
-
 import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
@@ -27,135 +11,23 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import {
+  getAppSidebarData,
+} from "@/components/app-sidebar-data"
 import { useSessionStore } from "@/state/session"
-import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
-import { ROLES_ENUM } from "@/app/enums"
+import type { SessionValidationResult } from "@/types"
 
-export type NavItem = {
-  title: string
-  url: Route
-  icon?: ComponentType
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  serverSession?: SessionValidationResult;
 }
 
-export type NavMainItem = NavItem & {
-  isActive?: boolean
-  items?: NavItem[]
-}
-
-type Data = {
-  user: {
-    name: string
-    email: string
-  }
-  teams: {
-    id: string
-    name: string
-    logo: ComponentType
-    role: string
-  }[]
-  navMain: NavMainItem[]
-  projects: NavItem[]
-}
-
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { session } = useSessionStore();
-  const [formattedTeams, setFormattedTeams] = useState<Data['teams']>([]);
-
-  // Map session teams to the format expected by TeamSwitcher
-  useEffect(() => {
-    if (session?.teams && session.teams.length > 0) {
-      // Map teams from session to the format expected by TeamSwitcher
-      const teamData = session.teams.map(team => {
-        return {
-          id: team.id,
-          name: team.name,
-          // TODO Get the actual logo when we implement team avatars
-          logo: Building2,
-          role: team.role.name || "Member",
-        };
-      });
-
-      setFormattedTeams(teamData);
-    }
-  }, [session]);
-
-  const data: Data = {
-    user: {
-      name: session?.user?.firstName || "User",
-      email: session?.user?.email || "user@example.com",
-    },
-    teams: formattedTeams,
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: SquareTerminal,
-        isActive: true,
-      },
-      {
-        title: "Teams",
-        url: "/dashboard/teams" as Route,
-        icon: Users,
-      },
-      ...(!DISABLE_CREDIT_BILLING_SYSTEM ? [{
-        title: "Marketplace",
-        url: "/dashboard/marketplace" as Route,
-        icon: ShoppingCart,
-      }] : []),
-      {
-        title: "Billing",
-        url: "/dashboard/billing",
-        icon: CreditCard,
-      },
-      {
-        title: "Settings",
-        url: "/settings",
-        icon: Settings2,
-        items: [
-          {
-            title: "Profile",
-            url: "/settings",
-          },
-          {
-            title: "Security",
-            url: "/settings/security",
-          },
-          {
-            title: "Sessions",
-            url: "/settings/sessions",
-          },
-          {
-            title: "Change Password",
-            url: "/forgot-password",
-          },
-        ],
-      },
-      ...(session?.user?.role === ROLES_ENUM.ADMIN ? [
-        {
-          title: "Admin Panel",
-          url: "/admin",
-          icon: Shield,
-        } as NavMainItem
-      ] : []),
-    ],
-    projects: [
-      {
-        title: "Design Engineering",
-        url: "#",
-        icon: Frame,
-      },
-      {
-        title: "Sales & Marketing",
-        url: "#",
-        icon: PieChart,
-      },
-      {
-        title: "Travel",
-        url: "#",
-        icon: Map,
-      },
-    ],
-  }
+export function AppSidebar({
+  serverSession,
+  ...props
+}: AppSidebarProps) {
+  const clientSession = useSessionStore((store) => store.session);
+  const session = clientSession ?? serverSession ?? null;
+  const data = getAppSidebarData({ session });
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -170,7 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <NavUser session={session} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

@@ -1,9 +1,9 @@
 import "server-only";
 
 import { cmsConfig } from "@/../cms.config";
-import { SITE_NAME } from "@/constants";
+import { SITE_NAME, SITE_URL } from "@/constants";
 import { buildAbsoluteCmsEntryMarkdownUrl } from "@/lib/cms/cms-paths";
-import { DOCS_SLUG } from "@/lib/cms/docs-config";
+import { DOCS_SEARCH_API_PATH, DOCS_SLUG } from "@/lib/cms/docs-config";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 
@@ -87,6 +87,17 @@ function appendNodeLines({
   }
 }
 
+function appendSearchApiLines(lines: string[]): void {
+  const exampleUrl = `${SITE_URL}${DOCS_SEARCH_API_PATH}?q=authentication&limit=8`;
+
+  lines.push(
+    "## Search API",
+    "",
+    `AI agents can find relevant docs with \`GET ${exampleUrl}\`. The \`q\` parameter is required, \`limit\` defaults to 8 and accepts 1-20, and the JSON response returns a \`results\` array with \`title\`, \`resolvedPath\`, \`snippet\`, \`slug\`, \`seoDescription\`, and \`entryId\`.`,
+    ""
+  );
+}
+
 export function buildDocsLlmsTxtContent(nodes: CmsNavigationTreeNode[]): string {
   const docsIntro = cmsConfig.collections[DOCS_SLUG].description?.trim();
 
@@ -101,6 +112,7 @@ export function buildDocsLlmsTxtContent(nodes: CmsNavigationTreeNode[]): string 
     lines.splice(2, 0, singleLineDescription(docsIntro), "");
   }
 
+  appendSearchApiLines(lines);
   appendNodeLines({
     lines,
     nodes,

@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'jsonc-parser';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Parses the wrangler.jsonc file and returns the configuration object
@@ -10,18 +11,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @throws {Error} If the file cannot be read or parsed
  */
 export function parseWranglerConfig() {
-  const wranglerPath = path.join(__dirname, '..', '..', 'wrangler.jsonc');
+  const wranglerPath = path.join(scriptDir, '..', '..', 'wrangler.jsonc');
   const wranglerContent = fs.readFileSync(wranglerPath, 'utf8');
 
-  // Remove comments from the JSONC content
-  const jsonContent = wranglerContent.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
-
-  // Fix trailing commas in objects and arrays (which are valid in JSONC but not in JSON)
-  const fixedJsonContent = jsonContent
-    .replace(/,\s*([}\]])/g, '$1'); // Replace trailing commas before closing brackets
-
   try {
-    return JSON.parse(fixedJsonContent);
+    return parse(wranglerContent);
   } catch (error) {
     throw new Error(`Failed to parse wrangler.jsonc: ${error.message}`);
   }

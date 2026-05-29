@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { SessionHydrator } from "@/components/session-hydrator"
 import { getSessionFromCookie } from "@/utils/auth"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -16,16 +17,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="w-full flex flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 px-4 md:hidden">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="h-4" />
-          <span className="text-sm font-medium">Dashboard</span>
-        </header>
-        {children}
-      </SidebarInset>
-    </SidebarProvider>
+    <SessionHydrator session={session}>
+      <SidebarProvider>
+        <AppSidebar serverSession={session} />
+        <SidebarInset className="w-full flex flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-2 px-4 md:hidden">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-sm font-medium">Dashboard</span>
+          </header>
+          {children}
+        </SidebarInset>
+      </SidebarProvider>
+    </SessionHydrator>
   )
 }

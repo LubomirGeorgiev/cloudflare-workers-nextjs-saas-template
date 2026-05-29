@@ -1,7 +1,7 @@
-import { SessionValidationResult } from '@/types';
+import type { SessionValidationResult } from '@/types';
 import { create } from 'zustand'
 import { combine } from 'zustand/middleware'
-import { KVSession } from '@/utils/kv-session';
+import type { KVSession } from '@/utils/kv-session';
 
 // Team member type extracted from KVSession for type safety
 type TeamMember = NonNullable<KVSession['teams']>[number];
@@ -10,11 +10,13 @@ interface SessionState {
   session: SessionValidationResult | null;
   isLoading: boolean;
   lastFetched: Date | null;
+  hasHydratedSessionFromServer: boolean;
   fetchSession?: () => Promise<void>;
 }
 
 interface SessionActions {
   setSession: (session: SessionValidationResult) => void;
+  hydrateSessionFromServer: (session: SessionValidationResult) => void;
   clearSession: () => void;
   refetchSession: () => void;
   setSelectedTeam: (teamId: string | undefined) => void;
@@ -28,17 +30,35 @@ interface SessionActions {
   getTeam: (teamId: string) => TeamMember | undefined;
 }
 
+function getLoadedSessionState(session: SessionValidationResult) {
+  return {
+    session,
+    isLoading: false,
+    lastFetched: new Date(),
+  };
+}
+
 export const useSessionStore = create(
   combine(
     {
       session: null as SessionValidationResult | null,
       isLoading: true,
       lastFetched: null as Date | null,
+      hasHydratedSessionFromServer: false,
       fetchSession: undefined,
     } as SessionState,
     (set, get) => ({
-      setSession: (session: SessionValidationResult) => set({ session, isLoading: false, lastFetched: new Date() }),
-      clearSession: () => set({ session: null, isLoading: false, lastFetched: null }),
+      setSession: (session: SessionValidationResult) => set(getLoadedSessionState(session)),
+      hydrateSessionFromServer: (session: SessionValidationResult) => set({
+        ...getLoadedSessionState(session),
+        hasHydratedSessionFromServer: true,
+      }),
+      clearSession: () => set({
+        session: null,
+        isLoading: false,
+        lastFetched: null,
+        hasHydratedSessionFromServer: false,
+      }),
       refetchSession: () => set({ isLoading: true }),
 
       setSelectedTeam: (teamId: string | undefined) => {

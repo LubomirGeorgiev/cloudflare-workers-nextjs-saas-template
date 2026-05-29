@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import type { NavItem } from "./app-sidebar"
+import type { NavItem } from "./app-sidebar-data"
 
 type Props = {
   projects: NavItem[]

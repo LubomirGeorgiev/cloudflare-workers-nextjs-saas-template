@@ -42,15 +42,21 @@ import { useRouter } from "next/navigation"
 import { useSessionStore } from "@/state/session"
 import { useTheme } from "next-themes"
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
+import type { SessionValidationResult } from "@/types"
 
-export function NavUser() {
-  const { session, isLoading } = useSessionStore();
+interface NavUserProps {
+  session?: SessionValidationResult | null;
+}
+
+export function NavUser({ session: sessionProp }: NavUserProps) {
+  const { session: storeSession, isLoading } = useSessionStore();
+  const session = storeSession ?? sessionProp ?? null;
   const { signOut } = useSignOut();
   const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
   const { setTheme } = useTheme()
 
-  if (isLoading) {
+  if (isLoading && !session) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
