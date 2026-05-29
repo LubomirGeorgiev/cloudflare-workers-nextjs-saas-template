@@ -6,6 +6,8 @@ import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
 
 const execFileAsync = promisify(execFile);
 const wranglerStateDir = getE2ERuntimeEnv().E2E_WRANGLER_STATE_DIR;
+const sqliteRetryDelayMs = 100;
+const sqliteRetryLimit = 8;
 
 let d1SqlitePath: string | undefined;
 let kvSqlitePath: string | undefined;
@@ -91,9 +93,29 @@ async function querySqlite({
   databasePath: string;
   sql: string;
 }): Promise<string> {
-  const { stdout } = await execFileAsync("sqlite3", [databasePath, sql]);
+  for (let attempt = 0; attempt <= sqliteRetryLimit; attempt++) {
+    try {
+      const { stdout } = await execFileAsync("sqlite3", [databasePath, sql]);
 
-  return stdout.trim();
+      return stdout.trim();
+    } catch (error) {
+      if (!isSqliteLockedError(error) || attempt === sqliteRetryLimit) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, sqliteRetryDelayMs));
+    }
+  }
+
+  throw new Error("Unreachable SQLite retry state.");
+}
+
+function isSqliteLockedError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.includes("database is locked");
 }
 
 export async function queryLocalD1({ sql }: { sql: string }): Promise<string> {

@@ -5,65 +5,27 @@ import {
   expectAppText,
   navigateAppFrame,
 } from "./app-frame";
-import { signInWithPassword } from "./auth-helpers";
-import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
+import { createVerifiedUserInLocalD1, signInWithPassword } from "./auth-helpers";
 
 const password = "password";
 
 let adminEmail: string;
 
-async function createAdminUser(): Promise<string> {
+async function createAdminUser(): Promise<void> {
   const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const email = `cms-admin-${uniqueId}@example.com`;
-  const passwordHash = await queryLocalD1({
-    sql: `select passwordHash from user where email = 'test@test.com' limit 1;`,
-  });
-  const now = Math.floor(Date.now() / 1_000);
+  adminEmail = `cms-admin-${uniqueId}@example.com`;
 
-  await queryLocalD1({
-    sql: `
-      insert into user (
-        id,
-        createdAt,
-        updatedAt,
-        updateCounter,
-        firstName,
-        lastName,
-        email,
-        passwordHash,
-        role,
-        emailVerified,
-        signUpIpAddress,
-        googleAccountId,
-        avatar,
-        currentCredits,
-        lastCreditRefreshAt
-      )
-      values (
-        ${sqlStringLiteral(`usr_cms_admin_${uniqueId}`)},
-        ${now},
-        ${now},
-        0,
-        'CMS',
-        'Admin',
-        ${sqlStringLiteral(email)},
-        ${sqlStringLiteral(passwordHash)},
-        'admin',
-        ${now},
-        '127.0.0.1',
-        null,
-        null,
-        0,
-        ${now}
-      );
-    `,
+  await createVerifiedUserInLocalD1({
+    email: adminEmail,
+    firstName: "CMS",
+    idPrefix: "usr_cms_admin",
+    lastName: "Admin",
+    role: "admin",
   });
-
-  return email;
 }
 
 beforeAll(async () => {
-  adminEmail = await createAdminUser();
+  await createAdminUser();
 });
 
 test("lets admins browse the CMS dashboard and seeded collection lists", async () => {
@@ -81,7 +43,7 @@ test("lets admins browse the CMS dashboard and seeded collection lists", async (
   await expectAppText("Media Library", { exact: true });
   await expectAppText("Tags", { exact: true });
 
-  await navigateAppFrame("/admin/cms/blog", { waitForHydration: true });
+  await navigateAppFrame("/admin/cms/blog");
 
   await expectAppPathname("/admin/cms/blog");
   await expectAppText("Blogs", { exact: true });
@@ -91,7 +53,7 @@ test("lets admins browse the CMS dashboard and seeded collection lists", async (
   await expectAppText("getting-started-with-nextjs-15", { exact: true });
   await expectAppText("Test Testov", { exact: true });
 
-  await navigateAppFrame("/admin/cms/docs", { waitForHydration: true });
+  await navigateAppFrame("/admin/cms/docs");
 
   await expectAppPathname("/admin/cms/docs");
   await expectAppText("Docs", { exact: true });
@@ -127,9 +89,7 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
     value: "getting-started-with-nextjs-15",
   });
 
-  await navigateAppFrame("/admin/cms/docs/cms_ent_docs001", {
-    waitForHydration: true,
-  });
+  await navigateAppFrame("/admin/cms/docs/cms_ent_docs001");
 
   await expectAppPathname("/admin/cms/docs/cms_ent_docs001");
   await expectAppText("Edit Doc", { exact: true });
@@ -158,16 +118,14 @@ test("loads CMS tags, media, and docs navigation admin screens", async () => {
   await expectAppText("Next.js", { exact: true });
   await expectAppText("Cloudflare", { exact: true });
 
-  await navigateAppFrame("/admin/cms/media", { waitForHydration: true });
+  await navigateAppFrame("/admin/cms/media");
 
   await expectAppPathname("/admin/cms/media");
   await expectAppText("Media Library", { exact: true });
   await expectAppText("Uploaded Media", { exact: true });
   await expectAppText("No media files", { exact: true });
 
-  await navigateAppFrame("/admin/cms/navigation/docs", {
-    waitForHydration: true,
-  });
+  await navigateAppFrame("/admin/cms/navigation/docs");
 
   await expectAppPathname("/admin/cms/navigation/docs");
   await expectAppText("Docs Navigation", { exact: true });

@@ -4,6 +4,8 @@ import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
 const navigationTimeoutMs = 8_000;
+const navigationRetryDelayMs = 200;
+const navigationRetryLimit = 5;
 const expectationTimeoutMs = 5_000;
 const absentExpectationTimeoutMs = 1_500;
 const pollIntervalMs = 50;
@@ -49,6 +51,39 @@ function trackAppPageErrors(page: Page): void {
   });
 }
 
+async function gotoAppPath({
+  page,
+  path,
+}: {
+  page: Page;
+  path: string;
+}): Promise<void> {
+  const url = new URL(path, e2eBaseUrl).toString();
+
+  for (let attempt = 0; attempt <= navigationRetryLimit; attempt++) {
+    try {
+      await page.goto(url, {
+        waitUntil: "domcontentloaded",
+        timeout: navigationTimeoutMs,
+      });
+
+      return;
+    } catch (error) {
+      if (!isConnectionRefusedError(error) || attempt === navigationRetryLimit) {
+        throw error;
+      }
+
+      await page.waitForTimeout(navigationRetryDelayMs);
+    }
+  }
+
+  throw new Error("Unreachable navigation retry state.");
+}
+
+function isConnectionRefusedError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("ERR_CONNECTION_REFUSED");
+}
+
 interface LoadAppFrameOptions {
   waitForHydration?: boolean;
 }
@@ -66,10 +101,7 @@ export async function loadAppFrame(
   appPage.setDefaultTimeout(expectationTimeoutMs);
   appPage.setDefaultNavigationTimeout(navigationTimeoutMs);
 
-  await appPage.goto(new URL(path, e2eBaseUrl).toString(), {
-    waitUntil: "domcontentloaded",
-    timeout: navigationTimeoutMs,
-  });
+  await gotoAppPath({ page: appPage, path });
 
   if (options.waitForHydration) {
     await appPage.waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
@@ -80,10 +112,7 @@ export async function navigateAppFrame(
   path: string,
   options: LoadAppFrameOptions = {}
 ): Promise<void> {
-  await getAppPage().goto(new URL(path, e2eBaseUrl).toString(), {
-    waitUntil: "domcontentloaded",
-    timeout: navigationTimeoutMs,
-  });
+  await gotoAppPath({ page: getAppPage(), path });
 
   if (options.waitForHydration) {
     await getAppPage().waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
