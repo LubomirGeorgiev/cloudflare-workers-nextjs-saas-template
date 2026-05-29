@@ -72,6 +72,13 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Use `pnpm run test:e2e` to verify end-to-end flows when changes could affect user journeys, routing, auth, or other integrated behavior.
 - Run these commands after code changes when feasible, especially before handing work back.
 
+### Template-Safe Tests
+
+- This repository is a template. Write tests so they continue to pass in downstream projects that customize names, domains, branding, Cloudflare resource names, feature flags, and environment constants.
+- Avoid hard-coded template-specific URLs, project names, resource names, and branded copy in assertions unless the value under test is intentionally fixed by the template contract.
+- Prefer deriving expected values from shared constants, configuration, generated fixtures, response payload structure, or invariant pathnames and behavior.
+- When a feature can be disabled by a template flag, make tests flag-aware: skip enabled-feature behavior when disabled and include focused no-op or fallback coverage for the disabled mode.
+
 ## DRY Rules
 
 - Extract repeated values into constants, especially validation limits.
