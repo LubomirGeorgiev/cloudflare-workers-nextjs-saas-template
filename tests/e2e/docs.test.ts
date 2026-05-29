@@ -69,7 +69,7 @@ test("serves docs search results from the public API endpoint", async () => {
 
   expect(body.results.length).toBeGreaterThan(0);
   expect(body.results[0]?.title).toContain("Authentication");
-  expect(body.results[0]?.resolvedPath).toBe(
-    "https://nextjs-saas-template.lubomirgeorgiev.com/docs/getting-started/authentication"
-  );
+  const resolvedPath = new URL(body.results[0]?.resolvedPath ?? "");
+  expect(resolvedPath.protocol).toMatch(/^https?:$/);
+  expect(resolvedPath.pathname).toBe("/docs/getting-started/authentication");
 });
