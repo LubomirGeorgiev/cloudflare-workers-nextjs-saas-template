@@ -21,6 +21,30 @@ import {
 
 type CreditPackage = typeof CREDIT_PACKAGES[number];
 
+const MONTHLY_REFRESH_DEDUPE_PREFIX = "monthly-refresh";
+const RECENT_REFRESH_CLAIM_REPAIR_WINDOW_MS = 15 * 60 * 1000;
+
+function getMonthlyRefreshDedupeKey({
+  refreshAt,
+  userId,
+}: {
+  refreshAt: Date;
+  userId: string;
+}): string {
+  return `${MONTHLY_REFRESH_DEDUPE_PREFIX}:${userId}:${refreshAt.toISOString()}`;
+}
+
+function shouldRepairRecentRefreshClaim({
+  now,
+  refreshAt,
+}: {
+  now: Date;
+  refreshAt: Date;
+}): boolean {
+  const claimAgeMs = now.getTime() - refreshAt.getTime();
+  return claimAgeMs >= 0 && claimAgeMs <= RECENT_REFRESH_CLAIM_REPAIR_WINDOW_MS;
+}
+
 export function getCreditPackage(packageId: string): CreditPackage | undefined {
   return CREDIT_PACKAGES.find((pkg) => pkg.id === packageId);
 }
@@ -45,6 +69,7 @@ export async function logTransaction({
   description,
   type,
   expirationDate,
+  dedupeKey,
   paymentIntentId
 }: {
   userId: string;
@@ -52,6 +77,7 @@ export async function logTransaction({
   description: string;
   type: keyof typeof CREDIT_TRANSACTION_TYPE;
   expirationDate?: Date;
+  dedupeKey?: string;
   paymentIntentId?: string;
 }) {
   if (DISABLE_CREDIT_BILLING_SYSTEM) {
@@ -66,6 +92,7 @@ export async function logTransaction({
     type,
     description,
     expirationDate,
+    dedupeKey,
     paymentIntentId
   }).returning();
 
@@ -77,6 +104,116 @@ export async function logTransaction({
   }
 
   return transaction;
+}
+
+async function reconcileUserCreditBalance({
+  now,
+  userId,
+}: {
+  now: Date;
+  userId: string;
+}) {
+  const db = getDB();
+  const [user] = await db
+    .update(userTable)
+    .set({
+      currentCredits: sql<number>`coalesce((
+        select sum(${creditTransactionTable.remainingAmount})
+        from ${creditTransactionTable}
+        where ${creditTransactionTable.userId} = ${userId}
+          and ${creditTransactionTable.remainingAmount} > 0
+          and ${creditTransactionTable.expirationDateProcessedAt} is null
+          and (
+            ${creditTransactionTable.expirationDate} is null
+            or ${creditTransactionTable.expirationDate} > ${now}
+          )
+      ), 0)`,
+    })
+    .where(eq(userTable.id, userId))
+    .returning({ currentCredits: userTable.currentCredits });
+
+  return user;
+}
+
+async function ensureMonthlyRefreshTransaction({
+  refreshAt,
+  userId,
+}: {
+  refreshAt: Date;
+  userId: string;
+}) {
+  const db = getDB();
+  const expirationDate = getOneCalendarMonthAfter(refreshAt);
+  const dedupeKey = getMonthlyRefreshDedupeKey({ refreshAt, userId });
+  const existingTransaction = await db.query.creditTransactionTable.findFirst({
+    where: or(
+      eq(creditTransactionTable.dedupeKey, dedupeKey),
+      and(
+        eq(creditTransactionTable.userId, userId),
+        eq(creditTransactionTable.type, CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH),
+        eq(creditTransactionTable.expirationDate, expirationDate),
+      ),
+    ),
+  });
+
+  if (existingTransaction) {
+    if (!existingTransaction.dedupeKey) {
+      await db
+        .update(creditTransactionTable)
+        .set({ dedupeKey })
+        .where(eq(creditTransactionTable.id, existingTransaction.id));
+    }
+
+    if (existingTransaction.expirationDate && existingTransaction.remainingAmount > 0) {
+      await scheduleCreditExpiration({
+        transactionId: existingTransaction.id,
+        expirationDate: existingTransaction.expirationDate,
+      });
+    }
+
+    return existingTransaction;
+  }
+
+  const [transaction] = await db
+    .insert(creditTransactionTable)
+    .values({
+      userId,
+      amount: FREE_MONTHLY_CREDITS,
+      remainingAmount: FREE_MONTHLY_CREDITS,
+      type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
+      description: "Free monthly credits",
+      expirationDate,
+      dedupeKey,
+      createdAt: refreshAt,
+      updatedAt: refreshAt,
+    })
+    .onConflictDoNothing({ target: creditTransactionTable.dedupeKey })
+    .returning();
+
+  const monthlyRefreshTransaction = transaction ?? await db.query.creditTransactionTable.findFirst({
+    where: eq(creditTransactionTable.dedupeKey, dedupeKey),
+  });
+
+  if (monthlyRefreshTransaction?.expirationDate && monthlyRefreshTransaction.remainingAmount > 0) {
+    await scheduleCreditExpiration({
+      transactionId: monthlyRefreshTransaction.id,
+      expirationDate: monthlyRefreshTransaction.expirationDate,
+    });
+  }
+
+  return monthlyRefreshTransaction;
+}
+
+async function finishMonthlyRefresh({
+  refreshAt,
+  userId,
+}: {
+  refreshAt: Date;
+  userId: string;
+}) {
+  await ensureMonthlyRefreshTransaction({ refreshAt, userId });
+  await reconcileUserCreditBalance({ userId, now: refreshAt });
+  await updateAllSessionsOfUser(userId);
 }
 
 export async function refreshUserMonthlyCreditsIfDue({
@@ -104,6 +241,16 @@ export async function refreshUserMonthlyCreditsIfDue({
   }
 
   if (!shouldRefreshCreditsFromDate(user.lastCreditRefreshAt, now)) {
+    if (user.lastCreditRefreshAt && shouldRepairRecentRefreshClaim({
+      now,
+      refreshAt: user.lastCreditRefreshAt,
+    })) {
+      await finishMonthlyRefresh({
+        userId,
+        refreshAt: user.lastCreditRefreshAt,
+      });
+    }
+
     await scheduleUserCreditRefresh({
       userId,
       lastCreditRefreshAt: user.lastCreditRefreshAt,
@@ -128,20 +275,17 @@ export async function refreshUserMonthlyCreditsIfDue({
     ))
     .returning({ lastCreditRefreshAt: userTable.lastCreditRefreshAt });
 
-  if (!updateResult[0]) {
+  const claimedRefresh = updateResult[0];
+
+  if (!claimedRefresh?.lastCreditRefreshAt) {
     return;
   }
 
-  const expirationDate = getOneCalendarMonthAfter(now);
-
-  await addUserCredits(userId, FREE_MONTHLY_CREDITS);
-  await logTransaction({
+  await ensureMonthlyRefreshTransaction({
     userId,
-    amount: FREE_MONTHLY_CREDITS,
-    description: "Free monthly credits",
-    type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
-    expirationDate,
+    refreshAt: claimedRefresh.lastCreditRefreshAt,
   });
+  await reconcileUserCreditBalance({ userId, now });
 
   await updateAllSessionsOfUser(userId);
   await scheduleUserCreditRefresh({

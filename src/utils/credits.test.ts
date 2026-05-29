@@ -138,7 +138,9 @@ describeCreditBilling("monthly credit refresh", () => {
     const refreshClaimWhere = vi.fn((__condition: unknown) => ({
       returning: userUpdateReturning,
     }));
-    const addCreditsWhere = vi.fn(async (__condition: unknown) => undefined);
+    const addCreditsWhere = vi.fn((__condition: unknown) => ({
+      returning: vi.fn(async () => [{ currentCredits: 75 }]),
+    }));
     const updateMock = vi.fn()
       .mockReturnValueOnce({
         set: vi.fn(() => ({
@@ -151,12 +153,14 @@ describeCreditBilling("monthly credit refresh", () => {
         })),
       });
     const valuesMock = vi.fn((transaction: { expirationDate?: Date; remainingAmount?: number }) => ({
-      returning: vi.fn(async () => [{
-        ...transaction,
-        id: "monthly-transaction-1",
-        expirationDate: transaction.expirationDate,
-        remainingAmount: transaction.remainingAmount ?? 50,
-      }]),
+      onConflictDoNothing: vi.fn(() => ({
+        returning: vi.fn(async () => [{
+          ...transaction,
+          id: "monthly-transaction-1",
+          expirationDate: transaction.expirationDate,
+          remainingAmount: transaction.remainingAmount ?? 50,
+        }]),
+      })),
     }));
     const insertMock = vi.fn(() => ({
       values: valuesMock,
@@ -168,6 +172,9 @@ describeCreditBilling("monthly credit refresh", () => {
             currentCredits: 25,
             lastCreditRefreshAt: null,
           })),
+        },
+        creditTransactionTable: {
+          findFirst: vi.fn(async () => null),
         },
       },
       update: updateMock,
@@ -196,6 +203,71 @@ describeCreditBilling("monthly credit refresh", () => {
       userId: "user-1",
       lastCreditRefreshAt: now,
       now,
+    });
+  });
+
+  test("repairs a claimed monthly refresh that is missing its ledger transaction", async () => {
+    const refreshAt = new Date(2026, 4, 29, 10, 0, 0, 0);
+    const expirationDate = new Date(2026, 5, 29, 10, 0, 0, 0);
+    const transactionReturning = vi.fn(async () => [{
+      id: "monthly-transaction-1",
+      expirationDate,
+      remainingAmount: 50,
+    }]);
+    const onConflictDoNothingMock = vi.fn(() => ({
+      returning: transactionReturning,
+    }));
+    const transactionValuesMock = vi.fn(() => ({
+      onConflictDoNothing: onConflictDoNothingMock,
+    }));
+    const userBalanceReturning = vi.fn(async () => [{ currentCredits: 50 }]);
+    const updateMock = vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => ({
+          returning: userBalanceReturning,
+        })),
+      })),
+    }));
+    const db = {
+      query: {
+        userTable: {
+          findFirst: vi.fn(async () => ({
+            currentCredits: 0,
+            lastCreditRefreshAt: refreshAt,
+          })),
+        },
+        creditTransactionTable: {
+          findFirst: vi.fn(async () => null),
+        },
+      },
+      insert: vi.fn(() => ({
+        values: transactionValuesMock,
+      })),
+      update: updateMock,
+    };
+    getDBMock.mockReturnValue(db);
+
+    await refreshUserMonthlyCreditsIfDue({ userId: "user-1", now: refreshAt });
+
+    expect(transactionValuesMock).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "user-1",
+      amount: 50,
+      remainingAmount: 50,
+      type: "MONTHLY_REFRESH",
+      description: "Free monthly credits",
+      expirationDate,
+    }));
+    expect(onConflictDoNothingMock).toHaveBeenCalled();
+    expect(updateMock).toHaveBeenCalledOnce();
+    expect(scheduleCreditExpirationMock).toHaveBeenCalledWith({
+      transactionId: "monthly-transaction-1",
+      expirationDate,
+    });
+    expect(updateAllSessionsOfUserMock).toHaveBeenCalledWith("user-1");
+    expect(scheduleUserCreditRefreshMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      lastCreditRefreshAt: refreshAt,
+      now: refreshAt,
     });
   });
 });

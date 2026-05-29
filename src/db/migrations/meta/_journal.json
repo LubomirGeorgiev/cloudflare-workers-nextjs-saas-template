@@ -78,6 +78,13 @@
       "when": 1779873258121,
       "tag": "0010_scheduled_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1780080570381,
+      "tag": "0011_harden_monthly_credit_refresh",
+      "breakpoints": true
     }
   ]
 }

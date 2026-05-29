@@ -128,6 +128,9 @@ export const creditTransactionTable = sqliteTable("credit_transaction", {
   expirationDateProcessedAt: integer({
     mode: "timestamp",
   }),
+  dedupeKey: text({
+    length: 255,
+  }),
   paymentIntentId: text({
     length: 255,
   }),
@@ -136,6 +139,7 @@ export const creditTransactionTable = sqliteTable("credit_transaction", {
   index('credit_transaction_type_idx').on(table.type),
   index('credit_transaction_created_at_idx').on(table.createdAt),
   index('credit_transaction_expiration_date_idx').on(table.expirationDate),
+  unique('credit_transaction_dedupe_key_unique').on(table.dedupeKey),
   index('credit_transaction_payment_intent_id_idx').on(table.paymentIntentId),
 ]));
 
