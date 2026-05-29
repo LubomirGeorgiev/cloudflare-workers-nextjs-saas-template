@@ -18,7 +18,7 @@ import {
 import {
   getCmsCollection,
   type GetCmsCollectionResult,
-} from "@/lib/cms/cms-repository";
+} from "@/lib/cms/entry";
 import {
   buildCmsResolvedPath,
   normalizeCmsResolvedPath,

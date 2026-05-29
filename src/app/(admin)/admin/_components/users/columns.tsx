@@ -2,7 +2,8 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
-import { formatDistanceToNow, format } from "date-fns"
+import { format } from "date-fns"
+import { formatRelativeDateTime } from "@/utils/format-date"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -70,7 +71,7 @@ export const columns: ColumnDef<User>[] = [
       return (
         <Tooltip>
           <TooltipTrigger>
-            {formatDistanceToNow(new Date(date), { addSuffix: true })}
+            {formatRelativeDateTime(date)}
           </TooltipTrigger>
           <TooltipContent>
             <p>{formattedDate}</p>

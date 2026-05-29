@@ -1,7 +1,7 @@
 "use server";
 
 import { actionClient } from "@/lib/safe-action";
-import { getCmsEntryVersions, getCmsEntryVersionCount, revertCmsEntryToVersion, deleteCmsEntryVersion } from "@/lib/cms/cms-repository";
+import { getCmsEntryVersions, getCmsEntryVersionCount, revertCmsEntryToVersion, deleteCmsEntryVersion } from "@/lib/cms/entry";
 import { requireAdmin } from "@/utils/auth";
 import { v } from "@/lib/validation";
 

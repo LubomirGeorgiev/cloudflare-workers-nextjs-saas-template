@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { SITE_NAME } from "@/constants";
-import { getCmsEntryBySlug } from "@/lib/cms/cms-repository";
+import { getCmsEntryBySlug } from "@/lib/cms/entry";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
 import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";

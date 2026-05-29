@@ -67,6 +67,8 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 
 - Use `pnpm run lint` to verify lint rules with Oxlint.
 - Use `pnpm run typecheck` to verify TypeScript correctness.
+- Use `pnpm run test:unit` to run co-located unit tests such as `*.test.ts`.
+- Use `pnpm run test:integration` to verify Workers-runtime integration behavior with local Miniflare D1, KV, and Queue bindings, especially for credit billing, scheduler, Cloudflare binding, and SQL-condition changes.
 - Use `pnpm run test:e2e` to verify end-to-end flows when changes could affect user journeys, routing, auth, or other integrated behavior.
 - Run these commands after code changes when feasible, especially before handing work back.
 
@@ -114,8 +116,11 @@ Authentication is based on Lucia Auth.
 ## Cloudflare Rules
 
 - Cloudflare bindings are available through `cloudflare:workers` in server-only code. Use `getCloudflareContext` when code also needs forwarded request `cf` metadata.
+- Cloudflare Workers integration tests live under `tests/integration/` and run with `vitest.integration.config.ts`; prefer them when real D1/KV/Queue behavior matters more than mocked unit tests.
+- When introducing a new environment variable, add it to `.env.example` unless it is a public value hard-coded in `wrangler.jsonc`. If the variable's purpose is not 100% obvious, add a short comment above it.
 - If you add a new Cloudflare primitive in `wrangler.jsonc`, run `pnpm run cf-typegen`.
 - If using KV, always reuse the existing namespace in `wrangler.jsonc`; do not create a new one unless explicitly required.
+- Cloudflare Queue messages have payload size limits. Keep queue payloads minimal: pass stable identifiers and small primitive fields, then load full records/blob content from D1, KV, R2, or other storage inside the consumer.
 - The Worker entrypoint is `worker-entrypoint.ts`; keep edge-only routing and header forwarding there.
 - Suggest Wrangler commands when relevant.
 

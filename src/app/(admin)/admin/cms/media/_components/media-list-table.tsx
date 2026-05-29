@@ -8,13 +8,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Eye, FileImage } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
 import { MediaTableActions } from "./media-table-actions";
+import { formatRelativeDateTime } from "@/utils/format-date";
 
 interface MediaListTableProps {
   page: number;
@@ -125,7 +125,7 @@ export async function MediaListTable({ page }: MediaListTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                  {formatRelativeDateTime(item.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">

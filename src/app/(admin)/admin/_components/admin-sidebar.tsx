@@ -10,6 +10,7 @@ import {
   Tags,
   PanelLeft,
   Bug,
+  CalendarClock,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -64,6 +65,11 @@ const adminNavItems: NavMainItem[] = [
     title: "Debug",
     url: "/admin/debug",
     icon: Bug,
+  },
+  {
+    title: "Scheduled Jobs",
+    url: "/admin/jobs",
+    icon: CalendarClock,
   },
   {
     title: "CMS",

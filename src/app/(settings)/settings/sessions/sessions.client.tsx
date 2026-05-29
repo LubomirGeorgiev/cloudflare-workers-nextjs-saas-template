@@ -10,7 +10,7 @@ import {
 import { useAction } from "next-safe-action/hooks";
 import { deleteSessionAction } from "./sessions.actions";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeDateTime } from "@/utils/format-date";
 import {
   Dialog,
   DialogContent,
@@ -65,7 +65,7 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                     </Badge>
                   )}
                   <div className="text-sm text-muted-foreground whitespace-nowrap">
-                    &nbsp;· &nbsp;{formatDistanceToNow(session.createdAt)} ago
+                    &nbsp;· &nbsp;{formatRelativeDateTime(session.createdAt)}
                   </div>
                 </div>
                 <CardDescription className="text-sm">

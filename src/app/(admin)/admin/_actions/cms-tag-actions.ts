@@ -8,7 +8,7 @@ import {
   createCmsTag,
   updateCmsTag,
   deleteCmsTag,
-} from "@/lib/cms/cms-repository";
+} from "@/lib/cms/tags";
 import { requiredString, v } from "@/lib/validation";
 
 export const listCmsTagsAction = actionClient

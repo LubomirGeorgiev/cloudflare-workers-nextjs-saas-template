@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
-import { getCmsTags } from "@/lib/cms/cms-repository";
+import { getCmsTags } from "@/lib/cms/tags";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Plus, Tag } from "lucide-react";

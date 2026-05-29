@@ -1,6 +1,6 @@
 import { Footer } from '@/components/footer';
 import { Navigation } from '@/components/navigation';
-import { getCmsCollectionCount } from '@/lib/cms/cms-repository';
+import { getCmsCollectionCount } from '@/lib/cms/entry';
 import { getCmsNavigationRootPath } from '@/lib/cms/cms-navigation-repository';
 import { DOCS_SLUG } from '@/lib/cms/docs-config';
 

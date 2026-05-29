@@ -60,6 +60,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🔄 Comprehensive CI/CD Pipeline
   - 🧹 Cache Purging
   - ✅ Type Checking
+  - 🧪 Integration Tests
   - 🧪 End-to-end Tests
   - 📏 Deploy Size Tracking
 - 🎨 Modern UI
@@ -108,6 +109,8 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🧪 Local Development Setup
   - 📘 TypeScript Support
   - 🔍 Oxlint Configuration
+  - 🧪 Co-located Vitest Unit Tests
+  - 🧪 Cloudflare Workers Vitest Integration Tests
   - 🧪 Vitest and Playwright E2E Tests
   - ⚡ Vinext and Vite Build Pipeline
   - 🔐 Type-safe Environment Variables
@@ -195,6 +198,8 @@ pnpm run test:e2e
 | `pnpm build` | Build the app with Vinext and Vite |
 | `pnpm start` | Start the local Vinext production server |
 | `pnpm preview` | Build, then preview the Worker locally with Wrangler |
+| `pnpm run test:unit` | Run co-located Vitest unit tests |
+| `pnpm run test:integration` | Run Cloudflare Workers Vitest integration tests with local D1/KV/Queue bindings |
 | `pnpm run test:e2e` | Run Playwright-driven E2E tests against a clean local Wrangler/D1 preview |
 | `pnpm deploy` | Build and deploy with `vinext deploy` |
 | `pnpm deploy:dryrun` | Build and run a Wrangler deploy dry run into `worker-dist` |

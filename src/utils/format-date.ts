@@ -1,3 +1,5 @@
+import { formatDistanceToNow } from "date-fns";
+
 /**
  * Format a date into a human-readable string (date only)
  * @param date Date to format
@@ -28,4 +30,8 @@ export function formatDateTime(date: string | Date | number): string {
     minute: '2-digit',
     timeZone: 'UTC',
   });
+}
+
+export function formatRelativeDateTime(date: string | Date | number): string {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
 }

@@ -13,7 +13,7 @@ import {
   updateCmsEntry,
   deleteCmsEntry,
   getCmsEntryById,
-} from "@/lib/cms/cms-repository";
+} from "@/lib/cms/entry";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { cmsStatusFilterTuple } from "@/types/cms";
 import { requiredString, v } from "@/lib/validation";

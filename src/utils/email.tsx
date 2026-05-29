@@ -6,15 +6,18 @@ import {
   SITE_URL,
 } from "@/constants";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
+import {
+  createScheduledQueueMessage,
+  EMAIL_TEMPLATE_TYPES,
+  SCHEDULED_JOB_TYPES,
+  type EmailSendJobPayload,
+} from "@/lib/scheduler/jobs";
 import isProd from "./is-prod";
 
-interface TransactionalEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
-  text?: string;
-  type: string;
-}
+type EmailSendOptions = Parameters<Cloudflare.Env["EMAIL"]["send"]>[0];
+type TransactionalEmailOptions = Pick<EmailSendOptions, "html" | "subject" | "text" | "to"> & {
+  type: EmailSendJobPayload["template"];
+};
 
 interface EmailTemplate {
   html: string;
@@ -31,7 +34,7 @@ async function getEmailEnv() {
   };
 }
 
-async function sendTransactionalEmail({
+export async function sendTransactionalEmailNow({
   to,
   subject,
   html,
@@ -65,6 +68,16 @@ async function sendTransactionalEmail({
       "X-Transactional-Email-Type": type,
     },
   });
+}
+
+async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
+  const { env } = await getCloudflareContext();
+
+  await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
+    type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
+    payload,
+    runAt: new Date(),
+  }));
 }
 
 function escapeHtml(value: string): string {
@@ -145,6 +158,75 @@ function buildEmailTemplate({
   };
 }
 
+export function renderTransactionalEmail(payload: EmailSendJobPayload): TransactionalEmailOptions {
+  switch (payload.template) {
+    case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET: {
+      const resetUrl = `${SITE_URL}/reset-password?token=${payload.data.resetToken}`;
+      const emailTemplate = buildEmailTemplate({
+        title: `Reset your ${SITE_DOMAIN} password`,
+        greeting: `Hi ${payload.data.username},`,
+        intro: `We received a request to reset your password for your ${SITE_DOMAIN} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.`,
+        buttonLabel: "Reset Password",
+        buttonUrl: resetUrl,
+        secondaryText: `If you didn't request this password reset, you can safely ignore this email. Your ${SITE_DOMAIN} account password will remain unchanged.`,
+        fallbackText: "If you're having trouble with the button above, copy and paste this URL into your browser:",
+        footerText: `This is an automated message from ${SITE_DOMAIN}. If you did not request this email, please ignore it or contact support if you have concerns.`,
+      });
+
+      return {
+        to: payload.to,
+        subject: `Reset your password for ${SITE_DOMAIN}`,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        type: payload.template,
+      };
+    }
+    case EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION: {
+      const verificationUrl = `${SITE_URL}/verify-email?token=${payload.data.verificationToken}`;
+      const expirationHours = EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60 / 60;
+      const emailTemplate = buildEmailTemplate({
+        title: `Verify your ${SITE_DOMAIN} email`,
+        greeting: `Hi ${payload.data.username},`,
+        intro: `Thanks for signing up for ${SITE_DOMAIN}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.`,
+        buttonLabel: "Verify Email Address",
+        buttonUrl: verificationUrl,
+        secondaryText: `This verification link will expire in ${expirationHours} hour${expirationHours > 1 ? "s" : ""}. After that, you'll need to request a new verification email.`,
+        fallbackText: `If you didn't create an account on ${SITE_DOMAIN}, you can safely ignore this email.`,
+        footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
+      });
+
+      return {
+        to: payload.to,
+        subject: `Verify your email for ${SITE_DOMAIN}`,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        type: payload.template,
+      };
+    }
+    case EMAIL_TEMPLATE_TYPES.TEAM_INVITATION: {
+      const inviteUrl = `${SITE_URL}/team-invite?token=${payload.data.invitationToken}`;
+      const emailTemplate = buildEmailTemplate({
+        title: `You've been invited to join a team on ${SITE_DOMAIN}`,
+        greeting: "Hello,",
+        intro: `${payload.data.inviterName} has invited you to join the "${payload.data.teamName}" team on ${SITE_DOMAIN}.`,
+        buttonLabel: "Accept Invitation",
+        buttonUrl: inviteUrl,
+        secondaryText: `This invitation was sent to ${payload.to}. If you don't have an account yet, you'll be able to create one when you accept the invitation.`,
+        fallbackText: `If you didn't expect to receive an invitation to this team, you can safely ignore this email.`,
+        footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
+      });
+
+      return {
+        to: payload.to,
+        subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        type: payload.template,
+      };
+    }
+  }
+}
+
 export async function sendPasswordResetEmail({
   email,
   resetToken,
@@ -162,23 +244,13 @@ export async function sendPasswordResetEmail({
     return
   }
 
-  const emailTemplate = buildEmailTemplate({
-    title: `Reset your ${SITE_DOMAIN} password`,
-    greeting: `Hi ${username},`,
-    intro: `We received a request to reset your password for your ${SITE_DOMAIN} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.`,
-    buttonLabel: "Reset Password",
-    buttonUrl: resetUrl,
-    secondaryText: `If you didn't request this password reset, you can safely ignore this email. Your ${SITE_DOMAIN} account password will remain unchanged.`,
-    fallbackText: "If you're having trouble with the button above, copy and paste this URL into your browser:",
-    footerText: `This is an automated message from ${SITE_DOMAIN}. If you did not request this email, please ignore it or contact support if you have concerns.`,
-  });
-
-  await sendTransactionalEmail({
+  await queueTransactionalEmail({
     to: email,
-    subject: `Reset your password for ${SITE_DOMAIN}`,
-    html: emailTemplate.html,
-    text: emailTemplate.text,
-    type: "password-reset",
+    template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+    data: {
+      resetToken,
+      username,
+    },
   });
 }
 
@@ -199,24 +271,13 @@ export async function sendVerificationEmail({
     return
   }
 
-  const expirationHours = EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60 / 60;
-  const emailTemplate = buildEmailTemplate({
-    title: `Verify your ${SITE_DOMAIN} email`,
-    greeting: `Hi ${username},`,
-    intro: `Thanks for signing up for ${SITE_DOMAIN}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.`,
-    buttonLabel: "Verify Email Address",
-    buttonUrl: verificationUrl,
-    secondaryText: `This verification link will expire in ${expirationHours} hour${expirationHours > 1 ? "s" : ""}. After that, you'll need to request a new verification email.`,
-    fallbackText: `If you didn't create an account on ${SITE_DOMAIN}, you can safely ignore this email.`,
-    footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
-  });
-
-  await sendTransactionalEmail({
+  await queueTransactionalEmail({
     to: email,
-    subject: `Verify your email for ${SITE_DOMAIN}`,
-    html: emailTemplate.html,
-    text: emailTemplate.text,
-    type: "email-verification",
+    template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+    data: {
+      verificationToken,
+      username,
+    },
   });
 }
 
@@ -238,22 +299,13 @@ export async function sendTeamInvitationEmail({
     return
   }
 
-  const emailTemplate = buildEmailTemplate({
-    title: `You've been invited to join a team on ${SITE_DOMAIN}`,
-    greeting: "Hello,",
-    intro: `${inviterName} has invited you to join the "${teamName}" team on ${SITE_DOMAIN}.`,
-    buttonLabel: "Accept Invitation",
-    buttonUrl: inviteUrl,
-    secondaryText: `This invitation was sent to ${email}. If you don't have an account yet, you'll be able to create one when you accept the invitation.`,
-    fallbackText: `If you didn't expect to receive an invitation to this team, you can safely ignore this email.`,
-    footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
-  });
-
-  await sendTransactionalEmail({
+  await queueTransactionalEmail({
     to: email,
-    subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
-    html: emailTemplate.html,
-    text: emailTemplate.text,
-    type: "team-invitation",
+    template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+    data: {
+      invitationToken,
+      inviterName,
+      teamName,
+    },
   });
 }

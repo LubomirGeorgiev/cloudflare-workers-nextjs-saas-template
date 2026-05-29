@@ -11,7 +11,7 @@ import {
 } from "./passkey-settings.actions";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
+import { formatRelativeDateTime } from "@/utils/format-date";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -139,7 +139,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                       {isCurrentPasskey(passkey) && <Badge>Current Passkey</Badge>}
                     </CardTitle>
                     <div className="text-sm text-muted-foreground whitespace-nowrap">
-                      · {formatDistanceToNow(passkey.createdAt)} ago
+                      · {formatRelativeDateTime(passkey.createdAt)}
                     </div>
                   </div>
                   {passkey.parsedUserAgent && (

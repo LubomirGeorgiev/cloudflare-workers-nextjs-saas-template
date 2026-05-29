@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
-import { formatDistanceToNow } from "date-fns";
 import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionAction } from "../../../_actions/cms-entry-actions";
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
 import { getCmsEntryVersionCountAction } from "../../_actions/version-actions";
 import { cmsEntryFormSchema, type CmsEntryFormData, type CmsEntryFormInput } from "@/schemas/cms-entry.schema";
+import { formatRelativeDateTime } from "@/utils/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +43,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { generateSlug } from "@/utils/slugify";
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import useBeforeUnload from "@/hooks/use-before-unload";
 import { SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
@@ -875,7 +875,7 @@ export function CmsEntryForm({
                   <div>
                     <span className="text-muted-foreground">Created:</span>
                     <p className="font-medium">
-                      {formatDistanceToNow(new Date(entry.createdAt), { addSuffix: true })}
+                      {formatRelativeDateTime(entry.createdAt)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatDateTime(entry.createdAt)}
@@ -884,7 +884,7 @@ export function CmsEntryForm({
                   <div>
                     <span className="text-muted-foreground">Last Updated:</span>
                     <p className="font-medium">
-                      {formatDistanceToNow(new Date(entry.updatedAt), { addSuffix: true })}
+                      {formatRelativeDateTime(entry.updatedAt)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatDateTime(entry.updatedAt)}
@@ -896,7 +896,7 @@ export function CmsEntryForm({
                         {entry.status === CMS_ENTRY_STATUS.SCHEDULED ? "Scheduled for:" : "Published:"}
                       </span>
                       <p className="font-medium">
-                        {formatDistanceToNow(new Date(entry.publishedAt), { addSuffix: true })}
+                        {formatRelativeDateTime(entry.publishedAt)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatDateTime(entry.publishedAt)}

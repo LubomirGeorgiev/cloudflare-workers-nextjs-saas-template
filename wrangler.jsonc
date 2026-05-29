@@ -33,6 +33,26 @@
      * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
      */
     "placement": { "mode": "smart" },
+    "triggers": {
+      "crons": ["*/5 * * * *"]
+    },
+    "queues": {
+      "producers": [
+        {
+          "binding": "SCHEDULER_QUEUE",
+          "queue": "cloudflare-workers-nextjs-saas-template-scheduler"
+        }
+      ],
+      "consumers": [
+        {
+          "queue": "cloudflare-workers-nextjs-saas-template-scheduler",
+          "max_batch_size": 10,
+          "max_batch_timeout": 5,
+          "max_retries": 5,
+          "retry_delay": 60
+        }
+      ]
+    },
 
 
     "ai": {

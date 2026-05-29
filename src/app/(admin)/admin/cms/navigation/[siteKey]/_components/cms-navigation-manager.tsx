@@ -24,7 +24,7 @@ import {
   type CmsNavigationFlatNode,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

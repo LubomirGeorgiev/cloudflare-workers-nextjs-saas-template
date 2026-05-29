@@ -38,6 +38,12 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
+      - name: Unit tests
+        run: pnpm run test:unit
+
+      - name: Integration tests
+        run: pnpm run test:integration
+
       - name: Set D1 environment variables
         id: set-d1-vars
         run: |

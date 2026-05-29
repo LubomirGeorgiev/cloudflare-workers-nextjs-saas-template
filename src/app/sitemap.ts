@@ -1,5 +1,5 @@
 import "server-only"
-import { getCmsCollection } from "@/lib/cms/cms-repository"
+import { getCmsCollection } from "@/lib/cms/entry"
 import { SITE_URL } from "@/constants"
 import type { MetadataRoute } from "next"
 import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache"

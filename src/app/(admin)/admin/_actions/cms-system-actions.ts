@@ -9,7 +9,7 @@ import {
   isCollectionSearchEnabled,
   rebuildCmsSearchIndex,
 } from "@/lib/cms/cms-search";
-import { invalidateAllCmsCaches } from "@/lib/cms/cms-repository";
+import { invalidateAllCmsCaches } from "@/lib/cms/cms-cache-invalidation";
 import { cmsSystemActionSchema } from "@/schemas/cms-system.schema";
 import { requireAdmin } from "@/utils/auth";
 

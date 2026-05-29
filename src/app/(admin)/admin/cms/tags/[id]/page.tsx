@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
-import { getCmsTagById, getCmsEntriesByTagId } from "@/lib/cms/cms-repository";
+import { getCmsTagById, getCmsEntriesByTagId } from "@/lib/cms/tags";
 import { TagForm } from "../_components/tag-form";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

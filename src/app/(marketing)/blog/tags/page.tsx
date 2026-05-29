@@ -2,7 +2,7 @@ import "server-only"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import type { Metadata } from "next"
-import { getCmsTags } from "@/lib/cms/cms-repository"
+import { getCmsTags } from "@/lib/cms/tags"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
 import type { CollectionPage, WithContext } from "schema-dts"
 

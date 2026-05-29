@@ -15,6 +15,11 @@ import {
   IMAGE_OPTIMIZATION_PATH,
 } from "vinext/server/image-optimization";
 import { setCacheHandler } from "vinext/shims/cache";
+import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
+import {
+  handleSchedulerCron,
+  handleSchedulerQueue,
+} from "./src/lib/scheduler/worker";
 import { CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
 import {
   CLIENT_IP_HEADERS_TO_STRIP,
@@ -74,7 +79,18 @@ const worker = {
 
     return handler.fetch(withForwardedCfHeaders(request), env, ctx);
   },
-};
+
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(handleSchedulerCron({
+      env,
+      now: new Date(controller.scheduledTime),
+    }));
+  },
+
+  async queue(batch: MessageBatch<ScheduledQueueMessage>, __env: Env, __ctx: ExecutionContext): Promise<void> {
+    await handleSchedulerQueue(batch);
+  },
+} satisfies ExportedHandler<Env, ScheduledQueueMessage>;
 
 // Only set here (never trusted from the inbound request) to prevent client spoofing.
 function withForwardedCfHeaders(request: Request): Request {

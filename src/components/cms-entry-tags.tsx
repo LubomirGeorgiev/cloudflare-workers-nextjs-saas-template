@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 
 type CmsTag = {
   id: string;

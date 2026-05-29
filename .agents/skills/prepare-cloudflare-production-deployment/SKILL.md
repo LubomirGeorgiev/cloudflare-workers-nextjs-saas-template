@@ -27,7 +27,8 @@ Use Cloudflare MCP to identify the authenticated Cloudflare account. Tell the us
    - `src/constants.ts` has project details.
    - Read `SITE_URL` from `src/constants.ts`, derive the hostname, and check the domains/zones available in the authenticated Cloudflare account. Tell the user which matching or closest Cloudflare zone/domain was found and ask them to confirm it before proceeding. If the `SITE_URL` domain is not available in Cloudflare, stop and ask the user which Cloudflare zone/domain to use or whether they need to add the domain to Cloudflare first.
    - When the app will use Cloudflare Images, verify Images against that same production zone/hostname, not only against the account. Confirm the `SITE_URL` hostname belongs to a Cloudflare zone in the authenticated account and is proxied or attached as the Worker custom domain/route that production will use. Then verify the account-level Images API works for that account with `/accounts/{account_id}/images/v1/variants` or `/accounts/{account_id}/images/v1/stats`. If custom-domain image delivery is expected, explicitly confirm the production zone can serve Images URLs at `https://<SITE_URL_HOSTNAME>/cdn-cgi/imagedelivery/<ACCOUNT_HASH>/<IMAGE_ID>/<VARIANT_NAME>`; Cloudflare supports this only for customer domains under the same account as the Images account. If the domain is in a different account, not proxied through Cloudflare, or not the domain being deployed to, stop and ask which zone/domain should be used before proceeding.
-   - Read `package.json`, tell the user the current `name` value, and ask them to confirm it is the intended production project name. This value controls generated deploy-size metrics and package metadata, so do not proceed if it still identifies the reused template.
+   - Read `package.json`, tell the user the current `name` value, and ask them to confirm it is the intended production project name. This value controls generated deploy-size metrics and package metadata, so do not proceed if it still identifies the reused template. If the name is still `cloudflare-workers-nextjs-saas-template`, stop and ask the user for the real project name and production domain before editing Cloudflare resources, queue names, bindings, or deployment metadata.
+   - Check queue names in `wrangler.jsonc`, especially `queues.producers[].queue` and `queues.consumers[].queue`. Queue names must be renamed to match the new production project name; do not leave template queue names such as `cloudflare-workers-nextjs-saas-template-scheduler` in a production project unless the user explicitly confirms that is the real project name.
    - `AGENTS.md` has the project specification for AI coding agents.
    - `src/components/footer.tsx` has project links and details.
    - `src/app/globals.css` color palette has been reviewed.
@@ -50,6 +51,7 @@ pnpm run build
    - Sending email address, reply-to address, and sender display name.
    - GitHub repository owner/name if it differs from the current checkout.
    - Secret values: `CLOUDFLARE_API_TOKEN`, `TURNSTILE_SECRET_KEY`, and any application secrets such as Stripe or OAuth credentials.
+   - Remind the user that `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are needed in two places: GitHub Actions for deploy/migrations/cache purge, and the deployed Worker runtime for admin Cloudflare Queue message preview.
 
 ## Automation Map
 
@@ -60,6 +62,7 @@ pnpm run build
 | Create D1 database | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/d1/database`; update `wrangler.jsonc` with `database_name` and `database_id`. |
 | Create KV namespace | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/storage/kv/namespaces`; update `wrangler.jsonc` namespace id. |
 | Create R2 bucket | Cloudflare MCP | Automatable with `POST /accounts/{account_id}/r2/buckets`; update `wrangler.jsonc` bucket name. |
+| Create Queue resources | Cloudflare MCP or Wrangler | Automatable after the final project name is known. Queue names in `wrangler.jsonc` must match the production project name, for example `<project-name>-scheduler`; if the project name is still `cloudflare-workers-nextjs-saas-template`, ask for the real project name and production domain first. |
 | Enable or verify Cloudflare Images | Cloudflare MCP or dashboard | Verify both the account-level Images API and the production `SITE_URL` zone/domain. MCP can list/use Images endpoints under `/accounts/{account_id}/images/v1`; custom-domain delivery requires a proxied/customer domain in the same Cloudflare account as Images, and billing acceptance may still require dashboard interaction. |
 | Onboard Email Sending domain | Cloudflare MCP or dashboard | MCP supports Email Sending subdomain create/preview/fix/status endpoints under zones. Domain ownership, DNS propagation, plan gating, or account approval can require waiting or dashboard follow-up. |
 | Update email vars and `send_email.allowed_sender_addresses` | File edits | Automatable after sender values are known. |
@@ -67,8 +70,9 @@ pnpm run build
 | Set `TURNSTILE_SECRET_KEY` Worker secret | Cloudflare MCP or Wrangler | Automatable through Worker Script secrets API after the Worker script exists, or with `wrangler secret put`. |
 | Update `wrangler.jsonc` account id, bindings, vars, and project name | File edits | Automatable. Run `pnpm run cf-typegen` if bindings change. |
 | Create Cloudflare API token | Cloudflare dashboard and `gh` | Always ask the user to create/provide the token manually. Store the provided token in GitHub Actions with `gh`; do not try to create API tokens through Cloudflare MCP. |
-| Add `CLOUDFLARE_API_TOKEN` GitHub secret | `gh` | Automatable with `gh secret set CLOUDFLARE_API_TOKEN --repo OWNER/REPO`. |
-| Add `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` GitHub variables | `gh` | Automatable with `gh variable set NAME --body VALUE --repo OWNER/REPO`. |
+| Add `CLOUDFLARE_API_TOKEN` GitHub secret | `gh` | Automatable with `gh secret set CLOUDFLARE_API_TOKEN --repo OWNER/REPO`. This powers deployment, migrations, and cache purge in GitHub Actions. |
+| Add `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` GitHub variables | `gh` | Automatable with `gh variable set NAME --body VALUE --repo OWNER/REPO`. `CLOUDFLARE_ACCOUNT_ID` powers GitHub Actions and should match the account used by `wrangler.jsonc`. |
+| Set Worker runtime Cloudflare API credentials | Cloudflare MCP or Wrangler | Required for the admin scheduled jobs page to preview Cloudflare Queue payloads. Set `CLOUDFLARE_ACCOUNT_ID` as a Worker variable and `CLOUDFLARE_API_TOKEN` as a Worker secret for the deployed Worker. |
 | Push to `main` and deploy | Git and GitHub Actions | Automatable only after user approval for push/deploy. Use `gh run list`, `gh run watch`, and `gh run view --log-failed` to monitor. |
 
 ## Cloudflare MCP Patterns
@@ -87,6 +91,7 @@ Zones/domains: /zones
 D1: /accounts/{account_id}/d1/database
 KV: /accounts/{account_id}/storage/kv/namespaces
 R2: /accounts/{account_id}/r2/buckets
+Queues: /accounts/{account_id}/queues
 Turnstile: /accounts/{account_id}/challenges/widgets
 Worker secrets: /accounts/{account_id}/workers/scripts/{script_name}/secrets
 API tokens: /accounts/{account_id}/tokens
@@ -120,7 +125,10 @@ Do not print secret values in chat, logs, diffs, or command output. Prefer pipin
    - `Account:Email Sending:Edit`
    - `Zone:Cache Purge:Purge`
 5. Tell them to scope the token to the intended Cloudflare account and, when zone permissions are needed, the intended production zone.
-6. After they provide the token, add it to GitHub Actions without printing it:
+6. Tell the user this token is used in two contexts:
+   - GitHub Actions uses `CLOUDFLARE_API_TOKEN` for deploy, D1 migrations, and cache purge.
+   - The deployed Worker uses `CLOUDFLARE_API_TOKEN` for the admin scheduled jobs page to preview Cloudflare Queue payloads. Native Queue binding metrics do not need this token, but payload preview does.
+7. After they provide the token, add it to GitHub Actions without printing it:
 
 ```bash
 gh secret set CLOUDFLARE_API_TOKEN --repo OWNER/REPO
@@ -131,6 +139,22 @@ Paste the token only into the secure `gh` prompt. Verify the secret exists with:
 ```bash
 gh secret list --repo OWNER/REPO
 ```
+
+8. Also set the token as a Worker secret for runtime admin Queue preview:
+
+```bash
+pnpm wrangler secret put CLOUDFLARE_API_TOKEN
+```
+
+`CLOUDFLARE_ACCOUNT_ID`:
+
+1. Set `CLOUDFLARE_ACCOUNT_ID` as a GitHub Actions variable for deploy/migrations:
+
+```bash
+gh variable set CLOUDFLARE_ACCOUNT_ID --body "$ACCOUNT_ID" --repo OWNER/REPO
+```
+
+2. Also make `CLOUDFLARE_ACCOUNT_ID` available to the deployed Worker runtime for admin Queue preview. Prefer adding it to `wrangler.jsonc` under `vars` when the account id is stable for the project, or set it as a Worker variable through the Cloudflare dashboard/API. Do not treat the account id as a secret, but do verify it matches the account used by `wrangler.jsonc`.
 
 `TURNSTILE_SECRET_KEY`:
 
@@ -155,6 +179,8 @@ gh variable list --repo OWNER/REPO
 Use `gh secret set` from stdin or an environment variable when handling sensitive values. Do not place secrets in shell history or command output.
 
 Set any required `NEXT_PUBLIC_*` values as GitHub Actions variables with `gh variable set`. The deploy workflow auto-forwards matching variables, so do not add individual `NEXT_PUBLIC_*` entries to `.github/workflows/deploy.yml`.
+
+Remember that GitHub Actions secrets/variables are not automatically Worker runtime variables. If the admin scheduled jobs page should preview Cloudflare Queue payloads in production, ensure the deployed Worker also has `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` configured at runtime.
 
 ## Repository Edits
 

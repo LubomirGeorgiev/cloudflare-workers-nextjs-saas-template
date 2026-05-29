@@ -18,13 +18,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { formatDistanceToNow } from "date-fns";
 import { Clock, History, RotateCcw, Trash2 } from "lucide-react";
 import type { CmsEntryVersion } from "@/db/schema";
 import { useAction } from "next-safe-action/hooks";
 import { revertCmsEntryVersionAction, getCmsEntryVersionsAction, deleteCmsEntryVersionAction } from "../../_actions/version-actions";
+import { formatRelativeDateTime } from "@/utils/format-date";
 import { toast } from "sonner";
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
 
 interface DiffSegment {
@@ -756,7 +756,7 @@ export function VersionHistory({
                        </div>
                        <div className="flex items-center text-xs text-muted-foreground gap-1">
                          <Clock className="h-3 w-3" />
-                         {formatDistanceToNow(new Date(version.createdAt), { addSuffix: true })}
+                         {formatRelativeDateTime(version.createdAt)}
                        </div>
                      </button>
                      {canDelete && (
@@ -781,10 +781,10 @@ export function VersionHistory({
                 <div className="p-4 border-b bg-muted/10 flex justify-between items-center">
                   <div>
                     <h3 className="font-medium">
-                      Comparing Version {selectedVersion.versionNumber} ({formatDistanceToNow(new Date(selectedVersion.createdAt), { addSuffix: true })})
+                      Comparing Version {selectedVersion.versionNumber} ({formatRelativeDateTime(selectedVersion.createdAt)})
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Changes needed to restore this version from the current entry{currentVersion ? ` (${formatDistanceToNow(new Date(currentVersion.createdAt), { addSuffix: true })})` : ''}
+                      Changes needed to restore this version from the current entry{currentVersion ? ` (${formatRelativeDateTime(currentVersion.createdAt)})` : ''}
                     </p>
                   </div>
                   <div className="flex gap-2">

@@ -5,8 +5,8 @@ import { useAction } from "next-safe-action/hooks";
 import { listCmsEntriesAction, deleteCmsEntryAction } from "../../../_actions/cms-entry-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { CmsEntryTags } from "@/components/cms-entry-tags";
+import { formatRelativeDateTime } from "@/utils/format-date";
 import {
   Select,
   SelectContent,
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
-import { type GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import { type GetCmsCollectionResult } from "@/lib/cms/entry";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import { type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
@@ -104,7 +104,7 @@ export function CmsEntriesTable({
           <CmsEntryStatusBadge status={row.original.status} />
           {(row.original.publishedAt && row.original.status === "scheduled") && (
             <span className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(row.original.publishedAt), { addSuffix: true })}
+              {formatRelativeDateTime(row.original.publishedAt)}
             </span>
           )}
         </div>
@@ -137,7 +137,7 @@ export function CmsEntriesTable({
       cell: ({ row }) => (
         <span>
           {row.original.updatedAt
-            ? formatDistanceToNow(new Date(row.original.updatedAt), { addSuffix: true })
+            ? formatRelativeDateTime(row.original.updatedAt)
             : "—"}
         </span>
       ),

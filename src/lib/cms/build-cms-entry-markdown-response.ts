@@ -3,7 +3,7 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 
 import { SITE_NAME } from "@/constants";
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.

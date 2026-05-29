@@ -21,7 +21,7 @@ import { cache } from "react"
 import type { SessionValidationResult } from "@/types";
 import { SESSION_COOKIE_NAME } from "@/constants";
 import { ActionError } from "@/lib/action-error";
-import { addFreeMonthlyCreditsIfNeeded } from "./credits";
+import { scheduleUserCreditRefresh } from "@/utils/credit-scheduler";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
 
@@ -163,7 +163,7 @@ export async function createSession({
 
   const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
 
-  return createKVSession({
+  const session = await createKVSession({
     sessionId,
     userId,
     expiresAt,
@@ -173,6 +173,13 @@ export async function createSession({
     teams: teamsWithPermissions,
     selectedTeam: teamsWithPermissions?.length > 0 ? teamsWithPermissions?.[0]?.id : undefined
   });
+
+  await scheduleUserCreditRefresh({
+    userId,
+    lastCreditRefreshAt: user.lastCreditRefreshAt,
+  });
+
+  return session;
 }
 
 export async function createAndStoreSession(
@@ -219,17 +226,6 @@ async function validateSessionToken(token: string, userId: string): Promise<Sess
     updatedSession.user.initials = getInitials(`${updatedSession.user.firstName} ${updatedSession.user.lastName}`);
 
     return updatedSession;
-  }
-
-  // Check and refresh credits if needed
-  const currentCredits = await addFreeMonthlyCreditsIfNeeded(session);
-
-  // If credits were refreshed, update the session
-  if (
-    session?.user?.currentCredits &&
-    currentCredits !== session.user.currentCredits
-  ) {
-    session.user.currentCredits = currentCredits;
   }
 
   // Update the user initials

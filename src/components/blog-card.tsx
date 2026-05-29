@@ -4,7 +4,7 @@ import { formatDate } from "@/utils/format-date"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
-import type { GetCmsCollectionResult } from "@/lib/cms/cms-repository"
+import type { GetCmsCollectionResult } from "@/lib/cms/entry"
 import { getValidDateOrNow } from "@/utils/cms-entry-dates"
 
 type BlogCardProps = {

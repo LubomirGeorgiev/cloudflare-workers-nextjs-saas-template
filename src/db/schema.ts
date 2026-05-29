@@ -11,6 +11,7 @@ import {
   cmsNavigationNodeTypeTuple,
   type CmsNavigationNodeType,
 } from "@/types/cms-navigation";
+import type { ScheduledJobPayload, ScheduledJobType } from "@/lib/scheduler/jobs";
 import type { CollectionsUnion } from "../../cms.config";
 
 const roleTuple = Object.values(ROLES_ENUM) as [string, ...string[]];
@@ -354,6 +355,18 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   index('cms_entry_featured_image_idx').on(table.featuredImageId),
 ]));
 
+export const scheduledJobTable = sqliteTable("scheduled_job", {
+  ...commonColumns,
+  id: text().primaryKey().$defaultFn(() => `sjob_${createId()}`).notNull(),
+  type: text().$type<ScheduledJobType>().notNull(),
+  dedupeKey: text().notNull(),
+  payload: text({ mode: "json" }).$type<ScheduledJobPayload>().notNull(),
+  runAt: integer({ mode: "timestamp" }).notNull(),
+}, (table) => ([
+  index("scheduled_job_run_at_idx").on(table.runAt),
+  unique("scheduled_job_type_dedupe_key_unique").on(table.type, table.dedupeKey),
+]));
+
 export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `cms_nav_${createId()}`).notNull(),
@@ -614,3 +627,5 @@ export type CmsEntryVersion = InferSelectModel<typeof cmsEntryVersionTable>;
 export type CmsNavigationItem = InferSelectModel<typeof cmsNavigationItemTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsNavigationRedirect = InferSelectModel<typeof cmsNavigationRedirectTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type ScheduledJob = InferSelectModel<typeof scheduledJobTable>;

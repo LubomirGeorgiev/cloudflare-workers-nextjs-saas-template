@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getCmsMediaDetailsAction } from "@/app/(admin)/admin/_actions/cms-media-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, ExternalLink, FileText } from "lucide-react";
@@ -12,6 +11,7 @@ import Image from "next/image";
 import { EditAltText } from "./_components/edit-alt-text";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
+import { formatRelativeDateTime } from "@/utils/format-date";
 
 export const metadata: Metadata = {
   title: "Media Details | Admin",
@@ -136,7 +136,7 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
             <div>
               <p className="text-sm font-medium text-muted-foreground">Uploaded</p>
               <p className="mt-1">
-                {formatDistanceToNow(new Date(media.createdAt), { addSuffix: true })}
+                {formatRelativeDateTime(media.createdAt)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {new Date(media.createdAt).toLocaleString()}

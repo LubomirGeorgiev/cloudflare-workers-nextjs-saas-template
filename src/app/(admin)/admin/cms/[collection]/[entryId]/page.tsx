@@ -3,7 +3,7 @@ import { cache } from "react";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { getCmsEntryById } from "@/lib/cms/cms-repository";
+import { getCmsEntryById } from "@/lib/cms/entry";
 import {
   getCmsNavigationNodeByEntryId,
   getCmsNavigationTree,

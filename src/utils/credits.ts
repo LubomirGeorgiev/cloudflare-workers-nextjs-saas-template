@@ -1,102 +1,28 @@
 import "server-only";
-import { eq, sql, desc, and, lt, isNull, gt, or, asc } from "drizzle-orm";
+import { eq, sql, desc, and, lte, isNull, gt, or, asc } from "drizzle-orm";
 import { getDB } from "@/db";
-import { userTable, creditTransactionTable, CREDIT_TRANSACTION_TYPE, purchasedItemsTable } from "@/db/schema";
-import { updateAllSessionsOfUser, updateKVSession, KVSession } from "./kv-session";
+import {
+  userTable,
+  creditTransactionTable,
+  CREDIT_TRANSACTION_TYPE,
+  purchasedItemsTable,
+} from "@/db/schema";
+import { updateAllSessionsOfUser } from "./kv-session";
 import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS, DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
+import {
+  getOneCalendarMonthAfter,
+  getOneCalendarMonthBefore,
+  shouldRefreshCreditsFromDate,
+} from "@/utils/credit-periods";
+import {
+  scheduleCreditExpiration,
+  scheduleUserCreditRefresh,
+} from "@/utils/credit-scheduler";
 
 type CreditPackage = typeof CREDIT_PACKAGES[number];
 
 export function getCreditPackage(packageId: string): CreditPackage | undefined {
   return CREDIT_PACKAGES.find((pkg) => pkg.id === packageId);
-}
-
-function shouldRefreshCredits(session: KVSession, currentTime: Date): boolean {
-  // Check if it's been at least a month since last refresh
-  if (!session.user.lastCreditRefreshAt) {
-    return true;
-  }
-
-  // Calculate the date exactly one month after the last refresh
-  // Using a more reliable approach to avoid edge cases with setMonth()
-  const lastRefresh = new Date(session.user.lastCreditRefreshAt);
-  const year = lastRefresh.getFullYear();
-  const month = lastRefresh.getMonth();
-  const day = lastRefresh.getDate();
-
-  // Calculate one month later, handling edge cases (e.g., Jan 31 + 1 month = Feb 28/29)
-  let oneMonthAfterLastRefresh = new Date(year, month + 1, day);
-
-  // If the day changed (e.g., Jan 31 -> Mar 3 instead of Feb 28), use last day of target month
-  if (oneMonthAfterLastRefresh.getDate() !== day) {
-    oneMonthAfterLastRefresh = new Date(year, month + 2, 0); // Last day of target month
-  }
-
-  // Preserve the original time of day
-  oneMonthAfterLastRefresh.setHours(lastRefresh.getHours(), lastRefresh.getMinutes(), lastRefresh.getSeconds(), lastRefresh.getMilliseconds());
-
-  // Only refresh if we've passed the one month mark
-  return currentTime >= oneMonthAfterLastRefresh;
-}
-
-async function processExpiredCredits(userId: string, currentTime: Date) {
-  if (DISABLE_CREDIT_BILLING_SYSTEM) {
-    return;
-  }
-
-  const db = getDB();
-  // Find all expired transactions that haven't been processed and have remaining credits
-  // Order by type to process MONTHLY_REFRESH first, then by creation date
-  const expiredTransactions = await db.query.creditTransactionTable.findMany({
-    where: and(
-      eq(creditTransactionTable.userId, userId),
-      lt(creditTransactionTable.expirationDate, currentTime),
-      isNull(creditTransactionTable.expirationDateProcessedAt),
-      gt(creditTransactionTable.remainingAmount, 0),
-    ),
-    orderBy: [
-      // Process MONTHLY_REFRESH transactions first
-      desc(sql`CASE WHEN ${creditTransactionTable.type} = ${CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH} THEN 1 ELSE 0 END`),
-      // Then process by creation date (oldest first)
-      asc(creditTransactionTable.createdAt),
-    ],
-  });
-
-  // Process each expired transaction
-  for (const transaction of expiredTransactions) {
-    try {
-      // Atomically mark the transaction as processed ONLY if it hasn't been processed yet
-      // This prevents race conditions where multiple requests try to process the same transaction
-      const updateResult = await db
-        .update(creditTransactionTable)
-        .set({
-          expirationDateProcessedAt: currentTime,
-          remainingAmount: 0, // All remaining credits are expired
-        })
-        .where(and(
-          eq(creditTransactionTable.id, transaction.id),
-          isNull(creditTransactionTable.expirationDateProcessedAt),
-          eq(creditTransactionTable.remainingAmount, transaction.remainingAmount)
-        ))
-        .returning({ id: creditTransactionTable.id });
-
-      // If no rows were updated, another request already processed this transaction
-      if (!updateResult || updateResult.length === 0) {
-        continue;
-      }
-
-      // Then deduct the expired credits from user's balance
-      await db
-        .update(userTable)
-        .set({
-          currentCredits: sql`${userTable.currentCredits} - ${transaction.remainingAmount}`,
-        })
-        .where(eq(userTable.id, userId));
-    } catch (error) {
-      console.error(`Failed to process expired credits for transaction ${transaction.id}:`, error);
-      continue;
-    }
-  }
 }
 
 export async function addUserCredits(userId: string, creditsToAdd: number) {
@@ -133,7 +59,7 @@ export async function logTransaction({
   }
 
   const db = getDB();
-  await db.insert(creditTransactionTable).values({
+  const [transaction] = await db.insert(creditTransactionTable).values({
     userId,
     amount,
     remainingAmount: amount, // Initialize remaining amount to be the same as amount
@@ -141,114 +67,88 @@ export async function logTransaction({
     description,
     expirationDate,
     paymentIntentId
-  });
+  }).returning();
+
+  if (transaction?.expirationDate && transaction.remainingAmount > 0) {
+    await scheduleCreditExpiration({
+      transactionId: transaction.id,
+      expirationDate: transaction.expirationDate,
+    });
+  }
+
+  return transaction;
 }
 
-export async function addFreeMonthlyCreditsIfNeeded(session: KVSession): Promise<number> {
+export async function refreshUserMonthlyCreditsIfDue({
+  userId,
+  now = new Date(),
+}: {
+  userId: string;
+  now?: Date;
+}): Promise<void> {
   if (DISABLE_CREDIT_BILLING_SYSTEM) {
-    return 0;
+    return;
   }
 
-  const currentTime = new Date();
+  const db = getDB();
+  const user = await db.query.userTable.findFirst({
+    where: eq(userTable.id, userId),
+    columns: {
+      lastCreditRefreshAt: true,
+      currentCredits: true,
+    },
+  });
 
-  // Check if it's been at least a month since last refresh
-  if (shouldRefreshCredits(session, currentTime)) {
-    // Double check the last refresh date from the database to prevent race conditions
-    const db = getDB();
-    const user = await db.query.userTable.findFirst({
-      where: eq(userTable.id, session.userId),
-      columns: {
-        lastCreditRefreshAt: true,
-        currentCredits: true,
-      },
-    });
-
-    // Convert DB date string to Date object to ensure consistent type handling
-    const dbLastRefreshAt = user?.lastCreditRefreshAt
-      ? new Date(user.lastCreditRefreshAt)
-      : null;
-
-    // This should prevent race conditions between multiple sessions
-    if (!shouldRefreshCredits({ ...session, user: { ...session.user, lastCreditRefreshAt: dbLastRefreshAt } }, currentTime)) {
-      // KV session is out of sync with DB - update it to prevent this check on next request
-      await updateKVSession(session.id, session.userId, new Date(session.expiresAt));
-      return user?.currentCredits ?? 0;
-    }
-
-    // Calculate one month ago from current time
-    // Using a more reliable approach to avoid edge cases with setMonth()
-    const year = currentTime.getFullYear();
-    const month = currentTime.getMonth();
-    const day = currentTime.getDate();
-
-    let oneMonthAgo = new Date(year, month - 1, day);
-
-    // Handle edge cases (e.g., Mar 31 - 1 month should be Feb 28/29, not Mar 3)
-    if (oneMonthAgo.getDate() !== day) {
-      oneMonthAgo = new Date(year, month, 0); // Last day of previous month
-    }
-
-    // Preserve the original time of day
-    oneMonthAgo.setHours(currentTime.getHours(), currentTime.getMinutes(), currentTime.getSeconds(), currentTime.getMilliseconds());
-
-    // Update last refresh date FIRST to act as a distributed lock
-    // This prevents race conditions where multiple requests try to add credits simultaneously
-    const updateResult = await db
-      .update(userTable)
-      .set({
-        lastCreditRefreshAt: currentTime,
-      })
-      .where(and(
-        eq(userTable.id, session.userId),
-        or(
-          isNull(userTable.lastCreditRefreshAt),
-          lt(userTable.lastCreditRefreshAt, oneMonthAgo) // More than 1 calendar month ago
-        )
-      ))
-      .returning({ lastCreditRefreshAt: userTable.lastCreditRefreshAt });
-
-    // If no rows were updated, another request already processed the refresh
-    if (!updateResult || updateResult.length === 0) {
-      const currentUser = await db.query.userTable.findFirst({
-        where: eq(userTable.id, session.userId),
-        columns: {
-          currentCredits: true,
-        },
-      });
-      return currentUser?.currentCredits ?? 0;
-    }
-
-    // Process any expired credits first
-    await processExpiredCredits(session.userId, currentTime);
-
-    // Add free monthly credits with 1 month expiration
-    const expirationDate = new Date(currentTime);
-    expirationDate.setMonth(expirationDate.getMonth() + 1);
-
-    await addUserCredits(session.userId, FREE_MONTHLY_CREDITS);
-    await logTransaction({
-      userId: session.userId,
-      amount: FREE_MONTHLY_CREDITS,
-      description: 'Free monthly credits',
-      type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
-      expirationDate
-    });
-
-    // Update all KV sessions to reflect the new credit balance and lastCreditRefreshAt
-    await updateAllSessionsOfUser(session.userId);
-
-    // Get the updated credit balance from the database
-    const updatedUser = await db.query.userTable.findFirst({
-      where: eq(userTable.id, session.userId),
-      columns: {
-        currentCredits: true,
-      },
-    });
-
-    return updatedUser?.currentCredits ?? 0;
+  if (!user) {
+    return;
   }
 
-  return session.user.currentCredits;
+  if (!shouldRefreshCreditsFromDate(user.lastCreditRefreshAt, now)) {
+    await scheduleUserCreditRefresh({
+      userId,
+      lastCreditRefreshAt: user.lastCreditRefreshAt,
+      now,
+    });
+
+    return;
+  }
+
+  const oneMonthAgo = getOneCalendarMonthBefore(now);
+  const updateResult = await db
+    .update(userTable)
+    .set({
+      lastCreditRefreshAt: now,
+    })
+    .where(and(
+      eq(userTable.id, userId),
+      or(
+        isNull(userTable.lastCreditRefreshAt),
+        lte(userTable.lastCreditRefreshAt, oneMonthAgo)
+      )
+    ))
+    .returning({ lastCreditRefreshAt: userTable.lastCreditRefreshAt });
+
+  if (!updateResult[0]) {
+    return;
+  }
+
+  const expirationDate = getOneCalendarMonthAfter(now);
+
+  await addUserCredits(userId, FREE_MONTHLY_CREDITS);
+  await logTransaction({
+    userId,
+    amount: FREE_MONTHLY_CREDITS,
+    description: "Free monthly credits",
+    type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
+    expirationDate,
+  });
+
+  await updateAllSessionsOfUser(userId);
+  await scheduleUserCreditRefresh({
+    userId,
+    lastCreditRefreshAt: now,
+    now,
+  });
 }
 
 export async function hasEnoughCredits({ userId, requiredCredits }: { userId: string; requiredCredits: number }) {
@@ -267,13 +167,23 @@ export async function hasEnoughCredits({ userId, requiredCredits }: { userId: st
   return user.currentCredits >= requiredCredits;
 }
 
-export async function consumeCredits({ userId, amount, description }: { userId: string; amount: number; description: string }) {
+export async function consumeCredits({
+  userId,
+  amount,
+  description,
+  now,
+}: {
+  userId: string;
+  amount: number;
+  description: string;
+  now?: Date;
+}) {
   if (DISABLE_CREDIT_BILLING_SYSTEM) {
     return 0;
   }
 
   const db = getDB();
-  const currentTime = new Date();
+  const currentTime = now ?? new Date();
 
   // First check if user has enough credits
   const hasCredits = await hasEnoughCredits({ userId, requiredCredits: amount });
@@ -292,7 +202,7 @@ export async function consumeCredits({ userId, amount, description }: { userId: 
         gt(creditTransactionTable.expirationDate, currentTime)
       )
     ),
-    orderBy: [asc(creditTransactionTable.createdAt)],
+    orderBy: [asc(creditTransactionTable.createdAt), asc(creditTransactionTable.id)],
   });
 
   let remainingToDeduct = amount;

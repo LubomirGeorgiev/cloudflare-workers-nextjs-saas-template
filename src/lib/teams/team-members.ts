@@ -4,7 +4,7 @@ import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershi
 import { canSignUp, getSessionFromCookie } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
-import { eq, and, isNull, count } from "drizzle-orm";
+import { eq, and, isNull, count, gt } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
@@ -528,7 +528,8 @@ export async function getPendingInvitationsForCurrentUser() {
   const invitations = await db.query.teamInvitationTable.findMany({
     where: and(
       session.user.email ? eq(teamInvitationTable.email, session.user.email) : undefined,
-      isNull(teamInvitationTable.acceptedAt)
+      isNull(teamInvitationTable.acceptedAt),
+      gt(teamInvitationTable.expiresAt, new Date())
     ),
     with: {
       team: {

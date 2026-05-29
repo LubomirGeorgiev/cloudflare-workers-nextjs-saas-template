@@ -10,7 +10,7 @@ import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
-import { invalidateEntryAndCollection } from "@/lib/cms/cms-repository";
+import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
 import { v } from "@/lib/validation";
 
 /**

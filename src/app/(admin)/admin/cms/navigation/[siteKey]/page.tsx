@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { cmsConfig, type CmsNavigationKey } from "@/../cms.config";
 import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
-import { getCmsCollection } from "@/lib/cms/cms-repository";
+import { getCmsCollection } from "@/lib/cms/entry";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { requireAdmin } from "@/utils/auth";
 import { CmsNavigationManager } from "./_components/cms-navigation-manager";
