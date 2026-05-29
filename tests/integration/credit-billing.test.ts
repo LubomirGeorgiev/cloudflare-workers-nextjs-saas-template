@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import {
   createExecutionContext,
   createMessageBatch,
@@ -15,6 +16,7 @@ import {
   scheduledJobTable,
   userTable,
 } from "@/db/schema";
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import {
   createScheduledQueueMessage,
   SCHEDULED_JOB_TYPES,
@@ -40,6 +42,13 @@ import {
 
 const db = getDB();
 const dayInMs = 24 * 60 * 60 * 1000;
+const describeCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe.skip
+  : describe;
+
+const describeDisabledCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe
+  : describe.skip;
 
 function secondsDate(time: number): Date {
   return new Date(Math.floor(time / 1000) * 1000);
@@ -130,7 +139,7 @@ async function readSingleColumn<T>({
   return result;
 }
 
-describe("credit billing integration", () => {
+describeCreditBilling("credit billing integration", () => {
   beforeEach(async () => {
     vi.restoreAllMocks();
     await clearKV();
@@ -688,5 +697,54 @@ describe("credit billing integration", () => {
     expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
     expect(user?.currentCredits).toBe(2);
     expect(usageTransactions).toHaveLength(1);
+  });
+});
+
+describeDisabledCreditBilling("disabled credit billing integration", () => {
+  beforeEach(async () => {
+    await clearCreditBillingRows();
+    await clearKV();
+    vi.restoreAllMocks();
+  });
+
+  test("credit billing operations do not mutate D1 or KV", async () => {
+    const now = secondsDate(Date.now());
+    const userId = "disabled-credit-billing-user";
+
+    await createUser({
+      currentCredits: 20,
+      id: userId,
+      lastCreditRefreshAt: null,
+    });
+    const sessionKey = await seedSession({
+      sessionId: "disabled-credit-billing-session",
+      userId,
+    });
+
+    await refreshUserMonthlyCreditsIfDue({ userId, now });
+    await consumeCredits({
+      userId,
+      amount: 5,
+      description: "Disabled billing spend",
+      now,
+    });
+
+    const [user, transactions, scheduledJobs, rawSession] = await Promise.all([
+      db.query.userTable.findFirst({
+        where: eq(userTable.id, userId),
+      }),
+      db.query.creditTransactionTable.findMany({
+        where: eq(creditTransactionTable.userId, userId),
+      }),
+      db.query.scheduledJobTable.findMany(),
+      env.NEXT_INC_CACHE_KV.get(sessionKey),
+    ]);
+    const session = rawSession ? JSON.parse(rawSession) as KVSession : null;
+
+    expect(user?.currentCredits).toBe(20);
+    expect(user?.lastCreditRefreshAt).toBeNull();
+    expect(transactions).toEqual([]);
+    expect(scheduledJobs).toEqual([]);
+    expect(session?.user.currentCredits).toBe(20);
   });
 });

@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
+
+const describeCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe.skip
+  : describe;
+
+const describeDisabledCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe
+  : describe.skip;
 
 const {
   getCloudflareContextMock,
@@ -171,7 +180,7 @@ function createStatefulExpirationDb({
   };
 }
 
-describe("credit scheduler", () => {
+describeCreditBilling("credit scheduler", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -507,6 +516,40 @@ describe("credit scheduler", () => {
     });
 
     expect(user.currentCredits).toBe(5);
+    expect(updateAllSessionsOfUserMock).not.toHaveBeenCalled();
+  });
+});
+
+describeDisabledCreditBilling("disabled credit scheduler", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("scheduler operations are no-ops", async () => {
+    await expect(scheduleUserCreditRefresh({
+      userId: "user-1",
+    })).resolves.toBeUndefined();
+
+    await expect(scheduleCreditExpiration({
+      transactionId: "transaction-1",
+      expirationDate: new Date(2027, 4, 29, 10, 0, 0, 0),
+    })).resolves.toBeUndefined();
+
+    await expect(processExpiredCreditTransactionIfDue({
+      transactionId: "transaction-1",
+    })).resolves.toBeUndefined();
+
+    await expect(dispatchDueCreditRefreshJobs({
+      queue: createQueue() as unknown as Cloudflare.Env["SCHEDULER_QUEUE"],
+    })).resolves.toBe(0);
+
+    await expect(dispatchDueCreditExpirationJobs({
+      queue: createQueue() as unknown as Cloudflare.Env["SCHEDULER_QUEUE"],
+    })).resolves.toBe(0);
+
+    expect(getCloudflareContextMock).not.toHaveBeenCalled();
+    expect(getDBMock).not.toHaveBeenCalled();
+    expect(scheduleJobMock).not.toHaveBeenCalled();
     expect(updateAllSessionsOfUserMock).not.toHaveBeenCalled();
   });
 });

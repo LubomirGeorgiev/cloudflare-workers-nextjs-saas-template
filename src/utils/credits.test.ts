@@ -1,4 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
+
+const describeCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe.skip
+  : describe;
+
+const describeDisabledCreditBilling = DISABLE_CREDIT_BILLING_SYSTEM
+  ? describe
+  : describe.skip;
 
 const {
   getDBMock,
@@ -58,7 +67,7 @@ function getSqlText(value: unknown): string {
     .join("");
 }
 
-describe("monthly credit refresh", () => {
+describeCreditBilling("monthly credit refresh", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -191,7 +200,7 @@ describe("monthly credit refresh", () => {
   });
 });
 
-describe("credit transactions", () => {
+describeCreditBilling("credit transactions", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -256,7 +265,7 @@ describe("credit transactions", () => {
   });
 });
 
-describe("consumeCredits", () => {
+describeCreditBilling("consumeCredits", () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -406,6 +415,36 @@ describe("consumeCredits", () => {
 
     expect(db.update).not.toHaveBeenCalled();
     expect(db.insert).not.toHaveBeenCalled();
+    expect(updateAllSessionsOfUserMock).not.toHaveBeenCalled();
+  });
+});
+
+describeDisabledCreditBilling("disabled credit billing", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("credit operations are no-ops", async () => {
+    await expect(refreshUserMonthlyCreditsIfDue({
+      userId: "user-1",
+    })).resolves.toBeUndefined();
+
+    await expect(logTransaction({
+      userId: "user-1",
+      amount: 25,
+      description: "Purchased credits",
+      type: "PURCHASE",
+    })).resolves.toBeUndefined();
+
+    await expect(consumeCredits({
+      userId: "user-1",
+      amount: 10,
+      description: "Marketplace item",
+    })).resolves.toBe(0);
+
+    expect(getDBMock).not.toHaveBeenCalled();
+    expect(scheduleCreditExpirationMock).not.toHaveBeenCalled();
+    expect(scheduleUserCreditRefreshMock).not.toHaveBeenCalled();
     expect(updateAllSessionsOfUserMock).not.toHaveBeenCalled();
   });
 });
