@@ -11,6 +11,6 @@ export default defineConfig({
     teardownTimeout: 10_000,
     fileParallelism: true,
     maxWorkers: 4,
-    reporters: ["verbose"],
+    reporters: process.env.GITHUB_ACTIONS === "true" ? ["dot", "github-actions"] : ["verbose"],
   },
 });

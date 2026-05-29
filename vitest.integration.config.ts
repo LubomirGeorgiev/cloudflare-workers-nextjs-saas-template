@@ -42,6 +42,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/integration/**/*.test.ts"],
+    reporters: process.env.GITHUB_ACTIONS === "true" ? ["dot", "github-actions"] : ["default"],
     setupFiles: ["./tests/integration/apply-d1-migrations.ts"],
     testTimeout: 15_000,
   },
