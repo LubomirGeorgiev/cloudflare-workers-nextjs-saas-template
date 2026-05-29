@@ -24,6 +24,10 @@ type CreditPackage = typeof CREDIT_PACKAGES[number];
 const MONTHLY_REFRESH_DEDUPE_PREFIX = "monthly-refresh";
 const RECENT_REFRESH_CLAIM_REPAIR_WINDOW_MS = 15 * 60 * 1000;
 
+function getSqliteTimestampSeconds(date: Date): number {
+  return Math.floor(date.getTime() / 1000);
+}
+
 function getMonthlyRefreshDedupeKey({
   refreshAt,
   userId,
@@ -114,6 +118,7 @@ async function reconcileUserCreditBalance({
   userId: string;
 }) {
   const db = getDB();
+  const nowTimestamp = getSqliteTimestampSeconds(now);
   const [user] = await db
     .update(userTable)
     .set({
@@ -125,7 +130,7 @@ async function reconcileUserCreditBalance({
           and ${creditTransactionTable.expirationDateProcessedAt} is null
           and (
             ${creditTransactionTable.expirationDate} is null
-            or ${creditTransactionTable.expirationDate} > ${now}
+            or ${creditTransactionTable.expirationDate} > ${nowTimestamp}
           )
       ), 0)`,
     })
