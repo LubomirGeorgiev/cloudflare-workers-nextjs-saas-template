@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  logLevel: "error",
   plugins: [
     cloudflareTest(async () => ({
       miniflare: {

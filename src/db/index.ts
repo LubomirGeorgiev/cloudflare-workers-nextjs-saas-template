@@ -1,7 +1,10 @@
+import "server-only";
+
 import { drizzle } from "drizzle-orm/d1";
 import { cache } from "react";
 import { env as workerEnv } from "cloudflare:workers";
 
+import { shouldLogD1Queries } from "./logging";
 import * as schema from "./schema";
 
 export const getDB = cache(() => {
@@ -9,5 +12,8 @@ export const getDB = cache(() => {
     throw new Error("D1 database not found");
   }
 
-  return drizzle(workerEnv.NEXT_TAG_CACHE_D1, { schema, logger: true });
+  return drizzle(workerEnv.NEXT_TAG_CACHE_D1, {
+    schema,
+    logger: shouldLogD1Queries({ appTestMode: workerEnv.APP_TEST_MODE as string | undefined }),
+  });
 });

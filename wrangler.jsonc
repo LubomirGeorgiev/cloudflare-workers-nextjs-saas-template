@@ -34,7 +34,7 @@
      */
     "placement": { "mode": "smart" },
     "triggers": {
-      "crons": ["*/5 * * * *"]
+      "crons": ["*/30 * * * *"]
     },
     "queues": {
       "producers": [

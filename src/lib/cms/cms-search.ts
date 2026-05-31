@@ -16,6 +16,8 @@ import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 const DEFAULT_CMS_SEARCH_LIMIT = 8;
 const MAX_SEARCH_TOKENS = 6;
 const CMS_SEARCH_CACHE_TTL = "6 hours";
+const INSERT_CMS_ENTRY_SEARCH_SQL =
+  "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)";
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export interface CmsSearchResult {
@@ -34,6 +36,10 @@ interface SyncCmsEntrySearchParams {
   title: string;
   seoDescription: string | null;
   content: JSONContent;
+}
+
+interface PrepareCmsEntrySearchInsertParams extends SyncCmsEntrySearchParams {
+  d1: D1Database;
 }
 
 interface SearchCmsParams {
@@ -168,6 +174,27 @@ async function optimizeCmsSearchIndex(d1: D1Database): Promise<void> {
   await d1.prepare("INSERT INTO cms_entry_search(cms_entry_search) VALUES('optimize')").run();
 }
 
+function prepareCmsEntrySearchInsert({
+  d1,
+  entryId,
+  collection,
+  slug,
+  title,
+  seoDescription,
+  content,
+}: PrepareCmsEntrySearchInsertParams): D1PreparedStatement {
+  return d1
+    .prepare(INSERT_CMS_ENTRY_SEARCH_SQL)
+    .bind(
+      entryId,
+      collection,
+      slug,
+      title,
+      seoDescription ?? "",
+      normalizeSearchBody(content)
+    );
+}
+
 export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): Promise<void> {
   const db = getDB();
   const entries = await db.query.cmsEntryTable.findMany({
@@ -188,35 +215,20 @@ export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): P
     : [
         d1.prepare("DELETE FROM cms_entry_search WHERE collection = ?").bind(collectionSlug),
         ...entries.map((entry) =>
-          d1
-            .prepare(
-              "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)"
-            )
-            .bind(
-              entry.id,
-              entry.collection,
-              entry.slug,
-              entry.title,
-              entry.seoDescription ?? "",
-              normalizeSearchBody(entry.content)
-            )
+          prepareCmsEntrySearchInsert({
+            d1,
+            entryId: entry.id,
+            collection: entry.collection,
+            slug: entry.slug,
+            title: entry.title,
+            seoDescription: entry.seoDescription,
+            content: entry.content,
+          })
         ),
       ];
 
   await d1.batch(statements);
   await optimizeCmsSearchIndex(d1);
-}
-
-async function ensureCmsSearchIndex(collectionSlug: CollectionsUnion): Promise<void> {
-  const d1 = await getSearchDatabase();
-  const existingRows = await d1
-    .prepare("SELECT count(*) as count FROM cms_entry_search WHERE collection = ?")
-    .bind(collectionSlug)
-    .first<{ count: number | string }>();
-
-  if (Number(existingRows?.count ?? 0) === 0) {
-    await rebuildCmsSearchIndex(collectionSlug);
-  }
 }
 
 export async function syncCmsEntrySearch({
@@ -237,18 +249,15 @@ export async function syncCmsEntrySearch({
 
   await d1.batch([
     d1.prepare("DELETE FROM cms_entry_search WHERE entryId = ?").bind(entryId),
-    d1
-      .prepare(
-        "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)"
-      )
-      .bind(
-        entryId,
-        collection,
-        slug,
-        title,
-        seoDescription ?? "",
-        normalizeSearchBody(content)
-      ),
+    prepareCmsEntrySearchInsert({
+      d1,
+      entryId,
+      collection,
+      slug,
+      title,
+      seoDescription,
+      content,
+    }),
   ]);
 }
 
@@ -279,8 +288,6 @@ export async function searchCmsCollection({
   if (!matchQuery) {
     return [];
   }
-
-  await ensureCmsSearchIndex(collectionSlug);
 
   return withKVCache(async () => {
     const d1 = await getSearchDatabase();
