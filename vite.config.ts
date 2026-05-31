@@ -82,6 +82,18 @@ export default defineConfig({
   ssr: {
     noExternal: [/^@tiptap\//, /^prosemirror-/],
   },
+  environments: {
+    rsc: {
+      build: {
+        sourcemap: true,
+      },
+    },
+    ssr: {
+      build: {
+        sourcemap: true,
+      },
+    },
+  },
   plugins: [
     vinext(),
     cloudflare({

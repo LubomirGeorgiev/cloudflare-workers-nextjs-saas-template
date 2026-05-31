@@ -231,6 +231,18 @@ export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): P
   await optimizeCmsSearchIndex(d1);
 }
 
+async function ensureCmsSearchIndex(collectionSlug: CollectionsUnion): Promise<void> {
+  const d1 = await getSearchDatabase();
+  const existingRows = await d1
+    .prepare("SELECT count(*) as count FROM cms_entry_search WHERE collection = ?")
+    .bind(collectionSlug)
+    .first<{ count: number | string }>();
+
+  if (Number(existingRows?.count ?? 0) === 0) {
+    await rebuildCmsSearchIndex(collectionSlug);
+  }
+}
+
 export async function syncCmsEntrySearch({
   entryId,
   collection,
@@ -290,6 +302,8 @@ export async function searchCmsCollection({
   }
 
   return withKVCache(async () => {
+    await ensureCmsSearchIndex(collectionSlug);
+
     const d1 = await getSearchDatabase();
     const result = await d1
       .prepare(
