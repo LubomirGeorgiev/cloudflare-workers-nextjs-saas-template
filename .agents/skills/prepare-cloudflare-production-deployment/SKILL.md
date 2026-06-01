@@ -77,7 +77,7 @@ pnpm run build
 | Enable or verify Cloudflare Images | Cloudflare MCP | Cloudflare MCP is mandatory first. Verify both the account-level Images API and the production `SITE_URL` zone/domain. MCP can list/use Images endpoints under `/accounts/{account_id}/images/v1`; custom-domain delivery requires a proxied/customer domain in the same Cloudflare account as Images, and billing acceptance may still require dashboard interaction. |
 | Onboard Email Sending domain | Cloudflare MCP | Cloudflare MCP is mandatory first. MCP supports Email Sending subdomain create/preview/fix/status endpoints under zones. Domain ownership, DNS propagation, plan gating, or account approval can require waiting or dashboard follow-up. |
 | Update email vars and `send_email.allowed_sender_addresses` | File edits | Automatable after sender values are known. |
-| Create/update Turnstile widget | Cloudflare MCP | Cloudflare MCP is mandatory first. Automatable with `/accounts/{account_id}/challenges/widgets`; set site key as GitHub variable and secret key as Worker secret. When reusing a widget, Cloudflare MCP must verify and, with user confirmation, add the production hostname to the widget domains if missing. |
+| Create/update Turnstile widget | Cloudflare MCP, then dashboard if blocked | Cloudflare MCP is mandatory first. Automatable with `/accounts/{account_id}/challenges/widgets`; set site key as GitHub variable and secret key as Worker secret. When reusing a widget, Cloudflare MCP must verify and, with user confirmation, add the production hostname to the widget domains if missing. If MCP returns an authentication/permission error for Turnstile, tell the user they must add the hostname manually in the Cloudflare Turnstile dashboard. |
 | Set `TURNSTILE_SECRET_KEY` Worker secret | Cloudflare MCP | Cloudflare MCP is mandatory first. Automatable through Worker Script secrets API after the Worker script exists. Use `wrangler secret put` only if MCP cannot set Worker secrets and explain why. |
 | Update `wrangler.jsonc` account id, bindings, vars, and project name | File edits | Automatable. Run `pnpm run cf-typegen` if bindings change. |
 | Create Cloudflare API token | Cloudflare dashboard and `gh` | User-only manual step. Always ask the user to create/provide the token manually. Store the provided token in GitHub Actions with `gh`; do not try to create, retrieve, or invent API tokens through Cloudflare MCP/API. |
@@ -261,11 +261,13 @@ curl "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/challenges/widge
 
 Preserve existing widget settings and domains when updating; do not replace the `domains` list with only the new hostname unless the user explicitly wants that.
 
-5. If Cloudflare MCP/API execution is not available or the token lacks Turnstile permissions, send the user to the dashboard:
+5. If Cloudflare MCP/API execution is not available or the token lacks Turnstile permissions, this is a user-only manual step. Do not keep retrying with Wrangler or unrelated APIs. Tell the user that the active Cloudflare MCP/API token needs `Turnstile Sites Write` or `Account Settings Write` to update widgets automatically; without that permission, they must add the hostname manually in the dashboard:
    - Open `https://dash.cloudflare.com/?to=/:account/turnstile`.
-   - Select an existing widget or click **Add widget**.
+   - Select the existing widget by sitekey, for example `0x4AAAAAAA5QtwiAltpKMppM`, or click **Add widget** if creating a new one.
+   - Go to **Settings** and **Hostname Management**.
    - Set the widget name to the project or production hostname.
-   - Add the production hostname from `SITE_URL`.
+   - Add the production hostname from `SITE_URL`, for example `test-nextjs-saas-template.lubomirgeorgiev.com`.
+   - Preserve any existing allowed hostnames unless the user explicitly wants to remove them.
    - Use **Managed** mode unless the user requests another mode.
    - Copy the public **sitekey** and private **secret key**.
 6. Set the public sitekey as a GitHub repository variable so GitHub Actions can inject it into the production build:
