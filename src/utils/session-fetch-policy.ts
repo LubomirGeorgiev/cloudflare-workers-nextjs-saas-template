@@ -49,13 +49,25 @@ export function getSessionFetchPolicy(reason: SessionFetchReason) {
 
 export function shouldFetchSession({
   hasHydratedSessionFromServer,
+  hasSessionCookie,
   lastFetched,
   reason,
 }: {
   hasHydratedSessionFromServer: boolean;
+  hasSessionCookie: boolean;
   lastFetched: Date | null;
   reason: SessionFetchReason;
 }) {
+  const policy = getSessionFetchPolicy(reason);
+
+  if (
+    !hasHydratedSessionFromServer
+    && !hasSessionCookie
+    && (reason === "initial" || policy.passive)
+  ) {
+    return false;
+  }
+
   if (reason === "initial" && lastFetched && !hasHydratedSessionFromServer) {
     return false;
   }

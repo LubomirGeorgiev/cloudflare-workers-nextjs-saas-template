@@ -3,6 +3,7 @@
 import { useCallback } from "react"
 import { useRouter } from "next/navigation"
 
+import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants"
 import type { getConfig } from "@/flags"
 import { useConfigStore } from "@/state/config"
 import { useSessionStore } from "@/state/session"
@@ -26,6 +27,16 @@ function getAuthBoundaryKey(session: SessionValidationResult | null) {
   ].join(":")
 }
 
+function hasAuthSessionPresentCookie() {
+  if (typeof document === "undefined") {
+    return true
+  }
+
+  return document.cookie
+    .split(";")
+    .some((cookie) => cookie.trim().startsWith(`${AUTH_SESSION_PRESENT_COOKIE_NAME}=`))
+}
+
 export function useFetchSession() {
   const router = useRouter()
   const setSession = useSessionStore((store) => store.setSession)
@@ -38,12 +49,18 @@ export function useFetchSession() {
   }: FetchSessionOptions = {}) => {
     const currentState = useSessionStore.getState()
     const policy = getSessionFetchPolicy(reason)
+    const hasSessionCookie = hasAuthSessionPresentCookie()
 
     if (!shouldFetchSession({
       hasHydratedSessionFromServer: currentState.hasHydratedSessionFromServer,
+      hasSessionCookie,
       lastFetched: currentState.lastFetched,
       reason,
     })) {
+      if (reason === "initial" && !currentState.hasHydratedSessionFromServer && !hasSessionCookie) {
+        setSession(null)
+      }
+
       return
     }
 

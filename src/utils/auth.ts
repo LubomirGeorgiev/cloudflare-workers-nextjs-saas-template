@@ -17,7 +17,10 @@ import {
 } from "./kv-session";
 import { cache } from "react"
 import type { SessionValidationResult } from "@/types";
-import { SESSION_COOKIE_NAME } from "@/constants";
+import {
+  AUTH_SESSION_PRESENT_COOKIE_NAME,
+  SESSION_COOKIE_NAME,
+} from "@/constants";
 import { ActionError } from "@/lib/action-error";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
@@ -163,11 +166,19 @@ export async function setSessionTokenCookie({ token, userId, expiresAt }: SetSes
     expires: expiresAt,
     path: "/",
   });
+  cookieStore.set(AUTH_SESSION_PRESENT_COOKIE_NAME, "1", {
+    httpOnly: false,
+    sameSite: isProd ? "strict" : "lax",
+    secure: isProd,
+    expires: expiresAt,
+    path: "/",
+  });
 }
 
 export async function deleteSessionTokenCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+  cookieStore.delete(AUTH_SESSION_PRESENT_COOKIE_NAME);
 }
 
 /**

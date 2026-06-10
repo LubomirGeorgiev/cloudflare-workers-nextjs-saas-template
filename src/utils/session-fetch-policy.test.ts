@@ -22,32 +22,54 @@ describe("session fetch policy", () => {
   test("fetches on initial sync after server hydration", () => {
     expect(shouldFetchSession({
       hasHydratedSessionFromServer: true,
+      hasSessionCookie: false,
       lastFetched: new Date("2026-06-01T11:09:18.000Z"),
       reason: "initial",
     })).toBe(true);
   });
 
+  test("skips initial sync for anonymous visits without a session-present cookie", () => {
+    expect(shouldFetchSession({
+      hasHydratedSessionFromServer: false,
+      hasSessionCookie: false,
+      lastFetched: null,
+      reason: "initial",
+    })).toBe(false);
+  });
+
   test("fetches after a session mutation even when the current session is fresh", () => {
     expect(shouldFetchSession({
       hasHydratedSessionFromServer: true,
+      hasSessionCookie: false,
       lastFetched: new Date("2026-06-01T11:09:18.000Z"),
       reason: "mutation",
     })).toBe(true);
   });
 
-  test("fetches on focus revalidation without a freshness window", () => {
+  test("skips focus revalidation for anonymous visits without a session-present cookie", () => {
     expect(shouldFetchSession({
-      hasHydratedSessionFromServer: true,
+      hasHydratedSessionFromServer: false,
+      hasSessionCookie: false,
       lastFetched: new Date("2026-06-01T11:09:18.000Z"),
       reason: "focus",
-    })).toBe(true);
+    })).toBe(false);
   });
 
-  test("fetches on visibility revalidation without a freshness window", () => {
+  test("skips visibility revalidation for anonymous visits without a session-present cookie", () => {
     expect(shouldFetchSession({
-      hasHydratedSessionFromServer: true,
+      hasHydratedSessionFromServer: false,
+      hasSessionCookie: false,
       lastFetched: new Date("2026-06-01T11:09:18.000Z"),
       reason: "visibility",
+    })).toBe(false);
+  });
+
+  test("fetches passive revalidation for server-hydrated sessions without a session-present cookie", () => {
+    expect(shouldFetchSession({
+      hasHydratedSessionFromServer: true,
+      hasSessionCookie: false,
+      lastFetched: new Date("2026-06-01T11:09:18.000Z"),
+      reason: "focus",
     })).toBe(true);
   });
 });
