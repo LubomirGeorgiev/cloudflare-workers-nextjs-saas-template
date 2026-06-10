@@ -23,8 +23,13 @@ export async function createVerifiedUserInLocalD1({
   role = "user",
 }: CreateVerifiedUserInLocalD1Params): Promise<void> {
   const passwordHash = await queryLocalD1({
-    sql: `select passwordHash from user where email = 'test@test.com' limit 1;`,
+    sql: "select passwordHash from user where passwordHash is not null limit 1;",
   });
+
+  if (!passwordHash) {
+    throw new Error("Expected seeded D1 state to include a reusable password hash.");
+  }
+
   const now = Math.floor(Date.now() / 1_000);
   const userId = `${idPrefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 

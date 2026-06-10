@@ -70,6 +70,7 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Use `pnpm run test:unit` to run co-located unit tests such as `*.test.ts`.
 - Use `pnpm run test:integration` to verify Workers-runtime integration behavior with local Miniflare D1, KV, and Queue bindings, especially for credit billing, scheduler, Cloudflare binding, and SQL-condition changes.
 - Use `pnpm run test:e2e` to verify end-to-end flows when changes could affect user journeys, routing, auth, or other integrated behavior.
+- Run `pnpx fallow audit` when work is done to audit the final changes before handing work back.
 - Run these commands after code changes when feasible, especially before handing work back.
 
 ### Template-Safe Tests

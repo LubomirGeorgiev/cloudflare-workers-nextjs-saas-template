@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -19,8 +19,13 @@ import {
 import { cn } from "@/lib/utils";
 import { searchDocsAction } from "../_actions/search-docs.action";
 import { toast } from "sonner";
+import {
+  createHighlightMatcher,
+  type HighlightMatcher,
+  MIN_QUERY_LENGTH,
+  splitHighlightedText,
+} from "./docs-search-highlighting";
 
-const MIN_QUERY_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
 
 interface DocsSearchProps {
@@ -39,7 +44,7 @@ interface DocsSearchResult {
 
 interface HighlightedTextProps {
   text: string;
-  query: string;
+  matcher: HighlightMatcher;
   className?: string;
 }
 
@@ -53,6 +58,7 @@ export function DocsSearch({
   const [results, setResults] = useState<DocsSearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedQuery] = useDebounceValue(query, SEARCH_DEBOUNCE_MS);
+  const highlightMatcher = useMemo(() => createHighlightMatcher(query), [query]);
   const searchRequestIdRef = useRef(0);
   const { executeAsync: executeDocsSearch } = useAction(searchDocsAction);
 
@@ -183,14 +189,23 @@ export function DocsSearch({
               <div className="min-w-0 space-y-1 px-3 py-1">
                 <div className="flex items-baseline gap-3">
                   <p className="min-w-0 flex-1 truncate font-medium text-foreground">
-                    <HighlightedText text={result.title} query={query} />
+                    <HighlightedText
+                      text={result.title}
+                      matcher={highlightMatcher}
+                    />
                   </p>
                   <p className="min-w-0 max-w-[45%] shrink truncate font-mono text-[11px] tracking-normal text-muted-foreground/70">
-                    <HighlightedText text={result.resolvedPath} query={query} />
+                    <HighlightedText
+                      text={result.resolvedPath}
+                      matcher={highlightMatcher}
+                    />
                   </p>
                 </div>
                 <p className="line-clamp-2 text-xs text-muted-foreground">
-                  <HighlightedText text={result.snippet} query={query} />
+                  <HighlightedText
+                    text={result.snippet}
+                    matcher={highlightMatcher}
+                  />
                 </p>
               </div>
             </CommandItem>
@@ -201,44 +216,27 @@ export function DocsSearch({
   );
 }
 
-function HighlightedText({ text, query, className }: HighlightedTextProps) {
-  const terms = getHighlightTerms(query);
-
-  if (terms.length === 0) {
+function HighlightedText({ text, matcher, className }: HighlightedTextProps) {
+  if (!matcher.pattern) {
     return <span className={className}>{text}</span>;
   }
 
-  const pattern = new RegExp(`(${terms.map(escapeRegExp).join("|")})`, "gi");
-  const parts = text.split(pattern);
+  const parts = splitHighlightedText({ text, matcher });
 
   return (
     <span className={className}>
       {parts.map((part, index) =>
-        terms.some((term) => term.toLowerCase() === part.toLowerCase()) ? (
-          <span key={`${part}-${index}`} className="font-semibold text-foreground">
-            {part}
+        part.highlighted ? (
+          <span
+            key={`${part.text}-${index}`}
+            className="font-semibold text-foreground"
+          >
+            {part.text}
           </span>
         ) : (
-          <span key={`${part}-${index}`}>{part}</span>
+          <span key={`${part.text}-${index}`}>{part.text}</span>
         )
       )}
     </span>
   );
-}
-
-function getHighlightTerms(query: string) {
-  return Array.from(
-    new Set(
-      query
-        .trim()
-        .split(/\s+/)
-        .map((term) => term.trim())
-        .filter((term) => term.length >= MIN_QUERY_LENGTH)
-        .sort((left, right) => right.length - left.length)
-    )
-  );
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

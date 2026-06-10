@@ -3,7 +3,7 @@ import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { headers } from "next/headers";
 
-import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/auth";
+import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { getIP } from "./get-IP";
 import { MAX_SESSIONS_PER_USER } from "@/constants";
 const SESSION_PREFIX = "session:";

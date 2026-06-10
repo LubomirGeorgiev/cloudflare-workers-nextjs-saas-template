@@ -173,9 +173,6 @@ importers:
       react-hotkeys-hook:
         specifier: ^5.2.1
         version: 5.2.4(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      react-turnstile:
-        specifier: ^1.1.4
-        version: 1.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       remeda:
         specifier: ^2.22.1
         version: 2.33.7
@@ -3215,12 +3212,6 @@ packages:
       react-dom: ^19.2.6
       webpack: ^5.59.0
 
-  react-turnstile@1.1.5:
-    resolution: {integrity: sha512-VTL5OeHAatzCEVQxAZox70/TPmhKxEbNgtr++dg+8zm9QrWKuoU9E0+7gqmycOSCDZuJFzvMMLKQb5PVUPLV6w==}
-    peerDependencies:
-      react: '>= 16.13.1'
-      react-dom: '>= 16.13.1'
-
   react@19.2.6:
     resolution: {integrity: sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q==}
     engines: {node: '>=0.10.0'}
@@ -6198,11 +6189,6 @@ snapshots:
       react-dom: 19.2.6(react@19.2.6)
       webpack: 5.106.2(esbuild@0.27.7)
       webpack-sources: 3.4.1
-
-  react-turnstile@1.1.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
-    dependencies:
-      react: 19.2.6
-      react-dom: 19.2.6(react@19.2.6)
 
   react@19.2.6: {}
 

@@ -545,7 +545,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
       return "";
     };
 
-    const getAllOptions = React.useCallback((): MultiSelectOption[] => {
+    const allOptions = React.useMemo((): MultiSelectOption[] => {
       if (options.length === 0) return [];
       let allOptions: MultiSelectOption[];
       if (isGroupedOptions(options)) {
@@ -584,9 +584,19 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
       return deduplicateOptions ? uniqueOptions : allOptions;
     }, [options, deduplicateOptions, isGroupedOptions]);
 
+    const enabledOptions = React.useMemo(
+      () => allOptions.filter((option) => !option.disabled),
+      [allOptions]
+    );
+
+    const optionByValue = React.useMemo(
+      () => new Map(allOptions.map((option) => [option.value, option])),
+      [allOptions]
+    );
+
     const getOptionByValue = React.useCallback(
       (value: string): MultiSelectOption | undefined => {
-        const option = getAllOptions().find((option) => option.value === value);
+        const option = optionByValue.get(value);
         if (!option && process.env.NODE_ENV === "development") {
           console.warn(
             `MultiSelect: Option with value "${value}" not found in options list`
@@ -594,7 +604,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
         }
         return option;
       },
-      [getAllOptions]
+      [optionByValue]
     );
 
     const filteredOptions = React.useMemo(() => {
@@ -671,11 +681,10 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 
     const toggleAll = () => {
       if (disabled) return;
-      const allOptions = getAllOptions().filter((option) => !option.disabled);
-      if (selectedValues.length === allOptions.length) {
+      if (selectedValues.length === enabledOptions.length) {
         handleClear();
       } else {
-        const allValues = allOptions.map((option) => option.value);
+        const allValues = enabledOptions.map((option) => option.value);
         setSelectedValues(allValues);
         onValueChange(allValues);
       }
@@ -717,15 +726,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 
     React.useEffect(() => {
       const selectedCount = selectedValues.length;
-      const allOptions = getAllOptions();
-      const totalOptions = allOptions.filter((opt) => !opt.disabled).length;
+      const totalOptions = enabledOptions.length;
       if (selectedCount !== prevSelectedCount.current) {
         const diff = selectedCount - prevSelectedCount.current;
         if (diff > 0) {
           const addedItems = selectedValues.slice(-diff);
           const addedLabels = addedItems
             .map(
-              (value) => allOptions.find((opt) => opt.value === value)?.label
+              (value) => optionByValue.get(value)?.label
             )
             .filter(Boolean);
 
@@ -775,7 +783,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
         }
         prevSearchValue.current = searchValue;
       }
-    }, [selectedValues, isPopoverOpen, searchValue, announce, getAllOptions]);
+    }, [selectedValues, isPopoverOpen, searchValue, announce, allOptions, enabledOptions, optionByValue]);
 
     return (
       <>
@@ -819,7 +827,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 aria-haspopup="listbox"
                 aria-controls={isPopoverOpen ? listboxId : undefined}
                 aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
-                aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length
+                aria-label={`Multi-select: ${selectedValues.length} of ${allOptions.length
                   } options selected. ${placeholder}`}
                 className={cn(
                   "flex p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
@@ -1067,17 +1075,16 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                       role="option"
                       aria-selected={
                         selectedValues.length ===
-                        getAllOptions().filter((opt) => !opt.disabled).length
+                        enabledOptions.length
                       }
-                      aria-label={`Select all ${getAllOptions().length
+                      aria-label={`Select all ${allOptions.length
                         } options`}
                       className="cursor-pointer">
                       <div
                         className={cn(
                           "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
                           selectedValues.length ===
-                            getAllOptions().filter((opt) => !opt.disabled)
-                              .length
+                            enabledOptions.length
                             ? "bg-primary text-primary-foreground"
                             : "opacity-50 [&_svg]:invisible"
                         )}
@@ -1086,8 +1093,8 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                       </div>
                       <span>
                         (Select All
-                        {getAllOptions().length > 20
-                          ? ` - ${getAllOptions().length} options`
+                        {allOptions.length > 20
+                          ? ` - ${allOptions.length} options`
                           : ""}
                         )
                       </span>

@@ -1,13 +1,11 @@
 import "server-only";
 
-import { userTable, teamMembershipTable, SYSTEM_ROLES_ENUM, teamRoleTable, TEAM_PERMISSIONS } from "@/db/schema";
 import { init } from "@paralleldrive/cuid2";
 import { encodeHexLowerCase } from "@oslojs/encoding"
 import ms from "ms"
-import { getDB } from "@/db";
-import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import isProd from "@/utils/is-prod";
+import { refreshUserCreditsAfterAuthentication } from "@/utils/credits";
 import {
   createKVSession,
   deleteKVSession,
@@ -21,9 +19,9 @@ import { cache } from "react"
 import type { SessionValidationResult } from "@/types";
 import { SESSION_COOKIE_NAME } from "@/constants";
 import { ActionError } from "@/lib/action-error";
-import { scheduleUserCreditRefresh } from "@/utils/credit-scheduler";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
+import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 
 const getSessionLength = () => {
   return ms("30d");
@@ -32,26 +30,6 @@ const getSessionLength = () => {
 /**
  * This file is based on https://lucia-auth.com
  */
-
-export async function getUserFromDB(userId: string) {
-  const db = getDB();
-  return await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
-    columns: {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      emailVerified: true,
-      avatar: true,
-      createdAt: true,
-      updatedAt: true,
-      currentCredits: true,
-      lastCreditRefreshAt: true,
-    },
-  });
-}
 
 const createId = init({
   length: 32,
@@ -80,72 +58,6 @@ interface CreateSessionParams extends Pick<CreateKVSessionParams, "authenticatio
   token: string;
 }
 
-export async function getUserTeamsWithPermissions(userId: string) {
-  const db = getDB();
-
-  // Get user's team memberships
-  const userTeamMemberships = await db.query.teamMembershipTable.findMany({
-    where: eq(teamMembershipTable.userId, userId),
-    with: {
-      team: true,
-    },
-  });
-
-  // Fetch permissions for each membership
-  return Promise.all(
-    userTeamMemberships.map(async (membership) => {
-      let roleName = '';
-      let permissions: string[] = [];
-
-      // Handle system roles
-      if (membership.isSystemRole) {
-        roleName = membership.roleId; // For system roles, roleId contains the role name
-
-        // For system roles, get permissions based on role
-        if (membership.roleId === SYSTEM_ROLES_ENUM.OWNER || membership.roleId === SYSTEM_ROLES_ENUM.ADMIN) {
-          // Owners and admins have all permissions
-          permissions = Object.values(TEAM_PERMISSIONS);
-        } else if (membership.roleId === SYSTEM_ROLES_ENUM.MEMBER) {
-          // Default permissions for members
-          permissions = [
-            TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-            TEAM_PERMISSIONS.CREATE_COMPONENTS,
-            TEAM_PERMISSIONS.EDIT_COMPONENTS,
-          ];
-        } else if (membership.roleId === SYSTEM_ROLES_ENUM.GUEST) {
-          // Guest permissions are limited
-          permissions = [
-            TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-          ];
-        }
-      } else {
-        // Handle custom roles
-        const role = await db.query.teamRoleTable.findFirst({
-          where: eq(teamRoleTable.id, membership.roleId),
-        });
-
-        if (role) {
-          roleName = role.name;
-          // Parse the stored JSON permissions
-          permissions = role.permissions as string[];
-        }
-      }
-
-      return {
-        id: membership.teamId,
-        name: membership.team.name,
-        slug: membership.team.slug,
-        role: {
-          id: membership.roleId,
-          name: roleName,
-          isSystemRole: !!membership.isSystemRole,
-        },
-        permissions,
-      };
-    })
-  );
-}
-
 export async function createSession({
   token,
   userId,
@@ -154,6 +66,8 @@ export async function createSession({
 }: CreateSessionParams): Promise<KVSession> {
   const sessionId = await generateSessionId(token);
   const expiresAt = new Date(Date.now() + getSessionLength());
+
+  await refreshUserCreditsAfterAuthentication({ userId });
 
   const user = await getUserFromDB(userId);
 
@@ -172,11 +86,6 @@ export async function createSession({
     passkeyCredentialId,
     teams: teamsWithPermissions,
     selectedTeam: teamsWithPermissions?.length > 0 ? teamsWithPermissions?.[0]?.id : undefined
-  });
-
-  await scheduleUserCreditRefresh({
-    userId,
-    lastCreditRefreshAt: user.lastCreditRefreshAt,
   });
 
   return session;

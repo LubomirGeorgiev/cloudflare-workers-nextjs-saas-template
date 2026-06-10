@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import type { Content } from "@tiptap/core"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
 // --- Tiptap Core Extensions ---
@@ -72,6 +73,7 @@ import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 // --- Lib ---
 import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
 import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions"
+import { syncEditorContentFromProps } from "./simple-editor-content-sync"
 
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
@@ -193,6 +195,7 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
     "main"
   )
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const lastSyncedContentKeyRef = useRef<string | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -237,9 +240,18 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
   })
 
   useEffect(() => {
-    if (editor && content && JSON.stringify(editor.getJSON()) !== JSON.stringify(content)) {
-      editor.commands.setContent(content)
+    if (!editor) {
+      return
     }
+
+    lastSyncedContentKeyRef.current = syncEditorContentFromProps({
+      getEditorContent: () => editor.getJSON(),
+      setEditorContent: (nextContent) => {
+        editor.commands.setContent(nextContent as Content)
+      },
+      content,
+      lastSyncedContentKey: lastSyncedContentKeyRef.current,
+    })
   }, [editor, content])
 
   useCursorVisibility({

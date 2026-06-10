@@ -9,7 +9,14 @@ describe("getAppSidebarData", () => {
       session: createSession({ role: "admin" }),
     });
 
-    expect(data.navMain.map((item) => item.title)).toContain("Admin Panel");
+    expect(data.navMain).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Admin Panel",
+          url: "/admin",
+        }),
+      ]),
+    );
   });
 
   test("does not include the admin panel link for a non-admin session", () => {
@@ -17,7 +24,14 @@ describe("getAppSidebarData", () => {
       session: createSession({ role: "user" }),
     });
 
-    expect(data.navMain.map((item) => item.title)).not.toContain("Admin Panel");
+    expect(data.navMain).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: "Admin Panel",
+          url: "/admin",
+        }),
+      ]),
+    );
   });
 });
 

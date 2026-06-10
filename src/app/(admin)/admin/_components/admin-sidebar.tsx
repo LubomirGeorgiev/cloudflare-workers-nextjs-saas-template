@@ -100,7 +100,12 @@ const adminNavItems: NavMainItem[] = [
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar
+      collapsible="icon"
+      role="navigation"
+      aria-label="Admin navigation"
+      {...props}
+    >
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>

@@ -10,6 +10,8 @@ const expectationTimeoutMs = 5_000;
 const absentExpectationTimeoutMs = 1_500;
 const pollIntervalMs = 50;
 
+type AppRole = Parameters<Page["getByRole"]>[0];
+
 let browser: Browser | undefined;
 let appContext: BrowserContext | undefined;
 let appPage: Page | undefined;
@@ -120,11 +122,11 @@ export async function navigateAppFrame(
 }
 
 export async function clickAppRole(
-  role: string,
+  role: AppRole,
   name: string,
   options?: { exact?: boolean }
 ): Promise<void> {
-  await getAppPage().getByRole(role as never, { name, exact: options?.exact }).first().click();
+  await getAppPage().getByRole(role, { name, exact: options?.exact }).first().click();
 }
 
 export async function fillAppPlaceholder(placeholder: string, value: string): Promise<void> {
@@ -164,12 +166,30 @@ export async function expectAppLabelValue({
 }
 
 export async function expectAppRole(
-  role: string,
+  role: AppRole,
   name: string,
   options?: { exact?: boolean }
 ): Promise<void> {
   await getAppPage()
-    .getByRole(role as never, { name, exact: options?.exact })
+    .getByRole(role, { name, exact: options?.exact })
+    .first()
+    .waitFor({ state: "visible", timeout: expectationTimeoutMs });
+}
+
+export async function expectAppRoleText({
+  exact,
+  name,
+  role,
+  text,
+}: {
+  exact?: boolean;
+  name: string;
+  role: AppRole;
+  text: string;
+}): Promise<void> {
+  await getAppPage()
+    .getByRole(role, { name })
+    .getByText(text, { exact })
     .first()
     .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
@@ -234,10 +254,6 @@ export function getAppCurrentPathname(): string {
 
 export function fetchAppPath(path: string, init?: RequestInit): Promise<Response> {
   return fetch(new URL(path, e2eBaseUrl), init);
-}
-
-export async function reloadAppFrame(): Promise<void> {
-  await getAppPage().reload({ waitUntil: "networkidle", timeout: navigationTimeoutMs });
 }
 
 afterEach(async () => {

@@ -13,6 +13,7 @@ import { createVerifiedUserInLocalD1, signInWithPassword } from "./auth-helpers"
 test("creates a team and persists it in the authenticated teams flow", async () => {
   const email = `team-owner-${Date.now()}@example.com`;
   const teamName = `E2E Launch Squad ${Date.now()}`;
+  const expectedTeamPathname = `/dashboard/teams/${teamName.toLowerCase().replaceAll(" ", "-")}`;
   const description = "Owns the launch checklist for the e2e suite.";
 
   await createVerifiedUserInLocalD1({
@@ -37,6 +38,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
 
   await expectAppPathnameNot("/dashboard/teams/create");
   await expectAppPathnameStartsWith("/dashboard/teams/");
+  expect(getAppCurrentPathname()).toBe(expectedTeamPathname);
   await expectAppText(teamName, { exact: true });
   await expectAppText(description, { exact: true });
   await expectAppText("Team Members", { exact: true });
@@ -44,7 +46,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   await expectAppText("owner", { exact: true });
 
   const teamPathname = getAppCurrentPathname();
-  expect(teamPathname).not.toBe("/dashboard/teams/create");
+  expect(teamPathname).toBe(expectedTeamPathname);
 
   await navigateAppFrame("/dashboard/teams", { waitForHydration: true });
 
@@ -53,5 +55,6 @@ test("creates a team and persists it in the authenticated teams flow", async () 
 
   await navigateAppFrame(teamPathname);
 
+  await expectAppPathnameStartsWith(expectedTeamPathname);
   await expectAppText(teamName, { exact: true });
 }, 15_000);

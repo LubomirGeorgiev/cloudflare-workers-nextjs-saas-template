@@ -37,8 +37,10 @@ import {
 } from "@/utils/kv-session";
 import {
   consumeCredits,
+  refreshUserCreditsAfterAuthentication,
   refreshUserMonthlyCreditsIfDue,
 } from "@/utils/credits";
+import { getUserFromDB } from "@/utils/session-user";
 
 const db = getDB();
 const dayInMs = 24 * 60 * 60 * 1000;
@@ -194,6 +196,19 @@ describeCreditBilling("credit billing integration", () => {
         type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
       }),
     ]);
+  });
+
+  test("post-auth credit refresh updates the existing session user snapshot", async () => {
+    const now = futureDate(35);
+    const userId = "credit-post-auth-refresh-user";
+    await createUser({ currentCredits: 0, id: userId, lastCreditRefreshAt: null });
+
+    await refreshUserCreditsAfterAuthentication({ userId, now });
+
+    const user = await getUserFromDB(userId);
+
+    expect(user?.currentCredits).toBe(50);
+    expect(user?.lastCreditRefreshAt).toEqual(now);
   });
 
   test("monthly refresh does not double-add credits when called repeatedly", async () => {

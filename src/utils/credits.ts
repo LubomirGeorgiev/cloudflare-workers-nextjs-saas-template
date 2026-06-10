@@ -221,6 +221,18 @@ async function finishMonthlyRefresh({
   await updateAllSessionsOfUser(userId);
 }
 
+export async function refreshUserCreditsAfterAuthentication({
+  userId,
+  now = new Date(),
+}: {
+  userId: string;
+  now?: Date;
+}): Promise<void> {
+  if (!DISABLE_CREDIT_BILLING_SYSTEM) {
+    await refreshUserMonthlyCreditsIfDue({ userId, now });
+  }
+}
+
 export async function refreshUserMonthlyCreditsIfDue({
   userId,
   now = new Date(),

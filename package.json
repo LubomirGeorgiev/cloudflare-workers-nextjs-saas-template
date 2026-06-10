@@ -22,7 +22,7 @@
     "cf-typegen": "wrangler types --env-file .env.example",
     "db:generate": "drizzle-kit generate --name",
     "db:migrate:dev": "echo yes | wrangler d1 migrations apply $(node scripts/get-db-name.mjs) --local",
-    "dev:reset": "rm -rf .wrangler && pnpm db:migrate:dev && pnpm db:seed",
+    "reset": "rm -rf .wrangler && pnpm db:migrate:dev && pnpm db:seed",
     "db:seed": "wrangler d1 execute $(node scripts/get-db-name.mjs) --local --file=./src/db/seed.sql",
     "postinstall": "pnpm run cf-typegen"
   },
@@ -82,7 +82,6 @@
     "react-dom": "^19.2.6",
     "react-hook-form": "^7.76.0",
     "react-hotkeys-hook": "^5.2.1",
-    "react-turnstile": "^1.1.4",
     "remeda": "^2.22.1",
     "server-only": "^0.0.1",
     "slugify": "^1.6.6",

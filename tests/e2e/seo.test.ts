@@ -15,11 +15,12 @@ test("serves robots.txt with public crawl rules and protected route exclusions",
   const response = await fetchAppPath("/robots.txt");
 
   expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toMatch(/^text\/plain\b/);
 
   const body = await response.text();
-  expect(body).toContain("Allow: /");
-  expect(body).toContain("Disallow: /dashboard/");
-  expect(body).toContain("Disallow: /verify-email");
+  expect(body).toMatch(/^Allow: \/$/m);
+  expect(body).toMatch(/^Disallow: \/dashboard\/$/m);
+  expect(body).toMatch(/^Disallow: \/verify-email$/m);
   expect(body).toMatch(/^Sitemap: https?:\/\/\S+\/sitemap\.xml$/m);
 });
 
@@ -27,12 +28,11 @@ test("serves a sitemap containing seeded CMS routes and no protected app routes"
   const response = await fetchAppPath("/sitemap.xml");
 
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toContain("application/xml");
+  expect(response.headers.get("content-type")).toMatch(/^application\/xml\b/);
 
   const body = await response.text();
   expectAbsoluteLoc(body, "/blog");
   expectAbsoluteLoc(body, "/blog/getting-started-with-nextjs-15");
   expectAbsoluteLoc(body, "/docs/getting-started/introduction");
-  expect(body).not.toContain("/dashboard");
-  expect(body).not.toContain("/settings");
+  expect(body).not.toMatch(/<loc>[^<]*(?:\/dashboard|\/settings)[^<]*<\/loc>/);
 });

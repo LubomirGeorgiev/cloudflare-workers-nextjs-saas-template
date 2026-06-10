@@ -60,6 +60,10 @@ describe("session store hydration", () => {
       hasHydratedSessionFromServer: false,
     });
   });
+
+  test("keeps client fetch orchestration out of session state", () => {
+    expect(useSessionStore.getState()).not.toHaveProperty("fetchSession");
+  });
 });
 
 function createSession({ now }: { now: Date }) {

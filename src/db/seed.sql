@@ -2,7 +2,7 @@
 -- This file contains test data for local development
 
 -- Insert test users (admin and regular users for development)
--- Password for all users: test123
+-- Password for all users: password
 INSERT OR REPLACE INTO user (
   id,
   createdAt,

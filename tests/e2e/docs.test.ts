@@ -34,10 +34,10 @@ test("serves docs markdown exports for AI and download workflows", async () => {
   const response = await fetchAppPath("/markdown/docs/introduction");
 
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toContain("text/markdown");
+  expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
 
   const body = await response.text();
-  expect(body).toContain("# Introduction");
+  expect(body).toMatch(/^# Introduction/m);
   expect(body).toContain("Authentication and team management");
 });
 
@@ -45,19 +45,21 @@ test("serves llms.txt from the docs navigation tree", async () => {
   const response = await fetchAppPath("/docs/llms.txt");
 
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toContain("text/plain");
+  expect(response.headers.get("content-type")).toMatch(/^text\/plain\b/);
 
   const body = await response.text();
-  expect(body).toContain("Introduction");
-  expect(body).toContain("/markdown/docs/introduction");
-  expect(body).toContain("/api/docs/search?q=authentication&limit=8");
+  expect(body).toMatch(/^# SaaS Template$/m);
+  expect(body).toMatch(/^## Documentation$/m);
+  expect(body).toMatch(/^## Search API$/m);
+  expect(body).toMatch(/GET https?:\/\/\S+\/api\/docs\/search\?q=authentication&limit=8/);
+  expect(body).toMatch(/^- \[Introduction\]\(https?:\/\/[^)]+\/markdown\/docs\/introduction\): /m);
 });
 
 test("serves docs search results from the public API endpoint", async () => {
   const response = await fetchAppPath("/api/docs/search?q=authentication&limit=3");
 
   expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toContain("application/json");
+  expect(response.headers.get("content-type")).toMatch(/^application\/json\b/);
 
   const body = await response.json() as {
     results: Array<{
@@ -68,7 +70,13 @@ test("serves docs search results from the public API endpoint", async () => {
   };
 
   expect(body.results.length).toBeGreaterThan(0);
-  expect(body.results[0]?.title).toContain("Authentication");
+  expect(body.results.length).toBeLessThanOrEqual(3);
+  expect(body.results[0]).toMatchObject({
+    title: "Authentication Setup",
+    snippet: expect.stringContaining("Authentication"),
+  });
+  expect(body.results.every((result) => result.title && result.resolvedPath && result.snippet)).toBe(true);
+
   const resolvedPath = new URL(body.results[0]?.resolvedPath ?? "");
   expect(resolvedPath.protocol).toMatch(/^https?:$/);
   expect(resolvedPath.pathname).toBe("/docs/getting-started/authentication");

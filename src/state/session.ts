@@ -11,11 +11,10 @@ interface SessionState {
   isLoading: boolean;
   lastFetched: Date | null;
   hasHydratedSessionFromServer: boolean;
-  fetchSession?: () => Promise<void>;
 }
 
 interface SessionActions {
-  setSession: (session: SessionValidationResult) => void;
+  setSession: (session: SessionValidationResult | null) => void;
   hydrateSessionFromServer: (session: SessionValidationResult) => void;
   clearSession: () => void;
   refetchSession: () => void;
@@ -30,7 +29,7 @@ interface SessionActions {
   getTeam: (teamId: string) => TeamMember | undefined;
 }
 
-function getLoadedSessionState(session: SessionValidationResult) {
+function getLoadedSessionState(session: SessionValidationResult | null) {
   return {
     session,
     isLoading: false,
@@ -45,10 +44,9 @@ export const useSessionStore = create(
       isLoading: true,
       lastFetched: null as Date | null,
       hasHydratedSessionFromServer: false,
-      fetchSession: undefined,
     } as SessionState,
     (set, get) => ({
-      setSession: (session: SessionValidationResult) => set(getLoadedSessionState(session)),
+      setSession: (session: SessionValidationResult | null) => set(getLoadedSessionState(session)),
       hydrateSessionFromServer: (session: SessionValidationResult) => set({
         ...getLoadedSessionState(session),
         hasHydratedSessionFromServer: true,

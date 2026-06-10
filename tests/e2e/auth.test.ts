@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import {
   clickAppRole,
   expectAppLabelValue,
@@ -7,19 +7,20 @@ import {
   expectNoAppToast,
   expectNoAppText,
   expectAppPathname,
+  expectAppRoleText,
   expectAppText,
   expectAppToast,
   fillAppLabel,
   fillAppPlaceholder,
   loadAppFrame,
   navigateAppFrame,
-  reloadAppFrame,
 } from "./app-frame";
 import {
   createVerifiedUserInLocalD1,
   signInSeededMember,
   signInWithPassword,
 } from "./auth-helpers";
+import { FREE_MONTHLY_CREDITS } from "../../src/constants";
 import {
   listLocalKVEntries,
   queryLocalD1,
@@ -200,6 +201,7 @@ test("creates and verifies a new password account", async () => {
 
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Creating your account...");
+  await expectAppText(`${FREE_MONTHLY_CREDITS} credits`, { exact: true });
 
   const verificationUrl = await waitForVerificationUrl({
     email,
@@ -273,22 +275,8 @@ test("resets a verified user's password and invalidates the reset token", async 
 }, 20_000);
 
 describe("profile settings", () => {
-  let settingsUserEmail: string;
-
-  beforeAll(async () => {
-    settingsUserEmail = `settings-user-${Date.now()}@example.com`;
-
-    await createVerifiedUserInLocalD1({
-      email: settingsUserEmail,
-    });
-  });
-
   test("validates profile settings before saving", async () => {
-    await signInWithPassword({
-      email: settingsUserEmail,
-      password: "password",
-      redirectPath: "/settings",
-    });
+    await signInSeededMember("/settings");
     await navigateAppFrame("/settings", { waitForHydration: true });
 
     await expectAppText("Profile Settings", { exact: true });
@@ -301,22 +289,47 @@ describe("profile settings", () => {
   });
 
   test("updates profile settings and shows a visible success toast", async () => {
+    const email = `profile-admin-${Date.now()}@example.com`;
+
+    await createVerifiedUserInLocalD1({
+      email,
+      firstName: "Admin",
+      idPrefix: "usr_profile_admin",
+      lastName: "Profile",
+      role: "admin",
+    });
+
     await signInWithPassword({
-      email: settingsUserEmail,
+      email,
       password: "password",
       redirectPath: "/settings",
     });
     await navigateAppFrame("/settings", { waitForHydration: true });
 
     await expectAppText("Profile Settings", { exact: true });
+    await expectAppLabelValue({ label: "First Name", value: "Admin" });
+    await expectAppLabelValue({ label: "Last Name", value: "Profile" });
+    await expectAppText("Admin Profile", { exact: true });
+
     await fillAppLabel({ label: "First Name", value: "E2E" });
     await fillAppLabel({ label: "Last Name", value: "Tester" });
     await clickAppRole("button", "Save changes");
 
     await expectAppToast("Profile updated successfully");
-    await reloadAppFrame();
     await expectAppText("Profile Settings", { exact: true });
     await expectAppLabelValue({ label: "First Name", value: "E2E" });
     await expectAppLabelValue({ label: "Last Name", value: "Tester" });
+    await expectAppText("E2E Tester", { exact: true });
+
+    await navigateAppFrame("/", { waitForHydration: true });
+    await expectNoAppText("E2E Tester", { exact: true });
+
+    await navigateAppFrame("/admin", { waitForHydration: true });
+    await expectAppRoleText({
+      role: "navigation",
+      name: "Admin navigation",
+      text: "E2E Tester",
+      exact: true,
+    });
   });
 });
