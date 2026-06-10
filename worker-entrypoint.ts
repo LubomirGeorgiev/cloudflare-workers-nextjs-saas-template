@@ -6,7 +6,6 @@
  *
  * @see https://github.com/vinext/vinext/blob/main/packages/vinext/src/server/app-router-entry.ts
  */
-import { KVCacheHandler } from "vinext/cloudflare";
 import handler from "vinext/server/app-router-entry";
 import {
   DEFAULT_DEVICE_SIZES,
@@ -14,7 +13,6 @@ import {
   handleImageOptimization,
   IMAGE_OPTIMIZATION_PATH,
 } from "vinext/server/image-optimization";
-import { setCacheHandler } from "vinext/shims/cache";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import {
   handleSchedulerCron,
@@ -25,8 +23,6 @@ import {
   CLIENT_IP_HEADERS_TO_STRIP,
   TRUSTED_CLIENT_IP_HEADER,
 } from "./src/utils/trusted-client-ip";
-
-const VINEXT_CACHE_PREFIX = "vinext-cache";
 
 /**
  * Edge-only logic before vinext and `/_vinext/image`.
@@ -48,12 +44,6 @@ async function handleCustomEdge(
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    setCacheHandler(
-      new KVCacheHandler(env.NEXT_INC_CACHE_KV, {
-        appPrefix: VINEXT_CACHE_PREFIX,
-      }),
-    );
-
     const early = await handleCustomEdge(request, env, ctx);
     if (early) return early;
 

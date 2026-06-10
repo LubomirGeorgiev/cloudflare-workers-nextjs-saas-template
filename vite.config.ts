@@ -1,9 +1,14 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
+import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
+import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
 import { getSchedulerQueueName } from "./tools/wrangler-config";
+
+const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
+const VINEXT_CACHE_PREFIX = "vinext-cache";
 
 export default defineConfig({
   define: {
@@ -54,7 +59,15 @@ export default defineConfig({
     },
   },
   plugins: [
-    vinext(),
+    vinext({
+      cache: {
+        cdn: cdnAdapter(),
+        data: kvDataAdapter({
+          binding: VINEXT_CACHE_KV_BINDING,
+          appPrefix: VINEXT_CACHE_PREFIX,
+        }),
+      },
+    }),
     cloudflare({
       viteEnvironment: {
         name: "rsc",
