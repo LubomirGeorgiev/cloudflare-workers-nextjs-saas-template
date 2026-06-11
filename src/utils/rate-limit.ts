@@ -1,5 +1,6 @@
 import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
+import { waitUntil } from "cloudflare:workers";
 import * as ipaddr from "ipaddr.js";
 
 interface RateLimitOptions {
@@ -9,6 +10,8 @@ interface RateLimitOptions {
   windowInSeconds: number;
   // Unique identifier for the rate limit (e.g., 'api:auth', 'api:upload')
   identifier: string;
+  // Soft limit mode: persist successful increments after the response is ready.
+  deferWrite?: boolean;
 }
 
 interface RateLimitResult {
@@ -77,10 +80,15 @@ export async function checkRateLimit({
     };
   }
 
-  // Increment the counter
-  await env.NEXT_INC_CACHE_KV.put(windowKey, (currentCount + 1).toString(), {
+  const writeCountPromise = env.NEXT_INC_CACHE_KV.put(windowKey, (currentCount + 1).toString(), {
     expirationTtl: options.windowInSeconds,
   });
+
+  if (options.deferWrite) {
+    waitUntil(writeCountPromise);
+  } else {
+    await writeCountPromise;
+  }
 
   return {
     success: true,

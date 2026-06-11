@@ -25,6 +25,10 @@ interface RateLimitConfig {
    * The time window in seconds.
    */
   windowInSeconds: number;
+  /**
+   * Persist successful counter writes after returning the response. Use only for soft, low-risk limits.
+   */
+  deferWrite?: boolean;
 }
 
 export class RateLimitError extends Error {
@@ -62,6 +66,7 @@ export async function withRateLimit<T>(
       identifier: config.identifier,
       limit: config.limit,
       windowInSeconds: config.windowInSeconds,
+      deferWrite: config.deferWrite,
     },
   });
 
@@ -150,6 +155,7 @@ export const RATE_LIMITS = {
     identifier: "get-session-api",
     limit: 50,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
+    deferWrite: true,
   },
   CMS_IMAGES_API: {
     identifier: "cms-images-api",
