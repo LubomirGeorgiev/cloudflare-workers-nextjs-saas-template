@@ -1,6 +1,6 @@
 import { buttonVariants } from "@/components/ui/button"
 import Link from "next/link";
-import { useConfigStore } from "@/state/config";
+import { usePublicAuthFeatureState } from "@/state/public-config";
 import Google from "@/icons/google";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -10,9 +10,9 @@ export default function SSOButtons({
 }: {
   isSignIn?: boolean
 }) {
-  const { isGoogleSSOEnabled } = useConfigStore()
+  const { isGoogleSSOEnabled, isLoaded } = usePublicAuthFeatureState()
 
-  if (isGoogleSSOEnabled === null) {
+  if (!isLoaded) {
     return (
       <Skeleton className="w-full h-[44px]" />
     )

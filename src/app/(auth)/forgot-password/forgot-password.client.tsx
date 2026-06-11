@@ -20,7 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useSessionStore } from "@/state/session";
 import { Captcha } from "@/components/captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
-import { useConfigStore } from "@/state/config";
+import { usePublicAuthFeatureState } from "@/state/public-config";
 import { useEffect } from "react";
 import { v } from "@/lib/validation";
 
@@ -28,7 +28,7 @@ type ForgotPasswordSchema = v.InferOutput<typeof forgotPasswordSchema>;
 
 export default function ForgotPasswordClientComponent() {
   const { session } = useSessionStore()
-  const { isTurnstileEnabled } = useConfigStore()
+  const { isTurnstileEnabled } = usePublicAuthFeatureState()
   const router = useRouter();
 
   const form = useForm<ForgotPasswordSchema>({

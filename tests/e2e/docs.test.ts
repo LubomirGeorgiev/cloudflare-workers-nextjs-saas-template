@@ -6,6 +6,7 @@ import {
   fetchAppPath,
   loadAppFrame,
 } from "./app-frame";
+import { SITE_NAME } from "../../src/constants";
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame("/docs/getting-started/introduction");
@@ -48,7 +49,7 @@ test("serves llms.txt from the docs navigation tree", async () => {
   expect(response.headers.get("content-type")).toMatch(/^text\/plain\b/);
 
   const body = await response.text();
-  expect(body).toMatch(/^# SaaS Template$/m);
+  expect(body.split("\n")[0]).toBe(`# ${SITE_NAME}`);
   expect(body).toMatch(/^## Documentation$/m);
   expect(body).toMatch(/^## Search API$/m);
   expect(body).toMatch(/GET https?:\/\/\S+\/api\/docs\/search\?q=authentication&limit=8/);

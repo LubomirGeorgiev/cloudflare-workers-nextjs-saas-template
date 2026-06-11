@@ -22,7 +22,7 @@ import SSOButtons from "../_components/sso-buttons";
 import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { KeyIcon } from 'lucide-react'
-import { useConfigStore } from "@/state/config";
+import { usePublicAuthFeatureState } from "@/state/public-config";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 
@@ -31,7 +31,7 @@ interface SignUpClientProps {
 }
 
 const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
-  const { isTurnstileEnabled } = useConfigStore();
+  const { isTurnstileEnabled } = usePublicAuthFeatureState();
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();

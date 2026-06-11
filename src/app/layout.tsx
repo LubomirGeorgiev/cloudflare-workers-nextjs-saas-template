@@ -9,6 +9,8 @@ import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from "@/constants";
+import { getPublicConfig } from "@/flags";
+import { PublicConfigHydrator } from "@/components/public-config-hydrator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -48,6 +50,12 @@ export const metadata: Metadata = {
   },
 };
 
+async function PublicConfigRootHydrator() {
+  const publicConfig = await getPublicConfig();
+
+  return <PublicConfigHydrator publicConfig={publicConfig} />;
+}
+
 export default function BaseLayout({
   children,
 }: Readonly<{
@@ -56,6 +64,7 @@ export default function BaseLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <PublicConfigRootHydrator />
         <NavigationTopLoader />
         <ThemeProvider
           attribute="class"

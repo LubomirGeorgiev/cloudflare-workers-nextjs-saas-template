@@ -4,8 +4,6 @@ import { useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants"
-import type { getConfig } from "@/flags"
-import { useConfigStore } from "@/state/config"
 import { useSessionStore } from "@/state/session"
 import type { SessionValidationResult } from "@/types"
 import {
@@ -13,6 +11,9 @@ import {
   getSessionFetchPolicy,
   shouldFetchSession,
 } from "@/utils/session-fetch-policy"
+
+type SessionStateSnapshot = ReturnType<typeof useSessionStore.getState>;
+type SessionFetchPolicy = ReturnType<typeof getSessionFetchPolicy>;
 
 function getAuthBoundaryKey(session: SessionValidationResult | null) {
   if (!session) {
@@ -37,10 +38,62 @@ function hasAuthSessionPresentCookie() {
     .some((cookie) => cookie.trim().startsWith(`${AUTH_SESSION_PRESENT_COOKIE_NAME}=`))
 }
 
+function shouldClearAnonymousInitialSession({
+  currentState,
+  hasSessionCookie,
+  reason,
+}: {
+  currentState: SessionStateSnapshot;
+  hasSessionCookie: boolean;
+  reason: FetchSessionOptions["reason"];
+}) {
+  return reason === "initial" && !currentState.hasHydratedSessionFromServer && !hasSessionCookie;
+}
+
+async function fetchSessionFromApi() {
+  const response = await fetch("/api/get-session");
+  const sessionResponse = await response.json() as {
+    session: SessionValidationResult | undefined;
+  };
+
+  return sessionResponse.session ?? null;
+}
+
+function shouldRefreshRouteForSessionBoundary({
+  currentState,
+  nextSession,
+  policy,
+}: {
+  currentState: SessionStateSnapshot;
+  nextSession: SessionValidationResult | null;
+  policy: SessionFetchPolicy;
+}) {
+  return (
+    policy.refreshOnBoundaryChange &&
+    currentState.hasHydratedSessionFromServer &&
+    getAuthBoundaryKey(currentState.session) !== getAuthBoundaryKey(nextSession)
+  );
+}
+
+function handleSessionFetchError({
+  clearSession,
+  error,
+  policy,
+}: {
+  clearSession: () => void;
+  error: unknown;
+  policy: SessionFetchPolicy;
+}) {
+  console.warn("Failed to fetch session:", error);
+
+  if (!policy.passive) {
+    clearSession();
+  }
+}
+
 export function useFetchSession() {
   const router = useRouter()
   const setSession = useSessionStore((store) => store.setSession)
-  const setConfig = useConfigStore((store) => store.setConfig)
   const refetchSession = useSessionStore((store) => store.refetchSession)
   const clearSession = useSessionStore((store) => store.clearSession)
 
@@ -57,7 +110,7 @@ export function useFetchSession() {
       lastFetched: currentState.lastFetched,
       reason,
     })) {
-      if (reason === "initial" && !currentState.hasHydratedSessionFromServer && !hasSessionCookie) {
+      if (shouldClearAnonymousInitialSession({ currentState, hasSessionCookie, reason })) {
         setSession(null)
       }
 
@@ -69,29 +122,15 @@ export function useFetchSession() {
         refetchSession()
       }
 
-      const response = await fetch("/api/get-session")
-      const sessionWithConfig = await response.json() as {
-        session: SessionValidationResult | undefined
-        config: Awaited<ReturnType<typeof getConfig>>
-      }
-      const nextSession = sessionWithConfig.session ?? null
+      const nextSession = await fetchSessionFromApi()
 
-      setConfig(sessionWithConfig.config)
       setSession(nextSession)
 
-      if (
-        policy.refreshOnBoundaryChange &&
-        currentState.hasHydratedSessionFromServer &&
-        getAuthBoundaryKey(currentState.session) !== getAuthBoundaryKey(nextSession)
-      ) {
+      if (shouldRefreshRouteForSessionBoundary({ currentState, nextSession, policy })) {
         router.refresh()
       }
     } catch (error) {
-      console.warn("Failed to fetch session:", error)
-
-      if (!policy.passive) {
-        clearSession()
-      }
+      handleSessionFetchError({ clearSession, error, policy })
     }
-  }, [clearSession, refetchSession, router, setConfig, setSession])
+  }, [clearSession, refetchSession, router, setSession])
 }

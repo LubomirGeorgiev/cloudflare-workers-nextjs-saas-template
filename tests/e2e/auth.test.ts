@@ -20,7 +20,10 @@ import {
   signInSeededMember,
   signInWithPassword,
 } from "./auth-helpers";
-import { FREE_MONTHLY_CREDITS } from "../../src/constants";
+import {
+  DISABLE_CREDIT_BILLING_SYSTEM,
+  FREE_MONTHLY_CREDITS,
+} from "../../src/constants";
 import {
   listLocalKVEntries,
   queryLocalD1,
@@ -201,7 +204,9 @@ test("creates and verifies a new password account", async () => {
 
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Creating your account...");
-  await expectAppText(`${FREE_MONTHLY_CREDITS} credits`, { exact: true });
+  if (!DISABLE_CREDIT_BILLING_SYSTEM) {
+    await expectAppText(`${FREE_MONTHLY_CREDITS} credits`, { exact: true });
+  }
 
   const verificationUrl = await waitForVerificationUrl({
     email,
