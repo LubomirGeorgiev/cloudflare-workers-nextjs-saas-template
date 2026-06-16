@@ -135,7 +135,7 @@ export function ContentTableOfContentsNav({
 
     let raf: number | null = null;
     const scheduleUpdate = () => {
-      if (raf != null) {
+      if (raf !== null) {
         return;
       }
 
@@ -155,7 +155,7 @@ export function ContentTableOfContentsNav({
       window.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("hashchange", updateActive);
-      if (raf != null) {
+      if (raf !== null) {
         cancelAnimationFrame(raf);
       }
     };

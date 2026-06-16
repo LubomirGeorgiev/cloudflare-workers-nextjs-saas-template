@@ -103,7 +103,9 @@ async function querySqlite({
         throw error;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, sqliteRetryDelayMs));
+      await new Promise((resolve) => {
+        setTimeout(resolve, sqliteRetryDelayMs);
+      });
     }
   }
 

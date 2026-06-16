@@ -98,7 +98,9 @@ async function waitForVerificationUrl({
       return verificationUrl;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
   }
 
   throw new Error("Timed out waiting for verification URL.");
@@ -118,7 +120,9 @@ async function waitForPasswordResetUrl({
       return resetUrl;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
   }
 
   throw new Error("Timed out waiting for password reset URL.");

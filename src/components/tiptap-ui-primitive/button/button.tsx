@@ -63,6 +63,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     if (!tooltip || !showTooltip) {
       return (
         <button
+          type="button"
           className={cn("tiptap-button", className)}
           ref={ref}
           aria-label={ariaLabel}

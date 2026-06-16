@@ -97,6 +97,7 @@ export function SettingsNav() {
         <DialogTrigger
           render={
             <button
+              type="button"
               className={cn(
                 buttonVariants({ variant: "destructive" }),
                 "justify-start hover:no-underline whitespace-nowrap bg-red-700/25 hover:bg-red-600/40"

@@ -101,13 +101,13 @@ function useTooltip({
     mouseOnly: true,
     move: false,
     restMs: delay,
-    enabled: controlledOpen == null,
+    enabled: controlledOpen === null || controlledOpen === undefined,
     delay: {
       close: closeDelay,
     },
   })
   const focus = useFocus(context, {
-    enabled: controlledOpen == null,
+    enabled: controlledOpen === null || controlledOpen === undefined,
   })
   const dismiss = useDismiss(context)
   const role = useRole(context, { role: "tooltip" })
@@ -130,7 +130,7 @@ const TooltipContext = createContext<TooltipContextValue | null>(null)
 function useTooltipContext() {
   const context = useContext(TooltipContext)
 
-  if (context == null) {
+  if (context === null) {
     throw new Error("Tooltip components must be wrapped in <TooltipProvider />")
   }
 
@@ -192,6 +192,7 @@ export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
 
     return (
       <button
+        type="button"
         ref={ref}
         data-tooltip-state={context.open ? "open" : "closed"}
         {...context.getReferenceProps(props)}

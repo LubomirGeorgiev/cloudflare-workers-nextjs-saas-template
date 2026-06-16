@@ -31,6 +31,7 @@ export function Hero() {
               <a
                 href={GITHUB_REPO_URL}
                 target="_blank"
+                rel="noreferrer"
                 className={buttonVariants({ size: "lg", className: "rounded-full" })}
               >
                 View on GitHub

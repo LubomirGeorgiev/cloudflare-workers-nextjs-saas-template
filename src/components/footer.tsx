@@ -91,6 +91,7 @@ export function Footer() {
                   <a
                     href="https://agenticdev.agency"
                     target="_blank"
+                    rel="noreferrer"
                     className="flex items-center font-medium text-sm hover:text-foreground transition-colors"
                   >
                     <span className="whitespace-nowrap">Built by</span>

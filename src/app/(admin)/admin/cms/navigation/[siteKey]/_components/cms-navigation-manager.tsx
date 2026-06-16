@@ -1128,6 +1128,7 @@ export function CmsNavigationManager({
                     <a
                       href={panelResolvedAbsoluteUrl}
                       target="_blank"
+                      rel="noreferrer"
                       className="break-all font-medium text-primary underline underline-offset-4"
                     >
                       {panelResolvedAbsoluteUrl}

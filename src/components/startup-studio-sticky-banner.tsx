@@ -68,6 +68,7 @@ export function AgenticDevStudioStickyBanner() {
               <a
                 href="https://agenticdev.agency?ref=saas-template-sticky-banner"
                 target="_blank"
+                rel="noreferrer"
                 className="flex flex-col items-center font-medium text-sm hover:text-foreground transition-colors"
               >
                 <div className="flex items-center">
@@ -83,6 +84,7 @@ export function AgenticDevStudioStickyBanner() {
               <a
                 href="https://agenticdev.agency?ref=saas-template-sticky-banner"
                 target="_blank"
+                rel="noreferrer"
                 className={buttonVariants({ size: "sm", className: "mt-4" })}
               >
                 Book a free consultation

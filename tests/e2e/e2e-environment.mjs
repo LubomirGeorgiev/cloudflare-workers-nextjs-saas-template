@@ -346,7 +346,9 @@ export function createE2EEnvironment() {
         lastError = error;
       }
 
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 1_000));
+      await new Promise((resolveDelay) => {
+        setTimeout(resolveDelay, 1_000);
+      });
     }
 
     throw new Error(

@@ -743,6 +743,7 @@ export function VersionHistory({
                      }`}
                    >
                      <button
+                       type="button"
                        onClick={() => setSelectedVersion(version)}
                        className={`w-full text-left p-3 hover:bg-muted/50 rounded-lg transition-all ${canDelete ? 'pr-10' : ''}`}
                      >
@@ -761,6 +762,7 @@ export function VersionHistory({
                      </button>
                      {canDelete && (
                        <button
+                         type="button"
                          onClick={(e) => handleDelete(version.id, e)}
                          disabled={isDeleting}
                          className="absolute top-1/2 -translate-y-1/2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50"

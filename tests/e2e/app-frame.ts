@@ -277,7 +277,7 @@ afterEach(async () => {
   appConsoleErrors = [];
 
   if (closeError) {
-    throw closeError;
+    throw closeError instanceof Error ? closeError : new Error(String(closeError));
   }
 
   if (errors.length > 0) {
