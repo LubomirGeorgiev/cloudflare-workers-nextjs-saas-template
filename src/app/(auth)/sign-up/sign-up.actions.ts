@@ -6,7 +6,7 @@ import { getDB } from "@/db"
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
-import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp } from "@/utils/auth";
+import { createAndStoreSession, canSignUp } from "@/utils/auth";
 import { eq } from "drizzle-orm";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -76,20 +76,7 @@ export const signUpAction = actionClient
         }
 
         try {
-          // Create a session
-          const sessionToken = generateSessionToken();
-          const session = await createSession({
-            token: sessionToken,
-            userId: user.id,
-            authenticationType: "password",
-          });
-
-          // Set the session cookie
-          await setSessionTokenCookie({
-            token: sessionToken,
-            userId: user.id,
-            expiresAt: new Date(session.expiresAt)
-          });
+          await createAndStoreSession(user.id, "password");
 
           await sendUserVerificationEmail({
             userId: user.id,

@@ -7,7 +7,7 @@ import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
-import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp } from "@/utils/auth";
+import { createAndStoreSession, canSignUp } from "@/utils/auth";
 import type { RegistrationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -169,21 +169,7 @@ export const completePasskeyRegistrationAction = actionClient
         username: user.firstName || user.email,
       });
 
-      // Create a session
-      const sessionToken = generateSessionToken();
-      const session = await createSession({
-        token: sessionToken,
-        userId,
-        authenticationType: "passkey",
-        passkeyCredentialId: input.response.id
-      });
-
-      // Set the session cookie
-      await setSessionTokenCookie({
-        token: sessionToken,
-        userId,
-        expiresAt: new Date(session.expiresAt)
-      });
+      await createAndStoreSession(userId, "passkey", input.response.id);
 
       // Clean up cookies
       cookieStore.delete(PASSKEY_CHALLENGE_COOKIE_NAME);

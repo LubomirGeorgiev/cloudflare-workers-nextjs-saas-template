@@ -16,6 +16,10 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => cookieStore),
 }));
 
+vi.mock("react", () => ({
+  cache: (callback: unknown) => callback,
+}));
+
 vi.mock("@/utils/credits", () => ({
   refreshUserCreditsAfterAuthentication: vi.fn(),
 }));
@@ -35,8 +39,21 @@ vi.mock("./kv-session", () => ({
 
 const {
   deleteSessionTokenCookie,
+  generateSessionToken,
   setSessionTokenCookie,
 } = await import("./auth");
+
+describe("auth session tokens", () => {
+  test("generates URL-safe CSPRNG session tokens", () => {
+    const getRandomValues = vi.spyOn(globalThis.crypto, "getRandomValues");
+
+    const token = generateSessionToken();
+
+    expect(getRandomValues).toHaveBeenCalled();
+    expect(token).toHaveLength(64);
+    expect(token).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+});
 
 describe("auth session cookies", () => {
   beforeEach(() => {
@@ -83,4 +100,5 @@ describe("auth session cookies", () => {
     expect(cookieStore.delete).toHaveBeenCalledWith(SESSION_COOKIE_NAME);
     expect(cookieStore.delete).toHaveBeenCalledWith(AUTH_SESSION_PRESENT_COOKIE_NAME);
   });
+
 });

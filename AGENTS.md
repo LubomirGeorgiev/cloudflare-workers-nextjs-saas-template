@@ -97,6 +97,7 @@ Suggested homes:
 ## Frontend and Next.js
 
 - Prefer server components. Limit `use client`, `useEffect`, and local state.
+- Use React.cache (`cache` from `react`) for reusable server-side read functions that may be called multiple times during one RSC render/request, especially request-scoped auth/session/config/database reads. Do not wrap mutations, server actions, route handlers, or functions whose result must change within the same request.
 - Use client components only when needed for browser APIs or small interactive UI.
 - Wrap client components in `Suspense` where appropriate.
 - When layout or shell chrome needs independent async server data, move that data into a small server wrapper component and render it behind a local `Suspense` fallback. Do not make the entire layout async unless the layout must block for auth, redirects, request-scoped data, or other decisions that affect the whole route.

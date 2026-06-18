@@ -1,6 +1,5 @@
 import "server-only";
 
-import { init } from "@paralleldrive/cuid2";
 import { encodeHexLowerCase } from "@oslojs/encoding"
 import ms from "ms"
 import { cookies } from "next/headers";
@@ -25,6 +24,7 @@ import { ActionError } from "@/lib/action-error";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
+import { createBase64UrlToken } from "@/utils/random-token";
 
 const getSessionLength = () => {
   return ms("30d");
@@ -34,12 +34,10 @@ const getSessionLength = () => {
  * This file is based on https://lucia-auth.com
  */
 
-const createId = init({
-  length: 32,
-});
+const SESSION_TOKEN_BYTES = 48;
 
 export function generateSessionToken(): string {
-  return createId();
+  return createBase64UrlToken(SESSION_TOKEN_BYTES);
 }
 
 async function generateSessionId(token: string): Promise<string> {
@@ -61,7 +59,7 @@ interface CreateSessionParams extends Pick<CreateKVSessionParams, "authenticatio
   token: string;
 }
 
-export async function createSession({
+async function createSession({
   token,
   userId,
   authenticationType,
