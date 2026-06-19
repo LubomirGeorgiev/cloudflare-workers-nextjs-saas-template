@@ -1,9 +1,7 @@
 import type { Route } from "next";
 import { cache } from "react";
 import { getDB } from "@/db";
-import { teamTable } from "@/db/schema";
 import { notFound, redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
 import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
@@ -36,7 +34,7 @@ const getCachedTeamBySlug = cache(async (teamSlug: string) => {
   const db = getDB();
 
   return db.query.teamTable.findFirst({
-    where: eq(teamTable.slug, teamSlug),
+    where: { slug: teamSlug },
   });
 });
 

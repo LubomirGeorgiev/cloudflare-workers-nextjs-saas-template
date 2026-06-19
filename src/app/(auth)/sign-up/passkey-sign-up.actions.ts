@@ -5,7 +5,6 @@ import { actionClient } from "@/lib/safe-action";
 import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@/utils/webauthn";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { createAndStoreSession, canSignUp } from "@/utils/auth";
 import type { RegistrationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
@@ -50,7 +49,7 @@ export const startPasskeyRegistrationAction = actionClient
         await canSignUp({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
-          where: eq(userTable.email, input.email),
+          where: { email: input.email },
         });
 
         if (existingUser) {
@@ -153,7 +152,7 @@ export const completePasskeyRegistrationAction = actionClient
       // Get user details for email verification
       const db = getDB();
       const user = await db.query.userTable.findFirst({
-        where: eq(userTable.id, userId),
+        where: { id: userId },
       });
 
       if (!user || !user.email) {

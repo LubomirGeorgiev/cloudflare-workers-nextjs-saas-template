@@ -7,7 +7,7 @@ import {
   verifyPasskeyAuthentication
 } from "@/utils/webauthn";
 import { getDB } from "@/db";
-import { userTable, passKeyCredentialTable } from "@/db/schema";
+import { passKeyCredentialTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
@@ -37,7 +37,7 @@ export const generateRegistrationOptionsAction = actionClient
 
       const db = getDB();
       const user = await db.query.userTable.findFirst({
-        where: eq(userTable.email, input.email),
+        where: { email: input.email },
       });
 
       if (!user) {
@@ -91,7 +91,7 @@ export const verifyRegistrationAction = actionClient
 
       const db = getDB();
       const user = await db.query.userTable.findFirst({
-        where: eq(userTable.email, input.email),
+        where: { email: input.email },
       });
 
       if (!user) {
@@ -158,10 +158,10 @@ export const deletePasskeyAction = actionClient
       const db = getDB();
 
       const passkey = await db.query.passKeyCredentialTable.findFirst({
-        where: and(
-          eq(passKeyCredentialTable.credentialId, input.credentialId),
-          eq(passKeyCredentialTable.userId, userId)
-        ),
+        where: {
+          credentialId: input.credentialId,
+          userId,
+        },
       });
 
       if (!passkey) {
@@ -176,7 +176,7 @@ export const deletePasskeyAction = actionClient
 
       // Get full user data to check password
       const user = await db.query.userTable.findFirst({
-        where: eq(userTable.id, userId),
+        where: { id: userId },
       });
 
       if (!user) {

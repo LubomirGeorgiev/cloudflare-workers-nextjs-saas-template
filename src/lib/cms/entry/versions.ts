@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
 import type { InferOutput } from "valibot";
 
@@ -34,8 +34,8 @@ export const getCmsEntryVersions = cache(async (
 
   const db = getDB();
   return await db.query.cmsEntryVersionTable.findMany({
-    where: eq(cmsEntryVersionTable.entryId, validated),
-    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+    where: { entryId: validated },
+    orderBy: { versionNumber: "desc" },
     with: {
       createdByUser: {
         columns: {
@@ -73,10 +73,10 @@ export async function deleteCmsEntryVersion(
   const db = getDB();
 
   const version = await db.query.cmsEntryVersionTable.findFirst({
-    where: and(
-      eq(cmsEntryVersionTable.id, versionId),
-      eq(cmsEntryVersionTable.entryId, entryId)
-    ),
+    where: {
+      id: versionId,
+      entryId,
+    },
   });
 
   if (!version) {
@@ -84,8 +84,8 @@ export async function deleteCmsEntryVersion(
   }
 
   const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: eq(cmsEntryVersionTable.entryId, entryId),
-    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+    where: { entryId: entryId },
+    orderBy: { versionNumber: "desc" },
   });
 
   if (latestVersion && latestVersion.id === versionId) {
@@ -123,10 +123,10 @@ export async function revertCmsEntryToVersion(
   const db = getDB();
 
   const version = await db.query.cmsEntryVersionTable.findFirst({
-    where: and(
-      eq(cmsEntryVersionTable.id, versionId),
-      eq(cmsEntryVersionTable.entryId, entryId)
-    ),
+    where: {
+      id: versionId,
+      entryId,
+    },
   });
 
   if (!version) {
@@ -134,7 +134,7 @@ export async function revertCmsEntryToVersion(
   }
 
   const currentEntry = await db.query.cmsEntryTable.findFirst({
-    where: eq(cmsEntryTable.id, entryId),
+    where: { id: entryId },
   });
 
   if (!currentEntry) {
@@ -143,8 +143,8 @@ export async function revertCmsEntryToVersion(
 
   // Reverts create a new linear history point rather than rewriting old rows.
   const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: eq(cmsEntryVersionTable.entryId, entryId),
-    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+    where: { entryId: entryId },
+    orderBy: { versionNumber: "desc" },
   });
 
   if (!latestVersion) {

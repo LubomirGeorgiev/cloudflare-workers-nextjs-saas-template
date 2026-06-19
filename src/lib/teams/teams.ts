@@ -55,7 +55,7 @@ export async function createTeam({
   // Make sure slug is unique
   while (!slugIsUnique && attempts < 5) {
     const existingTeam = await db.query.teamTable.findFirst({
-      where: eq(teamTable.slug, slug),
+      where: { slug },
     });
 
     if (!existingTeam) {
@@ -136,7 +136,7 @@ export async function getUserTeams() {
   const db = getDB();
 
   const userTeams = await db.query.teamMembershipTable.findMany({
-    where: eq(teamMembershipTable.userId, session.userId),
+    where: { userId: session.userId },
     with: {
       team: true,
     },

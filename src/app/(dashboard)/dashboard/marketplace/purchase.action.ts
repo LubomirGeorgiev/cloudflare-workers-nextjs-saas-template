@@ -7,7 +7,6 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { hasEnoughCredits, consumeCredits } from "@/utils/credits";
 import { getDB } from "@/db";
 import { purchasedItemsTable, PURCHASABLE_ITEM_TYPE } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import { v } from "@/lib/validation";
@@ -58,11 +57,11 @@ export const purchaseAction = actionClient
 
         // Check if user already owns the item
         const existingPurchase = await db.query.purchasedItemsTable.findFirst({
-          where: and(
-            eq(purchasedItemsTable.userId, session.userId),
-            eq(purchasedItemsTable.itemType, input.itemType),
-            eq(purchasedItemsTable.itemId, input.itemId)
-          ),
+          where: {
+            userId: session.userId,
+            itemType: input.itemType,
+            itemId: input.itemId,
+          },
         });
 
         if (existingPurchase) {

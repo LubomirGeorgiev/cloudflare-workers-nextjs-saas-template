@@ -1,6 +1,25 @@
-import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest, type D1Migration } from "@cloudflare/vitest-pool-workers";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { unstable_splitSqlQuery } from "wrangler";
+
+function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
+  const migrationsDirectory = fileURLToPath(new URL(`${migrationsPath}/`, import.meta.url));
+  const names = readdirSync(migrationsDirectory, { withFileTypes: true })
+    .filter((entry) => {
+      return entry.isDirectory()
+        && existsSync(join(migrationsDirectory, entry.name, "migration.sql"));
+    })
+    .map((entry) => `${entry.name}/migration.sql`)
+    .sort();
+
+  return names.map((name) => ({
+    name,
+    queries: unstable_splitSqlQuery(readFileSync(join(migrationsDirectory, name), "utf8")),
+  }));
+}
 
 export default defineConfig({
   logLevel: "error",
@@ -14,7 +33,7 @@ export default defineConfig({
           EMAIL_FROM: "no-reply@example.com",
           EMAIL_FROM_NAME: "Integration Tests",
           EMAIL_REPLY_TO: "reply@example.com",
-          TEST_MIGRATIONS: await readD1Migrations("src/db/migrations"),
+          TEST_MIGRATIONS: readNestedD1Migrations("src/db/migrations"),
         },
         d1Databases: {
           NEXT_TAG_CACHE_D1: {

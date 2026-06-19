@@ -95,7 +95,8 @@
             "binding": "NEXT_TAG_CACHE_D1",
             "database_name": "cloudflare-workers-nextjs-saas",
             "database_id": "db968793-55f4-481e-b281-7e1907a775b1",
-            "migrations_dir": "src/db/migrations"
+            "migrations_dir": "src/db/migrations",
+            "migrations_pattern": "src/db/migrations/*/migration.sql"
         }
     ],
     "kv_namespaces": [

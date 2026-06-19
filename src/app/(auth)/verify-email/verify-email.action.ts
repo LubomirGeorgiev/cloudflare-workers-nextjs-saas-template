@@ -30,7 +30,7 @@ export const verifyEmailAction = actionClient
 
         // Find user
         const user = await db.query.userTable.findFirst({
-          where: eq(userTable.id, verificationToken.userId),
+          where: { id: verificationToken.userId },
         });
 
         if (!user) {

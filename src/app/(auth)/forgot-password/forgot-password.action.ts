@@ -3,10 +3,8 @@
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
-import { userTable } from "@/db/schema";
 import { sendPasswordResetEmail } from "@/utils/email";
 import { init } from "@paralleldrive/cuid2";
-import { eq } from "drizzle-orm";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
@@ -47,7 +45,7 @@ export const forgotPasswordAction = actionClient
         try {
           // Find user by email
           const user = await db.query.userTable.findFirst({
-            where: eq(userTable.email, input.email.toLowerCase()),
+            where: { email: input.email.toLowerCase() },
           });
 
           // Even if user is not found, return success to prevent email enumeration

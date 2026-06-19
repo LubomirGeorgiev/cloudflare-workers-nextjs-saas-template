@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getDB } from "@/db";
@@ -32,7 +32,7 @@ import type {
   GetCmsEntryBySlugParams,
   GetCmsEntryBySlugResult,
 } from "@/lib/cms/entry/types";
-import type { CmsStatusFilter } from "@/types/cms";
+import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import { withKVCache } from "@/utils/with-kv-cache";
 import { v } from "@/lib/validation";
 
@@ -62,18 +62,14 @@ const getCachedCmsCollection = cache(async (
         throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
       }
 
-      const whereConditions = [
-        eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-      ];
-
       const statusCondition = buildStatusWhereCondition(status);
-      if (statusCondition) {
-        whereConditions.push(statusCondition);
-      }
 
       const entries = await db.query.cmsEntryTable.findMany({
-        where: and(...whereConditions),
-        orderBy: [desc(cmsEntryTable.createdAt)],
+        where: {
+          collection: collection.slug as CollectionsUnion,
+          ...statusCondition,
+        },
+        orderBy: { createdAt: "desc" },
         limit,
         offset,
         with: buildCmsRelationsQuery(includeRelations),
@@ -122,7 +118,9 @@ const getCachedCmsCollectionCount = cache(async (
       eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
     ];
 
-    const statusCondition = buildStatusWhereCondition(status);
+    const statusCondition = status === CMS_STATUS_FILTER_ALL
+      ? undefined
+      : eq(cmsEntryTable.status, status);
     if (statusCondition) {
       whereConditions.push(statusCondition);
     }
@@ -156,7 +154,7 @@ const getCachedCmsEntryById = cache(async (
   const db = getDB();
 
   const entry = await db.query.cmsEntryTable.findFirst({
-    where: eq(cmsEntryTable.id, id),
+    where: { id: id },
     with: buildCmsRelationsQuery(includeRelations),
   });
 
@@ -198,18 +196,14 @@ export async function getCmsEntryBySlug<T extends CollectionsUnion>(
     async () => {
       const db = getDB();
 
-      const whereConditions = [
-        eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-        eq(cmsEntryTable.slug, slug),
-      ];
-
       const statusCondition = buildStatusWhereCondition(status);
-      if (statusCondition) {
-        whereConditions.push(statusCondition);
-      }
 
       const entry = await db.query.cmsEntryTable.findFirst({
-        where: and(...whereConditions),
+        where: {
+          collection: collection.slug as CollectionsUnion,
+          slug,
+          ...statusCondition,
+        },
         with: buildCmsRelationsQuery(includeRelations),
       });
 

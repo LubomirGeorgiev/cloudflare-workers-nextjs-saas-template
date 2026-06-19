@@ -4,8 +4,6 @@ import { ActionError } from "@/lib/action-error"
 import { actionClient } from "@/lib/safe-action"
 import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
-import { userTable, creditTransactionTable, passKeyCredentialTable } from "@/db/schema"
-import { eq, desc } from "drizzle-orm"
 import { requiredString, v } from "@/lib/validation"
 
 const getUserDataSchema = v.object({
@@ -21,7 +19,7 @@ export const getUserData = actionClient
 
     // Fetch user with all details
     const user = await db.query.userTable.findFirst({
-      where: eq(userTable.id, input.userId),
+      where: { id: input.userId },
     })
 
     if (!user) {
@@ -30,15 +28,15 @@ export const getUserData = actionClient
 
     // Fetch user's credit transactions (last 10)
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: eq(creditTransactionTable.userId, input.userId),
-      orderBy: [desc(creditTransactionTable.createdAt)],
+      where: { userId: input.userId },
+      orderBy: { createdAt: "desc" },
       limit: 10,
     })
 
     // Fetch user's passkey credentials
     const passkeys = await db.query.passKeyCredentialTable.findMany({
-      where: eq(passKeyCredentialTable.userId, input.userId),
-      orderBy: [desc(passKeyCredentialTable.createdAt)],
+      where: { userId: input.userId },
+      orderBy: { createdAt: "desc" },
     })
 
     return {

@@ -2,15 +2,11 @@ import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { afterEach, expect, test, vi } from "vitest";
 
 const {
-  andMock,
-  eqMock,
   generateAuthenticationOptionsMock,
   generateRegistrationOptionsMock,
   getDBMock,
   verifyAuthenticationResponseMock,
 } = vi.hoisted(() => ({
-  andMock: vi.fn((...conditions: unknown[]) => ({ operator: "and", conditions })),
-  eqMock: vi.fn((column: unknown, value: unknown) => ({ operator: "eq", column, value })),
   generateAuthenticationOptionsMock: vi.fn(async (options: Record<string, unknown>) => ({
     challenge: "challenge-1",
     ...options,
@@ -40,16 +36,6 @@ vi.mock("@simplewebauthn/server", () => ({
 vi.mock("@/db", () => ({
   getDB: getDBMock,
 }));
-
-vi.mock("drizzle-orm", async importOriginal => {
-  const actual = await importOriginal<typeof import("drizzle-orm")>();
-
-  return {
-    ...actual,
-    and: andMock,
-    eq: eqMock,
-  };
-});
 
 const webauthn = await import("@/utils/webauthn");
 
@@ -94,12 +80,8 @@ test("verifies authentication from the browser-selected credential", async () =>
   });
 
   expect(findFirstMock).toHaveBeenCalledWith({
-    where: expect.objectContaining({
-      operator: "eq",
-      value: "credential-1",
-    }),
+    where: { credentialId: "credential-1" },
   });
-  expect(andMock).not.toHaveBeenCalled();
   expect(verifyAuthenticationResponseMock).toHaveBeenCalledWith(expect.objectContaining({
     response,
     expectedChallenge: "challenge-1",

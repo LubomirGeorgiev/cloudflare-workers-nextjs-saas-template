@@ -1,6 +1,5 @@
-import { sqliteTable, integer, text, index, unique } from "drizzle-orm/sqlite-core";
-import { relations, sql } from "drizzle-orm";
-import { type InferSelectModel } from "drizzle-orm";
+import { sqliteTable, integer, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { defineRelations, type InferSelectModel, sql } from "drizzle-orm";
 
 import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS, ROLES_ENUM } from "@/app/enums";
@@ -37,7 +36,7 @@ export const userTable = sqliteTable("user", {
   }),
   email: text({
     length: 255,
-  }).unique(),
+  }),
   passwordHash: text(),
   role: text({
     enum: roleTuple,
@@ -66,6 +65,7 @@ export const userTable = sqliteTable("user", {
   index('email_idx').on(table.email),
   index('google_account_id_idx').on(table.googleAccountId),
   index('role_idx').on(table.role),
+  uniqueIndex('user_email_unique').on(table.email),
 ]));
 
 export const passKeyCredentialTable = sqliteTable("passkey_credential", {
@@ -74,7 +74,7 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   userId: text().notNull().references(() => userTable.id),
   credentialId: text({
     length: 255,
-  }).notNull().unique(),
+  }).notNull(),
   credentialPublicKey: text({
     length: 255,
   }).notNull(),
@@ -98,6 +98,7 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
 }, (table) => ([
   index('user_id_idx').on(table.userId),
   index('credential_id_idx').on(table.credentialId),
+  uniqueIndex('passkey_credential_credentialId_unique').on(table.credentialId),
 ]));
 
 // Credit transaction types
@@ -139,7 +140,7 @@ export const creditTransactionTable = sqliteTable("credit_transaction", {
   index('credit_transaction_type_idx').on(table.type),
   index('credit_transaction_created_at_idx').on(table.createdAt),
   index('credit_transaction_expiration_date_idx').on(table.expirationDate),
-  unique('credit_transaction_dedupe_key_unique').on(table.dedupeKey),
+  uniqueIndex('credit_transaction_dedupe_key_unique').on(table.dedupeKey),
   index('credit_transaction_payment_intent_id_idx').on(table.paymentIntentId),
 ]));
 
@@ -215,7 +216,7 @@ export const teamTable = sqliteTable("team", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `team_${createId()}`).notNull(),
   name: text({ length: 255 }).notNull(),
-  slug: text({ length: 255 }).notNull().unique(),
+  slug: text({ length: 255 }).notNull(),
   description: text({ length: 1000 }),
   avatarUrl: text({ length: 600 }),
   settings: text({ length: 10000 }),
@@ -225,6 +226,7 @@ export const teamTable = sqliteTable("team", {
   creditBalance: integer().default(0).notNull(),
 }, (table) => ([
   index('team_slug_idx').on(table.slug),
+  uniqueIndex('team_slug_unique').on(table.slug),
 ]));
 
 // Team membership table
@@ -271,7 +273,7 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
   email: text({ length: 255 }).notNull(),
   roleId: text().notNull(),
   isSystemRole: integer().default(1).notNull(),
-  token: text({ length: 255 }).notNull().unique(),
+  token: text({ length: 255 }).notNull(),
   invitedBy: text().notNull().references(() => userTable.id),
   expiresAt: integer({ mode: "timestamp" }).notNull(),
   acceptedAt: integer({ mode: "timestamp" }),
@@ -280,6 +282,7 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
   index('team_invitation_team_id_idx').on(table.teamId),
   index('team_invitation_email_idx').on(table.email),
   index('team_invitation_token_idx').on(table.token),
+  uniqueIndex('team_invitation_token_unique').on(table.token),
 ]));
 
 export const cmsMediaTable = sqliteTable("cms_media", {
@@ -288,7 +291,7 @@ export const cmsMediaTable = sqliteTable("cms_media", {
   fileName: text().notNull(),
   mimeType: text().notNull(),
   sizeInBytes: integer().notNull(),
-  bucketKey: text().notNull().unique(),
+  bucketKey: text().notNull(),
   width: integer(),
   height: integer(),
   alt: text(),
@@ -300,6 +303,7 @@ export const cmsMediaTable = sqliteTable("cms_media", {
   index('cms_media_created_at_idx').on(table.createdAt),
   // Index for finding all media uploaded by a user
   index('cms_media_uploaded_by_idx').on(table.uploadedBy),
+  uniqueIndex('cms_media_bucketKey_unique').on(table.bucketKey),
 ]));
 
 const cmsEntryCommonColumns = {
@@ -337,8 +341,8 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   // Index for slug lookups (finding specific entries by slug)
   index('cms_entry_slug_idx').on(table.slug),
 
-  // Unique constraint for collection + slug (ensure unique slugs per collection)
-  unique('cms_entry_collection_slug_unique').on(table.collection, table.slug),
+  // Unique index for collection + slug (ensure unique slugs per collection)
+  uniqueIndex('cms_entry_collection_slug_unique').on(table.collection, table.slug),
 
   // Index for created by (finding entries by author)
   index('cms_entry_created_by_idx').on(table.createdBy),
@@ -368,7 +372,7 @@ export const scheduledJobTable = sqliteTable("scheduled_job", {
   runAt: integer({ mode: "timestamp" }).notNull(),
 }, (table) => ([
   index("scheduled_job_run_at_idx").on(table.runAt),
-  unique("scheduled_job_type_dedupe_key_unique").on(table.type, table.dedupeKey),
+  uniqueIndex("scheduled_job_type_dedupe_key_unique").on(table.type, table.dedupeKey),
 ]));
 
 export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
@@ -389,9 +393,9 @@ export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
 }, (table) => ([
   index("cms_navigation_item_site_key_idx").on(table.navigationKey),
   index("cms_navigation_item_parent_id_idx").on(table.parentId),
-  unique("cms_navigation_item_site_path_unique").on(table.navigationKey, table.resolvedPath),
-  unique("cms_navigation_item_site_parent_sort_order_unique").on(table.navigationKey, table.parentId, table.sortOrder),
-  unique("cms_navigation_item_site_entry_unique").on(table.navigationKey, table.entryId),
+  uniqueIndex("cms_navigation_item_site_path_unique").on(table.navigationKey, table.resolvedPath),
+  uniqueIndex("cms_navigation_item_site_parent_sort_order_unique").on(table.navigationKey, table.parentId, table.sortOrder),
+  uniqueIndex("cms_navigation_item_site_entry_unique").on(table.navigationKey, table.entryId),
 ]));
 
 export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect", {
@@ -405,7 +409,7 @@ export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect",
   statusCode: integer().default(307).notNull(),
 }, (table) => ([
   index("cms_navigation_redirect_site_key_idx").on(table.navigationKey),
-  unique("cms_navigation_redirect_site_from_path_unique").on(table.navigationKey, table.fromPath),
+  uniqueIndex("cms_navigation_redirect_site_from_path_unique").on(table.navigationKey, table.fromPath),
 ]));
 
 export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
@@ -432,19 +436,22 @@ export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   index('cms_entry_media_entry_id_idx').on(table.entryId),
   // Index for finding all entries using a media item
   index('cms_entry_media_media_id_idx').on(table.mediaId),
-  // Unique constraint to prevent the same media from being attached to the same entry multiple times
-  unique('cms_entry_media_entry_media_unique').on(table.entryId, table.mediaId),
+  // Unique index to prevent the same media from being attached to the same entry multiple times
+  uniqueIndex('cms_entry_media_entry_media_unique').on(table.entryId, table.mediaId),
 ]));
 
 export const cmsTagTable = sqliteTable("cms_tag", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `ctag_${createId()}`).notNull(),
-  name: text().notNull().unique(),
-  slug: text().notNull().unique(),
+  name: text().notNull(),
+  slug: text().notNull(),
   description: text(),
   color: text(),
   createdBy: text().notNull().references(() => userTable.id),
-});
+}, (table) => ([
+  uniqueIndex('cms_tag_name_unique').on(table.name),
+  uniqueIndex('cms_tag_slug_unique').on(table.slug),
+]));
 
 // Junction table for many-to-many relationship between entries and tags
 export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
@@ -455,148 +462,219 @@ export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
 }, (table) => ([
   index('cms_entry_tag_entry_id_idx').on(table.entryId),
   index('cms_entry_tag_tag_id_idx').on(table.tagId),
-  unique('cms_entry_tag_unique').on(table.entryId, table.tagId),
+  uniqueIndex('cms_entry_tag_unique').on(table.entryId, table.tagId),
 ]));
 
-export const cmsMediaRelations = relations(cmsMediaTable, ({ many, one }) => ({
-  entryMedia: many(cmsEntryMediaTable),
-  uploadedByUser: one(userTable, {
-    fields: [cmsMediaTable.uploadedBy],
-    references: [userTable.id],
-  }),
-}));
+const relationSchema = {
+  cmsNavigationItemTable,
+  cmsNavigationRedirectTable,
+  cmsEntryMediaTable,
+  cmsEntryTable,
+  cmsEntryTagTable,
+  cmsEntryVersionTable,
+  cmsMediaTable,
+  cmsTagTable,
+  creditTransactionTable,
+  passKeyCredentialTable,
+  purchasedItemsTable,
+  scheduledJobTable,
+  teamInvitationTable,
+  teamMembershipTable,
+  teamRoleTable,
+  teamTable,
+  userTable,
+};
 
-export const cmsEntryMediaRelations = relations(cmsEntryMediaTable, ({ one }) => ({
-  entry: one(cmsEntryTable, {
-    fields: [cmsEntryMediaTable.entryId],
-    references: [cmsEntryTable.id],
-  }),
-  media: one(cmsMediaTable, {
-    fields: [cmsEntryMediaTable.mediaId],
-    references: [cmsMediaTable.id],
-  }),
-}));
-
-export const cmsTagRelations = relations(cmsTagTable, ({ many, one }) => ({
-  entries: many(cmsEntryTagTable),
-  createdByUser: one(userTable, {
-    fields: [cmsTagTable.createdBy],
-    references: [userTable.id],
-  }),
-}));
-
-export const cmsEntryTagRelations = relations(cmsEntryTagTable, ({ one }) => ({
-  entry: one(cmsEntryTable, {
-    fields: [cmsEntryTagTable.entryId],
-    references: [cmsEntryTable.id],
-  }),
-  tag: one(cmsTagTable, {
-    fields: [cmsEntryTagTable.tagId],
-    references: [cmsTagTable.id],
-  }),
-}));
-
-export const cmsEntryRelations = relations(cmsEntryTable, ({ one, many }) => ({
-  createdByUser: one(userTable, {
-    fields: [cmsEntryTable.createdBy],
-    references: [userTable.id],
-  }),
-  featuredImage: one(cmsMediaTable, {
-    fields: [cmsEntryTable.featuredImageId],
-    references: [cmsMediaTable.id],
-  }),
-  entryMedia: many(cmsEntryMediaTable),
-  tags: many(cmsEntryTagTable),
-  versions: many(cmsEntryVersionTable),
-}));
-
-export const cmsEntryVersionRelations = relations(cmsEntryVersionTable, ({ one }) => ({
-  entry: one(cmsEntryTable, {
-    fields: [cmsEntryVersionTable.entryId],
-    references: [cmsEntryTable.id],
-  }),
-  createdByUser: one(userTable, {
-    fields: [cmsEntryVersionTable.createdBy],
-    references: [userTable.id],
-  }),
-  featuredImage: one(cmsMediaTable, {
-    fields: [cmsEntryVersionTable.featuredImageId],
-    references: [cmsMediaTable.id],
-  }),
-}));
-
-export const teamRelations = relations(teamTable, ({ many }) => ({
-  memberships: many(teamMembershipTable),
-  invitations: many(teamInvitationTable),
-  roles: many(teamRoleTable),
-}));
-
-export const teamRoleRelations = relations(teamRoleTable, ({ one }) => ({
-  team: one(teamTable, {
-    fields: [teamRoleTable.teamId],
-    references: [teamTable.id],
-  }),
-}));
-
-export const teamMembershipRelations = relations(teamMembershipTable, ({ one }) => ({
-  team: one(teamTable, {
-    fields: [teamMembershipTable.teamId],
-    references: [teamTable.id],
-  }),
-  user: one(userTable, {
-    fields: [teamMembershipTable.userId],
-    references: [userTable.id],
-  }),
-  invitedByUser: one(userTable, {
-    fields: [teamMembershipTable.invitedBy],
-    references: [userTable.id],
-  }),
-}));
-
-export const teamInvitationRelations = relations(teamInvitationTable, ({ one }) => ({
-  team: one(teamTable, {
-    fields: [teamInvitationTable.teamId],
-    references: [teamTable.id],
-  }),
-  invitedByUser: one(userTable, {
-    fields: [teamInvitationTable.invitedBy],
-    references: [userTable.id],
-  }),
-  acceptedByUser: one(userTable, {
-    fields: [teamInvitationTable.acceptedBy],
-    references: [userTable.id],
-  }),
-}));
-
-export const creditTransactionRelations = relations(creditTransactionTable, ({ one }) => ({
-  user: one(userTable, {
-    fields: [creditTransactionTable.userId],
-    references: [userTable.id],
-  }),
-}));
-
-export const purchasedItemsRelations = relations(purchasedItemsTable, ({ one }) => ({
-  user: one(userTable, {
-    fields: [purchasedItemsTable.userId],
-    references: [userTable.id],
-  }),
-}));
-
-export const userRelations = relations(userTable, ({ many }) => ({
-  passkeys: many(passKeyCredentialTable),
-  creditTransactions: many(creditTransactionTable),
-  purchasedItems: many(purchasedItemsTable),
-  teamMemberships: many(teamMembershipTable),
-  cmsEntries: many(cmsEntryTable),
-  cmsMedia: many(cmsMediaTable),
-  cmsTags: many(cmsTagTable),
-}));
-
-export const passKeyCredentialRelations = relations(passKeyCredentialTable, ({ one }) => ({
-  user: one(userTable, {
-    fields: [passKeyCredentialTable.userId],
-    references: [userTable.id],
-  }),
+export const relations = defineRelations(relationSchema, (r) => ({
+  cmsMediaTable: {
+    entryMedia: r.many.cmsEntryMediaTable({
+      from: r.cmsMediaTable.id,
+      to: r.cmsEntryMediaTable.mediaId,
+    }),
+    uploadedByUser: r.one.userTable({
+      from: r.cmsMediaTable.uploadedBy,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
+  cmsEntryMediaTable: {
+    entry: r.one.cmsEntryTable({
+      from: r.cmsEntryMediaTable.entryId,
+      to: r.cmsEntryTable.id,
+      optional: false,
+    }),
+    media: r.one.cmsMediaTable({
+      from: r.cmsEntryMediaTable.mediaId,
+      to: r.cmsMediaTable.id,
+      optional: false,
+    }),
+  },
+  cmsTagTable: {
+    entries: r.many.cmsEntryTagTable({
+      from: r.cmsTagTable.id,
+      to: r.cmsEntryTagTable.tagId,
+    }),
+    createdByUser: r.one.userTable({
+      from: r.cmsTagTable.createdBy,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
+  cmsEntryTagTable: {
+    entry: r.one.cmsEntryTable({
+      from: r.cmsEntryTagTable.entryId,
+      to: r.cmsEntryTable.id,
+      optional: false,
+    }),
+    tag: r.one.cmsTagTable({
+      from: r.cmsEntryTagTable.tagId,
+      to: r.cmsTagTable.id,
+      optional: false,
+    }),
+  },
+  cmsEntryTable: {
+    createdByUser: r.one.userTable({
+      from: r.cmsEntryTable.createdBy,
+      to: r.userTable.id,
+      optional: false,
+    }),
+    featuredImage: r.one.cmsMediaTable({
+      from: r.cmsEntryTable.featuredImageId,
+      to: r.cmsMediaTable.id,
+    }),
+    entryMedia: r.many.cmsEntryMediaTable({
+      from: r.cmsEntryTable.id,
+      to: r.cmsEntryMediaTable.entryId,
+    }),
+    tags: r.many.cmsEntryTagTable({
+      from: r.cmsEntryTable.id,
+      to: r.cmsEntryTagTable.entryId,
+    }),
+    versions: r.many.cmsEntryVersionTable({
+      from: r.cmsEntryTable.id,
+      to: r.cmsEntryVersionTable.entryId,
+    }),
+  },
+  cmsEntryVersionTable: {
+    entry: r.one.cmsEntryTable({
+      from: r.cmsEntryVersionTable.entryId,
+      to: r.cmsEntryTable.id,
+      optional: false,
+    }),
+    createdByUser: r.one.userTable({
+      from: r.cmsEntryVersionTable.createdBy,
+      to: r.userTable.id,
+      optional: false,
+    }),
+    featuredImage: r.one.cmsMediaTable({
+      from: r.cmsEntryVersionTable.featuredImageId,
+      to: r.cmsMediaTable.id,
+    }),
+  },
+  teamTable: {
+    memberships: r.many.teamMembershipTable({
+      from: r.teamTable.id,
+      to: r.teamMembershipTable.teamId,
+    }),
+    invitations: r.many.teamInvitationTable({
+      from: r.teamTable.id,
+      to: r.teamInvitationTable.teamId,
+    }),
+    roles: r.many.teamRoleTable({
+      from: r.teamTable.id,
+      to: r.teamRoleTable.teamId,
+    }),
+  },
+  teamRoleTable: {
+    team: r.one.teamTable({
+      from: r.teamRoleTable.teamId,
+      to: r.teamTable.id,
+      optional: false,
+    }),
+  },
+  teamMembershipTable: {
+    team: r.one.teamTable({
+      from: r.teamMembershipTable.teamId,
+      to: r.teamTable.id,
+      optional: false,
+    }),
+    user: r.one.userTable({
+      from: r.teamMembershipTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+    invitedByUser: r.one.userTable({
+      from: r.teamMembershipTable.invitedBy,
+      to: r.userTable.id,
+    }),
+  },
+  teamInvitationTable: {
+    team: r.one.teamTable({
+      from: r.teamInvitationTable.teamId,
+      to: r.teamTable.id,
+      optional: false,
+    }),
+    invitedByUser: r.one.userTable({
+      from: r.teamInvitationTable.invitedBy,
+      to: r.userTable.id,
+      optional: false,
+    }),
+    acceptedByUser: r.one.userTable({
+      from: r.teamInvitationTable.acceptedBy,
+      to: r.userTable.id,
+    }),
+  },
+  creditTransactionTable: {
+    user: r.one.userTable({
+      from: r.creditTransactionTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
+  purchasedItemsTable: {
+    user: r.one.userTable({
+      from: r.purchasedItemsTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
+  userTable: {
+    passkeys: r.many.passKeyCredentialTable({
+      from: r.userTable.id,
+      to: r.passKeyCredentialTable.userId,
+    }),
+    creditTransactions: r.many.creditTransactionTable({
+      from: r.userTable.id,
+      to: r.creditTransactionTable.userId,
+    }),
+    purchasedItems: r.many.purchasedItemsTable({
+      from: r.userTable.id,
+      to: r.purchasedItemsTable.userId,
+    }),
+    teamMemberships: r.many.teamMembershipTable({
+      from: r.userTable.id,
+      to: r.teamMembershipTable.userId,
+    }),
+    cmsEntries: r.many.cmsEntryTable({
+      from: r.userTable.id,
+      to: r.cmsEntryTable.createdBy,
+    }),
+    cmsMedia: r.many.cmsMediaTable({
+      from: r.userTable.id,
+      to: r.cmsMediaTable.uploadedBy,
+    }),
+    cmsTags: r.many.cmsTagTable({
+      from: r.userTable.id,
+      to: r.cmsTagTable.createdBy,
+    }),
+  },
+  passKeyCredentialTable: {
+    user: r.one.userTable({
+      from: r.passKeyCredentialTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
 }));
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.

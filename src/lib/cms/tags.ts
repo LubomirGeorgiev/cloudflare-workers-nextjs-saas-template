@@ -83,7 +83,7 @@ export const getCmsTagById = cache(async (id: InferOutput<typeof getCmsTagByIdPa
 
   const db = getDB();
   return await db.query.cmsTagTable.findFirst({
-    where: eq(cmsTagTable.id, validated),
+    where: { id: validated },
   });
 });
 
@@ -133,7 +133,7 @@ export async function createCmsTag(params: InferOutput<typeof createCmsTagParams
   const db = getDB();
 
   const existingTag = await db.query.cmsTagTable.findFirst({
-    where: eq(cmsTagTable.slug, slug),
+    where: { slug: slug },
   });
 
   if (existingTag) {
@@ -160,7 +160,7 @@ export async function updateCmsTag(params: InferOutput<typeof updateCmsTagParams
   const db = getDB();
 
   const existingTag = await db.query.cmsTagTable.findFirst({
-    where: eq(cmsTagTable.id, id),
+    where: { id: id },
   });
 
   if (!existingTag) {
@@ -169,7 +169,7 @@ export async function updateCmsTag(params: InferOutput<typeof updateCmsTagParams
 
   if (slug && slug !== existingTag.slug) {
     const conflictingTag = await db.query.cmsTagTable.findFirst({
-      where: eq(cmsTagTable.slug, slug),
+      where: { slug: slug },
     });
 
     if (conflictingTag) {

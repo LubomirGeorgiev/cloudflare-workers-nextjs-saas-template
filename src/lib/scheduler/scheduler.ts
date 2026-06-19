@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { scheduledJobTable } from "@/db/schema";
@@ -94,8 +94,8 @@ export async function dispatchScheduledJobsToQueue({
   const db = getDB();
   const dispatchBefore = new Date(now.getTime() + QUEUE_DELAY_LIMIT_SECONDS * 1000);
   const jobs = await db.query.scheduledJobTable.findMany({
-    where: lte(scheduledJobTable.runAt, dispatchBefore),
-    orderBy: [asc(scheduledJobTable.runAt)],
+    where: { runAt: { lte: dispatchBefore } },
+    orderBy: { runAt: "asc" },
     limit,
   });
 

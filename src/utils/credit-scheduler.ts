@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lte, sql } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { creditTransactionTable, userTable } from "@/db/schema";
@@ -94,7 +94,7 @@ export async function processExpiredCreditTransactionIfDue({
 
   const db = getDB();
   const transaction = await db.query.creditTransactionTable.findFirst({
-    where: eq(creditTransactionTable.id, transactionId),
+    where: { id: transactionId },
   });
 
   if (!transaction) {
@@ -154,12 +154,12 @@ export async function dispatchDueCreditExpirationJobs({
 
   const db = getDB();
   const expiredTransactions = await db.query.creditTransactionTable.findMany({
-    where: and(
-      lte(creditTransactionTable.expirationDate, now),
-      isNull(creditTransactionTable.expirationDateProcessedAt),
-      gt(creditTransactionTable.remainingAmount, 0),
-    ),
-    orderBy: [asc(creditTransactionTable.expirationDate)],
+    where: {
+      expirationDate: { lte: now },
+      expirationDateProcessedAt: { isNull: true },
+      remainingAmount: { gt: 0 },
+    },
+    orderBy: { expirationDate: "asc" },
     limit,
   });
 
@@ -190,14 +190,16 @@ export async function dispatchDueCreditRefreshJobs({
   const db = getDB();
   const oneMonthAgo = getOneCalendarMonthBefore(now);
   const usersDueForRefresh = await db.query.userTable.findMany({
-    where: or(
-      isNull(userTable.lastCreditRefreshAt),
-      lte(userTable.lastCreditRefreshAt, oneMonthAgo),
-    ),
+    where: {
+      OR: [
+        { lastCreditRefreshAt: { isNull: true } },
+        { lastCreditRefreshAt: { lte: oneMonthAgo } },
+      ],
+    },
     columns: {
       id: true,
     },
-    orderBy: [asc(userTable.lastCreditRefreshAt)],
+    orderBy: { lastCreditRefreshAt: "asc" },
     limit,
   });
 

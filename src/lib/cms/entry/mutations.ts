@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
@@ -78,10 +78,10 @@ export async function createCmsEntry<T extends CollectionsUnion>(
   validateSeoDescription(finalSeoDescription);
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
-    where: and(
-      eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-      eq(cmsEntryTable.slug, slug)
-    ),
+    where: {
+      collection: collection.slug as CollectionsUnion,
+      slug,
+    },
   });
 
   if (existingEntry) {
@@ -157,7 +157,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   const db = getDB();
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
-    where: eq(cmsEntryTable.id, id),
+    where: { id: id },
   });
 
   if (!existingEntry) {
@@ -200,10 +200,10 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
 
   if (slug && slug !== existingEntry.slug) {
     const conflictingEntry = await db.query.cmsEntryTable.findFirst({
-      where: and(
-        eq(cmsEntryTable.collection, existingEntry.collection),
-        eq(cmsEntryTable.slug, slug)
-      ),
+      where: {
+        collection: existingEntry.collection,
+        slug,
+      },
     });
 
     if (conflictingEntry) {
@@ -268,8 +268,8 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   });
 
   const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: eq(cmsEntryVersionTable.entryId, id),
-    orderBy: [desc(cmsEntryVersionTable.versionNumber)],
+    where: { entryId: id },
+    orderBy: { versionNumber: "desc" },
   });
 
   // Version 1 snapshots the pre-update state because entry creation skips duplicate history.
@@ -333,7 +333,7 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
   const db = getDB();
 
   const existingEntry = await db.query.cmsEntryTable.findFirst({
-    where: eq(cmsEntryTable.id, id),
+    where: { id: id },
   });
 
   if (!existingEntry) {

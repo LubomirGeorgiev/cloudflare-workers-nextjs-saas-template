@@ -1,10 +1,10 @@
 import "server-only";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershipTable, userTable, teamRoleTable, teamTable } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershipTable } from "@/db/schema";
 import { canSignUp, getSessionFromCookie } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
-import { eq, and, isNull, count, gt } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
@@ -64,10 +64,10 @@ async function resolveInvitationRole({
   }
 
   const role = await db.query.teamRoleTable.findFirst({
-    where: and(
-      eq(teamRoleTable.id, roleId),
-      eq(teamRoleTable.teamId, teamId)
-    ),
+    where: {
+      id: roleId,
+      teamId,
+    },
   });
 
   if (!role) {
@@ -120,7 +120,7 @@ export async function getTeamMembers(teamId: string) {
   const db = getDB();
 
   const members = await db.query.teamMembershipTable.findMany({
-    where: eq(teamMembershipTable.teamId, teamId),
+    where: { teamId: teamId },
     with: {
       user: {
         columns: {
@@ -136,7 +136,7 @@ export async function getTeamMembers(teamId: string) {
 
   // Get all team roles for this team (for custom roles)
   const teamRoles = await db.query.teamRoleTable.findMany({
-    where: eq(teamRoleTable.teamId, teamId),
+    where: { teamId: teamId },
   });
 
   // Map roles by ID for easy lookup
@@ -190,10 +190,10 @@ export async function removeTeamMember({
 
   // Verify membership exists
   const membership = await db.query.teamMembershipTable.findFirst({
-    where: and(
-      eq(teamMembershipTable.teamId, teamId),
-      eq(teamMembershipTable.userId, userId)
-    ),
+    where: {
+      teamId,
+      userId,
+    },
   });
 
   if (!membership) {
@@ -267,7 +267,7 @@ export async function inviteUserToTeam({
 
   // Get team name for email
   const team = await db.query.teamTable.findFirst({
-    where: eq(teamTable.id, teamId),
+    where: { id: teamId },
   });
 
   if (!team) {
@@ -285,15 +285,15 @@ export async function inviteUserToTeam({
 
   // Check if user is already a member
   const existingUser = await db.query.userTable.findFirst({
-    where: eq(userTable.email, email),
+    where: { email: email },
   });
 
   if (existingUser) {
     const existingMembership = await db.query.teamMembershipTable.findFirst({
-      where: and(
-        eq(teamMembershipTable.teamId, teamId),
-        eq(teamMembershipTable.userId, existingUser.id)
-      ),
+      where: {
+        teamId,
+        userId: existingUser.id,
+      },
     });
 
     if (existingMembership) {
@@ -340,10 +340,10 @@ export async function inviteUserToTeam({
 
   // Check if there's an existing invitation
   const existingInvitation = await db.query.teamInvitationTable.findFirst({
-    where: and(
-      eq(teamInvitationTable.teamId, teamId),
-      eq(teamInvitationTable.email, email)
-    ),
+    where: {
+      teamId,
+      email,
+    },
   });
 
   if (existingInvitation) {
@@ -421,7 +421,7 @@ export async function acceptTeamInvitation(token: string) {
 
   // Find the invitation by token
   const invitation = await db.query.teamInvitationTable.findFirst({
-    where: eq(teamInvitationTable.token, token),
+    where: { token: token },
   });
 
   if (!invitation) {
@@ -445,10 +445,10 @@ export async function acceptTeamInvitation(token: string) {
 
   // Check if user is already a member
   const existingMembership = await db.query.teamMembershipTable.findFirst({
-    where: and(
-      eq(teamMembershipTable.teamId, invitation.teamId),
-      eq(teamMembershipTable.userId, session.userId)
-    ),
+    where: {
+      teamId: invitation.teamId,
+      userId: session.userId,
+    },
   });
 
   if (existingMembership) {
@@ -526,11 +526,11 @@ export async function getPendingInvitationsForCurrentUser() {
 
   // Get invitations for the user's email that have not been accepted
   const invitations = await db.query.teamInvitationTable.findMany({
-    where: and(
-      session.user.email ? eq(teamInvitationTable.email, session.user.email) : undefined,
-      isNull(teamInvitationTable.acceptedAt),
-      gt(teamInvitationTable.expiresAt, new Date())
-    ),
+    where: {
+      ...(session.user.email ? { email: session.user.email } : {}),
+      acceptedAt: { isNull: true },
+      expiresAt: { gt: new Date() },
+    },
     with: {
       team: {
         columns: {

@@ -7,7 +7,6 @@ import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
 import { createAndStoreSession, canSignUp } from "@/utils/auth";
-import { eq } from "drizzle-orm";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -44,7 +43,7 @@ export const signUpAction = actionClient
 
         // Check if email is already taken
         const existingUser = await db.query.userTable.findFirst({
-          where: eq(userTable.email, input.email),
+          where: { email: input.email },
         });
 
         if (existingUser) {

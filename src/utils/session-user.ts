@@ -4,16 +4,12 @@ import { getDB } from "@/db";
 import {
   SYSTEM_ROLES_ENUM,
   TEAM_PERMISSIONS,
-  teamMembershipTable,
-  teamRoleTable,
-  userTable,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 export async function getUserFromDB(userId: string) {
   const db = getDB();
   return await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
+    where: { id: userId },
     columns: {
       id: true,
       email: true,
@@ -34,7 +30,7 @@ export async function getUserTeamsWithPermissions(userId: string) {
   const db = getDB();
 
   const userTeamMemberships = await db.query.teamMembershipTable.findMany({
-    where: eq(teamMembershipTable.userId, userId),
+    where: { userId: userId },
     with: {
       team: true,
     },
@@ -64,7 +60,7 @@ export async function getUserTeamsWithPermissions(userId: string) {
         }
       } else {
         const role = await db.query.teamRoleTable.findFirst({
-          where: eq(teamRoleTable.id, membership.roleId),
+          where: { id: membership.roleId },
         });
 
         if (role) {

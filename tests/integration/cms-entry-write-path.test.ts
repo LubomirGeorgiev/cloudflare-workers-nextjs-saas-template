@@ -1,19 +1,13 @@
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
 import { env } from "cloudflare:workers";
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
-  cmsEntryMediaTable,
-  cmsEntryTable,
-  cmsEntryTagTable,
-  cmsEntryVersionTable,
   cmsMediaTable,
   cmsTagTable,
-  scheduledJobTable,
   userTable,
 } from "@/db/schema";
 import {
@@ -193,14 +187,14 @@ describe("CMS entry write path integration", () => {
 
     expect(await countSearchRows(createdEntry.id)).toBe(1);
     await expect(db.query.scheduledJobTable.findFirst({
-      where: eq(scheduledJobTable.dedupeKey, `cms-entry:${createdEntry.id}`),
+      where: { dedupeKey: `cms-entry:${createdEntry.id}` },
     })).resolves.toEqual(expect.objectContaining({
       payload: { entryId: createdEntry.id },
       runAt: publishedAt,
       type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
     }));
     await expect(db.query.cmsEntryTagTable.findMany({
-      where: eq(cmsEntryTagTable.entryId, createdEntry.id),
+      where: { entryId: createdEntry.id },
     })).resolves.toHaveLength(1);
 
     const staleKeys = await seedInvalidationSentinels({
@@ -223,20 +217,20 @@ describe("CMS entry write path integration", () => {
     expect(updatedEntry?.publishedAt).toBeInstanceOf(Date);
     await expect(countSearchRows(createdEntry.id)).resolves.toBe(1);
     await expect(db.query.scheduledJobTable.findMany({
-      where: eq(scheduledJobTable.dedupeKey, `cms-entry:${createdEntry.id}`),
+      where: { dedupeKey: `cms-entry:${createdEntry.id}` },
     })).resolves.toHaveLength(0);
     await expect(db.query.cmsEntryMediaTable.findMany({
-      where: eq(cmsEntryMediaTable.entryId, createdEntry.id),
+      where: { entryId: createdEntry.id },
     })).resolves.toEqual([
       expect.objectContaining({
         mediaId,
       }),
     ]);
     await expect(db.query.cmsEntryTagTable.findMany({
-      where: eq(cmsEntryTagTable.entryId, createdEntry.id),
+      where: { entryId: createdEntry.id },
     })).resolves.toHaveLength(0);
     await expect(db.query.cmsEntryVersionTable.findMany({
-      where: eq(cmsEntryVersionTable.entryId, createdEntry.id),
+      where: { entryId: createdEntry.id },
     })).resolves.toEqual([
       expect.objectContaining({
         slug: createdEntry.slug,
@@ -255,14 +249,14 @@ describe("CMS entry write path integration", () => {
     await deleteCmsEntry({ id: createdEntry.id });
 
     await expect(db.query.cmsEntryTable.findFirst({
-      where: eq(cmsEntryTable.id, createdEntry.id),
+      where: { id: createdEntry.id },
     })).resolves.toBeUndefined();
     await expect(countSearchRows(createdEntry.id)).resolves.toBe(0);
     await expect(db.query.cmsEntryMediaTable.findMany({
-      where: eq(cmsEntryMediaTable.entryId, createdEntry.id),
+      where: { entryId: createdEntry.id },
     })).resolves.toHaveLength(0);
     await expect(db.query.scheduledJobTable.findMany({
-      where: eq(scheduledJobTable.dedupeKey, `cms-entry:${createdEntry.id}`),
+      where: { dedupeKey: `cms-entry:${createdEntry.id}` },
     })).resolves.toHaveLength(0);
   });
 });

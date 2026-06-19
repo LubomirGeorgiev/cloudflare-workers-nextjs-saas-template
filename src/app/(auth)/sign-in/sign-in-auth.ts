@@ -2,10 +2,8 @@ import "server-only";
 
 import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
-import { passKeyCredentialTable, userTable } from "@/db/schema";
 import { verifyPassword } from "@/utils/password-hasher";
 import { createAndStoreSession } from "@/utils/auth";
-import { eq } from "drizzle-orm";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 interface SignInWithPasswordParams {
@@ -23,7 +21,7 @@ export async function signInWithPassword({
 
       try {
         const user = await db.query.userTable.findFirst({
-          where: eq(userTable.email, email),
+          where: { email: email },
         });
 
         if (!user) {
@@ -60,7 +58,7 @@ export async function signInWithPassword({
         }
 
         const passkey = await db.query.passKeyCredentialTable.findFirst({
-          where: eq(passKeyCredentialTable.userId, user.id),
+          where: { userId: user.id },
           columns: {
             id: true,
           },

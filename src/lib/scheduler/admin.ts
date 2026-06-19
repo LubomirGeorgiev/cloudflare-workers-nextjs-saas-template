@@ -1,11 +1,10 @@
 import "server-only";
 
 import { env as workerEnv } from "cloudflare:workers";
-import { asc } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { getCloudflareApiClient, isCloudflareApiError } from "@/lib/cloudflare-api";
-import { scheduledJobTable, type ScheduledJob } from "@/db/schema";
+import { type ScheduledJob } from "@/db/schema";
 
 const DEFAULT_QUEUE_PREVIEW_BATCH_SIZE = 50;
 
@@ -201,7 +200,7 @@ function parseMessageBody(message: CloudflareQueuePreviewMessage): {
 export async function listScheduledJobsForAdmin(): Promise<ScheduledJobAdminRow[]> {
   const db = getDB();
   const jobs = await db.query.scheduledJobTable.findMany({
-    orderBy: [asc(scheduledJobTable.runAt)],
+    orderBy: { runAt: "asc" },
     limit: 100,
   });
 

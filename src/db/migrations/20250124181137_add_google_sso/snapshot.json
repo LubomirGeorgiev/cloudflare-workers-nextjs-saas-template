@@ -1,0 +1,200 @@
+{
+  "dialect": "sqlite",
+  "id": "30c7c67d-947f-45a4-8e2d-dc16a090be13",
+  "prevIds": [
+    "bb5a14fa-b59a-45b0-85b6-f8c0a04b7717"
+  ],
+  "version": "7",
+  "ddl": [
+    {
+      "name": "user",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "user_pk",
+      "table": "user",
+      "entityType": "pks"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "createdAt",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updatedAt",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(255)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "firstName",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(255)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "lastName",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(255)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "email",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "passwordHash",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'user'",
+      "generated": null,
+      "name": "role",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "emailVerified",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(100)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "signUpIpAddress",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(255)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "googleAccountId",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "type": "text(600)",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "avatar",
+      "table": "user",
+      "entityType": "columns"
+    },
+    {
+      "columns": [
+        {
+          "value": "email",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "user_email_unique",
+      "table": "user",
+      "entityType": "indexes"
+    },
+    {
+      "columns": [
+        {
+          "value": "email",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "email_idx",
+      "table": "user",
+      "entityType": "indexes"
+    },
+    {
+      "columns": [
+        {
+          "value": "googleAccountId",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "google_account_id_idx",
+      "table": "user",
+      "entityType": "indexes"
+    },
+    {
+      "columns": [
+        {
+          "value": "role",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "role_idx",
+      "table": "user",
+      "entityType": "indexes"
+    }
+  ],
+  "renames": []
+}

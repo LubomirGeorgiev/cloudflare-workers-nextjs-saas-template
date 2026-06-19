@@ -1,7 +1,6 @@
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
 import { env } from "cloudflare:workers";
-import { eq } from "drizzle-orm";
 import {
   createExecutionContext,
   createMessageBatch,
@@ -99,7 +98,7 @@ async function seedSession({
   userId: string;
 }): Promise<string> {
   const user = await db.query.userTable.findFirst({
-    where: (table, { eq }) => eq(table.id, userId),
+    where: { id: userId },
   });
 
   if (!user) {
@@ -156,13 +155,13 @@ describeCreditBilling("credit billing integration", () => {
     await refreshUserMonthlyCreditsIfDue({ userId, now });
 
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
+      where: { userId: userId },
     });
     const scheduledJobs = await db.query.scheduledJobTable.findMany({
-      orderBy: (table, { asc }) => [asc(table.type)],
+      orderBy: { type: "asc" },
     });
     const expectedNextMonthlyDate = getOneCalendarMonthAfter(now);
 
@@ -220,13 +219,13 @@ describeCreditBilling("credit billing integration", () => {
     await refreshUserMonthlyCreditsIfDue({ userId, now });
 
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
+      where: { userId: userId },
     });
     const scheduledJobs = await db.query.scheduledJobTable.findMany({
-      where: (table, { eq }) => eq(table.dedupeKey, `credit-refresh:${userId}`),
+      where: { dedupeKey: `credit-refresh:${userId}` },
     });
 
     expect(user?.currentCredits).toBe(50);
@@ -247,13 +246,13 @@ describeCreditBilling("credit billing integration", () => {
     await refreshUserMonthlyCreditsIfDue({ userId, now });
 
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
+      where: { userId: userId },
     });
     const scheduledJobs = await db.query.scheduledJobTable.findMany({
-      where: (table, { eq }) => eq(table.dedupeKey, `credit-refresh:${userId}`),
+      where: { dedupeKey: `credit-refresh:${userId}` },
     });
 
     expect(user?.currentCredits).toBe(15);
@@ -275,7 +274,7 @@ describeCreditBilling("credit billing integration", () => {
     await scheduleUserCreditRefresh({ userId, now });
 
     const scheduledJobs = await db.query.scheduledJobTable.findMany({
-      where: (table, { eq }) => eq(table.dedupeKey, `credit-refresh:${userId}`),
+      where: { dedupeKey: `credit-refresh:${userId}` },
     });
 
     expect(scheduledJobs).toHaveLength(0);
@@ -314,7 +313,7 @@ describeCreditBilling("credit billing integration", () => {
     });
 
     const expiredTransaction = await db.query.creditTransactionTable.findFirst({
-      where: (table, { eq }) => eq(table.id, transaction.id),
+      where: { id: transaction.id },
     });
     const currentCredits = await readSingleColumn<number>({
       column: "currentCredits",
@@ -383,7 +382,7 @@ describeCreditBilling("credit billing integration", () => {
     const queueResult = await getQueueResult(batch, ctx);
 
     const expiredTransaction = await db.query.creditTransactionTable.findFirst({
-      where: (table, { eq }) => eq(table.id, transaction.id),
+      where: { id: transaction.id },
     });
     const currentCredits = await readSingleColumn<number>({
       column: "currentCredits",
@@ -420,10 +419,10 @@ describeCreditBilling("credit billing integration", () => {
     const queueResult = await getQueueResult(batch, ctx);
 
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
+      where: { userId: userId },
     });
 
     expect(queueResult).toEqual(expect.objectContaining({
@@ -506,7 +505,7 @@ describeCreditBilling("credit billing integration", () => {
     })).resolves.toBe(3);
 
     const persistedJobs = await db.query.scheduledJobTable.findMany({
-      where: (table, { eq }) => eq(table.dedupeKey, `credit-refresh:${persistedUserId}`),
+      where: { dedupeKey: `credit-refresh:${persistedUserId}` },
     });
 
     expect(persistedJobs).toHaveLength(0);
@@ -563,11 +562,11 @@ describeCreditBilling("credit billing integration", () => {
     });
 
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
-      orderBy: (table, { asc }) => [asc(table.createdAt)],
+      where: { userId: userId },
+      orderBy: { createdAt: "asc" },
     });
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
 
     expect(user?.currentCredits).toBe(5);
@@ -632,7 +631,7 @@ describeCreditBilling("credit billing integration", () => {
     });
 
     const transactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.userId, userId),
+      where: { userId: userId },
     });
 
     expect(transactions.find((transaction) => transaction.id === firstTransaction?.id)?.remainingAmount).toBe(0);
@@ -702,10 +701,10 @@ describeCreditBilling("credit billing integration", () => {
     ]);
 
     const user = await db.query.userTable.findFirst({
-      where: (table, { eq }) => eq(table.id, userId),
+      where: { id: userId },
     });
     const usageTransactions = await db.query.creditTransactionTable.findMany({
-      where: (table, { eq }) => eq(table.type, CREDIT_TRANSACTION_TYPE.USAGE),
+      where: { type: CREDIT_TRANSACTION_TYPE.USAGE },
     });
 
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
@@ -746,10 +745,10 @@ describeDisabledCreditBilling("disabled credit billing integration", () => {
 
     const [user, transactions, scheduledJobs, rawSession] = await Promise.all([
       db.query.userTable.findFirst({
-        where: eq(userTable.id, userId),
+        where: { id: userId },
       }),
       db.query.creditTransactionTable.findMany({
-        where: eq(creditTransactionTable.userId, userId),
+        where: { userId: userId },
       }),
       db.query.scheduledJobTable.findMany(),
       env.NEXT_INC_CACHE_KV.get(sessionKey),

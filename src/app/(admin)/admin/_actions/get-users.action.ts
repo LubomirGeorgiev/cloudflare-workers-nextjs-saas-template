@@ -29,6 +29,9 @@ export const getUsersAction = actionClient
     const whereClause = emailFilter
       ? sql`${userTable.email} LIKE ${`%${emailFilter}%`}`
       : undefined
+    const userWhereClause = emailFilter
+      ? { email: { like: `%${emailFilter}%` } }
+      : undefined
 
     // Fetch total count
     const [{ count }] = await db
@@ -47,8 +50,8 @@ export const getUsersAction = actionClient
         emailVerified: true,
         createdAt: true,
       },
-      where: whereClause,
-      orderBy: (users, { desc }) => [desc(users.createdAt)],
+      where: userWhereClause,
+      orderBy: { createdAt: "desc" },
       limit: pageSize,
       offset,
     })

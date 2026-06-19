@@ -106,7 +106,7 @@ export const googleSSOCallbackAction = actionClient
       try {
         // First check if user exists with this Google account ID
         const existingUserWithGoogle = await db.query.userTable.findFirst({
-          where: eq(userTable.googleAccountId, googleAccountId)
+          where: { googleAccountId },
         });
 
         if (existingUserWithGoogle?.id) {
@@ -116,7 +116,7 @@ export const googleSSOCallbackAction = actionClient
 
         // Then check if user exists with this email
         const existingUserWithEmail = await db.query.userTable.findFirst({
-          where: eq(userTable.email, email)
+          where: { email },
         });
 
         if (existingUserWithEmail?.id) {

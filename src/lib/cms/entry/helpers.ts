@@ -1,11 +1,8 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
-
 import { cmsConfig } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
-import { cmsEntryTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import type { CmsIncludeRelations } from "@/lib/cms/cms-cache-invalidation";
@@ -22,7 +19,9 @@ export function buildStatusWhereCondition(status: CmsStatusFilter) {
     return undefined;
   }
 
-  return eq(cmsEntryTable.status, status);
+  return {
+    status,
+  };
 }
 
 export function validateEntryFields(
@@ -105,8 +104,7 @@ export function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
 
   if (includeRelations?.media) {
     relations.entryMedia = {
-      // oxlint-disable-next-line typescript/no-explicit-any
-      orderBy: (fields: any, { asc }: any) => [asc(fields.position)],
+      orderBy: { position: "asc" },
       with: {
         media: true,
       },

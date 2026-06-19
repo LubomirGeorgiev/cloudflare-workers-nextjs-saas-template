@@ -19,7 +19,7 @@ const origin = SITE_URL;
 export async function generatePasskeyRegistrationOptions(userId: string, email: string) {
   const db = getDB();
   const existingCredentials = await db.query.passKeyCredentialTable.findMany({
-    where: eq(passKeyCredentialTable.userId, userId),
+    where: { userId: userId },
   });
 
   const options = await generateRegistrationOptions({
@@ -102,7 +102,7 @@ export async function verifyPasskeyAuthentication({
 
   const db = getDB();
   const credential = await db.query.passKeyCredentialTable.findFirst({
-    where: eq(passKeyCredentialTable.credentialId, credentialId),
+    where: { credentialId: credentialId },
   });
 
   if (!credential) {

@@ -34,7 +34,7 @@ export const resetPasswordAction = actionClient
 
           // Find user
           const user = await db.query.userTable.findFirst({
-            where: eq(userTable.id, resetToken.userId),
+            where: { id: resetToken.userId },
           });
 
           if (!user) {

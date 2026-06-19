@@ -1,11 +1,10 @@
 import "server-only";
-import { eq, sql, desc, and, lte, isNull, gt, or, asc } from "drizzle-orm";
+import { eq, sql, and, lte, isNull, or } from "drizzle-orm";
 import { getDB } from "@/db";
 import {
   userTable,
   creditTransactionTable,
   CREDIT_TRANSACTION_TYPE,
-  purchasedItemsTable,
 } from "@/db/schema";
 import { updateAllSessionsOfUser } from "./kv-session";
 import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS, DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
@@ -151,14 +150,16 @@ async function ensureMonthlyRefreshTransaction({
   const expirationDate = getOneCalendarMonthAfter(refreshAt);
   const dedupeKey = getMonthlyRefreshDedupeKey({ refreshAt, userId });
   const existingTransaction = await db.query.creditTransactionTable.findFirst({
-    where: or(
-      eq(creditTransactionTable.dedupeKey, dedupeKey),
-      and(
-        eq(creditTransactionTable.userId, userId),
-        eq(creditTransactionTable.type, CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH),
-        eq(creditTransactionTable.expirationDate, expirationDate),
-      ),
-    ),
+    where: {
+      OR: [
+        { dedupeKey },
+        {
+          userId,
+          type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
+          expirationDate: { eq: expirationDate },
+        },
+      ],
+    },
   });
 
   if (existingTransaction) {
@@ -196,7 +197,7 @@ async function ensureMonthlyRefreshTransaction({
     .returning();
 
   const monthlyRefreshTransaction = transaction ?? await db.query.creditTransactionTable.findFirst({
-    where: eq(creditTransactionTable.dedupeKey, dedupeKey),
+    where: { dedupeKey: dedupeKey },
   });
 
   if (monthlyRefreshTransaction?.expirationDate && monthlyRefreshTransaction.remainingAmount > 0) {
@@ -246,7 +247,7 @@ export async function refreshUserMonthlyCreditsIfDue({
 
   const db = getDB();
   const user = await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
+    where: { id: userId },
     columns: {
       lastCreditRefreshAt: true,
       currentCredits: true,
@@ -318,7 +319,7 @@ export async function hasEnoughCredits({ userId, requiredCredits }: { userId: st
   }
 
   const user = await getDB().query.userTable.findFirst({
-    where: eq(userTable.id, userId),
+    where: { id: userId },
     columns: {
       currentCredits: true,
     }
@@ -354,16 +355,16 @@ export async function consumeCredits({
 
   // Get all non-expired transactions with remaining credits, ordered by creation date
   const activeTransactionsWithBalance = await db.query.creditTransactionTable.findMany({
-    where: and(
-      eq(creditTransactionTable.userId, userId),
-      gt(creditTransactionTable.remainingAmount, 0),
-      isNull(creditTransactionTable.expirationDateProcessedAt),
-      or(
-        isNull(creditTransactionTable.expirationDate),
-        gt(creditTransactionTable.expirationDate, currentTime)
-      )
-    ),
-    orderBy: [asc(creditTransactionTable.createdAt), asc(creditTransactionTable.id)],
+    where: {
+      userId,
+      remainingAmount: { gt: 0 },
+      expirationDateProcessedAt: { isNull: true },
+      OR: [
+        { expirationDate: { isNull: true } },
+        { expirationDate: { gt: currentTime } },
+      ],
+    },
+    orderBy: { createdAt: "asc", id: "asc" },
   });
 
   let remainingToDeduct = amount;
@@ -458,8 +459,8 @@ export async function getCreditTransactions({
 
   const db = getDB();
   const transactions = await db.query.creditTransactionTable.findMany({
-    where: eq(creditTransactionTable.userId, userId),
-    orderBy: [desc(creditTransactionTable.createdAt)],
+    where: { userId: userId },
+    orderBy: { createdAt: "desc" },
     limit,
     offset: (page - 1) * limit,
     columns: {
@@ -488,7 +489,7 @@ export async function getCreditTransactions({
 export async function getUserPurchasedItems(userId: string) {
   const db = getDB();
   const purchasedItems = await db.query.purchasedItemsTable.findMany({
-    where: eq(purchasedItemsTable.userId, userId),
+    where: { userId: userId },
   });
 
   // Create a map of purchased items for easy lookup

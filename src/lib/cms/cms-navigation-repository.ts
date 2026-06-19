@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { type CmsNavigationKey } from "@/../cms.config";
@@ -9,7 +9,6 @@ import { type CmsNavigationKey } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
-  cmsEntryTable,
   cmsNavigationItemTable,
   cmsNavigationRedirectTable,
   type CmsNavigationItem,
@@ -301,8 +300,8 @@ const getCachedCmsNavigationTree = cache(async (
     const db = getDB();
     const [items, entries] = await Promise.all([
       db.query.cmsNavigationItemTable.findMany({
-        where: eq(cmsNavigationItemTable.navigationKey, navigationKey),
-        orderBy: [asc(cmsNavigationItemTable.sortOrder), asc(cmsNavigationItemTable.createdAt)],
+        where: { navigationKey: navigationKey },
+        orderBy: { sortOrder: "asc", createdAt: "asc" },
       }),
       getCmsCollection({
         collectionSlug: getNavigationCollectionSlug(navigationKey),
@@ -359,10 +358,10 @@ export async function getCmsNavigationRedirectByPath({
   return withKVCache(async () => {
     const db = getDB();
     return (await db.query.cmsNavigationRedirectTable.findFirst({
-      where: and(
-        eq(cmsNavigationRedirectTable.navigationKey, navigationKey),
-        eq(cmsNavigationRedirectTable.fromPath, normalizedPath)
-      ),
+      where: {
+        navigationKey,
+        fromPath: normalizedPath,
+      },
     })) ?? null;
   }, {
     key: getCmsRedirectCacheKey({
@@ -601,10 +600,10 @@ export async function saveCmsNavigationTree({
 
   const linkedEntries = entryIds.length > 0
     ? await db.query.cmsEntryTable.findMany({
-        where: and(
-          inArray(cmsEntryTable.id, entryIds),
-          eq(cmsEntryTable.collection, getNavigationCollectionSlug(navigationKey))
-        ),
+        where: {
+          id: { in: entryIds },
+          collection: getNavigationCollectionSlug(navigationKey),
+        },
       })
     : [];
 
@@ -620,7 +619,7 @@ export async function saveCmsNavigationTree({
     navigationKey,
   });
   const existingItems = await db.query.cmsNavigationItemTable.findMany({
-    where: eq(cmsNavigationItemTable.navigationKey, navigationKey),
+    where: { navigationKey: navigationKey },
   });
   const existingPaths = new Map(existingItems.map((item) => [item.id, item.resolvedPath]));
   const submittedIds = new Set(remappedItems.map((item) => item.id));
