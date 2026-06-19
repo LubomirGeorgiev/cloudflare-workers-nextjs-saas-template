@@ -1,22 +1,12 @@
 "use client";
 
 import { type SignInSchema, signInSchema } from "@/schemas/signin.schema";
-import {
-  type PasskeyAuthenticationOptionsSchema,
-  passkeyAuthenticationOptionsSchema,
-} from "@/schemas/passkey.schema";
 import { useState } from "react";
 
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SeparatorWithText from "@/components/separator-with-text";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 import { useForm } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
@@ -41,17 +31,9 @@ interface PasskeyAuthenticationButtonProps {
   redirectPath: string;
 }
 
-function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButtonProps) {
-  const [isOpen, setIsOpen] = useState(false);
+function PasskeyAuthenticationButton({ redirectPath }: PasskeyAuthenticationButtonProps) {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
-
-  const form = useForm<PasskeyAuthenticationOptionsSchema>({
-    resolver: valibotResolver(passkeyAuthenticationOptionsSchema),
-    defaultValues: {
-      email: "",
-    },
-  });
 
   const { executeAsync: generateOptions } = useAction(generateAuthenticationOptionsAction, {
     onError: ({ error }) => {
@@ -72,13 +54,12 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
     },
   });
 
-  const onSubmit = async (data: PasskeyAuthenticationOptionsSchema) => {
+  const onClick = async () => {
     try {
       setIsAuthenticating(true);
       showLoadingToast("Authenticating with passkey...");
 
-      // Get authentication options from the server
-      const { data: options, serverError } = await generateOptions(data);
+      const { data: options, serverError } = await generateOptions();
 
       if (serverError) {
         throw new Error(serverError.message);
@@ -88,12 +69,10 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
         throw new Error("Failed to get authentication options");
       }
 
-      // Start the authentication process in the browser
       const authenticationResponse = await startAuthentication({
         optionsJSON: options,
       });
 
-      // Send the response back to the server for verification
       await verifyAuthentication({
         response: authenticationResponse,
       });
@@ -107,53 +86,15 @@ function PasskeyAuthenticationDialog({ redirectPath }: PasskeyAuthenticationButt
   };
 
   return (
-    <>
-      <Button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className="w-full"
-      >
-        <KeyIcon className="w-5 h-5 mr-2" />
-        Sign in with a Passkey
-      </Button>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Sign in with a Passkey</DialogTitle>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="Email address"
-                        className="w-full px-3 py-2"
-                        disabled={isAuthenticating}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isAuthenticating}
-              >
-                {isAuthenticating ? "Authenticating..." : "Continue"}
-              </Button>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      type="button"
+      onClick={onClick}
+      className="w-full"
+      disabled={isAuthenticating}
+    >
+      <KeyIcon className="w-5 h-5 mr-2" />
+      {isAuthenticating ? "Authenticating..." : "Sign in with a Passkey"}
+    </Button>
   );
 }
 
@@ -209,7 +150,7 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
         <div className="space-y-4">
           <SSOButtons isSignIn />
 
-          <PasskeyAuthenticationDialog redirectPath={redirectPath} />
+          <PasskeyAuthenticationButton redirectPath={redirectPath} />
         </div>
 
         <SeparatorWithText>

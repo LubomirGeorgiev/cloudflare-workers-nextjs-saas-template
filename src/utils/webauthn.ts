@@ -8,7 +8,7 @@ import type {
 } from "@simplewebauthn/server";
 import { getDB } from "@/db";
 import { passKeyCredentialTable } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import isProd from "./is-prod";
 import { SITE_NAME, SITE_DOMAIN, SITE_URL } from "@/constants";
 
@@ -28,6 +28,10 @@ export async function generatePasskeyRegistrationOptions(userId: string, email: 
     userID: Buffer.from(userId),
     userName: email,
     attestationType: "none",
+    authenticatorSelection: {
+      residentKey: "required",
+      userVerification: "required",
+    },
     excludeCredentials: existingCredentials.map(cred => ({
       id: cred.credentialId,
       type: "public-key",
@@ -79,40 +83,26 @@ export async function verifyPasskeyRegistration({
   return verification;
 }
 
-export async function generatePasskeyAuthenticationOptions(userId: string) {
-  const db = getDB();
-  const credentials = await db.query.passKeyCredentialTable.findMany({
-    where: eq(passKeyCredentialTable.userId, userId),
-  });
-
-  const options = await generateAuthenticationOptions({
+export async function generateDiscoverablePasskeyAuthenticationOptions() {
+  return generateAuthenticationOptions({
     rpID,
     userVerification: "required",
-    allowCredentials: credentials.map(cred => ({
-      id: cred.credentialId,
-      type: "public-key",
-      transports: cred.transports ? JSON.parse(cred.transports) as AuthenticatorTransport[] : undefined,
-    })),
+    allowCredentials: [],
   });
-
-  return options;
 }
 
-export async function verifyPasskeyAuthentication(
-  response: AuthenticationResponseJSON,
-  challenge: string,
-  expectedUserId?: string
-) {
+export async function verifyPasskeyAuthentication({
+  response,
+  challenge,
+}: {
+  response: AuthenticationResponseJSON;
+  challenge: string;
+}) {
   const credentialId = response.id;
 
   const db = getDB();
   const credential = await db.query.passKeyCredentialTable.findFirst({
-    where: expectedUserId
-      ? and(
-        eq(passKeyCredentialTable.credentialId, credentialId),
-        eq(passKeyCredentialTable.userId, expectedUserId)
-      )
-      : eq(passKeyCredentialTable.credentialId, credentialId),
+    where: eq(passKeyCredentialTable.credentialId, credentialId),
   });
 
   if (!credential) {
