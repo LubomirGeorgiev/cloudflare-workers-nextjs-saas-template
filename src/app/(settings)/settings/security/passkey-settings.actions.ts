@@ -3,7 +3,7 @@
 import {
   generatePasskeyRegistrationOptions,
   verifyPasskeyRegistration,
-  generatePasskeyAuthenticationOptions,
+  generateDiscoverablePasskeyAuthenticationOptions,
   verifyPasskeyAuthentication
 } from "@/utils/webauthn";
 import { getDB } from "@/db";
@@ -18,7 +18,6 @@ import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import isProd from "@/utils/is-prod";
 import ms from "ms";
-import { passkeyAuthenticationOptionsSchema } from "@/schemas/passkey.schema";
 import { emailString, v } from "@/lib/validation";
 
 const generateRegistrationOptionsSchema = v.object({
@@ -27,7 +26,6 @@ const generateRegistrationOptionsSchema = v.object({
 
 const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challenge";
 const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_challenge";
-const PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME = "passkey_authentication_user_id";
 const PASSKEY_CHALLENGE_TTL_SECONDS = Math.floor(ms("10 minutes") / 1000);
 
 export const generateRegistrationOptionsAction = actionClient
@@ -205,38 +203,13 @@ export const deletePasskeyAction = actionClient
   });
 
 export const generateAuthenticationOptionsAction = actionClient
-  .inputSchema(passkeyAuthenticationOptionsSchema)
-  .action(async ({ parsedInput: input }) => {
+  .inputSchema(v.void())
+  .action(async () => {
     return withRateLimit(async () => {
-      const db = getDB();
       const cookieStore = await cookies();
-      const user = await db.query.userTable.findFirst({
-        where: eq(userTable.email, input.email),
-      });
-
-      if (!user) {
-        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
-        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
-        throw new ActionError("NOT_AUTHORIZED", "Passkey sign-in is not available for this email");
-      }
-
-      const options = await generatePasskeyAuthenticationOptions(user.id);
-
-      if (!options.allowCredentials?.length) {
-        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
-        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
-        throw new ActionError("NOT_AUTHORIZED", "Passkey sign-in is not available for this email");
-      }
+      const options = await generateDiscoverablePasskeyAuthenticationOptions();
 
       cookieStore.set(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME, options.challenge, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: "strict",
-        path: "/",
-        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
-      });
-
-      cookieStore.set(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME, user.id, {
         httpOnly: true,
         secure: isProd,
         sameSite: "strict",
@@ -260,14 +233,16 @@ export const verifyAuthenticationAction = actionClient
     return withRateLimit(async () => {
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME)?.value;
-      const userId = cookieStore.get(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME)?.value;
 
-      if (!challenge || !userId) {
+      if (!challenge) {
         throw new ActionError("PRECONDITION_FAILED", "Invalid authentication session");
       }
 
       try {
-        const { verification, credential } = await verifyPasskeyAuthentication(input.response, challenge, userId);
+        const { verification, credential } = await verifyPasskeyAuthentication({
+          response: input.response,
+          challenge,
+        });
 
         if (!verification.verified) {
           throw new ActionError("FORBIDDEN", "Passkey authentication failed");
@@ -283,7 +258,6 @@ export const verifyAuthenticationAction = actionClient
         throw new ActionError("FORBIDDEN", "Passkey authentication failed");
       } finally {
         cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
-        cookieStore.delete(PASSKEY_AUTHENTICATION_USER_ID_COOKIE_NAME);
       }
     }, RATE_LIMITS.SIGN_IN);
   });

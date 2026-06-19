@@ -8,9 +8,4 @@ export const passkeyEmailSchema = v.object({
   captchaToken: captchaSchema,
 });
 
-export const passkeyAuthenticationOptionsSchema = v.object({
-  email: emailString("Please enter a valid email address"),
-});
-
 export type PasskeyEmailSchema = v.InferOutput<typeof passkeyEmailSchema>;
-export type PasskeyAuthenticationOptionsSchema = v.InferOutput<typeof passkeyAuthenticationOptionsSchema>;
