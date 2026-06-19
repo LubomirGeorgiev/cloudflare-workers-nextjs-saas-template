@@ -1,21 +1,19 @@
 import "server-only";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
-import { withKVCache, CACHE_KEYS } from "./with-kv-cache";
+import { CACHE_TAGS, setCacheScope } from "./cache";
 import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 
 export async function getTotalUsers() {
-  return withKVCache(
-    async () => {
-      const db = getDB();
+  "use cache: remote";
+  setCacheScope({
+    tags: [CACHE_TAGS.TOTAL_USERS],
+    ttl: "1 hour",
+  });
 
-      return await db.$count(userTable);
-    },
-    {
-      key: CACHE_KEYS.TOTAL_USERS,
-      ttl: "1 hour",
-    }
-  );
+  const db = getDB();
+
+  return await db.$count(userTable);
 }
 
 export async function getGithubStars() {
@@ -31,25 +29,33 @@ export async function getGithubStars() {
 
   if (!owner || !repo) return null;
 
-  return withKVCache(
-    async () => {
-      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-        headers: {
-          "User-Agent": `cloudflare-workers-nextjs-saas-template (${SITE_DOMAIN})`,
-        },
-      });
+  return getCachedGithubStars({ owner, repo });
+}
 
-      if (!response.ok) return null;
+async function getCachedGithubStars({
+  owner,
+  repo,
+}: {
+  owner: string;
+  repo: string;
+}) {
+  "use cache: remote";
+  setCacheScope({
+    tags: [CACHE_TAGS.githubStars({ owner, repo })],
+    ttl: "1 hour",
+  });
 
-      const data = (await response.json()) as {
-        stargazers_count: number;
-      };
-
-      return data.stargazers_count;
+  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers: {
+      "User-Agent": `cloudflare-workers-nextjs-saas-template (${SITE_DOMAIN})`,
     },
-    {
-      key: `${CACHE_KEYS.GITHUB_STARS}:${owner}/${repo}`,
-      ttl: "1 hour",
-    }
-  );
+  });
+
+  if (!response.ok) return null;
+
+  const data = (await response.json()) as {
+    stargazers_count: number;
+  };
+
+  return data.stargazers_count;
 }

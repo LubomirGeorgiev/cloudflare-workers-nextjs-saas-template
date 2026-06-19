@@ -19,7 +19,7 @@ import {
   cmsStatusFilterTuple,
   type CmsStatusFilter,
 } from "@/types/cms";
-import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { requiredString, v } from "@/lib/validation";
 
 const cmsTagStatusOrAllSchema = v.picklist(cmsStatusFilterTuple);
@@ -49,34 +49,35 @@ const updateCmsTagParamsSchema = v.object({
 
 const deleteCmsTagParamsSchema = requiredString();
 
-export const getCmsTags = cache(async () => {
-  return withKVCache(async () => {
-    const db = getDB();
-
-    const tags = await db
-      .select({
-        id: cmsTagTable.id,
-        name: cmsTagTable.name,
-        slug: cmsTagTable.slug,
-        description: cmsTagTable.description,
-        color: cmsTagTable.color,
-        createdBy: cmsTagTable.createdBy,
-        createdAt: cmsTagTable.createdAt,
-        updatedAt: cmsTagTable.updatedAt,
-        updateCounter: cmsTagTable.updateCounter,
-        entryCount: count(cmsEntryTagTable.id),
-      })
-      .from(cmsTagTable)
-      .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
-      .groupBy(cmsTagTable.id)
-      .orderBy(desc(cmsTagTable.createdAt));
-
-    return tags;
-  }, {
-    key: CACHE_KEYS.CMS_TAGS,
+export async function getCmsTags() {
+  "use cache: remote";
+  setCacheScope({
+    tags: [CACHE_TAGS.CMS_TAGS],
     ttl: "8 hours",
   });
-});
+
+  const db = getDB();
+
+  const tags = await db
+    .select({
+      id: cmsTagTable.id,
+      name: cmsTagTable.name,
+      slug: cmsTagTable.slug,
+      description: cmsTagTable.description,
+      color: cmsTagTable.color,
+      createdBy: cmsTagTable.createdBy,
+      createdAt: cmsTagTable.createdAt,
+      updatedAt: cmsTagTable.updatedAt,
+      updateCounter: cmsTagTable.updateCounter,
+      entryCount: count(cmsEntryTagTable.id),
+    })
+    .from(cmsTagTable)
+    .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
+    .groupBy(cmsTagTable.id)
+    .orderBy(desc(cmsTagTable.createdAt));
+
+  return tags;
+}
 
 export const getCmsTagById = cache(async (id: InferOutput<typeof getCmsTagByIdParamsSchema>) => {
   const validated = v.parse(getCmsTagByIdParamsSchema, id);

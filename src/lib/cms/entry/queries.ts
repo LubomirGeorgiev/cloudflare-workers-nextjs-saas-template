@@ -7,11 +7,6 @@ import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getDB } from "@/db";
 import { cmsEntryTable } from "@/db/schema";
 import {
-  getCmsCollectionCacheKey,
-  getCmsCollectionCountCacheKey,
-  getCmsEntryCacheKey,
-} from "@/lib/cms/cms-cache-invalidation";
-import {
   buildCmsRelationsQuery,
   buildStatusWhereCondition,
   deserializeCmsIncludeRelations,
@@ -32,57 +27,49 @@ import type {
   GetCmsEntryBySlugParams,
   GetCmsEntryBySlugResult,
 } from "@/lib/cms/entry/types";
-import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
-import { withKVCache } from "@/utils/with-kv-cache";
 import { v } from "@/lib/validation";
+import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 
-const getCachedCmsCollection = cache(async (
+async function getCachedCmsCollection(
   collectionSlug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
   limit?: number,
   offset?: number,
-): Promise<GetCmsCollectionResult[]> => {
-  const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
-
-  const cacheKey = getCmsCollectionCacheKey({
-    collectionSlug: collectionSlug as CollectionsUnion,
-    status,
-    includeRelations,
-    limit,
-    offset,
+): Promise<GetCmsCollectionResult[]> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_COLLECTION,
+      CACHE_TAGS.cmsCollection(collectionSlug),
+    ],
+    ttl: "8 hours",
   });
 
-  return withKVCache(
-    async () => {
-      const db = getDB();
+  const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
+  const db = getDB();
 
-      const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
-      if (!collection) {
-        throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
-      }
+  const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
+  if (!collection) {
+    throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+  }
 
-      const statusCondition = buildStatusWhereCondition(status);
+  const statusCondition = buildStatusWhereCondition(status);
 
-      const entries = await db.query.cmsEntryTable.findMany({
-        where: {
-          collection: collection.slug as CollectionsUnion,
-          ...statusCondition,
-        },
-        orderBy: { createdAt: "desc" },
-        limit,
-        offset,
-        with: buildCmsRelationsQuery(includeRelations),
-      });
-
-      return entries.map((entry) => withFeaturedImageUrl(entry as GetCmsCollectionResult));
+  const entries = await db.query.cmsEntryTable.findMany({
+    where: {
+      collection: collection.slug as CollectionsUnion,
+      ...statusCondition,
     },
-    {
-      key: cacheKey,
-      ttl: "8 hours",
-    }
-  );
-});
+    orderBy: { createdAt: "desc" },
+    limit,
+    offset,
+    with: buildCmsRelationsQuery(includeRelations),
+  });
+
+  return entries.map((entry) => withFeaturedImageUrl(entry as GetCmsCollectionResult));
+}
 
 export function getCmsCollection<T extends CollectionsUnion>(
   params: GetCmsCollectionParams<T>
@@ -98,44 +85,43 @@ export function getCmsCollection<T extends CollectionsUnion>(
   );
 }
 
-const getCachedCmsCollectionCount = cache(async (
+async function getCachedCmsCollectionCount(
   collectionSlug: string,
   status: CmsStatusFilter,
-): Promise<number> => {
+): Promise<number> {
+  "use cache: remote";
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
 
-  const cacheKey = getCmsCollectionCountCacheKey({
-    collectionSlug: collection.slug as CollectionsUnion,
-    status,
-  });
-
-  return withKVCache(async () => {
-    const db = getDB();
-    const whereConditions = [
-      eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
-    ];
-
-    const statusCondition = status === CMS_STATUS_FILTER_ALL
-      ? undefined
-      : eq(cmsEntryTable.status, status);
-    if (statusCondition) {
-      whereConditions.push(statusCondition);
-    }
-
-    const result = await db
-      .select({ count: count() })
-      .from(cmsEntryTable)
-      .where(and(...whereConditions));
-
-    return result[0]?.count ?? 0;
-  }, {
-    key: cacheKey,
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_COLLECTION_COUNT,
+      CACHE_TAGS.cmsCollectionCount(collection.slug),
+    ],
     ttl: "8 hours",
   });
-});
+
+  const db = getDB();
+  const whereConditions = [
+    eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
+  ];
+
+  const statusCondition = status === CMS_STATUS_FILTER_ALL
+    ? undefined
+    : eq(cmsEntryTable.status, status);
+  if (statusCondition) {
+    whereConditions.push(statusCondition);
+  }
+
+  const result = await db
+    .select({ count: count() })
+    .from(cmsEntryTable)
+    .where(and(...whereConditions));
+
+  return result[0]?.count ?? 0;
+}
 
 export function getCmsCollectionCount<T extends CollectionsUnion>(
   params: GetCmsCollectionCountParams<T>
@@ -174,49 +160,60 @@ export function getCmsEntryById(params: GetCmsEntryByIdParams): Promise<GetCmsCo
   );
 }
 
-export async function getCmsEntryBySlug<T extends CollectionsUnion>(
-  params: GetCmsEntryBySlugParams<T>
+async function getCachedCmsEntryBySlug(
+  collectionSlug: string,
+  slug: string,
+  status: CmsStatusFilter,
+  includeRelationsKey: string,
 ): Promise<GetCmsEntryBySlugResult | null> {
-  const validated = v.parse(getCmsEntryBySlugParamsSchema, params);
-  const { collectionSlug, slug, status, includeRelations } = validated;
-
-  const collection = cmsConfig.collections[collectionSlug as T];
+  "use cache: remote";
+  const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
+  const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
 
-  const cacheKey = getCmsEntryCacheKey({
-    collectionSlug: collection.slug as CollectionsUnion,
-    slug,
-    status,
-    includeRelations,
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_ENTRY,
+      CACHE_TAGS.cmsEntry({
+        collectionSlug: collection.slug,
+        slug,
+      }),
+    ],
+    ttl: "7 days",
   });
 
-  const cachedEntry = await withKVCache(
-    async () => {
-      const db = getDB();
+  const db = getDB();
 
-      const statusCondition = buildStatusWhereCondition(status);
+  const statusCondition = buildStatusWhereCondition(status);
 
-      const entry = await db.query.cmsEntryTable.findFirst({
-        where: {
-          collection: collection.slug as CollectionsUnion,
-          slug,
-          ...statusCondition,
-        },
-        with: buildCmsRelationsQuery(includeRelations),
-      });
-
-      if (!entry) {
-        return null;
-      }
-
-      return withFeaturedImageUrl(entry as GetCmsCollectionResult);
+  const entry = await db.query.cmsEntryTable.findFirst({
+    where: {
+      collection: collection.slug as CollectionsUnion,
+      slug,
+      ...statusCondition,
     },
-    {
-      key: cacheKey,
-      ttl: "7 days",
-    }
+    with: buildCmsRelationsQuery(includeRelations),
+  });
+
+  if (!entry) {
+    return null;
+  }
+
+  return withFeaturedImageUrl(entry as GetCmsCollectionResult);
+}
+
+export async function getCmsEntryBySlug<T extends CollectionsUnion>(
+  params: GetCmsEntryBySlugParams<T>
+): Promise<GetCmsEntryBySlugResult | null> {
+  const validated = v.parse(getCmsEntryBySlugParamsSchema, params);
+
+  const cachedEntry = await getCachedCmsEntryBySlug(
+    validated.collectionSlug,
+    validated.slug,
+    validated.status,
+    serializeCmsIncludeRelations(validated.includeRelations),
   );
 
   if (!cachedEntry) {

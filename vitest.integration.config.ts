@@ -57,6 +57,7 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
       "@paralleldrive/cuid2": fileURLToPath(new URL("./tests/integration/shims/cuid2.ts", import.meta.url)),
+      "@opentelemetry/api": fileURLToPath(new URL("./node_modules/next/dist/compiled/@opentelemetry/api/index.js", import.meta.url)),
       "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)),
     },
   },

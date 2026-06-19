@@ -85,7 +85,7 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Extract repeated values into constants, especially validation limits.
 - Extract repeated formatting and repeated code paths into utilities/helpers.
 - Reuse existing types, constants, helpers, and schemas before creating new ones.
-- Centralize cache keys in `src/utils/with-kv-cache.ts`.
+- Centralize cache tags and shared cache helpers in `src/utils/cache.ts`.
 - Prefer clear code over premature abstraction for simple one-off patterns.
 
 Suggested homes:

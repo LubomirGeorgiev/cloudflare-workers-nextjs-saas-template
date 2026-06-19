@@ -2,7 +2,7 @@ import "server-only"
 import { getCmsCollection } from "@/lib/cms/entry"
 import { SITE_URL } from "@/constants"
 import type { MetadataRoute } from "next"
-import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache"
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
 import { cmsConfig, type CollectionsUnion, type CmsNavigationKey } from "@/../cms.config"
 import type { DefineCmsCollection } from "@/lib/cms/cms-models"
 import { getAuthorRouteParam } from "@/utils/blog-author-url"
@@ -117,106 +117,107 @@ async function getNavigationUrls(navigationKey: CmsNavigationKey): Promise<Metad
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  return withKVCache(async () => {
-    const blogCollection = cmsConfig.collections.blog as DefineCmsCollection
-    const isBlogIncludedInSitemap = blogCollection.includeInSitemap !== false
-    const navigations = getCmsNavigations()
-
-    const [blogPosts, cmsEntryUrls, navigationUrls] = await Promise.all([
-      getCmsCollection({
-        collectionSlug: "blog",
-        includeRelations: { tags: true, createdByUser: true },
-      }),
-      getCmsEntryUrls(),
-      Promise.all(navigations.map((navigation) => getNavigationUrls(navigation.navigationKey))),
-    ])
-
-    // Get all unique tags
-    const uniqueTags = new Set<string>()
-    const uniqueAuthors = new Map<string, {
-      id: string
-      firstName: string | null
-      lastName: string | null
-      email: string | null
-    }>()
-
-    blogPosts.forEach(post => {
-      post.tags?.forEach(({ tag }) => uniqueTags.add(tag.slug))
-      if (post.createdByUser) {
-        uniqueAuthors.set(post.createdByUser.id, {
-          id: post.createdByUser.id,
-          firstName: post.createdByUser.firstName,
-          lastName: post.createdByUser.lastName,
-          email: post.createdByUser.email,
-        })
-      }
-    })
-
-    // Static routes
-    const staticRoutes = [
-      {
-        url: SITE_URL,
-        lastModified: new Date(),
-        changeFrequency: 'daily' as const,
-        priority: 1,
-      },
-      {
-        url: `${SITE_URL}/privacy`,
-        lastModified: new Date(),
-        changeFrequency: 'monthly' as const,
-        priority: 0.3,
-      },
-      {
-        url: `${SITE_URL}/terms`,
-        lastModified: new Date(),
-        changeFrequency: 'monthly' as const,
-        priority: 0.3,
-      },
-    ]
-
-    const blogSitemapUrls = isBlogIncludedInSitemap && blogPosts.length > 0
-      ? [
-        {
-          url: `${SITE_URL}/blog`,
-          lastModified: new Date(),
-          changeFrequency: 'daily' as const,
-          priority: 0.8,
-        },
-        {
-          url: `${SITE_URL}/blog/tags`,
-          lastModified: new Date(),
-          changeFrequency: 'weekly' as const,
-          priority: 0.6,
-        },
-        {
-          url: `${SITE_URL}/blog/authors`,
-          lastModified: new Date(),
-          changeFrequency: 'weekly' as const,
-          priority: 0.6,
-        },
-        ...Array.from(uniqueTags).map(tagSlug => ({
-          url: `${SITE_URL}/blog/tags/${tagSlug}`,
-          lastModified: new Date(),
-          changeFrequency: 'weekly' as const,
-          priority: 0.5,
-        })),
-        ...Array.from(uniqueAuthors.values()).map(author => ({
-          url: `${SITE_URL}/blog/authors/${getAuthorRouteParam(author)}`,
-          lastModified: new Date(),
-          changeFrequency: 'weekly' as const,
-          priority: 0.5,
-        })),
-      ]
-      : []
-
-    return dedupeSitemapUrls([
-      ...staticRoutes,
-      ...blogSitemapUrls,
-      ...cmsEntryUrls,
-      ...navigationUrls.flat(),
-    ])
-  }, {
-    key: CACHE_KEYS.SITEMAP,
+  "use cache: remote"
+  setCacheScope({
+    tags: [CACHE_TAGS.SITEMAP],
     ttl: '8 hours',
   })
+
+  const blogCollection = cmsConfig.collections.blog as DefineCmsCollection
+  const isBlogIncludedInSitemap = blogCollection.includeInSitemap !== false
+  const navigations = getCmsNavigations()
+
+  const [blogPosts, cmsEntryUrls, navigationUrls] = await Promise.all([
+    getCmsCollection({
+      collectionSlug: "blog",
+      includeRelations: { tags: true, createdByUser: true },
+    }),
+    getCmsEntryUrls(),
+    Promise.all(navigations.map((navigation) => getNavigationUrls(navigation.navigationKey))),
+  ])
+
+  // Get all unique tags
+  const uniqueTags = new Set<string>()
+  const uniqueAuthors = new Map<string, {
+    id: string
+    firstName: string | null
+    lastName: string | null
+    email: string | null
+  }>()
+
+  blogPosts.forEach(post => {
+    post.tags?.forEach(({ tag }) => uniqueTags.add(tag.slug))
+    if (post.createdByUser) {
+      uniqueAuthors.set(post.createdByUser.id, {
+        id: post.createdByUser.id,
+        firstName: post.createdByUser.firstName,
+        lastName: post.createdByUser.lastName,
+        email: post.createdByUser.email,
+      })
+    }
+  })
+
+  // Static routes
+  const staticRoutes = [
+    {
+      url: SITE_URL,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 1,
+    },
+    {
+      url: `${SITE_URL}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.3,
+    },
+  ]
+
+  const blogSitemapUrls = isBlogIncludedInSitemap && blogPosts.length > 0
+    ? [
+      {
+        url: `${SITE_URL}/blog`,
+        lastModified: new Date(),
+        changeFrequency: 'daily' as const,
+        priority: 0.8,
+      },
+      {
+        url: `${SITE_URL}/blog/tags`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      },
+      {
+        url: `${SITE_URL}/blog/authors`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      },
+      ...Array.from(uniqueTags).map(tagSlug => ({
+        url: `${SITE_URL}/blog/tags/${tagSlug}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.5,
+      })),
+      ...Array.from(uniqueAuthors.values()).map(author => ({
+        url: `${SITE_URL}/blog/authors/${getAuthorRouteParam(author)}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.5,
+      })),
+    ]
+    : []
+
+  return dedupeSitemapUrls([
+    ...staticRoutes,
+    ...blogSitemapUrls,
+    ...cmsEntryUrls,
+    ...navigationUrls.flat(),
+  ])
 }

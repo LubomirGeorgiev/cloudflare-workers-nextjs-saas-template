@@ -11,17 +11,11 @@ import {
   userTable,
 } from "@/db/schema";
 import {
-  getCmsCollectionCacheKey,
-  getCmsCollectionCountCacheKey,
-  getCmsEntryCacheKey,
-} from "@/lib/cms/cms-cache-invalidation";
-import {
   createCmsEntry,
   deleteCmsEntry,
   updateCmsEntry,
 } from "@/lib/cms/entry";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
-import { CACHE_KEYS } from "@/utils/with-kv-cache";
 
 const db = getDB();
 const dayInMs = 24 * 60 * 60 * 1000;
@@ -131,26 +125,6 @@ async function seedCmsTag({ createdBy }: { createdBy: string }): Promise<string>
   return tag.id;
 }
 
-async function seedInvalidationSentinels({
-  collection,
-  slug,
-}: {
-  collection: "docs";
-  slug: string;
-}): Promise<string[]> {
-  const keys = [
-    getCmsEntryCacheKey({ collectionSlug: collection, slug }),
-    getCmsCollectionCacheKey({ collectionSlug: collection }),
-    getCmsCollectionCountCacheKey({ collectionSlug: collection }),
-    `${CACHE_KEYS.CMS_SEARCH}:${collection}:8:integration`,
-    CACHE_KEYS.SITEMAP,
-    CACHE_KEYS.CMS_TAGS,
-  ];
-
-  await Promise.all(keys.map((key) => env.NEXT_INC_CACHE_KV.put(key, "stale")));
-  return keys;
-}
-
 async function countSearchRows(entryId: string): Promise<number> {
   const row = await env.NEXT_TAG_CACHE_D1
     .prepare("SELECT count(*) AS count FROM cms_entry_search WHERE entryId = ?")
@@ -166,7 +140,7 @@ describe("CMS entry write path integration", () => {
     await clearCmsRows();
   });
 
-  test("create, update, and delete keep D1, search, media, schedule, and cache state in sync", async () => {
+  test("create, update, and delete keep D1, search, media, and schedule state in sync", async () => {
     const authorId = await seedCmsAuthor();
     const mediaId = await seedCmsMedia({ uploadedBy: authorId });
     const tagId = await seedCmsTag({ createdBy: authorId });
@@ -196,11 +170,6 @@ describe("CMS entry write path integration", () => {
     await expect(db.query.cmsEntryTagTable.findMany({
       where: { entryId: createdEntry.id },
     })).resolves.toHaveLength(1);
-
-    const staleKeys = await seedInvalidationSentinels({
-      collection: "docs",
-      slug: createdEntry.slug,
-    });
 
     const updatedEntry = await updateCmsEntry({
       id: createdEntry.id,
@@ -241,10 +210,6 @@ describe("CMS entry write path integration", () => {
         versionNumber: 2,
       }),
     ]);
-
-    for (const key of staleKeys) {
-      await expect(env.NEXT_INC_CACHE_KV.get(key)).resolves.toBeNull();
-    }
 
     await deleteCmsEntry({ id: createdEntry.id });
 

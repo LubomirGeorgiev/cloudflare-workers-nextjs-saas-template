@@ -2,29 +2,30 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 const {
   getDBMock,
-  getCloudflareContextMock,
-  withKVCacheMock,
+  workerEnvMock,
+  setCacheScopeMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
-  getCloudflareContextMock: vi.fn(),
-  withKVCacheMock: vi.fn(),
+  workerEnvMock: {} as Record<string, unknown>,
+  setCacheScopeMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("@/utils/cloudflare-context", () => ({
-  getCloudflareContext: getCloudflareContextMock,
+vi.mock("cloudflare:workers", () => ({
+  env: workerEnvMock,
 }));
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
 }));
 
-vi.mock("@/utils/with-kv-cache", () => ({
-  CACHE_KEYS: {
-    CMS_SEARCH: "cms:search",
+vi.mock("@/utils/cache", () => ({
+  CACHE_TAGS: {
+    CMS_SEARCH: "cms-search",
+    cmsSearchCollection: (collectionSlug: string) => `cms-search-${collectionSlug}`,
   },
-  withKVCache: withKVCacheMock,
+  setCacheScope: setCacheScopeMock,
 }));
 
 const { searchDocs } = await import("@/lib/cms/cms-search");
@@ -34,35 +35,13 @@ describe("CMS search", () => {
     vi.clearAllMocks();
   });
 
-  test("returns cached search results without touching D1", async () => {
-    const cachedResults = [
-      {
-        entryId: "entry-1",
-        title: "Cached result",
-        slug: "cached-result",
-        seoDescription: "Loaded from KV",
-        resolvedPath: "/docs/cached-result",
-        snippet: "Loaded from KV",
-      },
-    ];
-    const d1 = {
-      prepare: vi.fn(),
-    };
+  test("returns no results for empty search terms without opening a cache scope", async () => {
+    await expect(searchDocs({ query: "!!!", limit: 8 })).resolves.toEqual([]);
 
-    getCloudflareContextMock.mockResolvedValue({
-      env: {
-        NEXT_TAG_CACHE_D1: d1,
-      },
-    });
-    withKVCacheMock.mockResolvedValue(cachedResults);
-
-    await expect(searchDocs({ query: "cached", limit: 8 })).resolves.toEqual(cachedResults);
-
-    expect(withKVCacheMock).toHaveBeenCalledOnce();
-    expect(d1.prepare).not.toHaveBeenCalled();
+    expect(setCacheScopeMock).not.toHaveBeenCalled();
   });
 
-  test("rebuilds an empty docs search index on cache miss", async () => {
+  test("opens a cache scope and rebuilds an empty docs search index", async () => {
     const statements: Array<{ sql: string; binds: unknown[] }> = [];
     const d1 = {
       batch: vi.fn().mockResolvedValue([]),
@@ -91,11 +70,7 @@ describe("CMS search", () => {
       })),
     };
 
-    getCloudflareContextMock.mockResolvedValue({
-      env: {
-        NEXT_TAG_CACHE_D1: d1,
-      },
-    });
+    workerEnvMock.NEXT_TAG_CACHE_D1 = d1;
     getDBMock.mockReturnValue({
       query: {
         cmsEntryTable: {
@@ -120,8 +95,6 @@ describe("CMS search", () => {
         },
       },
     });
-    withKVCacheMock.mockImplementation(async (loader: () => Promise<unknown>) => loader());
-
     await expect(searchDocs({ query: "authentication", limit: 3 })).resolves.toEqual([
       {
         entryId: "cms_ent_docs002",
@@ -133,6 +106,10 @@ describe("CMS search", () => {
       },
     ]);
 
+    expect(setCacheScopeMock).toHaveBeenCalledWith({
+      tags: ["cms-search", "cms-search-docs"],
+      ttl: "6 hours",
+    });
     expect(d1.batch).toHaveBeenCalledOnce();
     expect(statements).toEqual(
       expect.arrayContaining([

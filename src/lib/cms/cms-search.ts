@@ -1,9 +1,9 @@
 import "server-only";
 
 import type { JSONContent } from "@tiptap/core";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
+import { env as workerEnv } from "cloudflare:workers";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
+import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
@@ -111,46 +111,12 @@ function getCmsSearchCollectionConfig(collectionSlug: CollectionsUnion): CmsSear
   };
 }
 
-function getCmsSearchCacheKey({
-  collectionSlug,
-  query,
-  limit,
-}: {
-  collectionSlug: CollectionsUnion;
-  query: string;
-  limit: number;
-}): string {
-  const normalizedQuery = query.trim().toLowerCase().replace(/\s+/g, " ");
-  return `${CACHE_KEYS.CMS_SEARCH}:${collectionSlug}:${limit}:${encodeURIComponent(normalizedQuery)}`;
-}
-
 export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion): Promise<void> {
-  const { env } = await getCloudflareContext();
-  const kv = env.NEXT_INC_CACHE_KV;
-
-  if (!kv) {
-    return;
-  }
-
-  const prefix = collectionSlug
-    ? `${CACHE_KEYS.CMS_SEARCH}:${collectionSlug}:`
-    : `${CACHE_KEYS.CMS_SEARCH}:`;
-
-  let cursor: string | undefined;
-  const keysToDelete: string[] = [];
-
-  do {
-    const result = await kv.list({
-      prefix,
-      cursor,
-    });
-    keysToDelete.push(...result.keys.map((key) => key.name));
-    cursor = !result.list_complete && "cursor" in result ? result.cursor : undefined;
-  } while (cursor);
-
-  if (keysToDelete.length > 0) {
-    await Promise.all(keysToDelete.map((key) => kv.delete(key)));
-  }
+  revalidateCacheTag(
+    collectionSlug
+      ? CACHE_TAGS.cmsSearchCollection(collectionSlug)
+      : CACHE_TAGS.CMS_SEARCH
+  );
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
@@ -159,13 +125,11 @@ export async function invalidateDocsSearchCache(): Promise<void> {
 }
 
 async function getSearchDatabase(): Promise<D1Database> {
-  const { env } = await getCloudflareContext();
-
-  if (!env.NEXT_TAG_CACHE_D1) {
+  if (!workerEnv.NEXT_TAG_CACHE_D1) {
     throw new Error("D1 database not found");
   }
 
-  return env.NEXT_TAG_CACHE_D1;
+  return workerEnv.NEXT_TAG_CACHE_D1;
 }
 
 async function optimizeCmsSearchIndex(d1: D1Database): Promise<void> {
@@ -287,8 +251,6 @@ export async function searchCmsCollection({
   query,
   limit,
 }: SearchCmsCollectionParams): Promise<CmsSearchResult[]> {
-  const collectionConfig = getCmsSearchCollectionConfig(collectionSlug);
-
   if (!isCollectionSearchEnabled(collectionSlug)) {
     return [];
   }
@@ -299,55 +261,78 @@ export async function searchCmsCollection({
     return [];
   }
 
-  return withKVCache(async () => {
-    await ensureCmsSearchIndex(collectionSlug);
+  return getCachedCmsSearchResults({
+    collectionSlug,
+    limit,
+    matchQuery,
+    query: query.trim().toLowerCase().replace(/\s+/g, " "),
+  });
+}
 
-    const d1 = await getSearchDatabase();
-    const result = await d1
-      .prepare(
-        `SELECT
-          search.entryId as entryId,
-          entry.title as title,
-          entry.slug as slug,
-          entry.seoDescription as seoDescription,
-          navigation.resolvedPath as resolvedPath,
-          snippet(cms_entry_search, 5, '', '', ' ... ', 18) as snippet
-        FROM cms_entry_search AS search
-        INNER JOIN cms_entry AS entry
-          ON entry.id = search.entryId
-        LEFT JOIN cms_navigation_item AS navigation
-          ON navigation.entryId = entry.id
-          AND navigation.navigationKey = ?
-        WHERE cms_entry_search MATCH ?
-          AND entry.collection = ?
-          AND entry.status = ?
-        ORDER BY bm25(cms_entry_search, 0.0, 0.0, 0.0, 8.0, 3.0, 1.5)
-        LIMIT ?`
-      )
-      .bind(
-        collectionConfig.navigationKey,
-        matchQuery,
-        collectionSlug,
-        CMS_ENTRY_STATUS.PUBLISHED,
-        limit
-      )
-      .all<CmsSearchRow>();
-
-    return (result.results ?? []).map((row) => ({
-      entryId: row.entryId,
-      title: row.title,
-      slug: row.slug,
-      seoDescription: row.seoDescription,
-      resolvedPath:
-        row.resolvedPath
-        ?? collectionConfig.fallbackBasePath
-        ?? `/${collectionSlug}/${row.slug}`,
-      snippet: row.snippet?.trim() || row.seoDescription || row.title,
-    }));
-  }, {
-    key: getCmsSearchCacheKey({ collectionSlug, query, limit }),
+async function getCachedCmsSearchResults({
+  collectionSlug,
+  matchQuery,
+  limit,
+}: {
+  collectionSlug: CollectionsUnion;
+  query: string;
+  matchQuery: string;
+  limit: number;
+}): Promise<CmsSearchResult[]> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_SEARCH,
+      CACHE_TAGS.cmsSearchCollection(collectionSlug),
+    ],
     ttl: CMS_SEARCH_CACHE_TTL,
   });
+
+  const collectionConfig = getCmsSearchCollectionConfig(collectionSlug);
+  await ensureCmsSearchIndex(collectionSlug);
+
+  const d1 = await getSearchDatabase();
+  const result = await d1
+    .prepare(
+      `SELECT
+        search.entryId as entryId,
+        entry.title as title,
+        entry.slug as slug,
+        entry.seoDescription as seoDescription,
+        navigation.resolvedPath as resolvedPath,
+        snippet(cms_entry_search, 5, '', '', ' ... ', 18) as snippet
+      FROM cms_entry_search AS search
+      INNER JOIN cms_entry AS entry
+        ON entry.id = search.entryId
+      LEFT JOIN cms_navigation_item AS navigation
+        ON navigation.entryId = entry.id
+        AND navigation.navigationKey = ?
+      WHERE cms_entry_search MATCH ?
+        AND entry.collection = ?
+        AND entry.status = ?
+      ORDER BY bm25(cms_entry_search, 0.0, 0.0, 0.0, 8.0, 3.0, 1.5)
+      LIMIT ?`
+    )
+    .bind(
+      collectionConfig.navigationKey,
+      matchQuery,
+      collectionSlug,
+      CMS_ENTRY_STATUS.PUBLISHED,
+      limit
+    )
+    .all<CmsSearchRow>();
+
+  return (result.results ?? []).map((row) => ({
+    entryId: row.entryId,
+    title: row.title,
+    slug: row.slug,
+    seoDescription: row.seoDescription,
+    resolvedPath:
+      row.resolvedPath
+      ?? collectionConfig.fallbackBasePath
+      ?? `/${collectionSlug}/${row.slug}`,
+    snippet: row.snippet?.trim() || row.seoDescription || row.title,
+  }));
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.

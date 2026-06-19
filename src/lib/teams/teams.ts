@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamMembershipTable, teamRoleTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
@@ -126,7 +127,7 @@ export async function createTeam({
 /**
  * Get all teams for current user
  */
-export async function getUserTeams() {
+export const getUserTeams = cache(async () => {
   const session = await requireVerifiedEmail();
 
   if (!session) {
@@ -150,4 +151,4 @@ export async function getUserTeams() {
   }
 
   return userTeams.map(membership => membership.team);
-}
+});

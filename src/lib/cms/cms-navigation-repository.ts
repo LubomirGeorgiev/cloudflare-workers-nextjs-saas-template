@@ -1,9 +1,7 @@
 import "server-only";
 
-import { cache } from "react";
 import { eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { type CmsNavigationKey } from "@/../cms.config";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -25,7 +23,7 @@ import {
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
 import { generateSlug } from "@/utils/slugify";
-import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
+import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import {
   CMS_NAVIGATION_NODE_TYPES,
@@ -66,57 +64,14 @@ function getNavigationCollectionSlug(navigationKey: CmsNavigationKey) {
   return getCmsNavigationConfig(navigationKey).collectionSlug;
 }
 
-function getCmsNavigationCacheKey({
-  navigationKey,
-  status,
-}: GetCmsNavigationTreeParams): string {
-  return `${CACHE_KEYS.CMS_NAVIGATION}:${navigationKey}:${status ?? "published"}`;
-}
-
-function getCmsRedirectCacheKey({
-  navigationKey,
-  path,
-}: {
-  navigationKey: CmsNavigationKey;
-  path: string;
-}) {
-  return `${CACHE_KEYS.CMS_REDIRECT}:${navigationKey}:${path}`;
-}
-
-async function invalidateCacheByPrefix(prefix: string): Promise<void> {
-  const { env } = await getCloudflareContext();
-  const kv = env.NEXT_INC_CACHE_KV;
-
-  if (!kv) {
-    return;
-  }
-
-  let cursor: string | undefined;
-  const keysToDelete: string[] = [];
-
-  do {
-    const result = await kv.list({ prefix, cursor });
-    keysToDelete.push(...result.keys.map((key) => key.name));
-    cursor = !result.list_complete && "cursor" in result ? result.cursor : undefined;
-  } while (cursor);
-
-  if (keysToDelete.length > 0) {
-    await Promise.all(keysToDelete.map((key) => kv.delete(key)));
-  }
-}
-
 async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
-  const invalidations = [
-    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_NAVIGATION}:${navigationKey}:`),
-    invalidateCacheByPrefix(`${CACHE_KEYS.CMS_REDIRECT}:${navigationKey}:`),
-    invalidateCacheByPrefix(CACHE_KEYS.SITEMAP),
-  ];
+  revalidateCacheTag(CACHE_TAGS.cmsNavigation(navigationKey));
+  revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey));
+  revalidateCacheTag(CACHE_TAGS.SITEMAP);
 
   if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
-    invalidations.push(invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey)));
+    await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));
   }
-
-  await Promise.all(invalidations);
 }
 
 function normalizeSlugSegment(slugSegment: string | null | undefined): string | null {
@@ -287,47 +242,46 @@ function getTreeAncestorChain({
   return chain;
 }
 
-const getCachedCmsNavigationTree = cache(async (
+async function getCachedCmsNavigationTree(
   navigationKey: CmsNavigationKey,
   status: CmsStatusFilter,
-): Promise<CmsNavigationTreeNode[]> => {
-  const cacheKey = getCmsNavigationCacheKey({
-    navigationKey,
-    status,
-  });
-
-  return withKVCache(async () => {
-    const db = getDB();
-    const [items, entries] = await Promise.all([
-      db.query.cmsNavigationItemTable.findMany({
-        where: { navigationKey: navigationKey },
-        orderBy: { sortOrder: "asc", createdAt: "asc" },
-      }),
-      getCmsCollection({
-        collectionSlug: getNavigationCollectionSlug(navigationKey),
-        status,
-        includeRelations: {
-          createdByUser: true,
-          tags: true,
-        },
-      }),
-    ]);
-
-    const tree = buildTree({
-      items,
-      entryById: new Map(entries.map((entry) => [entry.id, entry])),
-    });
-    const hydratedTree = hydrateMissingResolvedPaths({
-      nodes: tree,
-      navigationKey,
-    });
-
-    return pruneNavigationTree(hydratedTree);
-  }, {
-    key: cacheKey,
+): Promise<CmsNavigationTreeNode[]> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_NAVIGATION,
+      CACHE_TAGS.cmsNavigation(navigationKey),
+    ],
     ttl: "8 hours",
   });
-});
+
+  const db = getDB();
+  const [items, entries] = await Promise.all([
+    db.query.cmsNavigationItemTable.findMany({
+      where: { navigationKey: navigationKey },
+      orderBy: { sortOrder: "asc", createdAt: "asc" },
+    }),
+    getCmsCollection({
+      collectionSlug: getNavigationCollectionSlug(navigationKey),
+      status,
+      includeRelations: {
+        createdByUser: true,
+        tags: true,
+      },
+    }),
+  ]);
+
+  const tree = buildTree({
+    items,
+    entryById: new Map(entries.map((entry) => [entry.id, entry])),
+  });
+  const hydratedTree = hydrateMissingResolvedPaths({
+    nodes: tree,
+    navigationKey,
+  });
+
+  return pruneNavigationTree(hydratedTree);
+}
 
 export function getCmsNavigationTree({
   navigationKey,
@@ -355,21 +309,29 @@ export async function getCmsNavigationRedirectByPath({
 }): Promise<CmsNavigationRedirect | null> {
   const normalizedPath = normalizeCmsResolvedPath(path);
 
-  return withKVCache(async () => {
-    const db = getDB();
-    return (await db.query.cmsNavigationRedirectTable.findFirst({
-      where: {
-        navigationKey,
-        fromPath: normalizedPath,
-      },
-    })) ?? null;
-  }, {
-    key: getCmsRedirectCacheKey({
-      navigationKey,
-      path: normalizedPath,
-    }),
+  return getCachedCmsNavigationRedirectByPath(navigationKey, normalizedPath);
+}
+
+async function getCachedCmsNavigationRedirectByPath(
+  navigationKey: CmsNavigationKey,
+  normalizedPath: string,
+): Promise<CmsNavigationRedirect | null> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_REDIRECT,
+      CACHE_TAGS.cmsRedirect(navigationKey),
+    ],
     ttl: "8 hours",
   });
+
+  const db = getDB();
+  return (await db.query.cmsNavigationRedirectTable.findFirst({
+    where: {
+      navigationKey,
+      fromPath: normalizedPath,
+    },
+  })) ?? null;
 }
 
 export async function getCmsNavigationRootPath({

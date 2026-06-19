@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershipTable } from "@/db/schema";
 import { canSignUp, getSessionFromCookie } from "@/utils/auth";
@@ -113,7 +114,7 @@ function requirePermissionToAssignRole({
 /**
  * Get all members of a team
  */
-export async function getTeamMembers(teamId: string) {
+export const getTeamMembers = cache(async (teamId: string) => {
   // Check if user has access to the team
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
 
@@ -171,7 +172,7 @@ export async function getTeamMembers(teamId: string) {
       }
     };
   }));
-}
+});
 
 /**
  * Remove a member from a team

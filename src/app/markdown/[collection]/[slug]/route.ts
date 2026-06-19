@@ -6,8 +6,14 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { SITE_NAME } from "@/constants";
 import { getCmsEntryBySlug } from "@/lib/cms/entry";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
-import { CACHE_KEYS, withKVCache } from "@/utils/with-kv-cache";
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+
+interface CachedMarkdownEntry {
+  collection: string;
+  markdown: string;
+  slug: string;
+}
 
 export async function GET(
   request: Request,
@@ -35,10 +41,9 @@ export async function GET(
       );
     }
 
-    const entry = await getCmsEntryBySlug({
+    const entry = await renderCachedEntryMarkdown({
       collectionSlug: collection as CollectionsUnion,
       slug,
-      status: CMS_ENTRY_STATUS.PUBLISHED,
     });
 
     if (!entry) {
@@ -52,14 +57,6 @@ export async function GET(
       );
     }
 
-    const markdown = await withKVCache(
-      async () => renderContentToMarkdown(entry.content as JSONContent),
-      {
-        key: `${CACHE_KEYS.CMS_ENTRY}:${collection}:${slug}:markdown`,
-        ttl: "8 hours",
-      }
-    );
-
     const fileName = `${SITE_NAME.toLowerCase().replace(/\s+/g, "-")}-${entry.collection}-${entry.slug}.md`;
 
     const headers: Record<string, string> = {
@@ -70,6 +67,39 @@ export async function GET(
       headers["content-disposition"] = `attachment; filename="${fileName}"`;
     }
 
-    return new Response(markdown, { headers });
+    return new Response(entry.markdown, { headers });
   }, RATE_LIMITS.CMS_MARKDOWN_API);
+}
+
+async function renderCachedEntryMarkdown({
+  collectionSlug,
+  slug,
+}: {
+  collectionSlug: CollectionsUnion;
+  slug: string;
+}): Promise<CachedMarkdownEntry | null> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.CMS_ENTRY,
+      CACHE_TAGS.cmsEntry({ collectionSlug, slug }),
+    ],
+    ttl: "8 hours",
+  });
+
+  const entry = await getCmsEntryBySlug({
+    collectionSlug,
+    slug,
+    status: CMS_ENTRY_STATUS.PUBLISHED,
+  });
+
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    collection: entry.collection,
+    markdown: renderContentToMarkdown(entry.content as JSONContent),
+    slug: entry.slug,
+  };
 }

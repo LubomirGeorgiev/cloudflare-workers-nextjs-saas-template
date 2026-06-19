@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 import {
+  clickAppRole,
   expectAppPathname,
   expectAppRole,
   expectAppText,
   fetchAppPath,
+  fillAppPlaceholder,
   loadAppFrame,
 } from "./app-frame";
 import { SITE_NAME } from "../../src/constants";
@@ -81,4 +83,13 @@ test("serves docs search results from the public API endpoint", async () => {
   const resolvedPath = new URL(body.results[0]?.resolvedPath ?? "");
   expect(resolvedPath.protocol).toMatch(/^https?:$/);
   expect(resolvedPath.pathname).toBe("/docs/getting-started/authentication");
+});
+
+test("searches docs from the command dialog", async () => {
+  await loadAppFrame("/docs/getting-started/introduction", { waitForHydration: true });
+
+  await clickAppRole("button", "Search docs");
+  await fillAppPlaceholder("Search docs...", "authentication");
+
+  await expectAppText("Authentication Setup", { exact: true });
 });

@@ -15,9 +15,8 @@ import {
   buildCmsEntryMarkdownPath,
   buildCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
+import { getCachedDocsEntryArtifacts } from "@/lib/cms/docs-entry-artifacts";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
-import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree";
-import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents";
 import {
   getCmsNavigationAncestors,
   getCmsNavigationNodeByResolvedPath,
@@ -27,7 +26,6 @@ import {
   getCmsNavigationTree,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
-import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
@@ -421,8 +419,20 @@ export default async function DocsPage({ params }: DocsPageProps) {
   }
 
   const entry = node.entry!;
-  const tableOfContents = extractTableOfContents(entry.content as JSONContent);
-  const tableOfContentsTree = buildTableOfContentsTree(tableOfContents);
+  const artifacts = await getCachedDocsEntryArtifacts({
+    collectionSlug: entry.collection,
+    slug: entry.slug,
+  });
+
+  if (!artifacts) {
+    notFound();
+  }
+
+  const {
+    markdown,
+    tableOfContents,
+    tableOfContentsTree,
+  } = artifacts;
   const { previous, next } = getCmsNavigationPrevNext({
     currentNodeId: node.id,
     nodes: navigationTree,
@@ -431,7 +441,6 @@ export default async function DocsPage({ params }: DocsPageProps) {
     ? getNavigationItemDescription(previous)
     : null;
   const nextSeoDescription = next ? getNavigationItemDescription(next) : null;
-  const markdown = renderContentToMarkdown(entry.content as JSONContent);
   const markdownApiUrl = buildAbsoluteCmsEntryMarkdownUrl({
     collectionSlug: entry.collection,
     slug: entry.slug,
