@@ -51,7 +51,7 @@ const GLOBAL_ACTIONS = [
     icon: Database,
     title: "Clear CMS Cache",
     description:
-      "Purges all KV cache entries for CMS content. Pages will re-fetch from the database on the next request.",
+      "Revalidates cached CMS content. Pages will re-fetch from the database on the next request.",
     variant: "outline" as const,
   },
 ] as const;
@@ -145,7 +145,7 @@ export function CmsSystemActions() {
                       input: { type: "clear-cms-cache" },
                       title: "Clear all CMS cache?",
                       description:
-                        "All KV cache entries for CMS content will be purged. Traffic may briefly hit the database until caches warm again.",
+                        "Cached CMS content will be revalidated. Traffic may briefly hit the database until caches warm again.",
                     });
                   }
                 }}
