@@ -1,13 +1,12 @@
 import "server-only";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
-import { CACHE_TAGS, setCacheScope } from "./cache";
+import { setCacheScope } from "./cache";
 import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 
 export async function getTotalUsers() {
   "use cache: remote";
   setCacheScope({
-    tags: [CACHE_TAGS.TOTAL_USERS],
     ttl: "1 hour",
   });
 
@@ -41,7 +40,6 @@ async function getCachedGithubStars({
 }) {
   "use cache: remote";
   setCacheScope({
-    tags: [CACHE_TAGS.githubStars({ owner, repo })],
     ttl: "1 hour",
   });
 

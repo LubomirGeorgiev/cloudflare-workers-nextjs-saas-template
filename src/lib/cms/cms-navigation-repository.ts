@@ -249,7 +249,6 @@ async function getCachedCmsNavigationTree(
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_NAVIGATION,
       CACHE_TAGS.cmsNavigation(navigationKey),
     ],
     ttl: "8 hours",
@@ -319,7 +318,6 @@ async function getCachedCmsNavigationRedirectByPath(
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_REDIRECT,
       CACHE_TAGS.cmsRedirect(navigationKey),
     ],
     ttl: "8 hours",

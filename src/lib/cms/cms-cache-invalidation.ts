@@ -1,6 +1,13 @@
 import "server-only";
 
-import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
+import {
+  cmsConfig,
+  cmsNavigationKeys,
+  collectionSlugs,
+  type CollectionsUnion,
+} from "@/../cms.config";
+import { getDB } from "@/db";
+import { cmsEntryTable } from "@/db/schema";
 import { CACHE_TAGS, revalidateCacheTag } from "@/utils/cache";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import {
@@ -15,7 +22,38 @@ export interface CmsIncludeRelations {
 }
 
 function invalidateCacheTags(tags: string[]): void {
-  tags.forEach((tag) => revalidateCacheTag(tag));
+  Array.from(new Set(tags)).forEach((tag) => revalidateCacheTag(tag));
+}
+
+async function getAllCmsEntryCacheTags(): Promise<string[]> {
+  const db = getDB();
+  const entries = await db
+    .select({
+      collection: cmsEntryTable.collection,
+      slug: cmsEntryTable.slug,
+    })
+    .from(cmsEntryTable);
+
+  return entries.map((entry) =>
+    CACHE_TAGS.cmsEntry({
+      collectionSlug: entry.collection,
+      slug: entry.slug,
+    })
+  );
+}
+
+function getAllCmsCollectionCacheTags(): string[] {
+  return collectionSlugs.flatMap((collectionSlug) => [
+    CACHE_TAGS.cmsCollection(collectionSlug),
+    CACHE_TAGS.cmsCollectionCount(collectionSlug),
+  ]);
+}
+
+function getAllCmsNavigationCacheTags(): string[] {
+  return cmsNavigationKeys.flatMap((navigationKey) => [
+    CACHE_TAGS.cmsNavigation(navigationKey),
+    CACHE_TAGS.cmsRedirect(navigationKey),
+  ]);
 }
 
 export async function invalidateCmsEntryCache({
@@ -104,12 +142,12 @@ export async function invalidateEntryAndCollection({
 }
 
 export async function invalidateAllCmsCollectionCaches(): Promise<void> {
+  const entryTags = await getAllCmsEntryCacheTags();
+
   invalidateCacheTags([
-    CACHE_TAGS.CMS_ENTRY,
-    CACHE_TAGS.CMS_COLLECTION,
-    CACHE_TAGS.CMS_COLLECTION_COUNT,
-    CACHE_TAGS.CMS_NAVIGATION,
-    CACHE_TAGS.CMS_REDIRECT,
+    ...getAllCmsCollectionCacheTags(),
+    ...getAllCmsNavigationCacheTags(),
+    ...entryTags,
     CACHE_TAGS.SITEMAP,
     CACHE_TAGS.CMS_TAGS,
   ]);

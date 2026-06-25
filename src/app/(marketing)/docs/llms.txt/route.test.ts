@@ -20,7 +20,6 @@ vi.mock("@/lib/cms/docs-config", () => ({
 
 vi.mock("@/utils/cache", () => ({
   CACHE_TAGS: {
-    CMS_NAVIGATION: "cms-navigation",
     cmsCollection: (collectionSlug: string) => `cms-collection-${collectionSlug}`,
     cmsNavigation: (navigationKey: string) => `cms-navigation-${navigationKey}`,
   },
@@ -55,7 +54,7 @@ describe("/docs/llms.txt", () => {
       },
     ]);
     expect(setCacheScopeMock).toHaveBeenCalledWith({
-      tags: ["cms-navigation", "cms-navigation-docs", "cms-collection-docs"],
+      tags: ["cms-navigation-docs", "cms-collection-docs"],
       ttl: "8 hours",
     });
   });

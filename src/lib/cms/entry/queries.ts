@@ -41,7 +41,6 @@ async function getCachedCmsCollection(
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_COLLECTION,
       CACHE_TAGS.cmsCollection(collectionSlug),
     ],
     ttl: "8 hours",
@@ -97,7 +96,6 @@ async function getCachedCmsCollectionCount(
 
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_COLLECTION_COUNT,
       CACHE_TAGS.cmsCollectionCount(collection.slug),
     ],
     ttl: "8 hours",
@@ -175,7 +173,6 @@ async function getCachedCmsEntryBySlug(
 
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_ENTRY,
       CACHE_TAGS.cmsEntry({
         collectionSlug: collection.slug,
         slug,

@@ -22,7 +22,6 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/utils/cache", () => ({
   CACHE_TAGS: {
-    CMS_SEARCH: "cms-search",
     cmsSearchCollection: (collectionSlug: string) => `cms-search-${collectionSlug}`,
   },
   setCacheScope: setCacheScopeMock,
@@ -107,7 +106,7 @@ describe("CMS search", () => {
     ]);
 
     expect(setCacheScopeMock).toHaveBeenCalledWith({
-      tags: ["cms-search", "cms-search-docs"],
+      tags: ["cms-search-docs"],
       ttl: "6 hours",
     });
     expect(d1.batch).toHaveBeenCalledOnce();

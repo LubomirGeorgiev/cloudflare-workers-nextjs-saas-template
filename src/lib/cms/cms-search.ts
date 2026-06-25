@@ -112,11 +112,13 @@ function getCmsSearchCollectionConfig(collectionSlug: CollectionsUnion): CmsSear
 }
 
 export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion): Promise<void> {
-  revalidateCacheTag(
-    collectionSlug
-      ? CACHE_TAGS.cmsSearchCollection(collectionSlug)
-      : CACHE_TAGS.CMS_SEARCH
-  );
+  const collectionSlugs = collectionSlug
+    ? [collectionSlug]
+    : Object.entries(cmsConfig.collections)
+      .filter(([, collection]) => "enableSearch" in collection && collection.enableSearch)
+      .map(([slug]) => slug as CollectionsUnion);
+
+  collectionSlugs.forEach((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)));
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
@@ -282,7 +284,6 @@ async function getCachedCmsSearchResults({
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_SEARCH,
       CACHE_TAGS.cmsSearchCollection(collectionSlug),
     ],
     ttl: CMS_SEARCH_CACHE_TTL,

@@ -34,6 +34,18 @@ describe("cache utilities", () => {
     });
   });
 
+  test("allows cache scopes without invalidation tags", () => {
+    setCacheScope({
+      ttl: "1 hour",
+    });
+
+    expect(cacheTagMock).not.toHaveBeenCalled();
+    expect(cacheLifeMock).toHaveBeenCalledWith({
+      expire: 3600,
+      revalidate: 3600,
+    });
+  });
+
   test("revalidates a cache tag with stale-while-revalidate semantics", () => {
     revalidateCacheTag("cms-collection-docs");
 
@@ -42,10 +54,8 @@ describe("cache utilities", () => {
 
   test("uses Cloudflare KV data-adapter safe tag strings", () => {
     const tags = [
-      CACHE_TAGS.CMS_COLLECTION,
       CACHE_TAGS.cmsCollection("docs"),
       CACHE_TAGS.cmsEntry({ collectionSlug: "docs", slug: "getting-started" }),
-      CACHE_TAGS.githubStars({ owner: "cloudflare", repo: "vinext" }),
     ];
 
     expect(tags.every((tag) => tag.length > 0 && !tag.includes(":"))).toBe(true);

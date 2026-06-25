@@ -81,7 +81,6 @@ async function renderCachedEntryMarkdown({
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_ENTRY,
       CACHE_TAGS.cmsEntry({ collectionSlug, slug }),
     ],
     ttl: "8 hours",

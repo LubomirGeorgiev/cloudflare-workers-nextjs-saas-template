@@ -8,7 +8,6 @@ async function getCachedDocsLlmsTxtBody(): Promise<string | null> {
   "use cache: remote";
   setCacheScope({
     tags: [
-      CACHE_TAGS.CMS_NAVIGATION,
       CACHE_TAGS.cmsNavigation(DOCS_SLUG),
       CACHE_TAGS.cmsCollection(DOCS_SLUG),
     ],

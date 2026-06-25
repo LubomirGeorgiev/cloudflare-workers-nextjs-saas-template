@@ -14,7 +14,6 @@ vi.mock("@/lib/cms/entry", () => ({
 
 vi.mock("@/utils/cache", () => ({
   CACHE_TAGS: {
-    CMS_ENTRY: "cms-entry",
     cmsEntry: ({ collectionSlug, slug }: { collectionSlug: string; slug: string }) =>
       `cms-entry-${collectionSlug}-${slug}`,
   },
@@ -86,7 +85,7 @@ describe("docs entry artifacts", () => {
       status: "published",
     });
     expect(setCacheScopeMock).toHaveBeenCalledWith({
-      tags: ["cms-entry", "cms-entry-docs-getting-started"],
+      tags: ["cms-entry-docs-getting-started"],
       ttl: "8 hours",
     });
     expect(artifacts?.markdown).toContain("Getting Started");
