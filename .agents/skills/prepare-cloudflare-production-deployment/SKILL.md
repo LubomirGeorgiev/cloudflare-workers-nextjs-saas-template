@@ -31,6 +31,14 @@ Use Cloudflare MCP to identify the authenticated Cloudflare account. Tell the us
    - When the app will use Cloudflare Images, verify Images against that same production zone/hostname, not only against the account. Confirm the `SITE_URL` hostname belongs to a Cloudflare zone in the authenticated account and is proxied or attached as the Worker custom domain/route that production will use. Then verify the account-level Images API works for that account with `/accounts/{account_id}/images/v1/variants` or `/accounts/{account_id}/images/v1/stats`. If custom-domain image delivery is expected, explicitly confirm the production zone can serve Images URLs at `https://<SITE_URL_HOSTNAME>/cdn-cgi/imagedelivery/<ACCOUNT_HASH>/<IMAGE_ID>/<VARIANT_NAME>`; Cloudflare supports this only for customer domains under the same account as the Images account. If the domain is in a different account, not proxied through Cloudflare, or not the domain being deployed to, stop and ask which zone/domain should be used before proceeding.
    - Read `package.json`, tell the user the current `name` value, and ask them to confirm it is the intended production project name. This value controls generated deploy-size metrics and package metadata, so do not proceed if it still identifies the reused template. If the name is still `cloudflare-workers-nextjs-saas-template`, stop and ask the user for the real project name and production domain before editing Cloudflare resources, queue names, bindings, or deployment metadata.
    - Check queue names in `wrangler.jsonc`, especially `queues.producers[].queue` and `queues.consumers[].queue`. Queue names must be renamed to match the new production project name; do not leave template queue names such as `cloudflare-workers-nextjs-saas-template-scheduler` in a production project unless the user explicitly confirms that is the real project name.
+   - **Email Sending must use the production deployment domain.** Derive `SITE_URL_HOSTNAME` from `src/constants.ts` and expect the Cloudflare Email Sending subdomain to be `notifications.<SITE_URL_HOSTNAME>` — for example `notifications.example.com` when `SITE_URL` is `https://example.com`. Do not leave template sender domains from another zone (for example `notifications.lubomirgeorgiev.com`) in `wrangler.jsonc` when deploying to a different production domain. Use Cloudflare MCP to list `/zones/{production_zone_id}/email/sending/subdomains` and verify `notifications.<SITE_URL_HOSTNAME>` exists and is enabled on the **production** zone, not only on another zone in the same account. If it is missing, onboard it on the production zone before deploy.
+   - **Ask the user to confirm email settings before changing them.** Present the intended values and stop for confirmation:
+     - Cloudflare Email Sending subdomain: `notifications.<SITE_URL_HOSTNAME>`
+     - `wrangler.jsonc` `vars.EMAIL_FROM` (typically `no-reply@notifications.<SITE_URL_HOSTNAME>`)
+     - `vars.EMAIL_FROM_NAME`
+     - `vars.EMAIL_REPLY_TO`
+     - `send_email[].allowed_sender_addresses` (must include `EMAIL_FROM`)
+     Do not create Email Sending subdomains, update DNS, or edit `wrangler.jsonc` email vars until the user confirms these values.
    - `AGENTS.md` has the project specification for AI coding agents.
    - `src/components/footer.tsx` has project links and details.
    - `src/app/globals.css` color palette has been reviewed.
@@ -75,8 +83,9 @@ pnpm run build
 | Create R2 bucket | Cloudflare MCP | Cloudflare MCP is mandatory first. Automatable with `POST /accounts/{account_id}/r2/buckets`; update `wrangler.jsonc` bucket name. |
 | Create Queue resources | Cloudflare MCP | Cloudflare MCP is mandatory first. Automatable after the final project name is known. Queue names in `wrangler.jsonc` must match the production project name, for example `<project-name>-scheduler`; if the project name is still `cloudflare-workers-nextjs-saas-template`, ask for the real project name and production domain first. Use Wrangler only if Cloudflare MCP cannot perform the Queue operation and explain why. |
 | Enable or verify Cloudflare Images | Cloudflare MCP | Cloudflare MCP is mandatory first. Verify both the account-level Images API and the production `SITE_URL` zone/domain. MCP can list/use Images endpoints under `/accounts/{account_id}/images/v1`; custom-domain delivery requires a proxied/customer domain in the same Cloudflare account as Images, and billing acceptance may still require dashboard interaction. |
-| Onboard Email Sending domain | Cloudflare MCP | Cloudflare MCP is mandatory first. MCP supports Email Sending subdomain create/preview/fix/status endpoints under zones. Domain ownership, DNS propagation, plan gating, or account approval can require waiting or dashboard follow-up. |
-| Update email vars and `send_email.allowed_sender_addresses` | File edits | Automatable after sender values are known. |
+| Verify Email Sending on production zone | Cloudflare MCP | Cloudflare MCP is mandatory first. On the production zone from `SITE_URL`, list `/zones/{zone_id}/email/sending/subdomains` and confirm `notifications.<SITE_URL_HOSTNAME>` exists and is enabled. If `wrangler.jsonc` still references a sender domain from another zone, flag it and do not treat deployment email setup as complete. |
+| Onboard Email Sending domain | Cloudflare MCP | Cloudflare MCP is mandatory first. Create `notifications.<SITE_URL_HOSTNAME>` on the **production** zone with `POST /zones/{zone_id}/email/sending/subdomains`, then preview/fix DNS with the matching endpoints. Domain ownership, DNS propagation, plan gating, or account approval can require waiting or dashboard follow-up. Ask the user to confirm email settings before creating or changing anything. |
+| Update email vars and `send_email.allowed_sender_addresses` | File edits | Automatable only after the user confirms `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_REPLY_TO`, and allowed sender addresses. `EMAIL_FROM` and `allowed_sender_addresses` must use `notifications.<SITE_URL_HOSTNAME>`. |
 | Create/update Turnstile widget | Cloudflare MCP, then dashboard if blocked | Cloudflare MCP is mandatory first. Automatable with `/accounts/{account_id}/challenges/widgets`; set site key as GitHub variable and secret key as Worker secret. When reusing a widget, Cloudflare MCP must verify and, with user confirmation, add the production hostname to the widget domains if missing. If MCP returns an authentication/permission error for Turnstile, tell the user they must add the hostname manually in the Cloudflare Turnstile dashboard. |
 | Set `TURNSTILE_SECRET_KEY` Worker secret | Cloudflare MCP | Cloudflare MCP is mandatory first. Automatable through Worker Script secrets API after the Worker script exists. Use `wrangler secret put` only if MCP cannot set Worker secrets and explain why. |
 | Update `wrangler.jsonc` account id, bindings, vars, and project name | File edits | Automatable. Run `pnpm run cf-typegen` if bindings change. |
@@ -290,6 +299,26 @@ pnpm wrangler secret put TURNSTILE_SECRET_KEY
 1. Ask the user whether credit billing is enabled before requiring Stripe values.
 2. If enabled, set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as a GitHub repository variable so the production build receives it.
 3. Set `STRIPE_SECRET_KEY` as a Worker runtime secret with `pnpm wrangler secret put STRIPE_SECRET_KEY`. Do not add Stripe secret keys to GitHub Actions secrets unless the workflow is explicitly changed to sync them into Worker secrets.
+
+### Email Sending
+
+1. Derive `SITE_URL_HOSTNAME` from `src/constants.ts` and the expected sending subdomain `notifications.<SITE_URL_HOSTNAME>`.
+2. Use Cloudflare MCP on the **production** zone id for `SITE_URL_HOSTNAME` to list `/zones/{zone_id}/email/sending/subdomains`. Confirm `notifications.<SITE_URL_HOSTNAME>` exists and is enabled. Do not assume a subdomain on a different zone (for example the template's old domain) satisfies production requirements.
+3. Read current `wrangler.jsonc` email settings: `vars.EMAIL_FROM`, `vars.EMAIL_FROM_NAME`, `vars.EMAIL_REPLY_TO`, and `send_email[].allowed_sender_addresses`.
+4. **Ask the user to confirm** the intended production email settings before any mutation. Present:
+   - Sending subdomain: `notifications.<SITE_URL_HOSTNAME>`
+   - From address: typically `no-reply@notifications.<SITE_URL_HOSTNAME>`
+   - From display name
+   - Reply-to address
+   - Allowed sender addresses
+   Stop if the user has not confirmed these values.
+5. If the sending subdomain is missing, create it on the production zone with Cloudflare MCP (`POST /zones/{zone_id}/email/sending/subdomains` with `{ "name": "notifications.<SITE_URL_HOSTNAME>" }`), then use preview/fix/status endpoints until DNS is healthy.
+6. After user confirmation, update `wrangler.jsonc`:
+   - `vars.EMAIL_FROM`
+   - `vars.EMAIL_FROM_NAME`
+   - `vars.EMAIL_REPLY_TO`
+   - `send_email[].allowed_sender_addresses` to include `EMAIL_FROM`
+7. Run `pnpm run cf-typegen` after `wrangler.jsonc` email var changes.
 
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`:
 
