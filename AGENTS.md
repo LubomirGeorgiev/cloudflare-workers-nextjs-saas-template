@@ -134,6 +134,10 @@ Authentication is based on Lucia Auth.
 - The Worker entrypoint is `worker-entrypoint.ts`; keep edge-only routing and header forwarding there.
 - Suggest Wrangler commands when relevant.
 
+### Cloudflare MCP
+
+When using Cloudflare MCP `execute` for account inventory or deployment prep, do not bundle Turnstile (`/accounts/{account_id}/challenges/widgets`) and Images (`/accounts/{account_id}/images/v1/*`) API calls in the same invocation. Query them in separate MCP calls. Bundling them together can fail the entire request with `10000: Authentication error`, even when other account endpoints work individually.
+
 ## State, Security, and Performance
 
 - Prefer React Server Components for server state.
