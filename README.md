@@ -16,13 +16,13 @@ For this template, Vinext is the runtime and deployment path for Cloudflare Work
 Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still experimental, so framework-sensitive changes should be verified with `pnpm run check:vinext`, `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build`.
 
 > [!TIP]
-> This template is brought to you by 👉 [AgenticDev](https://agenticdev.agency/?ref=github-readme-nextjs-template) 👈 - where we help businesses automate operations and boost productivity through custom AI implementations. Just like this open-source project demonstrates technical excellence, we deliver:
+> This template is brought to you by 👉 [Aski.Chat](https://aski.chat) 👈 - AI customer support agents that answer visitors, capture leads, and surface customer intelligence from every conversation.
 >
-> - Process automation with LLM-powered workflows
-> - AI strategy consulting for sustainable scaling
-> - Custom SaaS development using cutting-edge stacks
+> - Website-trained AI agents for support and sales
+> - Lead capture and qualification from real conversations
+> - Learn what customers keep asking, then improve your docs, FAQs, and product
 >
-> Hundrets of developers already trust our codebase - Just Imagine what we could build for your business.
+> Turn every visitor question into a faster answer and a sharper product signal.
 
 # Supported Features:
 

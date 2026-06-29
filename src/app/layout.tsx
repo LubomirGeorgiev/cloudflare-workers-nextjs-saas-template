@@ -5,7 +5,7 @@ import "server-only";
 
 import { ThemeProvider } from "@/components/providers";
 import { NavigationTopLoader } from "@/components/navigation-top-loader";
-import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky-banner";
+import { AskiChatStickyBanner } from "@/components/aski-chat-sticky-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from "@/constants";
@@ -79,7 +79,7 @@ export default function BaseLayout({
           </TooltipProvider>
         </ThemeProvider>
         <Toaster richColors closeButton position="top-right" expand duration={7000} />
-        <AgenticDevStudioStickyBanner />
+        <AskiChatStickyBanner />
       </body>
     </html>
   );
