@@ -8,6 +8,12 @@
     "name": "cloudflare-workers-nextjs-saas-template",
     "main": "./worker-entrypoint.ts",
     "preview_urls": true,
+    "routes": [
+      {
+        "pattern": "nextjs-saas-template.lubomirgeorgiev.com",
+        "custom_domain": true
+      }
+    ],
     "compatibility_date": "2026-04-21",
     "compatibility_flags": ["nodejs_compat"],
     "assets": {
