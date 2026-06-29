@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "./ui/button";
 
 const STORAGE_KEY = "aski-chat-banner-collapsed";
-const ASKI_CHAT_BANNER_URL = "https://aski.chat?ref=saas-template-sticky-banner";
+const ASKI_CHAT_BANNER_URL = "https://aski.chat?utm_source=saas-template-sticky-banner";
 
 export function AskiChatStickyBanner() {
   const [isCollapsed, setIsCollapsed] = useState(false);

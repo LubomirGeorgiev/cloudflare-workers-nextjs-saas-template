@@ -16,7 +16,7 @@ For this template, Vinext is the runtime and deployment path for Cloudflare Work
 Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still experimental, so framework-sensitive changes should be verified with `pnpm run check:vinext`, `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build`.
 
 > [!TIP]
-> This template is brought to you by 👉 [Aski.Chat](https://aski.chat) 👈 - AI customer support agents that answer visitors, capture leads, and surface customer intelligence from every conversation.
+> This template is brought to you by 👉 [Aski.Chat](https://aski.chat?utm_source=saas-template-readme) 👈 - AI customer support agents that answer visitors, capture leads, and surface customer intelligence from every conversation.
 >
 > - Website-trained AI agents for support and sales
 > - Lead capture and qualification from real conversations

@@ -89,7 +89,7 @@ export function Footer() {
                   <ThemeSwitch />
 
                   <a
-                    href="https://aski.chat?ref=saas-template-footer"
+                    href="https://aski.chat?utm_source=saas-template-footer"
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center font-medium text-sm hover:text-foreground transition-colors"
