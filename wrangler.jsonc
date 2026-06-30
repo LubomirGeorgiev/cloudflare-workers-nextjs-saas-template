@@ -40,7 +40,7 @@
      */
     "placement": { "mode": "smart" },
     "triggers": {
-      "crons": ["*/30 * * * *"]
+      "crons": ["*/5 * * * *"]
     },
     "queues": {
       "producers": [
@@ -52,7 +52,7 @@
       "consumers": [
         {
           "queue": "cloudflare-workers-nextjs-saas-template-scheduler",
-          "max_batch_size": 10,
+          "max_batch_size": 20,
           "max_batch_timeout": 5,
           "max_retries": 5,
           "retry_delay": 60

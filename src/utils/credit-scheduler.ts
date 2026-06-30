@@ -20,7 +20,7 @@ import { updateAllSessionsOfUser } from "@/utils/kv-session";
 
 const CREDIT_REFRESH_DEDUPE_PREFIX = "credit-refresh";
 const CREDIT_EXPIRATION_DEDUPE_PREFIX = "credit-expiration";
-const CREDIT_CRON_DISPATCH_LIMIT = 100;
+const CREDIT_CRON_DISPATCH_LIMIT = 200;
 
 function getCreditRefreshDedupeKey(userId: string): string {
   return `${CREDIT_REFRESH_DEDUPE_PREFIX}:${userId}`;

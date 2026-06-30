@@ -11,7 +11,7 @@ import {
 } from "@/lib/scheduler/jobs";
 
 const QUEUE_DELAY_LIMIT_SECONDS = 60 * 60 * 24;
-const SCHEDULER_DISPATCH_LIMIT = 100;
+const SCHEDULER_DISPATCH_LIMIT = 200;
 
 interface ScheduleJobParams<T extends ScheduledJobType = ScheduledJobType> {
   queue: SchedulerQueue;
