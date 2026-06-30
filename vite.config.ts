@@ -8,6 +8,7 @@ import { getSchedulerQueueName } from "./tools/wrangler-config";
 
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
 const VINEXT_CACHE_PREFIX = "vinext-cache";
+const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
 
 export default defineConfig({
   define: {
@@ -63,6 +64,7 @@ export default defineConfig({
         data: kvDataAdapter({
           binding: VINEXT_CACHE_KV_BINDING,
           appPrefix: VINEXT_CACHE_PREFIX,
+          ttlSeconds: VINEXT_CACHE_TTL_SECONDS,
         }),
       },
     }),
