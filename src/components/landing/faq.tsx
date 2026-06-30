@@ -133,28 +133,35 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <div className="py-24 sm:py-32">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-4xl divide-y divide-gray-900/10 dark:divide-gray-100/10">
-          <h2 className="text-2xl font-bold leading-10 tracking-tight">
-            Frequently asked questions
+    <section className="border-t border-border bg-card/40 py-24 sm:py-32">
+      <div className="mx-auto grid max-w-7xl gap-12 px-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16 lg:px-8">
+        <div className="lg:sticky lg:top-24 lg:self-start">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-edge">
+            {"// faq"}
+          </p>
+          <h2 className="mt-4 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            Questions, answered
           </h2>
-          <Accordion type="single" collapsible className="w-full mt-10">
-            {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`}>
-                <AccordionTrigger className="text-left">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="prose dark:prose-invert w-full max-w-none">
-                    {faq.answer}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          <p className="mt-5 text-lg leading-8 text-muted-foreground">
+            Still curious? The README covers everything else, and issues are always open.
+          </p>
         </div>
+
+        <Accordion type="single" collapsible className="w-full">
+          {faqs.map((faq, index) => (
+            <AccordionItem key={index} value={`item-${index}`} className="border-border">
+              <AccordionTrigger className="text-left font-display text-base font-medium">
+                {faq.question}
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="prose prose-sm dark:prose-invert w-full max-w-none text-muted-foreground prose-a:text-edge">
+                  {faq.answer}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
       </div>
-    </div>
+    </section>
   );
 }

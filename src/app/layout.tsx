@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import "server-only";
 
@@ -11,8 +10,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from "@/constants";
 import { getPublicConfig } from "@/flags";
 import { PublicConfigHydrator } from "@/components/public-config-hydrator";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
@@ -63,7 +60,7 @@ export default function BaseLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className="font-sans antialiased">
         <PublicConfigRootHydrator />
         <NavigationTopLoader />
         <ThemeProvider

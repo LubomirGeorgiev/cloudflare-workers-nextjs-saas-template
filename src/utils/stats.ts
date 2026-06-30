@@ -1,30 +1,17 @@
 import "server-only";
-import { getDB } from "@/db";
-import { userTable } from "@/db/schema";
 import { setCacheScope } from "./cache";
 import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
-
-export async function getTotalUsers() {
-  "use cache: remote";
-  setCacheScope({
-    ttl: "1 hour",
-  });
-
-  const db = getDB();
-
-  return await db.$count(userTable);
-}
 
 export async function getGithubStars() {
   if (!GITHUB_REPO_URL || typeof GITHUB_REPO_URL !== "string") {
     return null;
   }
 
-  // Extract owner and repo from GitHub URL
-  const match = (GITHUB_REPO_URL as string)?.match(/github\.com\/([^/]+)\/([^/]+)/);
+  const match = GITHUB_REPO_URL.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) return null;
 
-  const [, owner, repo] = match;
+  const [, owner, rawRepo] = match;
+  const repo = rawRepo?.replace(/\.git$/, "");
 
   if (!owner || !repo) return null;
 
@@ -43,13 +30,23 @@ async function getCachedGithubStars({
     ttl: "1 hour",
   });
 
+  const headers: HeadersInit = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": `cloudflare-workers-nextjs-saas-template (${SITE_DOMAIN})`,
+  };
+
+  const githubToken = process.env.GITHUB_TOKEN;
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers: {
-      "User-Agent": `cloudflare-workers-nextjs-saas-template (${SITE_DOMAIN})`,
-    },
+    headers,
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+  }
 
   const data = (await response.json()) as {
     stargazers_count: number;
