@@ -65,10 +65,10 @@ export function Hero() {
               rel="noreferrer"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "group gap-2 bg-edge text-edge-foreground shadow-lg shadow-edge/20 hover:bg-edge/90",
+                "group gap-2 bg-edge text-edge-foreground shadow-lg shadow-edge/20 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-edge/90 hover:shadow-xl hover:shadow-edge/30 active:translate-y-0 active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
               )}
             >
-              <Star className="size-5 fill-current" />
+              <Star className="size-5 fill-current transition-transform duration-300 ease-out group-hover:scale-125 group-hover:-rotate-12 motion-reduce:transform-none" />
               Star on GitHub
             </a>
             <Link

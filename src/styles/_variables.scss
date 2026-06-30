@@ -161,14 +161,25 @@
   --tt-destructive-contrast: 8%;
   --tt-foreground-contrast: 8%;
 
-  &,
-  *,
-  ::before,
-  ::after {
-    box-sizing: border-box;
-    transition: none var(--tt-transition-duration-default)
-      var(--tt-transition-easing-default);
-  }
+}
+
+.tiptap,
+.tiptap *,
+.tiptap::before,
+.tiptap::after,
+.tiptap *::before,
+.tiptap *::after,
+[class^="tiptap-"],
+[class*=" tiptap-"],
+[class^="tiptap-"] *,
+[class*=" tiptap-"] *,
+[class^="tiptap-"]::before,
+[class*=" tiptap-"]::before,
+[class^="tiptap-"]::after,
+[class*=" tiptap-"]::after {
+  box-sizing: border-box;
+  transition: none var(--tt-transition-duration-default)
+    var(--tt-transition-easing-default);
 }
 
 :root {

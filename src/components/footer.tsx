@@ -53,9 +53,9 @@ export function Footer() {
                   href="https://github.com/LubomirGeorgiev"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="group text-muted-foreground transition-colors duration-300 ease-out hover:text-foreground"
                 >
-                  <GithubIcon className="h-5 w-5" />
+                  <GithubIcon className="h-5 w-5 transition-transform duration-300 ease-out group-hover:scale-110 motion-reduce:transform-none" />
                   <span className="sr-only">GitHub</span>
                 </a>
                 <a

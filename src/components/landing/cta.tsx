@@ -70,10 +70,10 @@ export function CallToAction() {
               rel="noreferrer"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "gap-2 bg-edge text-edge-foreground shadow-lg shadow-edge/20 hover:bg-edge/90",
+                "group gap-2 bg-edge text-edge-foreground shadow-lg shadow-edge/20 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:bg-edge/90 hover:shadow-xl hover:shadow-edge/30 active:translate-y-0 active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0",
               )}
             >
-              <GithubIcon className="size-5" />
+              <GithubIcon className="size-5 transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6 motion-reduce:transform-none" />
               Star on GitHub
             </a>
             <Link
