@@ -40,17 +40,19 @@ async function getCachedGithubStars({
     headers.Authorization = `Bearer ${githubToken}`;
   }
 
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers,
-  });
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers,
+    });
 
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      stargazers_count: number;
+    };
+
+    return data.stargazers_count;
+  } catch {
+    return null;
   }
-
-  const data = (await response.json()) as {
-    stargazers_count: number;
-  };
-
-  return data.stargazers_count;
 }
