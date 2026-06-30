@@ -216,10 +216,10 @@ pnpm wrangler secret put TURNSTILE_SECRET_KEY
 2. Use Cloudflare MCP on the **production** zone id for `SITE_URL_HOSTNAME` to list `/zones/{zone_id}/email/sending/subdomains`. Confirm `notifications.<SITE_URL_HOSTNAME>` exists and is enabled. Do not assume a subdomain on a different zone (for example the template's old domain) satisfies production requirements.
 3. Read current `wrangler.jsonc` email settings: `vars.EMAIL_FROM`, `vars.EMAIL_FROM_NAME`, `vars.EMAIL_REPLY_TO`, and `send_email[].allowed_sender_addresses`.
 4. **Ask the user to confirm** the intended production email settings before any mutation. Present:
-   - Sending subdomain: `notifications.<SITE_URL_HOSTNAME>`
-   - From address: typically `no-reply@notifications.<SITE_URL_HOSTNAME>`
-   - From display name
-   - Reply-to address
+   - Sending subdomain: suggest `notifications.<SITE_URL_HOSTNAME>` and explicitly ask the user to confirm they are ok with it.
+   - From address: suggest `no-reply@notifications.<SITE_URL_HOSTNAME>` and explicitly ask the user to confirm they are ok with it.
+   - From display name for `vars.EMAIL_FROM_NAME`; explicitly ask the user what production sender display name to use, even if `wrangler.jsonc` already has a value.
+   - Reply-to address for `vars.EMAIL_REPLY_TO`; explicitly ask the user what production reply-to address to use, even if `wrangler.jsonc` already has a value.
    - Allowed sender addresses
    Stop if the user has not confirmed these values.
 5. If the sending subdomain is missing, create it on the production zone with Cloudflare MCP (`POST /zones/{zone_id}/email/sending/subdomains` with `{ "name": "notifications.<SITE_URL_HOSTNAME>" }`), then use preview/fix/status endpoints until DNS is healthy.
