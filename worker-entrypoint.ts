@@ -7,12 +7,6 @@
  * @see https://github.com/vinext/vinext/blob/main/packages/vinext/src/server/app-router-entry.ts
  */
 import handler from "vinext/server/app-router-entry";
-import {
-  DEFAULT_DEVICE_SIZES,
-  DEFAULT_IMAGE_SIZES,
-  handleImageOptimization,
-  IMAGE_OPTIMIZATION_PATH,
-} from "vinext/server/image-optimization";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import {
   handleSchedulerCron,
@@ -25,7 +19,7 @@ import {
 } from "./src/utils/trusted-client-ip";
 
 /**
- * Edge-only logic before vinext and `/_vinext/image`.
+ * Edge-only logic that runs before vinext handles the request.
  * Return a `Response` to short-circuit; return `null` to continue.
  */
 async function handleCustomEdge(
@@ -47,26 +41,8 @@ const worker = {
     const early = await handleCustomEdge(request, env, ctx);
     if (early) return early;
 
-    const url = new URL(request.url);
-
-    if (url.pathname === IMAGE_OPTIMIZATION_PATH) {
-      const allowedWidths = [...DEFAULT_DEVICE_SIZES, ...DEFAULT_IMAGE_SIZES];
-      return handleImageOptimization(
-        request,
-        {
-          fetchAsset: (path) => env.ASSETS.fetch(new Request(new URL(path, request.url))),
-          transformImage: async (body, { width, format, quality }) => {
-            const result = await env.IMAGES
-              .input(body)
-              .transform(width > 0 ? { width } : {})
-              .output({ format: format as ImageOutputOptions["format"], quality });
-            return result.response();
-          },
-        },
-        allowedWidths,
-      );
-    }
-
+    // `/_next/image` optimization is handled inside the wrapped app-router-entry
+    // via the Cloudflare Images adapter configured in vite.config.ts (vinext({ images })).
     return handler.fetch(withForwardedCfHeaders(request), env, ctx);
   },
 

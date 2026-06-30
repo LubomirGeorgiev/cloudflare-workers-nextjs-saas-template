@@ -1,6 +1,7 @@
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
+import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
@@ -66,6 +67,11 @@ export default defineConfig({
           appPrefix: VINEXT_CACHE_PREFIX,
           ttlSeconds: VINEXT_CACHE_TTL_SECONDS,
         }),
+      },
+      // Backs `/_next/image` with the Cloudflare Images binding (env.IMAGES).
+      // Handled inside vinext/server/app-router-entry, which worker-entrypoint.ts wraps.
+      images: {
+        optimizer: imagesOptimizer(),
       },
     }),
     cloudflare({

@@ -26,7 +26,7 @@ Use Vinext commands for framework work:
 - `pnpm dev` starts the Vinext development server.
 - `pnpm build` builds with Vinext and Vite.
 - `pnpm start` starts the local Vinext production server.
-- `pnpm deploy` runs `vinext deploy` for Cloudflare Workers.
+- `pnpm deploy` runs `vinext-cloudflare deploy` for Cloudflare Workers.
 - `pnpm run check:vinext` scans compatibility with the Vinext implementation.
 
 Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless the user explicitly asks to migrate away from Vinext. Treat Vinext as experimental: for changes touching routing, RSC/server actions, Cloudflare bindings, middleware, build config, or deployment, run `pnpm run check:vinext`, `pnpm run typecheck`, and `pnpm run build` when feasible. Primary references are https://vinext.io/ and https://github.com/cloudflare/vinext.

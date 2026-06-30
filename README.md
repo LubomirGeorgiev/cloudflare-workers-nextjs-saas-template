@@ -11,7 +11,7 @@ This is a SaaS template for Cloudflare Workers. It uses Vinext on Vite to run a 
 
 [Vinext](https://vinext.io/) is Cloudflare's experimental implementation of the public Next.js API surface on top of Vite. The goal is to let a Next.js app keep familiar App Router patterns, React Server Components, route handlers, and `next/*` imports while using Vite as the build and dev toolchain instead of the standard Next.js compiler pipeline.
 
-For this template, Vinext is the runtime and deployment path for Cloudflare Workers. `pnpm dev` starts the Vinext development server, `pnpm build` produces the Vinext/Vite production output, and `pnpm deploy` uses `vinext deploy` to build and deploy the Worker. Vinext has first-class Cloudflare Workers support, including access to bindings such as D1, KV, R2, Images, Durable Objects, and AI through `cloudflare:workers`.
+For this template, Vinext is the runtime and deployment path for Cloudflare Workers. `pnpm dev` starts the Vinext development server, `pnpm build` produces the Vinext/Vite production output, and `pnpm deploy` uses `vinext-cloudflare deploy` to build and deploy the Worker. Vinext has first-class Cloudflare Workers support, including access to bindings such as D1, KV, R2, Images, Durable Objects, and AI through `cloudflare:workers`.
 
 Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still experimental, so framework-sensitive changes should be verified with `pnpm run check:vinext`, `pnpm run typecheck`, `pnpm run lint`, and `pnpm run build`.
 
@@ -201,7 +201,7 @@ pnpm run test:e2e
 | `pnpm run test:unit` | Run co-located Vitest unit tests |
 | `pnpm run test:integration` | Run Cloudflare Workers Vitest integration tests with local D1/KV/Queue bindings |
 | `pnpm run test:e2e` | Run Playwright-driven E2E tests against a clean local Wrangler/D1 preview |
-| `pnpm deploy` | Build and deploy with `vinext deploy` |
+| `pnpm deploy` | Build and deploy with `vinext-cloudflare deploy` |
 | `pnpm deploy:dryrun` | Build and run a Wrangler deploy dry run into `worker-dist` |
 | `pnpm check:vinext` | Run the Vinext compatibility checker |
 | `pnpm run lint` | Run Oxlint |
