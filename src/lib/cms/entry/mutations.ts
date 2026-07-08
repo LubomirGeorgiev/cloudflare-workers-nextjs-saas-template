@@ -1,9 +1,10 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
+import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
   cmsEntryMediaTable,
@@ -36,17 +37,26 @@ import {
 } from "@/lib/cms/entry/helpers";
 import {
   createCmsEntryParamsSchema,
+  createCmsEntryTranslationParamsSchema,
   deleteCmsEntryParamsSchema,
   updateCmsEntryParamsSchema,
 } from "@/lib/cms/entry/schemas";
 import type {
   CreateCmsEntryParams,
+  CreateCmsEntryTranslationParams,
   DeleteCmsEntryParams,
   UpdateCmsEntryParams,
 } from "@/lib/cms/entry/types";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
-import { v } from "@/lib/validation";
+import { translateEntryFields } from "@/lib/cms/translate-entry";
+import {
+  computeEntryTranslatableHashes,
+  computeStaleFields,
+} from "@/lib/cms/translation-staleness";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
+import type { SourceContentHashes } from "@/types/cms";
+import { requiredString, v } from "@/lib/validation";
 
 export async function createCmsEntry<T extends CollectionsUnion>(
   params: CreateCmsEntryParams<T>
@@ -112,47 +122,57 @@ export async function createCmsEntry<T extends CollectionsUnion>(
     );
   }
 
-  await syncEntryMediaRelationships({
-    entryId: newEntry.id,
-    content,
-    featuredImageId,
-  });
-
-  await syncCmsEntrySearch({
-    entryId: newEntry.id,
-    collection: newEntry.collection,
-    slug: newEntry.slug,
-    title: newEntry.title,
-    seoDescription: newEntry.seoDescription,
-    content: newEntry.content as JSONContent,
-  });
-
-  await Promise.all([
-    invalidateCmsEntryCache({
-      collectionSlug: collection.slug as CollectionsUnion,
-      slug,
-    }),
-    invalidateCmsCollectionCache({
-      collectionSlug: collection.slug as CollectionsUnion,
-    }),
-    invalidateCmsCollectionCountCache({
-      collectionSlug: collection.slug as CollectionsUnion,
-    }),
-    invalidateCmsNavigationCachesForCollection({
-      collectionSlug: collection.slug as CollectionsUnion,
-    }),
-    invalidateSitemapCache(),
-    invalidateCmsTagsCache(),
-  ]);
+  await syncCreatedEntrySideEffects({ entry: newEntry });
 
   await syncCmsPublishSchedule(newEntry);
 
   return newEntry;
 }
 
+async function syncCreatedEntrySideEffects({
+  entry,
+}: {
+  entry: CmsEntry;
+}): Promise<void> {
+  const collectionSlug = entry.collection as CollectionsUnion;
+
+  await syncEntryMediaRelationships({
+    entryId: entry.id,
+    content: entry.content as JSONContent,
+    featuredImageId: entry.featuredImageId,
+  });
+
+  await syncCmsEntrySearch({
+    entryId: entry.id,
+    collection: collectionSlug,
+    slug: entry.slug,
+    title: entry.title,
+    seoDescription: entry.seoDescription,
+    content: entry.content as JSONContent,
+  });
+
+  await Promise.all([
+    invalidateCmsEntryCache({
+      collectionSlug,
+      slug: entry.slug,
+    }),
+    invalidateCmsCollectionCache({
+      collectionSlug,
+    }),
+    invalidateCmsCollectionCountCache({
+      collectionSlug,
+    }),
+    invalidateCmsNavigationCachesForCollection({
+      collectionSlug,
+    }),
+    invalidateSitemapCache(),
+    invalidateCmsTagsCache(),
+  ]);
+}
+
 export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsEntry | null> {
   const validated = v.parse(updateCmsEntryParamsSchema, params);
-  const { id, slug, title, content, fields, seoDescription, status, publishedAt, tagIds, featuredImageId } = validated;
+  const { id, slug, title, content, fields, seoDescription, status, publishedAt, tagIds, featuredImageId, sourceContentHashes } = validated;
 
   const db = getDB();
 
@@ -198,13 +218,22 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
 
   validateSeoDescription(finalSeoDescription);
 
-  if (slug && slug !== existingEntry.slug) {
-    const conflictingEntry = await db.query.cmsEntryTable.findFirst({
-      where: {
-        collection: existingEntry.collection,
-        slug,
-      },
-    });
+  const isSlugChanging = slug !== undefined && slug !== existingEntry.slug;
+
+  if (isSlugChanging) {
+    // This group's siblings all still hold the OLD slug here (the cascade below runs
+    // after), so any row already on the new slug belongs to a DIFFERENT group — a
+    // real conflict. No self-exclusion clause is needed.
+    const [conflictingEntry] = await db
+      .select({ id: cmsEntryTable.id })
+      .from(cmsEntryTable)
+      .where(
+        and(
+          eq(cmsEntryTable.collection, existingEntry.collection),
+          eq(cmsEntryTable.slug, slug)
+        )
+      )
+      .limit(1);
 
     if (conflictingEntry) {
       throw new Error(`Entry with slug "${slug}" already exists in collection "${existingEntry.collection}"`);
@@ -225,6 +254,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     status,
     publishedAt: finalPublishedAt,
     featuredImageId,
+    sourceContentHashes,
   };
 
   const filteredUpdateData = Object.fromEntries(
@@ -236,6 +266,21 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     .set(filteredUpdateData)
     .where(eq(cmsEntryTable.id, id))
     .returning();
+
+  if (isSlugChanging) {
+    // Cascade the rename to every OTHER locale sibling on the old slug so the group
+    // stays linked. Only the edited row above moved to the new slug and got a new
+    // cms_entry_version snapshot; the siblings are not re-versioned.
+    await db
+      .update(cmsEntryTable)
+      .set({ slug })
+      .where(
+        and(
+          eq(cmsEntryTable.collection, existingEntry.collection),
+          eq(cmsEntryTable.slug, existingEntry.slug)
+        )
+      );
+  }
 
   if (tagIds) {
     await db.delete(cmsEntryTagTable).where(eq(cmsEntryTagTable.entryId, id));
@@ -258,14 +303,27 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     });
   }
 
-  await syncCmsEntrySearch({
-    entryId: id,
-    collection: updatedEntry.collection,
-    slug: updatedEntry.slug,
-    title: updatedEntry.title,
-    seoDescription: updatedEntry.seoDescription,
-    content: updatedEntry.content as JSONContent,
-  });
+  const entriesToSyncSearch = isSlugChanging
+    ? await db.query.cmsEntryTable.findMany({
+        where: {
+          collection: updatedEntry.collection,
+          slug: updatedEntry.slug,
+        },
+      })
+    : [updatedEntry];
+
+  await Promise.all(
+    entriesToSyncSearch.map((entry) =>
+      syncCmsEntrySearch({
+        entryId: entry.id,
+        collection: entry.collection,
+        slug: entry.slug,
+        title: entry.title,
+        seoDescription: entry.seoDescription,
+        content: entry.content as JSONContent,
+      })
+    )
+  );
 
   const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
     where: { entryId: id },
@@ -343,10 +401,257 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
   const collectionSlug = existingEntry.collection;
   const slug = existingEntry.slug;
 
-  await db.delete(cmsEntryMediaTable).where(eq(cmsEntryMediaTable.entryId, id));
-  await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, id));
+  // Navigation anchors on the default-locale row (its `entryId` FK) and that same row
+  // is the i18n fallback base, so deleting it must take the whole translation group:
+  // a surviving translation sibling would be orphaned (no fallback) and its nav item
+  // cascades away regardless. Deleting a translation drops just that locale row.
+  // Mirrors deleteCmsTag's canonical-vs-translation policy.
+  const entriesToDelete = existingEntry.locale === DEFAULT_LOCALE
+    ? await db.query.cmsEntryTable.findMany({
+        where: { collection: collectionSlug, slug },
+      })
+    : [existingEntry];
 
-  await removeCmsEntrySearch({ entryId: id });
-  await deleteCmsPublishSchedule(id);
+  for (const entry of entriesToDelete) {
+    await db.delete(cmsEntryMediaTable).where(eq(cmsEntryMediaTable.entryId, entry.id));
+    await db.delete(cmsEntryTable).where(eq(cmsEntryTable.id, entry.id));
+
+    await removeCmsEntrySearch({ entryId: entry.id });
+    await deleteCmsPublishSchedule(entry.id);
+  }
+
+  // Every sibling shares (collection, slug), so one invalidation covers the group.
   await invalidateEntryAndCollection({ collectionSlug, slug });
+}
+
+// Creates a new translation: a sibling row sharing (collection, slug) with a
+// different locale, seeded as a DRAFT copy of the source content for a translator
+// to edit in place. Does not touch the source row.
+export async function createCmsEntryTranslation<T extends CollectionsUnion>(
+  params: CreateCmsEntryTranslationParams
+): Promise<CmsEntry & { aiTranslated: boolean }> {
+  const validated = v.parse(createCmsEntryTranslationParamsSchema, params);
+  const { collectionSlug, slug, sourceLocale, targetLocale, createdBy, autoTranslate } = validated;
+
+  const db = getDB();
+
+  const collection = cmsConfig.collections[collectionSlug as T];
+  if (!collection) {
+    throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+  }
+
+  const sourceEntry = await db.query.cmsEntryTable.findFirst({
+    where: {
+      collection: collection.slug as CollectionsUnion,
+      slug,
+      locale: sourceLocale,
+    },
+  });
+
+  if (!sourceEntry) {
+    throw new Error(
+      `Entry with slug "${slug}" and locale "${sourceLocale}" not found in collection "${collection.slug}"`
+    );
+  }
+
+  const existingTranslation = await db.query.cmsEntryTable.findFirst({
+    where: {
+      collection: collection.slug as CollectionsUnion,
+      slug,
+      locale: targetLocale,
+    },
+  });
+
+  if (existingTranslation) {
+    throw new Error(
+      `Entry with slug "${slug}" already has a "${targetLocale}" translation in collection "${collection.slug}"`
+    );
+  }
+
+  // AI-translate the seeded copy from the source locale. The model never sees the
+  // ProseMirror structure — only leaf strings are translated and written back —
+  // and any failure falls back to a verbatim copy (see translateEntryFields).
+  const translated = autoTranslate
+    ? await translateEntryFields({
+        title: sourceEntry.title,
+        seoDescription: sourceEntry.seoDescription,
+        content: sourceEntry.content as JSONContent,
+        sourceLocale,
+        targetLocale,
+      })
+    : {
+        title: sourceEntry.title,
+        seoDescription: sourceEntry.seoDescription,
+        content: sourceEntry.content as JSONContent,
+        translated: false,
+      };
+
+  // Snapshot the canonical (default-locale) source's content hashes so the editor can
+  // later detect when that source drifts. Translating straight from the default locale
+  // means we already hold it; otherwise fetch it. No default row, or the target IS the
+  // default locale → null (nothing canonical to be stale against).
+  const defaultSourceEntry =
+    sourceLocale === DEFAULT_LOCALE
+      ? sourceEntry
+      : await db.query.cmsEntryTable.findFirst({
+          where: {
+            collection: collection.slug as CollectionsUnion,
+            slug,
+            locale: DEFAULT_LOCALE,
+          },
+        });
+
+  const sourceContentHashes: SourceContentHashes | null =
+    targetLocale !== DEFAULT_LOCALE && defaultSourceEntry
+      ? computeEntryTranslatableHashes({
+          title: defaultSourceEntry.title,
+          seoDescription: defaultSourceEntry.seoDescription,
+          content: defaultSourceEntry.content as JSONContent,
+        })
+      : null;
+
+  const [newEntry] = await db.insert(cmsEntryTable).values({
+    collection: collection.slug as CollectionsUnion,
+    slug,
+    locale: targetLocale,
+    title: translated.title,
+    content: translated.content,
+    fields: sourceEntry.fields,
+    seoDescription: translated.seoDescription,
+    featuredImageId: sourceEntry.featuredImageId,
+    status: CMS_ENTRY_STATUS.DRAFT,
+    createdBy,
+    sourceContentHashes,
+  }).returning();
+
+  const sourceTags = await db.query.cmsEntryTagTable.findMany({
+    where: { entryId: sourceEntry.id },
+  });
+
+  if (sourceTags.length > 0) {
+    await db.insert(cmsEntryTagTable).values(
+      sourceTags.map((sourceTag) => ({
+        entryId: newEntry.id,
+        tagId: sourceTag.tagId,
+      }))
+    );
+  }
+
+  await syncCreatedEntrySideEffects({ entry: newEntry });
+
+  return { ...newEntry, aiTranslated: translated.translated };
+}
+
+// Loads a non-default translation row together with its canonical (default-locale)
+// source, throwing if either is missing or if `id` points at the source row itself.
+async function loadTranslationWithSource(id: string): Promise<{
+  translationEntry: CmsEntry;
+  sourceEntry: CmsEntry;
+}> {
+  const db = getDB();
+
+  const translationEntry = await db.query.cmsEntryTable.findFirst({ where: { id } });
+  if (!translationEntry) {
+    throw new Error(`Entry with id "${id}" not found`);
+  }
+  if (translationEntry.locale === DEFAULT_LOCALE) {
+    throw new Error("The default-locale entry is the source and is never out of date");
+  }
+
+  const sourceEntry = await db.query.cmsEntryTable.findFirst({
+    where: {
+      collection: translationEntry.collection as CollectionsUnion,
+      slug: translationEntry.slug,
+      locale: DEFAULT_LOCALE,
+    },
+  });
+  if (!sourceEntry) {
+    throw new Error(`No default-locale source found for "${translationEntry.slug}"`);
+  }
+
+  return { translationEntry, sourceEntry };
+}
+
+// Moves only the source-hash snapshot on a translation row — no content change, so
+// (unlike updateCmsEntry) it creates no version-history row and needs no search/media
+// re-sync. The editor's sibling read is uncached, so a refresh clears the stale flag.
+async function snapshotSourceContentHashes(
+  id: string,
+  sourceContentHashes: SourceContentHashes
+): Promise<CmsEntry | null> {
+  const db = getDB();
+  const [updated] = await db
+    .update(cmsEntryTable)
+    .set({ sourceContentHashes })
+    .where(eq(cmsEntryTable.id, id))
+    .returning();
+  return updated ?? null;
+}
+
+// Re-translates a stale translation from the canonical source, overwriting only the
+// fields that drifted, then re-snapshots the source hashes so the row reads as up to
+// date. Translations are treated as disposable AI output (not hand-tuned), so
+// overwriting is safe; translating only the changed fields avoids re-processing an
+// unchanged body on a title-only edit.
+export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEntry | null> {
+  const { id } = v.parse(v.object({ id: requiredString() }), params);
+
+  const { translationEntry, sourceEntry } = await loadTranslationWithSource(id);
+
+  const currentHashes = computeEntryTranslatableHashes({
+    title: sourceEntry.title,
+    seoDescription: sourceEntry.seoDescription,
+    content: sourceEntry.content as JSONContent,
+  });
+  const staleFields = computeStaleFields({
+    snapshot: translationEntry.sourceContentHashes,
+    current: currentHashes,
+  });
+
+  // Nothing drifted (or no baseline) — just re-anchor the snapshot so any badge clears.
+  if (staleFields.length === 0) {
+    return snapshotSourceContentHashes(id, currentHashes);
+  }
+
+  const translated = await translateEntryFields({
+    title: sourceEntry.title,
+    seoDescription: sourceEntry.seoDescription,
+    content: sourceEntry.content as JSONContent,
+    sourceLocale: sourceEntry.locale as Locale,
+    targetLocale: translationEntry.locale as Locale,
+    only: staleFields,
+  });
+
+  // Overwrite only the drifted fields; keep the existing translation for the rest.
+  // Re-snapshot ALL hashes — the row is now aligned with the current source.
+  return updateCmsEntry({
+    id,
+    title: staleFields.includes("title") ? translated.title : undefined,
+    // updateCmsEntry treats undefined as "leave unchanged"; a null translated SEO
+    // (source has none) maps to undefined rather than clearing, matching the form.
+    seoDescription: staleFields.includes("seoDescription")
+      ? translated.seoDescription ?? undefined
+      : undefined,
+    content: staleFields.includes("content") ? (translated.content as JSONContent) : undefined,
+    sourceContentHashes: currentHashes,
+  });
+}
+
+// Clears the stale flag without changing content: re-snapshots the current source
+// hashes onto the translation. Escape hatch for when an admin has reconciled the
+// translation by hand and just wants the badge to go away.
+export async function markCmsEntryTranslationReviewed(
+  params: { id: string }
+): Promise<CmsEntry | null> {
+  const { id } = v.parse(v.object({ id: requiredString() }), params);
+
+  const { translationEntry, sourceEntry } = await loadTranslationWithSource(id);
+
+  const currentHashes = computeEntryTranslatableHashes({
+    title: sourceEntry.title,
+    seoDescription: sourceEntry.seoDescription,
+    content: sourceEntry.content as JSONContent,
+  });
+
+  return snapshotSourceContentHashes(translationEntry.id, currentHashes);
 }

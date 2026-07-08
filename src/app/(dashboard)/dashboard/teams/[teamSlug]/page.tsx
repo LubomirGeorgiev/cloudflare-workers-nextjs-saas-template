@@ -23,6 +23,7 @@ import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { getTranslations } from "next-intl/server";
 
 interface TeamPageProps {
   params: Promise<{
@@ -42,21 +43,23 @@ const getCachedTeamBySlug = cache(async (teamSlug: string) => {
 export async function generateMetadata({ params }: TeamPageProps) {
   const { teamSlug } = await params;
   const team = await getCachedTeamBySlug(teamSlug);
+  const t = await getTranslations("Client.Dashboard.Teams");
 
   if (!team) {
     return {
-      title: "Team Not Found",
+      title: t("teamNotFound"),
     };
   }
 
   return {
-    title: `${team.name} - Dashboard`,
-    description: team.description || `Team dashboard for ${team.name}`,
+    title: t("teamMetaTitle", { name: team.name }),
+    description: team.description || t("teamMetaDescription", { name: team.name }),
   };
 }
 
 export default async function TeamDashboardPage({ params }: TeamPageProps) {
   const { teamSlug } = await params;
+  const t = await getTranslations("Client.Dashboard.Teams");
 
   const session = await getSessionFromCookie();
   if (!session) {
@@ -80,19 +83,19 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           items={[
             {
               href: "/dashboard/teams",
-              label: "Teams"
+              label: t("breadcrumb")
             }
           ]}
         />
         <div className="container mx-auto px-5 py-12">
           <Alert variant="destructive" className="mb-6">
-            <AlertTitle>Access Denied</AlertTitle>
+            <AlertTitle>{t("accessDenied")}</AlertTitle>
             <AlertDescription>
-              {`You don't have permission to access team "${team.name}". Please contact the team owner to request access.`}
+              {t("accessDeniedDescription", { name: team.name })}
             </AlertDescription>
           </Alert>
           <Link href="/dashboard/teams" className={cn(buttonVariants(), "mt-4")}>
-            Return to Teams
+            {t("returnToTeams")}
           </Link>
         </div>
       </>
@@ -112,7 +115,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
         items={[
           {
             href: "/dashboard/teams",
-            label: "Teams"
+            label: t("breadcrumb")
           },
           {
             href: `/dashboard/teams/${teamSlug}`,
@@ -136,7 +139,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
               <InviteMemberModal
                 teamId={team.id}
                 trigger={
-                  <Button>Invite Members</Button>
+                  <Button>{t("inviteMembers")}</Button>
                 }
               />
             )}
@@ -158,19 +161,19 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           {/* Quick stats */}
           <div className="col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-6 border rounded-lg bg-card flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">Team Credits</span>
+              <span className="text-sm font-medium text-muted-foreground">{t("teamCredits")}</span>
               <span className="text-2xl font-bold">{team.creditBalance || 0}</span>
             </div>
 
             <div className="p-6 border rounded-lg bg-card flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">Your Role</span>
+              <span className="text-sm font-medium text-muted-foreground">{t("yourRoleLabel")}</span>
               <span className="text-2xl font-bold capitalize">
-                {teamSession?.teams?.find(t => t.id === team.id)?.role.name || "Member"}
+                {teamSession?.teams?.find(team2 => team2.id === team.id)?.role.name || t("memberRole")}
               </span>
             </div>
 
             <div className="p-6 border rounded-lg bg-card flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">Created</span>
+              <span className="text-sm font-medium text-muted-foreground">{t("created")}</span>
               <span className="text-2xl font-bold">
                 {new Date(team.createdAt).toLocaleDateString()}
               </span>
@@ -183,24 +186,24 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
           {/* Team Members Table */}
           <div className="col-span-3 border rounded-lg p-6 bg-card">
-            <h2 className="text-xl font-semibold mb-4">Team Members</h2>
+            <h2 className="text-xl font-semibold mb-4">{t("teamMembers")}</h2>
 
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Member</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canRemoveMembers && <TableHead className="text-right">Action</TableHead>}
+                  <TableHead>{t("columnMember")}</TableHead>
+                  <TableHead>{t("columnEmail")}</TableHead>
+                  <TableHead>{t("columnRole")}</TableHead>
+                  <TableHead>{t("columnJoined")}</TableHead>
+                  <TableHead>{t("columnStatus")}</TableHead>
+                  {canRemoveMembers && <TableHead className="text-right">{t("columnAction")}</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {teamMembers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={canRemoveMembers ? 6 : 5} className="text-center py-6 text-muted-foreground">
-                      No members found
+                      {t("noMembersFound")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -227,12 +230,12 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                       <TableCell>
                         {member.joinedAt !== null
                           ? formatDate(member.joinedAt)
-                          : 'Not joined'}
+                          : t("notJoined")}
                       </TableCell>
                       <TableCell>
                         {member.isActive
-                          ? <span className="text-green-600 dark:text-green-400">Active</span>
-                          : <span className="text-red-600 dark:text-red-400">Inactive</span>}
+                          ? <span className="text-green-600 dark:text-green-400">{t("statusActive")}</span>
+                          : <span className="text-red-600 dark:text-red-400">{t("statusInactive")}</span>}
                       </TableCell>
                       {canRemoveMembers && (
                         <TableCell className="text-right">
@@ -241,7 +244,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                             userId={member.userId}
                             memberName={`${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email || ''}
                             isDisabled={member.isSystemRole && member.roleId === 'owner'}
-                            tooltipText="Team owners cannot be removed"
+                            tooltipText={t("ownerCannotBeRemoved")}
                           />
                         </TableCell>
                       )}

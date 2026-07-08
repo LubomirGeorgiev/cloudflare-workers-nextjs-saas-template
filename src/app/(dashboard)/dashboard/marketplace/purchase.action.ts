@@ -10,6 +10,7 @@ import { purchasedItemsTable, PURCHASABLE_ITEM_TYPE } from "@/db/schema";
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import { v } from "@/lib/validation";
+import { getTranslations } from "next-intl/server";
 
 const purchaseSchema = v.object({
   itemId: v.string(),
@@ -21,10 +22,12 @@ export const purchaseAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Dashboard.Marketplace");
+
         if (DISABLE_CREDIT_BILLING_SYSTEM) {
           throw new ActionError(
             "INSUFFICIENT_CREDITS",
-            "Marketplace is not available when credit billing is disabled"
+            t("errorBillingDisabled")
           );
         }
 
@@ -33,7 +36,7 @@ export const purchaseAction = actionClient
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            "You must be logged in to make purchases"
+            t("errorNotLoggedIn")
           );
         }
 
@@ -49,7 +52,7 @@ export const purchaseAction = actionClient
         if (!itemDetails) {
           throw new ActionError(
             "NOT_FOUND",
-            "Item not found"
+            t("errorItemNotFound")
           );
         }
 
@@ -67,7 +70,7 @@ export const purchaseAction = actionClient
         if (existingPurchase) {
           throw new ActionError(
             "CONFLICT",
-            "You already own this item"
+            t("errorAlreadyOwned")
           );
         }
 
@@ -80,7 +83,7 @@ export const purchaseAction = actionClient
         if (!hasCredits) {
           throw new ActionError(
             "INSUFFICIENT_CREDITS",
-            "You don't have enough credits to purchase this item"
+            t("errorInsufficientCredits")
           );
         }
 
@@ -88,7 +91,10 @@ export const purchaseAction = actionClient
         await consumeCredits({
           userId: session.userId,
           amount: itemDetails.credits,
-          description: `Purchased ${input.itemType.toLowerCase()}: ${itemDetails.name}`,
+          description: t("purchaseTransactionDescription", {
+            itemType: input.itemType.toLowerCase(),
+            itemName: itemDetails.name,
+          }),
         });
 
         // Add item to user's purchased items

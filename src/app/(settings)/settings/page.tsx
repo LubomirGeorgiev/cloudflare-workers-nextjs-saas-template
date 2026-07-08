@@ -1,6 +1,7 @@
 import { getSessionFromCookie } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { SettingsForm } from "./settings-form";
+import { LanguageForm } from "./language-form";
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,8 +51,11 @@ export default async function SettingsPage() {
   }
 
   return (
-    <Suspense fallback={<SettingsFormSkeleton />}>
-      <SettingsForm />
-    </Suspense>
+    <div className="space-y-6">
+      <Suspense fallback={<SettingsFormSkeleton />}>
+        <SettingsForm />
+      </Suspense>
+      <LanguageForm />
+    </div>
   );
 }

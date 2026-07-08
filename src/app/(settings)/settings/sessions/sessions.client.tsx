@@ -27,6 +27,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { SessionWithMeta } from "@/types";
 import { capitalize } from 'remeda'
+import { useTranslations } from "next-intl";
 
 
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
@@ -34,12 +35,13 @@ const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
   const router = useRouter();
   const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
+  const t = useTranslations("Client.Settings.Sessions");
   const { execute: deleteSession } = useAction(deleteSessionAction, {
     onError: ({ error }) => {
-      toast.error(error.serverError?.message || "Failed to delete session");
+      toast.error(error.serverError?.message || t("toastDeleteError"));
     },
     onSuccess: () => {
-      toast.success("Session deleted");
+      toast.success(t("toastDeleteSuccess"));
       dialogCloseRef.current?.click();
       router.refresh();
     }
@@ -56,12 +58,12 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                   <CardTitle className="flex flex-wrap items-center gap-2 text-base">
                     {session.city && session.country
                       ? `${session.city}, ${regionNames.of(session.country)}`
-                      : session.country || "Unknown location"}
-                    {session.isCurrentSession && <Badge>Current Session</Badge>}
+                      : session.country || t("unknownLocation")}
+                    {session.isCurrentSession && <Badge>{t("currentSessionBadge")}</Badge>}
                   </CardTitle>
                   {session?.authenticationType && (
                     <Badge variant='outline'>
-                      Authenticated with {capitalize(session?.authenticationType ?? "password")?.replace("-", " ")}
+                      {t("authenticatedWith", { method: capitalize(session?.authenticationType ?? "password")?.replace("-", " ") })}
                     </Badge>
                   )}
                   <div className="text-sm text-muted-foreground whitespace-nowrap">
@@ -69,7 +71,15 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                   </div>
                 </div>
                 <CardDescription className="text-sm">
-                  {session.parsedUserAgent?.browser.name ?? "Unknown browser"} {session.parsedUserAgent?.browser.major ?? "Unknown version"} on {session.parsedUserAgent?.device.vendor ?? "Unknown device"} {session.parsedUserAgent?.device.model ?? "Unknown model"} {session.parsedUserAgent?.device.type ?? "Unknown type"} ({session.parsedUserAgent?.os.name ?? "Unknown OS"} {session.parsedUserAgent?.os.version ?? "Unknown version"})
+                  {t("deviceDescription", {
+                    browserName: session.parsedUserAgent?.browser.name ?? t("unknownBrowser"),
+                    browserVersion: session.parsedUserAgent?.browser.major ?? t("unknownVersion"),
+                    deviceVendor: session.parsedUserAgent?.device.vendor ?? t("unknownDevice"),
+                    deviceModel: session.parsedUserAgent?.device.model ?? t("unknownModel"),
+                    deviceType: session.parsedUserAgent?.device.type ?? t("unknownType"),
+                    osName: session.parsedUserAgent?.os.name ?? t("unknownOs"),
+                    osVersion: session.parsedUserAgent?.os.version ?? t("unknownVersion"),
+                  })}
                 </CardDescription>
               </div>
               <div>
@@ -78,13 +88,13 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                     <DialogTrigger
                       render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
                     >
-                      Delete session
+                      {t("deleteSession")}
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
-                        <DialogTitle>Delete session?</DialogTitle>
+                        <DialogTitle>{t("deleteSessionConfirmTitle")}</DialogTitle>
                         <DialogDescription>
-                          This will sign out this device. This action cannot be undone.
+                          {t("deleteSessionConfirmDescription")}
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter className="mt-6 sm:mt-0">
@@ -92,14 +102,14 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                           ref={dialogCloseRef}
                           render={<Button variant="outline" />}
                         >
-                          Cancel
+                          {t("cancel")}
                         </DialogClose>
                         <Button
                           variant="destructive"
                           className="mb-4 sm:mb-0"
                           onClick={() => deleteSession({ sessionId: session.id })}
                         >
-                          Delete session
+                          {t("deleteSession")}
                         </Button>
                       </DialogFooter>
                     </DialogContent>

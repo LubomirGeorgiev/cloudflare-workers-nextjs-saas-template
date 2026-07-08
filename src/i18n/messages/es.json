@@ -1,0 +1,799 @@
+{
+  "Client": {
+    "LocaleSwitcher": {
+      "label": "Idioma",
+      "change": "Cambiar idioma"
+    },
+    "Nav": {
+      "home": "Inicio",
+      "blog": "Blog",
+      "docs": "Documentación",
+      "settings": "Ajustes",
+      "dashboard": "Panel",
+      "adminPanel": "Panel de administración",
+      "signIn": "Iniciar sesión",
+      "openMenu": "Abrir menú",
+      "loadingMenu": "Cargando menú"
+    },
+    "Auth": {
+      "Common": {
+        "emailLabel": "Correo electrónico",
+        "emailPlaceholder": "Correo electrónico",
+        "passwordLabel": "Contraseña",
+        "passwordPlaceholder": "Contraseña",
+        "or": "O",
+        "signIn": "Iniciar sesión",
+        "continueWithGoogle": "Continuar con Google",
+        "signInWithGoogle": "Iniciar sesión con Google",
+        "signUpWithGoogle": "Registrarse con Google",
+        "backToSignIn": "Volver a iniciar sesión",
+        "backToLogin": "Volver al inicio de sesión",
+        "genericError": "Algo salió mal"
+      },
+      "SignIn": {
+        "meta": {
+          "title": "Iniciar sesión",
+          "description": "Inicia sesión en tu cuenta"
+        },
+        "heading": "Inicia sesión en tu cuenta",
+        "noAccountPrompt": "O",
+        "createAccountLink": "crea una cuenta nueva",
+        "signInWithPasskey": "Iniciar sesión con una Passkey",
+        "authenticatingPasskey": "Autenticando...",
+        "signInWithPassword": "Iniciar sesión con contraseña",
+        "signingIn": "Iniciando sesión...",
+        "forgotPassword": "¿Olvidaste tu contraseña?",
+        "toastAuthenticatingPasskey": "Autenticando con passkey...",
+        "toastPasskeyOptionsError": "No se pudieron obtener las opciones de autenticación",
+        "toastPasskeyAuthError": "Error de autenticación",
+        "toastAuthSuccess": "Autenticación correcta",
+        "toastSigningIn": "Iniciando tu sesión...",
+        "toastSignInSuccess": "Sesión iniciada correctamente"
+      },
+      "SignUp": {
+        "meta": {
+          "title": "Crear cuenta",
+          "description": "Crea una cuenta nueva"
+        },
+        "heading": "Crea tu cuenta",
+        "hasAccountPrompt": "¿Ya tienes una cuenta?",
+        "signInLink": "Inicia sesión",
+        "signUpWithPasskey": "Registrarse con una Passkey",
+        "createAccountWithPassword": "Crear cuenta con contraseña",
+        "firstNamePlaceholder": "Nombre",
+        "lastNamePlaceholder": "Apellidos",
+        "passkeyDialogTitle": "Registrarse con una Passkey",
+        "passkeyContinue": "Continuar",
+        "passkeyRegistering": "Registrando...",
+        "passkeyHelpText": "Al hacer clic en continuar, tu navegador te pedirá que crees y guardes tu Passkey. Esto te permitirá iniciar sesión de forma segura sin contraseña en el futuro.",
+        "agreementPrefix": "Al registrarte, aceptas nuestros",
+        "termsOfService": "Términos del servicio",
+        "and": "y",
+        "privacyPolicy": "Política de privacidad",
+        "toastCreatingAccount": "Creando tu cuenta...",
+        "toastAccountCreated": "Cuenta creada correctamente",
+        "toastStartingPasskeyRegistration": "Iniciando el registro de la passkey...",
+        "toastPasskeyRegistrationFailed": "No se pudo iniciar el registro de la passkey",
+        "toastPasskeyRegistrationError": "No se pudo registrar la passkey"
+      },
+      "ForgotPassword": {
+        "meta": {
+          "title": "Olvidé mi contraseña",
+          "description": "Restablece tu contraseña"
+        },
+        "changePasswordTitle": "Cambiar contraseña",
+        "forgotPasswordTitle": "Olvidé mi contraseña",
+        "description": "Introduce tu dirección de correo electrónico y te enviaremos instrucciones para restablecer tu contraseña.",
+        "sendInstructions": "Enviar instrucciones de restablecimiento",
+        "backToSettings": "Volver a ajustes",
+        "checkEmailTitle": "Revisa tu correo",
+        "checkEmailDescription": "Si existe una cuenta con ese correo, te hemos enviado instrucciones para restablecer tu contraseña.",
+        "toastSending": "Enviando instrucciones de restablecimiento...",
+        "toastSent": "Instrucciones de restablecimiento enviadas"
+      },
+      "ResetPassword": {
+        "meta": {
+          "title": "Restablecer contraseña",
+          "description": "Establece una nueva contraseña para tu cuenta"
+        },
+        "title": "Restablecer contraseña",
+        "description": "Introduce tu nueva contraseña a continuación.",
+        "newPasswordLabel": "Nueva contraseña",
+        "confirmPasswordLabel": "Confirmar contraseña",
+        "submit": "Restablecer contraseña",
+        "successTitle": "Contraseña restablecida correctamente",
+        "successDescription": "Tu contraseña se ha restablecido. Ya puedes iniciar sesión con tu nueva contraseña.",
+        "goToLogin": "Ir a iniciar sesión",
+        "toastResetting": "Restableciendo contraseña...",
+        "toastResetSuccess": "Contraseña restablecida correctamente",
+        "invalidLinkTitle": "Enlace de restablecimiento no válido",
+        "invalidLinkDescription": "Este enlace de restablecimiento de contraseña no es válido o ha caducado. Solicita uno nuevo.",
+        "requestNewLink": "Solicitar nuevo enlace de restablecimiento"
+      },
+      "VerifyEmail": {
+        "meta": {
+          "title": "Verificar correo",
+          "description": "Verifica tu dirección de correo electrónico"
+        },
+        "verifyingTitle": "Verificando correo",
+        "verifyingDescription": "Espera mientras verificamos tu dirección de correo electrónico...",
+        "failedTitle": "Error de verificación",
+        "failedDescription": "No se pudo verificar el correo electrónico",
+        "invalidLinkTitle": "Enlace de verificación no válido",
+        "invalidLinkDescription": "El enlace de verificación no es válido. Solicita un nuevo correo de verificación.",
+        "notFoundTitle": "Enlace de verificación no válido",
+        "notFoundDescription": "El enlace de verificación en el que hiciste clic no es válido o ha caducado. Esto puede suceder si:",
+        "notFoundReasonExpired": "El enlace ha caducado (los enlaces de verificación son válidos durante 24 horas)",
+        "notFoundReasonAlreadyVerified": "Ya has verificado tu correo electrónico",
+        "notFoundReasonModified": "El enlace se modificó o está incompleto",
+        "goToHome": "Ir al inicio",
+        "toastVerifying": "Verificando tu correo electrónico...",
+        "toastVerifySuccess": "Correo electrónico verificado correctamente",
+        "toastVerifyFailed": "No se pudo verificar el correo electrónico",
+        "toastInvalidToken": "Token de verificación no válido"
+      },
+      "TeamInvite": {
+        "meta": {
+          "title": "Aceptar invitación al equipo",
+          "description": "Acepta una invitación para unirte a un equipo"
+        },
+        "acceptingTitle": "Aceptando invitación",
+        "acceptingDescription": "Espera mientras procesamos tu invitación al equipo...",
+        "errorTitle": "Error en la invitación",
+        "errorDescriptionFallback": "No se pudo procesar la invitación",
+        "errorAlreadyMember": "Ya eres miembro de este equipo.",
+        "errorTeamLimitReached": "Has alcanzado el número máximo de equipos a los que puedes unirte.",
+        "errorExpiredOrRevoked": "Es posible que la invitación haya caducado o haya sido revocada.",
+        "invalidLinkTitle": "Enlace de invitación no válido",
+        "invalidLinkDescription": "El enlace de invitación no es válido o ha caducado.",
+        "goToDashboard": "Ir al panel",
+        "notFoundTitle": "Invitación no encontrada",
+        "notFoundDescription": "La invitación de equipo que buscas no existe o ha caducado.",
+        "notFoundReasonsIntro": "Esto podría deberse a que:",
+        "notFoundReasonIncorrectUrl": "La URL de la invitación es incorrecta",
+        "notFoundReasonRevoked": "La invitación ha sido revocada por el administrador del equipo",
+        "notFoundReasonExpired": "La invitación ha caducado",
+        "toastProcessing": "Procesando tu invitación...",
+        "toastAcceptError": "No se pudo aceptar la invitación al equipo",
+        "toastAcceptSuccess": "¡Te has unido al equipo correctamente!",
+        "toastInvalidToken": "Token de invitación no válido"
+      },
+      "GoogleCallback": {
+        "meta": {
+          "title": "Iniciar sesión con Google",
+          "description": "Completa tu inicio de sesión con Google"
+        },
+        "signingInTitle": "Iniciando sesión con Google",
+        "signingInDescription": "Espera mientras completamos tu inicio de sesión...",
+        "failedTitle": "Error al iniciar sesión",
+        "failedDescriptionFallback": "No se pudo iniciar sesión con Google",
+        "invalidCallbackTitle": "Callback no válido",
+        "invalidCallbackDescription": "El callback de inicio de sesión no es válido o ha caducado. Inténtalo de nuevo.",
+        "toastSigningIn": "Iniciando tu sesión con Google...",
+        "toastSignInSuccess": "Sesión iniciada correctamente",
+        "toastInvalidParams": "Parámetros de callback no válidos"
+      }
+    },
+    "Docs": {
+      "meta": {
+        "fallbackTitle": "Documentación",
+        "groupDescriptionWithPreview": "Documentación de {group}: {previews}.",
+        "groupDescription": "Explora la documentación de {group}.",
+        "pageDescription": "Documentación de {title}",
+        "andMore": ", y más"
+      },
+      "Navigation": {
+        "heading": "Documentación",
+        "searchButton": "Buscar docs",
+        "browseDocs": "Explorar documentación",
+        "llmsTxt": "llms.txt"
+      },
+      "Search": {
+        "placeholder": "Buscar en la documentación...",
+        "searching": "Buscando en la documentación...",
+        "minChars": "Escribe al menos {count} caracteres para buscar.",
+        "noResults": "No se encontró documentación que coincida."
+      },
+      "MarkdownButton": {
+        "copyMarkdown": "Copiar Markdown",
+        "copied": "Copiado",
+        "moreOptions": "Más opciones",
+        "openAsMarkdown": "Abrir como Markdown",
+        "llmsTxt": "llms.txt",
+        "download": "Descargar"
+      },
+      "Page": {
+        "docs": "Documentación",
+        "sectionFallbackDescription": "Explora las páginas de esta sección.",
+        "section": "Sección",
+        "noChildPages": "Todavía no hay páginas secundarias públicas disponibles en esta sección.",
+        "previous": "Anterior",
+        "next": "Siguiente",
+        "onThisPage": "En esta página"
+      }
+    },
+    "Landing": {
+      "meta": {
+        "title": "Plantilla SaaS",
+        "description": "Una plantilla SaaS moderna creada con Next.js 15 y Cloudflare Workers, diseñada para escalar y rendir al máximo."
+      },
+      "Hero": {
+        "titleLine1": "Lleva tu SaaS",
+        "titleLine2": "hasta el",
+        "titleEdge": "edge",
+        "description": "Un starter completo y listo para producción para crear aplicaciones SaaS en Cloudflare Workers. Autenticación, base de datos, facturación, correo y herramientas de administración ya están integradas — clónalo y despliega a nivel global en minutos.",
+        "starOnGithub": "Danos una estrella en GitHub",
+        "tryLiveDemo": "Prueba la demo en vivo"
+      },
+      "Stack": {
+        "heading": "// todo el stack, ya montado",
+        "cloudflarePlatform": "Plataforma Cloudflare",
+        "appFramework": "Framework de la app"
+      },
+      "Features": {
+        "eyebrow": "// qué incluye",
+        "heading": "Olvídate del código repetitivo. Construye el producto.",
+        "description": "Cada parte no diferenciadora de un SaaS ya está aquí y probada. Abre el repositorio y empieza a escribir el código que solo tu producto necesita.",
+        "auth": {
+          "name": "Autenticación resuelta",
+          "description": "Inicio y registro con correo y contraseña, restablecimiento de contraseña y sesiones con Lucia Auth — además de passkeys y OAuth de Google."
+        },
+        "data": {
+          "name": "Base de datos y correo",
+          "description": "Drizzle ORM sobre Cloudflare D1, sesiones respaldadas por KV y correo transaccional enviado directamente desde el Worker."
+        },
+        "edge": {
+          "name": "Desplegado en el edge",
+          "description": "Publica en Cloudflare Workers y sirve desde más de 330 ciudades sin arranques en frío. Un solo comando lo lleva a producción."
+        },
+        "runtime": {
+          "name": "Runtime moderno",
+          "description": "Next.js App Router y React Server Components ejecutándose sobre Vinext y Vite para un ciclo de desarrollo instantáneo."
+        },
+        "billing": {
+          "name": "Facturación incluida",
+          "description": "El checkout de Stripe y un sistema de créditos ya están integrados, para que puedas cobrar a tus clientes sin empezar de cero."
+        },
+        "ui": {
+          "name": "Un sistema de diseño real",
+          "description": "Tailwind CSS con componentes de Shadcn y Base UI, modo oscuro y diseños responsivos listos para ampliar."
+        },
+        "teams": {
+          "name": "Equipos y administración",
+          "description": "Equipos multiinquilino, control de acceso por roles y un panel de administración para gestionar usuarios y contenido desde el primer momento."
+        },
+        "dx": {
+          "name": "Experiencia de desarrollo",
+          "description": "TypeScript de principio a fin, Oxlint, un CMS para blog y documentación, y despliegues con GitHub Actions que no tendrás que escribir."
+        }
+      },
+      "Cta": {
+        "titleLine1": "Un comando para clonarlo.",
+        "titleLine2": "Tuyo para lanzarlo.",
+        "description": "Gratis y de código abierto. Sin cuotas de licencia ni atribución obligatoria. Bifúrcalo, renómbralo y hazlo tuyo.",
+        "copy": "Copiar",
+        "copied": "Copiado",
+        "copyAriaLabel": "Copiar comando de clonación",
+        "copiedAriaLabel": "Copiado",
+        "starOnGithub": "Danos una estrella en GitHub",
+        "exploreDemo": "Explora la demo"
+      },
+      "Faq": {
+        "eyebrow": "// preguntas frecuentes",
+        "heading": "Preguntas resueltas",
+        "description": "¿Sigues con dudas? El README cubre todo lo demás, y los issues siempre están abiertos.",
+        "isFree": {
+          "question": "¿Esta plantilla es realmente gratis?",
+          "answer": "Sí, esta plantilla es completamente gratuita y de <link>código abierto</link>. Puedes usarla tanto en proyectos personales como comerciales sin ningún costo de licencia. Puedes bifurcarla, copiarla, modificarla y distribuirla como quieras, sin restricciones ni necesidad de atribución."
+        },
+        "featuresIncluded": {
+          "question": "¿Qué funcionalidades incluye?",
+          "intro": "La plantilla incluye un conjunto completo de funcionalidades:",
+          "item1": "Autenticación con correo y contraseña, y flujo de recuperación de contraseña",
+          "item2": "Integración de base de datos con Drizzle ORM y Cloudflare D1",
+          "item3": "Servicio de correo impulsado por Cloudflare Email Service",
+          "item4": "Componentes de interfaz modernos de Shadcn UI y Tailwind CSS",
+          "item5": "Validación de formularios y manejo de errores",
+          "item6": "Soporte para modo oscuro",
+          "item7": "Diseño responsivo",
+          "item8": "TypeScript en toda la base de código",
+          "item9": "Despliegues automatizados con GitHub Actions",
+          "item10": "Integración de captcha con Turnstile",
+          "item11": "Optimización SEO con Next.js",
+          "item12": "Y muchas otras funcionalidades más..."
+        },
+        "techStack": {
+          "question": "¿Cuál es el stack tecnológico?",
+          "intro": "La plantilla utiliza tecnologías modernas y fiables:",
+          "item1": "Next.js App Router con React Server Components a través de Vinext y Vite",
+          "item2": "TypeScript para seguridad de tipos",
+          "item3": "Tailwind CSS y Shadcn UI para el estilo",
+          "item4": "DrizzleORM con Cloudflare D1 para la base de datos",
+          "item5": "Lucia Auth para la autenticación",
+          "item6": "Cloudflare Workers para el despliegue sin servidor",
+          "item7": "Cloudflare KV para el almacenamiento de sesiones",
+          "item8": "Cloudflare Email Service para correo transaccional"
+        },
+        "deploy": {
+          "question": "¿Cómo despliego mi aplicación?",
+          "intro": "El despliegue está automatizado con GitHub Actions. Necesitarás:",
+          "item1": "Crear los namespaces de Cloudflare D1 y KV",
+          "item2": "Configurar tu dominio de envío en Cloudflare Email Service",
+          "item3": "Habilitar Cloudflare Images para la optimización de imágenes",
+          "item4": "Configurar Turnstile para el captcha",
+          "item5": "Añadir tu token de API de Cloudflare a los secretos de GitHub",
+          "item6": "Hacer push a la rama main",
+          "outro": "El proceso de despliegue está totalmente documentado en el <link>repositorio de GitHub</link>."
+        },
+        "gettingStarted": {
+          "question": "¿Qué necesito para empezar?",
+          "paragraph1": "Necesitarás una cuenta de Cloudflare (el plan gratuito es suficiente), Node.js instalado localmente y conocimientos básicos de React y TypeScript. La plantilla incluye documentación detallada para guiarte durante la configuración.",
+          "paragraph2": "También puedes consultar la <link>documentación</link> para más información."
+        },
+        "roadmap": {
+          "question": "¿Cuáles son las próximas funcionalidades?",
+          "intro": "Tenemos una hoja de ruta muy interesante por delante. Las funcionalidades planeadas incluyen:",
+          "item1": "Soporte multi-idioma (i18n)",
+          "item2": "Facturación y procesamiento de pagos",
+          "item3": "Panel de administración",
+          "item4": "Verificación de correo al registrarse",
+          "item5": "Sistema de notificaciones",
+          "item6": "Soporte para webhooks",
+          "item7": "Funcionalidades de colaboración en equipo",
+          "item8": "Actualizaciones en tiempo real",
+          "item9": "Panel de análisis"
+        },
+        "emailTemplates": {
+          "question": "¿Cómo se gestionan las plantillas de correo?",
+          "answer": "Las plantillas de correo transaccional son renderizadas por la aplicación y enviadas a través de Cloudflare Email Service desde el Worker."
+        },
+        "customize": {
+          "question": "¿Cómo personalizo la plantilla?",
+          "intro": "Antes de desplegar a producción, deberías:",
+          "item1": "Actualizar los detalles del proyecto en <code>src/constants.ts</code>",
+          "item2": "Modificar el pie de página en <code>src/components/footer.tsx</code>",
+          "item3": "Opcionalmente, actualizar la paleta de colores en <code>src/app/globals.css</code>"
+        },
+        "contribute": {
+          "question": "¿Cómo puedo contribuir?",
+          "answer": "¡Las contribuciones son bienvenidas! No dudes en abrir issues, enviar pull requests o ayudar a mejorar la documentación en <link>GitHub</link>. El proyecto sigue las guías estándar de contribución de código abierto."
+        }
+      },
+      "DeployTerminal": {
+        "windowTitle": "~/your-saas — deploy"
+      }
+    },
+    "Validation": {
+      "required": "Este campo es obligatorio",
+      "invalidString": "Introduce un texto",
+      "invalidNumber": "Introduce un número",
+      "invalidBoolean": "Elige una opción",
+      "invalidDate": "Introduce una fecha válida",
+      "invalidEmail": "Introduce una dirección de correo electrónico válida",
+      "minLength": "Debe tener al menos {min} caracteres",
+      "maxLength": "Debe tener {max} caracteres o menos",
+      "passwordMinLength": "La contraseña debe tener al menos {min} caracteres",
+      "passwordsDoNotMatch": "Las contraseñas no coinciden",
+      "titleRequired": "El título es obligatorio",
+      "slugRequired": "El slug es obligatorio",
+      "invitationTokenRequired": "El token de invitación es obligatorio",
+      "verificationTokenRequired": "El token de verificación es obligatorio",
+      "authorizationCodeRequired": "El código de autorización es obligatorio",
+      "stateParameterRequired": "El parámetro de estado es obligatorio",
+      "scheduledStatusRequiresFutureDate": "El estado debe ser 'programado' cuando la fecha de publicación es futura",
+      "scheduledRequiresFuturePublishDate": "Se requiere una fecha de publicación futura para las entradas programadas"
+    },
+    "Sidebar": {
+      "groups": {
+        "platform": "Plataforma",
+        "projects": "Proyectos"
+      },
+      "nav": {
+        "dashboard": "Panel",
+        "teams": "Equipos",
+        "marketplace": "Mercado",
+        "billing": "Facturación",
+        "settings": "Ajustes",
+        "profile": "Perfil",
+        "security": "Seguridad",
+        "sessions": "Sesiones",
+        "changePassword": "Cambiar contraseña",
+        "adminPanel": "Panel de administración",
+        "designEngineering": "Ingeniería de diseño",
+        "salesMarketing": "Ventas y marketing",
+        "travel": "Viajes"
+      },
+      "projects": {
+        "more": "Más",
+        "view": "Ver proyecto",
+        "share": "Compartir proyecto",
+        "delete": "Eliminar proyecto"
+      },
+      "user": {
+        "account": "Cuenta",
+        "billing": "Facturación",
+        "notifications": "Notificaciones",
+        "changeTheme": "Cambiar tema",
+        "themeSystem": "Predeterminado del sistema",
+        "themeLight": "Claro",
+        "themeDark": "Oscuro",
+        "changeLanguage": "Cambiar idioma",
+        "logOut": "Cerrar sesión",
+        "credits": "{count} créditos"
+      }
+    },
+    "Dashboard": {
+      "Home": {
+        "breadcrumb": "Panel",
+        "example": "Ejemplo"
+      },
+      "layout": {
+        "header": "Panel"
+      },
+      "Teams": {
+        "metaTitle": "Mis equipos",
+        "metaDescription": "Gestiona tus equipos y colaboraciones",
+        "breadcrumb": "Equipos",
+        "title": "Mis equipos",
+        "subtitle": "Gestiona tus equipos y colaboraciones",
+        "createTeam": "Crear equipo",
+        "emptyTitle": "Aún no tienes ningún equipo",
+        "emptyDescription": "Los equipos te permiten colaborar con otras personas en proyectos y compartir recursos.",
+        "createFirstTeam": "Crea tu primer equipo",
+        "yourRole": "Tu rol:",
+        "noDescription": "Sin descripción",
+        "createNewTeam": "Crear un nuevo equipo",
+        "createMetaTitle": "Crear equipo",
+        "createMetaDescription": "Crea un nuevo equipo para tu organización",
+        "createPageSubtitle": "Crea un equipo para colaborar con otras personas en proyectos y compartir recursos.",
+        "teamNotFound": "Equipo no encontrado",
+        "teamMetaTitle": "{name} - Panel",
+        "teamMetaDescription": "Panel del equipo {name}",
+        "accessDenied": "Acceso denegado",
+        "accessDeniedDescription": "No tienes permiso para acceder al equipo \"{name}\". Ponte en contacto con el propietario del equipo para solicitar acceso.",
+        "returnToTeams": "Volver a los equipos",
+        "inviteMembers": "Invitar miembros",
+        "teamCredits": "Créditos del equipo",
+        "yourRoleLabel": "Tu rol",
+        "memberRole": "Miembro",
+        "created": "Creado",
+        "teamMembers": "Miembros del equipo",
+        "columnMember": "Miembro",
+        "columnEmail": "Correo electrónico",
+        "columnRole": "Rol",
+        "columnJoined": "Se unió",
+        "columnStatus": "Estado",
+        "columnAction": "Acción",
+        "noMembersFound": "No se encontraron miembros",
+        "notJoined": "No se ha unido",
+        "statusActive": "Activo",
+        "statusInactive": "Inactivo",
+        "ownerCannotBeRemoved": "Los propietarios del equipo no se pueden eliminar",
+        "fetchInvitationsError": "No se pudieron cargar las invitaciones pendientes",
+        "joinedTeamSuccess": "Te has unido al equipo correctamente",
+        "acceptInvitationError": "No se pudo aceptar la invitación",
+        "pendingInvitationsTitle": "Invitaciones de equipo pendientes",
+        "pendingInvitationsDescription": "Te han invitado a unirte a los siguientes equipos",
+        "invitedBy": "Invitado por {name}",
+        "accepting": "Aceptando...",
+        "accept": "Aceptar"
+      },
+      "Billing": {
+        "breadcrumbDashboard": "Panel",
+        "breadcrumbBilling": "Facturación",
+        "creditsTitle": "Créditos",
+        "currentCredits": "{count, number} créditos",
+        "freeMonthlyCredits": "Recibes {count, number} créditos gratis cada mes.",
+        "topUpTitle": "Recarga tus créditos",
+        "topUpDescription": "Compra créditos adicionales para usar nuestros servicios. Cuantos más créditos compres, mejor será el precio.",
+        "creditsLabel": "créditos",
+        "oneTimePayment": "pago único",
+        "savePercent": "Ahorra {percent}%",
+        "purchaseNow": "Comprar ahora",
+        "purchaseCreditsDialogTitle": "Comprar créditos",
+        "errorCreatePaymentIntent": "No se pudo crear la intención de pago",
+        "errorStartCheckout": "No se pudo iniciar el pago",
+        "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
+        "creditsCount": "{count, number} créditos",
+        "securePaymentInfo": "Tu pago es seguro y está cifrado. Usamos Stripe, un proveedor de pagos global de confianza, para procesar tu pago.",
+        "paymentDetailsInfo": "Por tu seguridad, los datos de tu pago los gestiona directamente Stripe y nunca pasan por nuestros servidores.",
+        "creditsValidityInfo": "Los créditos se añadirán a tu cuenta inmediatamente después de un pago correcto y serán válidos durante {years} años desde la fecha de compra.",
+        "cancel": "Cancelar",
+        "processing": "Procesando...",
+        "payNow": "Pagar ahora",
+        "paymentFailed": "El pago falló",
+        "paymentSuccessful": "¡Pago realizado con éxito!",
+        "errorNoPaymentIntent": "No se encontró ninguna intención de pago",
+        "errorUnexpected": "Ocurrió un error inesperado",
+        "transactionHistoryTitle": "Historial de transacciones",
+        "columnDate": "Fecha",
+        "columnType": "Tipo",
+        "columnAmount": "Cantidad",
+        "columnDescription": "Descripción",
+        "expiredLabel": "Caducó: ",
+        "expiresLabel": "Caduca: ",
+        "noTransactions": "No se encontraron transacciones",
+        "pageOf": "Página {page} de {total}"
+      },
+      "Marketplace": {
+        "breadcrumbMarketplace": "Marketplace",
+        "title": "Marketplace de componentes",
+        "subtitle": "Compra y usa nuestros componentes premium con tus créditos",
+        "demoAlertTitle": "Función de demostración de la plantilla",
+        "demoAlertDescription": "Esta página del marketplace muestra cómo implementar un sistema de facturación basado en créditos en tu aplicación SaaS. Úsala como punto de partida y personalízala según tus necesidades.",
+        "purchaseTransactionDescription": "Compraste {itemType}: {itemName}",
+        "errorBillingDisabled": "El marketplace no está disponible cuando la facturación por créditos está desactivada",
+        "errorNotLoggedIn": "Debes iniciar sesión para realizar compras",
+        "errorItemNotFound": "Elemento no encontrado",
+        "errorAlreadyOwned": "Ya tienes este elemento",
+        "errorInsufficientCredits": "No tienes suficientes créditos para comprar este elemento"
+      }
+    },
+    "Settings": {
+      "Nav": {
+        "settings": "Ajustes",
+        "overview": "Resumen",
+        "profile": "Perfil",
+        "security": "Seguridad",
+        "sessions": "Sesiones",
+        "changePassword": "Cambiar contraseña",
+        "signOut": "Cerrar sesión",
+        "signOutConfirmTitle": "¿Cerrar sesión?",
+        "signOutConfirmDescription": "¿Seguro que quieres cerrar la sesión de tu cuenta?",
+        "cancel": "Cancelar"
+      },
+      "Profile": {
+        "cardTitle": "Ajustes del perfil",
+        "cardDescription": "Actualiza tu información personal y tus datos de contacto.",
+        "firstNameLabel": "Nombre",
+        "lastNameLabel": "Apellidos",
+        "emailLabel": "Correo electrónico",
+        "emailDescription": "Este es el correo que usas para iniciar sesión.",
+        "saveButton": "Guardar cambios",
+        "toastUpdating": "Actualizando el perfil...",
+        "toastUpdateSuccess": "Perfil actualizado correctamente",
+        "toastUpdateError": "No se pudo actualizar el perfil",
+        "errorUnauthorized": "No autorizado",
+        "errorUpdateFailed": "No se pudo actualizar el perfil"
+      },
+      "Language": {
+        "cardTitle": "Idioma",
+        "cardDescription": "Elige el idioma de tu panel y de las páginas de tu cuenta."
+      },
+      "Security": {
+        "passkeysHeading": "Claves de acceso",
+        "passkeysSubheading": "Gestiona tus claves de acceso para la autenticación sin contraseña.",
+        "registerButton": "Registrar clave de acceso",
+        "registering": "Registrando...",
+        "unknownAuthenticator": "Aplicación de autenticación desconocida",
+        "currentPasskeyBadge": "Clave de acceso actual",
+        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Navegador desconocido",
+        "unknownVersion": "Versión desconocida",
+        "unknownDevice": "Dispositivo desconocido",
+        "unknownModel": "Modelo desconocido",
+        "unknownType": "Tipo desconocido",
+        "unknownOs": "Sistema operativo desconocido",
+        "deletePasskey": "Eliminar clave de acceso",
+        "deletePasskeyConfirmTitle": "¿Eliminar la clave de acceso?",
+        "deletePasskeyConfirmDescription": "Esto eliminará esta clave de acceso de tu cuenta. Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "emptyState": "No se encontraron claves de acceso. Añade una para habilitar la autenticación sin contraseña.",
+        "toastRegisterSuccess": "Clave de acceso registrada correctamente",
+        "toastRegisterError": "No se pudo registrar la clave de acceso",
+        "toastOptionsError": "No se pudieron obtener las opciones de registro",
+        "toastDeleteSuccess": "Clave de acceso eliminada",
+        "toastDeleteError": "No se pudo eliminar la clave de acceso",
+        "errorUserNotFound": "Usuario no encontrado",
+        "errorRegisterOwnAccount": "Solo puedes registrar claves de acceso para tu propia cuenta",
+        "errorPasskeyLimit": "Has alcanzado el límite máximo de {limit} claves de acceso",
+        "errorInvalidRegistrationSession": "Sesión de registro no válida",
+        "errorRegisterFailed": "No se pudo registrar la clave de acceso",
+        "errorNotAuthenticated": "No has iniciado sesión",
+        "errorDeleteCurrentPasskey": "No se puede eliminar la clave de acceso actual",
+        "errorPasskeyNotFound": "Clave de acceso no encontrada",
+        "errorDeleteLastPasskey": "No se puede eliminar la última clave de acceso cuando no hay una contraseña configurada",
+        "errorInvalidAuthSession": "Sesión de autenticación no válida",
+        "errorAuthFailed": "Falló la autenticación con clave de acceso"
+      },
+      "Sessions": {
+        "metaTitle": "Sesiones",
+        "metaDescription": "Gestiona tus sesiones activas",
+        "unknownLocation": "Ubicación desconocida",
+        "currentSessionBadge": "Sesión actual",
+        "authenticatedWith": "Autenticado con {method}",
+        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Navegador desconocido",
+        "unknownVersion": "Versión desconocida",
+        "unknownDevice": "Dispositivo desconocido",
+        "unknownModel": "Modelo desconocido",
+        "unknownType": "Tipo desconocido",
+        "unknownOs": "Sistema operativo desconocido",
+        "deleteSession": "Eliminar sesión",
+        "deleteSessionConfirmTitle": "¿Eliminar la sesión?",
+        "deleteSessionConfirmDescription": "Esto cerrará la sesión de este dispositivo. Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "toastDeleteSuccess": "Sesión eliminada",
+        "toastDeleteError": "No se pudo eliminar la sesión",
+        "errorUnauthorized": "No autorizado",
+        "errorNotAuthenticated": "No has iniciado sesión"
+      }
+    }
+  },
+  "Legal": {
+    "Privacy": {
+      "meta": {
+        "title": "Política de privacidad",
+        "description": "Descubre cómo recopilamos, usamos y protegemos tus datos"
+      },
+      "title": "Política de privacidad",
+      "lastUpdated": "Última actualización: {date}",
+      "informationWeCollect": {
+        "heading": "1. Información que recopilamos",
+        "body": "Recopilamos la información que nos proporcionas directamente, incluidos, entre otros, tu nombre, tu dirección de correo electrónico y cualquier otra información que decidas proporcionar."
+      },
+      "howWeUseInformation": {
+        "heading": "2. Cómo utilizamos tu información",
+        "intro": "Utilizamos la información que recopilamos para:",
+        "item1": "Prestar, mantener y mejorar nuestros servicios",
+        "item2": "Enviarte avisos técnicos y mensajes de soporte",
+        "item3": "Responder a tus comentarios y preguntas",
+        "item4": "Protegernos frente al fraude y el abuso"
+      },
+      "dataSecurity": {
+        "heading": "3. Seguridad de los datos",
+        "body": "Tomamos medidas razonables para ayudar a proteger tu información frente a pérdida, robo, uso indebido y acceso, divulgación, alteración y destrucción no autorizados."
+      },
+      "contactUs": {
+        "heading": "4. Contáctanos",
+        "body": "Si tienes alguna pregunta sobre esta Política de privacidad, ponte en contacto con nosotros en:",
+        "email": "Correo electrónico: {email}"
+      },
+      "returnToHome": "Volver al inicio"
+    },
+    "Terms": {
+      "meta": {
+        "title": "Términos del servicio",
+        "description": "Lee nuestros términos del servicio y el acuerdo de uso"
+      },
+      "title": "Términos del servicio",
+      "lastUpdated": "Última actualización: {date}",
+      "acceptanceOfTerms": {
+        "heading": "1. Aceptación de los términos",
+        "body": "Al acceder a este sitio web y utilizarlo, aceptas quedar vinculado por los términos y disposiciones de este acuerdo."
+      },
+      "useLicense": {
+        "heading": "2. Licencia de uso",
+        "body": "Se concede permiso para descargar temporalmente una copia de los materiales (información o software) de nuestro sitio web para uso personal, no comercial y de visualización transitoria únicamente."
+      },
+      "disclaimer": {
+        "heading": "3. Aviso legal",
+        "body": "Los materiales de nuestro sitio web se proporcionan \"tal cual\". No ofrecemos garantías, expresas ni implícitas, y por la presente renunciamos y negamos cualquier otra garantía, incluyendo, sin limitación, las garantías implícitas o condiciones de comerciabilidad, idoneidad para un fin particular, o no vulneración de la propiedad intelectual u otra violación de derechos."
+      },
+      "creditSystem": {
+        "heading": "4. Sistema de créditos y pagos",
+        "body1": "Nuestro servicio funciona con un sistema basado en créditos. Los créditos comprados a través de nuestra plataforma son válidos durante {years} años a partir de la fecha de compra. Todos los pagos se procesan de forma segura a través de Stripe, nuestro socio de procesamiento de pagos.",
+        "body2": "Una vez que un pago se procesa correctamente, los créditos se añaden de inmediato a tu cuenta. No ofrecemos reembolsos por los créditos comprados. El precio y la disponibilidad de los paquetes de créditos pueden cambiar sin previo aviso.",
+        "body3": "Es posible que se ofrezcan créditos gratuitos como parte de promociones o asignaciones mensuales. Estos créditos están sujetos a términos y plazos de caducidad diferentes, que se comunicarán claramente en el momento en que se otorguen."
+      },
+      "limitations": {
+        "heading": "5. Limitaciones",
+        "body": "En ningún caso seremos responsables, ni nosotros ni nuestros proveedores, de daño alguno (incluyendo, sin limitación, daños por pérdida de datos o beneficios, o por interrupción del negocio) derivado del uso o de la imposibilidad de usar los materiales de nuestro sitio web."
+      },
+      "returnToHome": "Volver al inicio"
+    }
+  },
+  "Footer": {
+    "legal": "Legal",
+    "company": "Empresa",
+    "social": "Redes sociales",
+    "termsOfService": "Términos del servicio",
+    "privacyPolicy": "Política de privacidad",
+    "home": "Inicio",
+    "allRightsReserved": "Todos los derechos reservados.",
+    "builtBy": "Creado por"
+  },
+  "Blog": {
+    "ListPage": {
+      "meta": {
+        "title": "Blog",
+        "titleWithPage": "Blog - Página {page}",
+        "description": "Lee nuestros últimos artículos y novedades"
+      },
+      "title": "Blog",
+      "description": "Lee nuestros últimos artículos y novedades",
+      "browseByTags": "Explorar por etiquetas",
+      "browseByAuthors": "Explorar por autores",
+      "empty": "Todavía no se ha publicado ninguna entrada del blog."
+    },
+    "PostNotFound": {
+      "title": "Entrada no encontrada",
+      "description": "La entrada del blog que buscas no existe o ha sido eliminada.",
+      "backToBlog": "Volver al blog"
+    },
+    "Post": {
+      "backToBlog": "← Volver al blog",
+      "author": "Autor",
+      "updated": "Actualizado: {date}",
+      "onThisPage": "En esta página"
+    },
+    "Authors": {
+      "meta": {
+        "title": "Autores del blog",
+        "description": "Explora las entradas del blog por autor"
+      },
+      "title": "Autores del blog",
+      "description": "Conoce a las personas detrás de nuestro contenido",
+      "backToBlog": "← Volver al blog",
+      "empty": "No se encontraron autores.",
+      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+    },
+    "AuthorDetail": {
+      "meta": {
+        "title": "{name} - Autores del blog",
+        "description": "Explora las entradas del blog de {name}",
+        "notFound": "Autor no encontrado"
+      },
+      "backToAuthors": "← Volver a todos los autores",
+      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+    },
+    "Tags": {
+      "meta": {
+        "title": "Etiquetas del blog",
+        "description": "Explora las entradas del blog por etiqueta"
+      },
+      "title": "Etiquetas del blog",
+      "description": "Explora los artículos por tema",
+      "backToBlog": "← Volver al blog",
+      "empty": "No se encontraron etiquetas.",
+      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+    },
+    "TagDetail": {
+      "meta": {
+        "title": "{name} - Etiquetas del blog",
+        "description": "Explora las entradas del blog etiquetadas con {name}",
+        "notFound": "Etiqueta no encontrada"
+      },
+      "backToTags": "← Volver a todas las etiquetas",
+      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}",
+      "empty": "No se encontraron entradas del blog con esta etiqueta."
+    }
+  },
+  "Breadcrumb": {
+    "home": "Inicio",
+    "blog": "Blog"
+  },
+  "Emails": {
+    "Common": {
+      "fallbackText": "Si tienes problemas con el botón de arriba, copia y pega esta URL en tu navegador:",
+      "footerText": "Este es un mensaje automático de {siteDomain}. Por favor, no respondas a este correo electrónico."
+    },
+    "PasswordReset": {
+      "subject": "Restablece tu contraseña de {siteDomain}",
+      "title": "Restablece tu contraseña de {siteDomain}",
+      "greeting": "Hola {username},",
+      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {siteDomain}. Haz clic en el botón de abajo para elegir una nueva contraseña. Por razones de seguridad, este enlace caducará en 1 hora.",
+      "buttonLabel": "Restablecer Contraseña",
+      "secondaryText": "Si no solicitaste este restablecimiento de contraseña, puedes ignorar este correo electrónico de forma segura. La contraseña de tu cuenta de {siteDomain} permanecerá sin cambios.",
+      "footerText": "Este es un mensaje automático de {siteDomain}. Si no solicitaste este correo electrónico, ignóralo o ponte en contacto con soporte si tienes alguna duda."
+    },
+    "EmailVerification": {
+      "subject": "Verifica tu correo electrónico de {siteDomain}",
+      "title": "Verifica tu correo electrónico de {siteDomain}",
+      "greeting": "Hola {username},",
+      "intro": "¡Gracias por registrarte en {siteDomain}! Necesitamos verificar tu dirección de correo electrónico para completar tu registro. Haz clic en el botón de abajo para verificar tu dirección de correo electrónico.",
+      "buttonLabel": "Verificar Correo Electrónico",
+      "secondaryText": "Este enlace de verificación caducará en {expirationHours, plural, =1 {1 hora} other {# horas}}. Después de eso, deberás solicitar un nuevo correo electrónico de verificación.",
+      "fallbackText": "Si no creaste una cuenta en {siteDomain}, puedes ignorar este correo electrónico de forma segura."
+    },
+    "TeamInvitation": {
+      "subject": "Has sido invitado a unirte a un equipo en {siteDomain}",
+      "title": "Has sido invitado a unirte a un equipo en {siteDomain}",
+      "greeting": "Hola,",
+      "intro": "{inviterName} te ha invitado a unirte al equipo \"{teamName}\" en {siteDomain}.",
+      "buttonLabel": "Aceptar Invitación",
+      "secondaryText": "Esta invitación se envió a {recipientEmail}. Si aún no tienes una cuenta, podrás crear una al aceptar la invitación.",
+      "fallbackText": "Si no esperabas recibir una invitación a este equipo, puedes ignorar este correo electrónico de forma segura."
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { beforeAll, test } from "vitest";
 import {
   expectAppLabelValue,
   expectAppPathname,
+  expectAppRoleText,
   expectAppText,
   navigateAppFrame,
 } from "./app-frame";
@@ -76,7 +77,12 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   await expectAppText("Basic Information", { exact: true });
   await expectAppText("Custom Fields", { exact: true });
   await expectAppText("Content", { exact: true });
-  await expectAppText("Publishing", { exact: true });
+  await expectAppRoleText({
+    role: "combobox",
+    name: "Status",
+    text: "Published",
+    exact: true,
+  });
   await expectAppText("Tags", { exact: true });
   await expectAppText("Entry Information", { exact: true });
   await expectAppText("Version history");
@@ -93,7 +99,12 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
 
   await expectAppPathname("/admin/cms/docs/cms_ent_docs001");
   await expectAppText("Edit Doc", { exact: true });
-  await expectAppText("Publishing", { exact: true });
+  await expectAppRoleText({
+    role: "combobox",
+    name: "Status",
+    text: "Published",
+    exact: true,
+  });
   await expectAppText("Entry Information", { exact: true });
   await expectAppLabelValue({
     label: "Title *",

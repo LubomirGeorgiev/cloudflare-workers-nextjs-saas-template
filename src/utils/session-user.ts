@@ -18,6 +18,7 @@ export async function getUserFromDB(userId: string) {
       role: true,
       emailVerified: true,
       avatar: true,
+      preferredLocale: true,
       createdAt: true,
       updatedAt: true,
       currentCredits: true,

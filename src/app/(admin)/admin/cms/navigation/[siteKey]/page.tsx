@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { cmsConfig, type CmsNavigationKey } from "@/../cms.config";
 import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
-import { getCmsCollection } from "@/lib/cms/entry";
+import { getCmsCollection, getEntryLocalesForSlugs } from "@/lib/cms/entry";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { requireAdmin } from "@/utils/auth";
 import { CmsNavigationManager } from "./_components/cms-navigation-manager";
@@ -48,16 +48,28 @@ export default async function CmsNavigationSitePage({
   }
 
   const collectionConfig = cmsConfig.collections[navigation.collectionSlug as keyof typeof cmsConfig.collections];
+  const collectionSlug = getCmsNavigationConfig(navigationKey).collectionSlug;
   const [initialTree, entries] = await Promise.all([
     getCmsNavigationTree({
       navigationKey,
       status: CMS_STATUS_FILTER_ALL,
     }),
     getCmsCollection({
-      collectionSlug: getCmsNavigationConfig(navigationKey).collectionSlug,
+      collectionSlug,
       status: CMS_STATUS_FILTER_ALL,
     }),
   ]);
+
+  // Which locales each linked entry is translated into, so PAGE rows can flag
+  // their translation coverage (they render the entry's localized title) without
+  // the admin opening each one. Keyed by entryId to match nav nodes' `entryId`.
+  const entryLocaleCoverage = await getEntryLocalesForSlugs({
+    collectionSlug,
+    slugs: entries.map((entry) => entry.slug),
+  });
+  const entryLocalesByEntryId = Object.fromEntries(
+    entries.map((entry) => [entry.id, Array.from(entryLocaleCoverage.get(entry.slug) ?? [])])
+  );
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -71,6 +83,7 @@ export default async function CmsNavigationSitePage({
       <CmsNavigationManager
         entries={entries}
         initialTree={initialTree}
+        entryLocalesByEntryId={entryLocalesByEntryId}
         navigationKey={navigationKey}
         navigationLabel={navigation.label}
         basePath={navigation.basePath}

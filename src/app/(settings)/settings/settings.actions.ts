@@ -10,17 +10,19 @@ import { revalidatePath } from "next/cache";
 import { userSettingsSchema } from "@/schemas/settings.schema";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { getTranslations } from "next-intl/server";
 
 export const updateUserProfileAction = actionClient
   .inputSchema(userSettingsSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Settings.Profile");
         const session = await requireVerifiedEmail();
         const db = getDB();
 
         if (!session?.user?.id) {
-          throw new ActionError("NOT_AUTHORIZED", "Unauthorized");
+          throw new ActionError("NOT_AUTHORIZED", t("errorUnauthorized"));
         }
 
         try {
@@ -38,7 +40,7 @@ export const updateUserProfileAction = actionClient
           console.error(error)
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "Failed to update profile"
+            t("errorUpdateFailed")
           );
         }
       },

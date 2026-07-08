@@ -1,5 +1,5 @@
 import "server-only"
-import { getCmsCollection } from "@/lib/cms/entry"
+import { getCmsCollection, getEntryLocales } from "@/lib/cms/entry"
 import { SITE_URL } from "@/constants"
 import type { MetadataRoute } from "next"
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
@@ -10,6 +10,7 @@ import { getValidDateOrNow } from "@/utils/cms-entry-dates"
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository"
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation"
 import { getCmsNavigations } from "@/lib/cms/cms-navigation-config"
+import { entryAlternates, localizedSitemapAlternates } from "@/app/sitemap-alternates"
 
 function buildAbsoluteCmsUrl(pathname: string): string {
   return new URL(pathname, SITE_URL).toString()
@@ -51,6 +52,19 @@ async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
     sitemapCollections.map(([collectionSlug]) => getCmsCollection({ collectionSlug }))
   )
 
+  // Batched per-collection so the N `getEntryLocales` lookups for one collection's
+  // entries run concurrently rather than serially; `getEntryLocales` itself is
+  // `"use cache: remote"`-backed, so repeat sitemap builds hit cache rather than D1.
+  const entryLocalesByCollection = await Promise.all(
+    sitemapCollections.map(([collectionSlug], collectionIndex) =>
+      Promise.all(
+        (collectionEntries[collectionIndex] ?? []).map(entry =>
+          getEntryLocales({ collectionSlug, slug: entry.slug })
+        )
+      )
+    )
+  )
+
   const uniqueUrls = new Map<string, MetadataRoute.Sitemap[number]>()
 
   sitemapCollections.forEach(([__, collection], collectionIndex) => {
@@ -59,19 +73,23 @@ async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
       return
     }
 
-    collectionEntries[collectionIndex]?.forEach(entry => {
-      const url = buildAbsoluteCmsUrl(previewUrl(entry.slug))
+    collectionEntries[collectionIndex]?.forEach((entry, entryIndex) => {
+      const pathname = previewUrl(entry.slug)
+      const url = buildAbsoluteCmsUrl(pathname)
       const current = uniqueUrls.get(url)
       const lastModified = getValidDateOrNow({ value: entry.updatedAt })
       const currentLastModified =
         current?.lastModified instanceof Date ? current.lastModified : undefined
 
       if (!current || !currentLastModified || currentLastModified < lastModified) {
+        const locales = entryLocalesByCollection[collectionIndex]?.[entryIndex] ?? []
+
         uniqueUrls.set(url, {
           url,
           lastModified,
           changeFrequency: "weekly" as const,
           priority: 0.8,
+          alternates: { languages: entryAlternates(pathname, locales) },
         })
       }
     })
@@ -86,7 +104,7 @@ async function getNavigationUrls(navigationKey: CmsNavigationKey): Promise<Metad
   })
 
   const stack = [...navigationTree]
-  const urls: MetadataRoute.Sitemap = []
+  const pageNodes: Array<{ resolvedPath: string; entry: NonNullable<(typeof navigationTree)[number]["entry"]> }> = []
 
   while (stack.length > 0) {
     const node = stack.shift()
@@ -105,15 +123,25 @@ async function getNavigationUrls(navigationKey: CmsNavigationKey): Promise<Metad
       continue
     }
 
-    urls.push({
-      url: buildAbsoluteCmsUrl(node.resolvedPath),
-      lastModified: getValidDateOrNow({ value: node.entry.updatedAt }),
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    })
+    pageNodes.push({ resolvedPath: node.resolvedPath, entry: node.entry })
   }
 
-  return urls
+  // Parallelized across every docs page in this navigation tree so the
+  // per-entry `getEntryLocales` lookups don't serialize (same rationale as
+  // `getCmsEntryUrls`); `getEntryLocales` is `"use cache: remote"`-backed.
+  const entryLocalesByNode = await Promise.all(
+    pageNodes.map(({ entry }) =>
+      getEntryLocales({ collectionSlug: entry.collection, slug: entry.slug })
+    )
+  )
+
+  return pageNodes.map(({ resolvedPath, entry }, index) => ({
+    url: buildAbsoluteCmsUrl(resolvedPath),
+    lastModified: getValidDateOrNow({ value: entry.updatedAt }),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+    alternates: { languages: entryAlternates(resolvedPath, entryLocalesByNode[index] ?? []) },
+  }))
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -157,25 +185,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   })
 
-  // Static routes
+  // Static routes. `alternates.languages` is added only for routes translated AND
+  // indexable in every locale; blog/docs stay out while their `/es/*` pages are
+  // `noindex` — advertising es alternates would be dishonest hreflang.
   const staticRoutes = [
     {
       url: SITE_URL,
       lastModified: new Date(),
       changeFrequency: 'daily' as const,
       priority: 1,
+      alternates: { languages: localizedSitemapAlternates("/") },
     },
     {
       url: `${SITE_URL}/privacy`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.3,
+      alternates: { languages: localizedSitemapAlternates("/privacy") },
     },
     {
       url: `${SITE_URL}/terms`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.3,
+      alternates: { languages: localizedSitemapAlternates("/terms") },
     },
   ]
 

@@ -10,6 +10,7 @@ import { requireTeamPermission } from "@/utils/team-auth";
 import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
+import { getUserLocale } from "@/i18n/locale";
 
 const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
 
@@ -284,6 +285,11 @@ export async function inviteUserToTeam({
     fullName: `${session.user.firstName || ""} ${session.user.lastName || ""}`.trim() || session.user.email,
   };
 
+  // The invitee may not have an account yet, so there's no preferredLocale to
+  // read - use the inviter's locale instead (request-scoped: cookie ->
+  // preferredLocale -> Accept-Language -> default).
+  const inviterLocale = await getUserLocale();
+
   // Check if user is already a member
   const existingUser = await db.query.userTable.findFirst({
     where: { email: email },
@@ -368,6 +374,7 @@ export async function inviteUserToTeam({
       invitationToken: token,
       teamName,
       inviterName: inviter.fullName || "Team Owner",
+      locale: inviterLocale,
     });
 
     return {
@@ -399,6 +406,7 @@ export async function inviteUserToTeam({
     invitationToken: token,
     teamName,
     inviterName: inviter.fullName || "Team Owner",
+    locale: inviterLocale,
   });
 
   return {

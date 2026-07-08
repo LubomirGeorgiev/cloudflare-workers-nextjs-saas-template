@@ -105,6 +105,7 @@ function createSession({
       role,
       emailVerified,
       avatar: null,
+      preferredLocale: null,
       currentCredits,
       lastCreditRefreshAt: null,
       createdAt: now,

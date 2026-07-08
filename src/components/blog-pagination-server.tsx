@@ -1,4 +1,6 @@
 import { getBlogPagePath } from "@/lib/blog-routing"
+import { getPathname } from "@/i18n/navigation"
+import type { Locale } from "@/i18n/config"
 import {
   Pagination,
   PaginationContent,
@@ -12,9 +14,14 @@ import {
 interface BlogPaginationServerProps {
   currentPage: number;
   totalPages: number;
+  locale: Locale;
 }
 
-export function BlogPaginationServer({ currentPage, totalPages }: BlogPaginationServerProps) {
+export function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
+  // `PaginationLink` renders a plain `<a href>`, so the href must already carry
+  // the active locale prefix — otherwise `/es/blog` paginates to the unprefixed
+  // (default-locale) page and drops the visitor's locale.
+  const pageHref = (page: number) => getPathname({ href: getBlogPagePath({ page }), locale })
   const pageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
     const showEllipsisThreshold = 7;
@@ -62,7 +69,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
           {currentPage === 1 ? (
             <PaginationPrevious className="pointer-events-none opacity-50" />
           ) : (
-            <PaginationPrevious href={getBlogPagePath({ page: currentPage - 1 })} />
+            <PaginationPrevious href={pageHref(currentPage - 1)} />
           )}
         </PaginationItem>
 
@@ -71,7 +78,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
             {page === 'ellipsis' ? (
               <PaginationEllipsis />
             ) : (
-              <PaginationLink href={getBlogPagePath({ page })} isActive={currentPage === page}>
+              <PaginationLink href={pageHref(page)} isActive={currentPage === page}>
                 {page}
               </PaginationLink>
             )}
@@ -82,7 +89,7 @@ export function BlogPaginationServer({ currentPage, totalPages }: BlogPagination
           {currentPage === totalPages ? (
             <PaginationNext className="pointer-events-none opacity-50" />
           ) : (
-            <PaginationNext href={getBlogPagePath({ page: currentPage + 1 })} />
+            <PaginationNext href={pageHref(currentPage + 1)} />
           )}
         </PaginationItem>
       </PaginationContent>

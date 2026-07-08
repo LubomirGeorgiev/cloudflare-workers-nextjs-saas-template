@@ -1,7 +1,9 @@
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { SiX as XIcon, SiGithub as GithubIcon } from '@icons-pack/react-simple-icons'
+import { getTranslations } from "next-intl/server";
 import { AskiChatLogo } from "@/components/aski-chat-logo";
 import ThemeSwitch from "@/components/theme-switch";
+import LocaleSwitcher from "@/components/locale-switcher";
 import { GITHUB_REPO_URL, SITE_NAME } from "@/constants";
 import {
   GithubStarsBadge,
@@ -9,7 +11,9 @@ import {
 } from "@/components/github-stars-badge";
 import { Suspense } from "react";
 
-export function Footer() {
+export async function Footer() {
+  const t = await getTranslations("Footer");
+
   return (
     <footer className="border-t dark:bg-muted/30 bg-muted/60 shadow">
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8">
@@ -18,16 +22,16 @@ export function Footer() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-6">
             {/* Legal Links */}
             <div className="space-y-3 md:space-y-4 flex flex-col items-center md:items-start">
-              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">Legal</h3>
+              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">{t("legal")}</h3>
               <ul className="space-y-2 flex flex-col items-center md:items-start">
                 <li>
                   <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground text-center md:text-left">
-                    Terms of Service
+                    {t("termsOfService")}
                   </Link>
                 </li>
                 <li>
                   <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground text-center md:text-left">
-                    Privacy Policy
+                    {t("privacyPolicy")}
                   </Link>
                 </li>
               </ul>
@@ -35,11 +39,11 @@ export function Footer() {
 
             {/* Company Info */}
             <div className="space-y-3 md:space-y-4 flex flex-col items-center md:items-start">
-              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">Company</h3>
+              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">{t("company")}</h3>
               <ul className="space-y-2 flex flex-col items-center md:items-start">
                 <li>
                   <Link href="/" className="text-sm text-muted-foreground hover:text-foreground text-center md:text-left">
-                    Home
+                    {t("home")}
                   </Link>
                 </li>
               </ul>
@@ -47,7 +51,7 @@ export function Footer() {
 
             {/* Social Links and Theme Switch */}
             <div className="space-y-3 md:space-y-4 flex flex-col items-center md:items-start">
-              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">Social</h3>
+              <h3 className="text-sm font-semibold text-foreground text-center md:text-left">{t("social")}</h3>
               <div className="flex items-center space-x-4">
                 <a
                   href="https://github.com/LubomirGeorgiev"
@@ -75,7 +79,7 @@ export function Footer() {
           <div className="mt-6 pt-6 md:mt-8 md:pt-8 border-t">
             <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between md:gap-4">
               <p className="text-sm text-muted-foreground text-center md:text-left">
-                © {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
+                © {new Date().getFullYear()} {SITE_NAME}. {t("allRightsReserved")}
               </p>
 
               <div className="flex flex-col md:flex-row items-center gap-4 md:space-x-4">
@@ -86,6 +90,7 @@ export function Footer() {
                 )}
 
                 <div className="flex items-center gap-4">
+                  <LocaleSwitcher />
                   <ThemeSwitch />
 
                   <a
@@ -94,7 +99,7 @@ export function Footer() {
                     rel="noreferrer"
                     className="flex items-center font-medium text-sm hover:text-foreground transition-colors"
                   >
-                    <span className="whitespace-nowrap">Built by</span>
+                    <span className="whitespace-nowrap">{t("builtBy")}</span>
                     <AskiChatLogo className="h-7 w-7 mx-1.5" />
                     <span className="whitespace-nowrap">Aski.Chat</span>
                   </a>

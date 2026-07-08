@@ -47,6 +47,7 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Do not comment obvious code.
 - Add comments only for non-trivial logic, edge cases, workarounds, or business rules.
 - Comments should explain why, not what.
+- Keep comments to 3 lines max, and to the point. Longer comments do not get read.
 - Keep TODO comments unless the work is actually completed and verified.
 
 ### Functions and Types
@@ -104,6 +105,7 @@ Suggested homes:
 - Use dynamic loading for non-critical UI when useful.
 - Use `nuqs` for URL search parameter state.
 - Use declarative JSX and concise conditionals.
+- `src/proxy.ts` runs next-intl on all paths except an exclusion list of non-public routes. When adding a new top-level non-public/authed section (outside `app/[locale]/`, like `/dashboard`), add its segment to that matcher; public pages need no change.
 - Use Tailwind, Shadcn UI, and Base UI consistently with the existing design system.
 - Implement responsive, mobile-first layouts and support light/dark mode.
 - When using a `container` class, also use `mx-auto`.
@@ -115,6 +117,7 @@ Authentication is based on Lucia Auth.
 - Auth logic lives in `src/utils/auth.ts` and `src/utils/kv-session.ts`.
 - In server components, access the session via `getSessionFromCookie` from `src/utils/auth.ts`.
 - In client components, access the session via `useSessionStore()` from `src/state/session.ts`.
+- AI agents may use the test credentials `test@test.com` / `password` with browser automation to test authenticated flows.
 
 ## Database and Migrations
 

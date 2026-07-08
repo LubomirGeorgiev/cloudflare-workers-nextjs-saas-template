@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface TerminalLine {
@@ -28,6 +29,7 @@ const TYPE_MS = 32;
 const LINE_PAUSE_MS = 320;
 
 export function DeployTerminal() {
+  const t = useTranslations("Client.Landing.DeployTerminal");
   const [visibleCount, setVisibleCount] = useState(0);
   const [typed, setTyped] = useState("");
   const [done, setDone] = useState(false);
@@ -103,7 +105,7 @@ export function DeployTerminal() {
           <span className="size-3 rounded-full bg-foreground/15" />
           <span className="size-3 rounded-full bg-edge/70" />
           <span className="ml-3 font-mono text-xs text-muted-foreground">
-            ~/your-saas — deploy
+            {t("windowTitle")}
           </span>
         </div>
 

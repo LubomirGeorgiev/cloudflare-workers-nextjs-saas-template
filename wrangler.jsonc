@@ -14,7 +14,7 @@
         "custom_domain": true
       }
     ],
-    "compatibility_date": "2026-04-21",
+    "compatibility_date": "2026-07-07",
     "compatibility_flags": ["nodejs_compat"],
     "assets": {
       "directory": "dist/client",

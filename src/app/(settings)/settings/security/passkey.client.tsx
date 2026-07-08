@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { PASSKEY_AUTHENTICATOR_IDS } from "@/utils/passkey-authenticator-ids";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 import type { ParsedUserAgent } from "@/types";
 
 interface PasskeyRegistrationButtonProps {
@@ -28,6 +29,7 @@ interface PasskeyRegistrationButtonProps {
 function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegistrationButtonProps) {
   const [isRegistering, setIsRegistering] = useState(false);
   const router = useRouter();
+  const t = useTranslations("Client.Settings.Security");
 
   const handleRegister = async () => {
     try {
@@ -37,7 +39,7 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       const { data: options, serverError: optionsError } = await generateRegistrationOptionsAction({ email });
 
       if (optionsError || !options) {
-        throw new Error(optionsError?.message || "Failed to get registration options");
+        throw new Error(optionsError?.message || t("toastOptionsError"));
       }
 
       // Start the registration process in the browser
@@ -55,12 +57,12 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
         throw new Error(verificationError.message);
       }
 
-      toast.success("Passkey registered successfully");
+      toast.success(t("toastRegisterSuccess"));
       onSuccess?.();
       router.refresh();
     } catch (error) {
       console.error("Passkey registration error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to register passkey");
+      toast.error(error instanceof Error ? error.message : t("toastRegisterError"));
     } finally {
       setIsRegistering(false);
     }
@@ -72,7 +74,7 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
       disabled={isRegistering}
       className={className}
     >
-      {isRegistering ? "Registering..." : "Register Passkey"}
+      {isRegistering ? t("registering") : t("registerButton")}
     </Button>
   );
 }
@@ -96,12 +98,13 @@ interface PasskeysListProps {
 export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysListProps) {
   const router = useRouter();
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
+  const t = useTranslations("Client.Settings.Security");
   const { execute: deletePasskey } = useAction(deletePasskeyAction, {
     onError: ({ error }) => {
-      toast.error(error.serverError?.message || "Failed to delete passkey");
+      toast.error(error.serverError?.message || t("toastDeleteError"));
     },
     onSuccess: () => {
-      toast.success("Passkey deleted");
+      toast.success(t("toastDeleteSuccess"));
       dialogCloseRef.current?.click();
       router.refresh();
     }
@@ -114,9 +117,9 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Passkeys</h2>
+          <h2 className="text-lg font-semibold">{t("passkeysHeading")}</h2>
           <p className="text-sm text-muted-foreground">
-            Manage your passkeys for passwordless authentication.
+            {t("passkeysSubheading")}
           </p>
         </div>
         {email && (
@@ -135,8 +138,8 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
                     <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-                      {passkey.aaguid && (PASSKEY_AUTHENTICATOR_IDS as Record<string, string>)[passkey.aaguid] || "Unknown Authenticator App"}
-                      {isCurrentPasskey(passkey) && <Badge>Current Passkey</Badge>}
+                      {passkey.aaguid && (PASSKEY_AUTHENTICATOR_IDS as Record<string, string>)[passkey.aaguid] || t("unknownAuthenticator")}
+                      {isCurrentPasskey(passkey) && <Badge>{t("currentPasskeyBadge")}</Badge>}
                     </CardTitle>
                     <div className="text-sm text-muted-foreground whitespace-nowrap">
                       · {formatRelativeDateTime(passkey.createdAt)}
@@ -144,7 +147,15 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                   </div>
                   {passkey.parsedUserAgent && (
                     <CardDescription className="text-sm">
-                      {passkey.parsedUserAgent.browser.name ?? "Unknown browser"} {passkey.parsedUserAgent.browser.major ?? "Unknown version"} on {passkey.parsedUserAgent.device.vendor ?? "Unknown device"} {passkey.parsedUserAgent.device.model ?? "Unknown model"} {passkey.parsedUserAgent.device.type ?? "Unknown type"} ({passkey.parsedUserAgent.os.name ?? "Unknown OS"} {passkey.parsedUserAgent.os.version ?? "Unknown version"})
+                      {t("deviceDescription", {
+                        browserName: passkey.parsedUserAgent.browser.name ?? t("unknownBrowser"),
+                        browserVersion: passkey.parsedUserAgent.browser.major ?? t("unknownVersion"),
+                        deviceVendor: passkey.parsedUserAgent.device.vendor ?? t("unknownDevice"),
+                        deviceModel: passkey.parsedUserAgent.device.model ?? t("unknownModel"),
+                        deviceType: passkey.parsedUserAgent.device.type ?? t("unknownType"),
+                        osName: passkey.parsedUserAgent.os.name ?? t("unknownOs"),
+                        osVersion: passkey.parsedUserAgent.os.version ?? t("unknownVersion"),
+                      })}
                     </CardDescription>
                   )}
                 </div>
@@ -154,13 +165,13 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                       <DialogTrigger
                         render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
                       >
-                        Delete passkey
+                        {t("deletePasskey")}
                       </DialogTrigger>
                       <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Delete passkey?</DialogTitle>
+                          <DialogTitle>{t("deletePasskeyConfirmTitle")}</DialogTitle>
                           <DialogDescription>
-                            This will remove this passkey from your account. This action cannot be undone.
+                            {t("deletePasskeyConfirmDescription")}
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter className="mt-6 sm:mt-0">
@@ -168,14 +179,14 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                             ref={dialogCloseRef}
                             render={<Button variant="outline" />}
                           >
-                            Cancel
+                            {t("cancel")}
                           </DialogClose>
                           <Button
                             variant="destructive"
                             className="mb-4 sm:mb-0"
                             onClick={() => deletePasskey({ credentialId: passkey.credentialId })}
                           >
-                            Delete passkey
+                            {t("deletePasskey")}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -189,7 +200,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
 
         {passkeys.length === 0 && (
           <div className="text-center text-muted-foreground mt-10">
-            No passkeys found. Add a passkey to enable passwordless authentication.
+            {t("emptyState")}
           </div>
         )}
       </div>

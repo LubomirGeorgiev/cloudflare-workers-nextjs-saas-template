@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 const PLATFORM = [
   "Workers",
   "D1",
@@ -18,15 +20,16 @@ const FRAMEWORK = [
 ];
 
 export function Stack() {
+  const t = useTranslations("Client.Landing.Stack");
   return (
     <section className="border-y border-border bg-card/40">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {"// the whole stack, already assembled"}
+          {t("heading")}
         </p>
         <div className="mt-6 grid gap-8 md:grid-cols-2">
-          <StackGroup heading="Cloudflare platform" items={PLATFORM} />
-          <StackGroup heading="App framework" items={FRAMEWORK} />
+          <StackGroup heading={t("cloudflarePlatform")} items={PLATFORM} />
+          <StackGroup heading={t("appFramework")} items={FRAMEWORK} />
         </div>
       </div>
     </section>

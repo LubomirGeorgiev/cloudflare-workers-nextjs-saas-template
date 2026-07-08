@@ -20,7 +20,8 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import type { Route } from "next"
-import type { NavMainItem } from "./app-sidebar-data"
+import { useTranslations } from "next-intl"
+import type { NavItem, NavMainItem } from "./app-sidebar-data"
 
 type Props = {
   items: NavMainItem[]
@@ -30,18 +31,26 @@ export function NavMain({
   items,
 }: Props) {
   const { setOpenMobile } = useSidebar()
+  const t = useTranslations("Client.Sidebar")
+
+  // Translate a nav item title from its stable `titleKey`, falling back to the
+  // English `title` from the data builder when the key is missing.
+  const label = (item: Pick<NavItem, "title" | "titleKey">) =>
+    item.titleKey ? t(`nav.${item.titleKey}`) : item.title
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarGroupLabel>{t("groups.platform")}</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
+          const itemLabel = label(item)
+
           // If there are no child items, render a direct link
           if (!item.items?.length) {
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
-                  tooltip={item.title}
+                  tooltip={itemLabel}
                   render={
                     <Link
                       href={item.url as Route}
@@ -51,7 +60,7 @@ export function NavMain({
                   }
                 >
                     {item.icon && <item.icon />}
-                    <span>{item.title}</span>
+                    <span>{itemLabel}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )
@@ -66,10 +75,10 @@ export function NavMain({
               className="group/collapsible"
             >
                 <CollapsibleTrigger
-                  render={<SidebarMenuButton tooltip={item.title} />}
+                  render={<SidebarMenuButton tooltip={itemLabel} />}
                 >
                     {item.icon && <item.icon />}
-                    <span>{item.title}</span>
+                    <span>{itemLabel}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-open/collapsible:rotate-90" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -92,7 +101,7 @@ export function NavMain({
                             )
                           }
                         >
-                              <span>{subItem.title}</span>
+                              <span>{label(subItem)}</span>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                     ))}

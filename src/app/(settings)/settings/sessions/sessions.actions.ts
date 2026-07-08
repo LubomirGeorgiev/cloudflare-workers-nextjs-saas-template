@@ -8,6 +8,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { UAParser } from 'ua-parser-js';
 import { SessionWithMeta } from "@/types";
 import { v } from "@/lib/validation";
+import { getTranslations } from "next-intl/server";
 
 function isValidSession(session: unknown): session is SessionWithMeta {
   if (!session || typeof session !== 'object') return false;
@@ -20,10 +21,11 @@ export const getSessionsAction = actionClient
   .action(async () => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Settings.Sessions");
         const session = await getSessionFromCookie();
 
         if (!session?.user?.id) {
-          throw new ActionError("NOT_AUTHORIZED", "Unauthorized");
+          throw new ActionError("NOT_AUTHORIZED", t("errorUnauthorized"));
         }
 
         const sessionIds = await getAllSessionIdsOfUser(session.user.id);
@@ -82,12 +84,13 @@ export const deleteSessionAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Settings.Sessions");
         const session = await getSessionFromCookie();
 
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            "Not authenticated"
+            t("errorNotAuthenticated")
           );
         }
 

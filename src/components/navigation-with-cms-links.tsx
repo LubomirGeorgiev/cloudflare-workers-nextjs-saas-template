@@ -1,21 +1,19 @@
 import "server-only";
 
-import Link from "next/link";
 import { ComponentIcon, Menu } from "lucide-react";
+import { useTranslations } from "next-intl";
 
+import { Link } from "@/i18n/navigation";
 import { Navigation } from "@/components/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SITE_NAME } from "@/constants";
 import { getCmsNavigationRootPath } from "@/lib/cms/cms-navigation-repository";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
-import { getCmsCollectionCount } from "@/lib/cms/entry";
+import { hasPublishedBlogPosts } from "@/lib/blog-visibility";
 
 export async function NavigationWithCmsLinks() {
-  const [blogPostCount, docsRootPath] = await Promise.all([
-    getCmsCollectionCount({
-      collectionSlug: "blog",
-      status: "published",
-    }),
+  const [hasBlogPosts, docsRootPath] = await Promise.all([
+    hasPublishedBlogPosts(),
     getCmsNavigationRootPath({
       navigationKey: DOCS_SLUG,
     }),
@@ -23,13 +21,15 @@ export async function NavigationWithCmsLinks() {
 
   return (
     <Navigation
-      hasBlogPosts={blogPostCount > 0}
+      hasBlogPosts={hasBlogPosts}
       hasDocsPages={Boolean(docsRootPath)}
     />
   );
 }
 
 export function NavigationWithCmsLinksFallback() {
+  const t = useTranslations("Client.Nav");
+
   return (
     <nav className="dark:bg-muted/30 bg-muted/60 shadow dark:shadow-xl z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,7 +57,7 @@ export function NavigationWithCmsLinksFallback() {
           <div className="md:hidden flex items-center">
             <div className="inline-flex size-12 items-center justify-center rounded-md">
               <Menu className="w-9 h-9" />
-              <span className="sr-only">Loading menu</span>
+              <span className="sr-only">{t("loadingMenu")}</span>
             </div>
           </div>
         </div>

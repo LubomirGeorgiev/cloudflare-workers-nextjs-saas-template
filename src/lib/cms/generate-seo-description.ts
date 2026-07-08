@@ -2,9 +2,11 @@ import "server-only";
 
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import type { CollectionsUnion } from "@/../cms.config";
-import { DEFAULT_AI_MODEL, SITE_DESCRIPTION, SITE_NAME, SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import type { JSONContent } from "@tiptap/core";
 import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
+import { runAiText } from "@/lib/ai/generate-text";
+import { truncateSeoDescription } from "@/lib/cms/seo-description";
 
 type GenerateSeoDescriptionParams = {
   title: string;
@@ -59,29 +61,21 @@ The description should be:
 
 Return only the description text, no quotes or additional text.`;
 
-    const result = await AI.run(DEFAULT_AI_MODEL, {
-      prompt,
-      max_tokens: 100,
-    });
+    const response = await runAiText({ AI, prompt, maxTokens: 100 });
 
-    if (!result || !result.response) {
+    if (!response) {
       return null;
     }
 
     // Clean up the response and ensure it's max ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters
-    let description = result.response.trim();
+    let description = response.trim();
 
     // Remove quotes if present
-    description = description.replace(/^["']|["']$/g, '');
+    description = description.replace(/^["']|["']$/g, "");
 
-    // Truncate to ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters if needed
-    if (description.length > CMS_SEO_DESCRIPTION_MAX_LENGTH) {
-      description = description.slice(0, CMS_SEO_DESCRIPTION_MAX_LENGTH - 3) + '...';
-    }
-
-    return description || null;
+    return truncateSeoDescription(description) || null;
   } catch (error) {
-    console.error('Error generating SEO description:', error);
+    console.error("Error generating SEO description:", error);
     return null;
   }
 }

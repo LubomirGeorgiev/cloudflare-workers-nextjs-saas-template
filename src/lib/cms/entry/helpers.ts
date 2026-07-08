@@ -6,7 +6,6 @@ import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { ActionError } from "@/lib/action-error";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import type { CmsIncludeRelations } from "@/lib/cms/cms-cache-invalidation";
-import type { GetCmsCollectionResult } from "@/lib/cms/entry/types";
 import {
   CMS_STATUS_FILTER_ALL,
   type CmsEntryStatus,
@@ -125,7 +124,15 @@ export function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   return relations;
 }
 
-export function withFeaturedImageUrl(entry: GetCmsCollectionResult): GetCmsCollectionResult {
+// Generic over the entry shape so it serves both the full `GetCmsCollectionResult`
+// and the body-stripped `CmsCollectionListItem` — it only touches the featured-image
+// fields, which both types share.
+export function withFeaturedImageUrl<
+  T extends {
+    featuredImage?: { bucketKey: string } | null;
+    featuredImageUrl?: string | null;
+  },
+>(entry: T): T {
   if (entry.featuredImage?.bucketKey) {
     entry.featuredImageUrl = getCmsImagePublicUrl(entry.featuredImage.bucketKey);
   }

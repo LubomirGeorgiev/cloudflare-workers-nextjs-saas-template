@@ -7,7 +7,6 @@ import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS } from "@/constants";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { createPaymentIntent } from "@/actions/credits.action";
-import { Coins, Sparkles, Zap } from "lucide-react";
 import { useSessionStore } from "@/state/session";
 import { useTransactionStore } from "@/state/transaction";
 import { Separator } from "@/components/ui/separator";
@@ -15,13 +14,10 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-type CreditPackage = typeof CREDIT_PACKAGES[number];
+import { useTranslations } from "next-intl";
+import { getCreditPackageIcon } from "./credit-package-icon";
 
-export const getPackageIcon = (index: number) => {
-  if (index === 2) return <Zap className="h-6 w-6 text-yellow-500" />;
-  if (index === 1) return <Sparkles className="h-6 w-6 text-blue-500" />;
-  return <Coins className="h-6 w-6 text-green-500" />;
-};
+type CreditPackage = typeof CREDIT_PACKAGES[number];
 
 // Calculate savings percentage compared to the first package
 const calculateSavings = (pkg: CreditPackage) => {
@@ -34,6 +30,7 @@ const calculateSavings = (pkg: CreditPackage) => {
 
 export function CreditPackages() {
   const router = useRouter();
+  const t = useTranslations("Client.Dashboard.Billing");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -52,7 +49,7 @@ export function CreditPackages() {
       }
 
       if (!data?.clientSecret) {
-        throw new Error("Failed to create payment intent");
+        throw new Error(t("errorCreatePaymentIntent"));
       }
 
       setClientSecret(data.clientSecret);
@@ -60,7 +57,7 @@ export function CreditPackages() {
       setIsDialogOpen(true);
     } catch (error) {
       console.error("Error creating payment intent:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to start checkout");
+      toast.error(error instanceof Error ? error.message : t("errorStartCheckout"));
     }
   };
 
@@ -76,7 +73,7 @@ export function CreditPackages() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Credits</CardTitle>
+          <CardTitle>{t("creditsTitle")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-8">
           <div className="space-y-2">
@@ -88,12 +85,12 @@ export function CreditPackages() {
                 </>
               ) : (
                 <div className="text-3xl font-bold">
-                  {session?.session?.user?.currentCredits.toLocaleString()} credits
+                  {t("currentCredits", { count: session?.session?.user?.currentCredits ?? 0 })}
                 </div>
               )}
             </div>
             <div className="text-sm text-muted-foreground">
-              You get {FREE_MONTHLY_CREDITS} free credits every month.
+              {t("freeMonthlyCredits", { count: FREE_MONTHLY_CREDITS })}
             </div>
           </div>
 
@@ -101,9 +98,9 @@ export function CreditPackages() {
 
           <div className="space-y-4">
             <div>
-              <h2 className="text-xl sm:text-2xl font-semibold">Top up your credits</h2>
+              <h2 className="text-xl sm:text-2xl font-semibold">{t("topUpTitle")}</h2>
               <p className="text-sm text-muted-foreground mt-2 sm:mt-3">
-                Purchase additional credits to use our services. The more credits you buy, the better the value.
+                {t("topUpDescription")}
               </p>
             </div>
 
@@ -113,13 +110,13 @@ export function CreditPackages() {
                   <CardContent className="flex flex-col h-full pt-4 gap-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        {getPackageIcon(index)}
+                        {getCreditPackageIcon(pkg.id)}
                         <div>
                           <div className="text-xl sm:text-2xl font-bold">
                             {pkg.credits.toLocaleString()}
                           </div>
                           <div className="text-xs sm:text-sm text-muted-foreground">
-                            credits
+                            {t("creditsLabel")}
                           </div>
                         </div>
                       </div>
@@ -128,11 +125,11 @@ export function CreditPackages() {
                           ${pkg.price}
                         </div>
                         <div className="text-xs sm:text-sm text-muted-foreground">
-                          one-time payment
+                          {t("oneTimePayment")}
                         </div>
                         {index > 0 ? (
                           <Badge variant="secondary" className="mt-1 text-xs sm:text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                            Save {calculateSavings(pkg)}%
+                            {t("savePercent", { percent: calculateSavings(pkg) })}
                           </Badge>
                         ) : (
                           <div className="h-[22px] sm:h-[26px]" /> /* Placeholder for badge height */
@@ -145,12 +142,12 @@ export function CreditPackages() {
                         if (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
                           handlePurchase(pkg)
                         } else {
-                          toast.error("Something went wrong with our payment provider. Please try again later.")
+                          toast.error(t("errorPaymentProvider"))
                         }
                       }}
                       className="w-full text-sm sm:text-base"
                     >
-                      Purchase Now
+                      {t("purchaseNow")}
                     </Button>
                   </CardContent>
                 </Card>
@@ -163,7 +160,7 @@ export function CreditPackages() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Purchase Credits</DialogTitle>
+            <DialogTitle>{t("purchaseCreditsDialogTitle")}</DialogTitle>
           </DialogHeader>
           {(clientSecret && selectedPackage) && (
             <StripePaymentForm

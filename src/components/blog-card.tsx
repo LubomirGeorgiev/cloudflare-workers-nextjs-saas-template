@@ -1,14 +1,14 @@
-import Link from "next/link"
 import Image from "next/image"
+import { Link } from "@/i18n/navigation"
 import { formatDate } from "@/utils/format-date"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
-import type { GetCmsCollectionResult } from "@/lib/cms/entry"
+import type { CmsCollectionListItem } from "@/lib/cms/entry"
 import { getValidDateOrNow } from "@/utils/cms-entry-dates"
 
 type BlogCardProps = {
-  entry: GetCmsCollectionResult
+  entry: CmsCollectionListItem
   showTags?: boolean
   showAuthor?: boolean
 }

@@ -8,11 +8,16 @@ import { PlusIcon, Users } from "lucide-react";
 import type { Route } from "next";
 import { PageHeader } from "@/components/page-header";
 import { PendingInvitations } from "./pending-invitations";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = {
-  title: "My Teams",
-  description: "Manage your teams and collaborations",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("Client.Dashboard.Teams");
+
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 interface TeamRole {
   name: string;
@@ -30,6 +35,8 @@ interface TeamItem {
 }
 
 export default async function TeamsIndexPage() {
+  const t = await getTranslations("Client.Dashboard.Teams");
+
   // Check if the user is authenticated
   const session = await getSessionFromCookie();
 
@@ -55,22 +62,22 @@ export default async function TeamsIndexPage() {
         items={[
           {
             href: "/dashboard/teams",
-            label: "Teams"
+            label: t("breadcrumb")
           }
         ]}
       />
       <div className="container mx-auto px-5 pb-12">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold">My Teams</h1>
-            <p className="text-muted-foreground mt-2">Manage your teams and collaborations</p>
+            <h1 className="text-4xl font-bold">{t("title")}</h1>
+            <p className="text-muted-foreground mt-2">{t("subtitle")}</p>
           </div>
           <Link
             href={"/dashboard/teams/create" as Route}
             className={buttonVariants()}
           >
               <PlusIcon className="h-4 w-4 mr-2" />
-              Create Team
+              {t("createTeam")}
           </Link>
         </div>
 
@@ -80,9 +87,9 @@ export default async function TeamsIndexPage() {
         {teams.length === 0 ? (
           <Card className="border-dashed border-2">
             <CardHeader>
-              <CardTitle className="text-xl">You don&apos;t have any teams yet</CardTitle>
+              <CardTitle className="text-xl">{t("emptyTitle")}</CardTitle>
               <CardDescription>
-                Teams let you collaborate with others on projects and share resources.
+                {t("emptyDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center py-8">
@@ -94,7 +101,7 @@ export default async function TeamsIndexPage() {
                 className={buttonVariants()}
               >
                   <PlusIcon className="h-4 w-4 mr-2" />
-                  Create your first team
+                  {t("createFirstTeam")}
               </Link>
             </CardFooter>
           </Card>
@@ -122,14 +129,14 @@ export default async function TeamsIndexPage() {
                       <CardTitle>{team.name}</CardTitle>
                       {team.role && (
                         <CardDescription>
-                          Your role: <span className="capitalize">{team.role.name}</span>
+                          {t("yourRole")} <span className="capitalize">{team.role.name}</span>
                         </CardDescription>
                       )}
                     </div>
                   </CardHeader>
                   <CardContent>
                     <p className="line-clamp-2 text-muted-foreground">
-                      {team.description || "No description provided"}
+                      {team.description || t("noDescription")}
                     </p>
                   </CardContent>
                 </Card>
@@ -139,7 +146,7 @@ export default async function TeamsIndexPage() {
             <Link href={"/dashboard/teams/create" as Route}>
               <Card className="h-full border-dashed border-2 hover:border-primary transition-all">
                 <CardHeader className="text-center pt-8">
-                  <CardTitle className="text-xl">Create a new team</CardTitle>
+                  <CardTitle className="text-xl">{t("createNewTeam")}</CardTitle>
                 </CardHeader>
                 <CardContent className="flex justify-center">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">

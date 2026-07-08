@@ -3,9 +3,10 @@ import { defineRelations, type InferSelectModel, sql } from "drizzle-orm";
 
 import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS, ROLES_ENUM } from "@/app/enums";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import type { JSONContent } from "@tiptap/core"
 import { cmsNavigationKeys, type CmsNavigationKey } from "@/../cms.config";
-import { cmsEntryStatusTuple, type CmsEntryStatus } from "@/types/cms";
+import { cmsEntryStatusTuple, type CmsEntryStatus, type SourceContentHashes } from "@/types/cms";
 import {
   cmsNavigationNodeTypeTuple,
   type CmsNavigationNodeType,
@@ -56,6 +57,9 @@ export const userTable = sqliteTable("user", {
   avatar: text({
     length: 600,
   }),
+  // User's explicit UI language (BCP-47 short code, e.g. "en"/"es"). Null = not set;
+  // negotiate from cookie/Accept-Language instead. Validated against LOCALES in app code.
+  preferredLocale: text({ length: 10 }),
   // Credit system fields
   currentCredits: integer().default(0).notNull(),
   lastCreditRefreshAt: integer({
@@ -328,6 +332,14 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   status: text({
     enum: cmsEntryStatusTuple,
   }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(), // Override status to add default
+  // Language of this entry. Translations of one logical entry share (collection, slug)
+  // and differ by locale. Default 'en' keeps existing rows valid and inert.
+  locale: text().notNull().default(DEFAULT_LOCALE),
+  // Snapshot of the canonical (default-locale) source's per-field content hashes,
+  // captured when this translation was created or last refreshed. Compared against
+  // the source's live hashes to flag stale translations in the editor. Null on the
+  // source row itself and on legacy/pre-feature rows (treated as "not stale").
+  sourceContentHashes: text({ mode: "json" }).$type<SourceContentHashes | null>(),
 }, (table) => ([
   // Index for filtering by collection (most common query)
   index('cms_entry_collection_idx').on(table.collection),
@@ -341,8 +353,11 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   // Index for slug lookups (finding specific entries by slug)
   index('cms_entry_slug_idx').on(table.slug),
 
-  // Unique index for collection + slug (ensure unique slugs per collection)
-  uniqueIndex('cms_entry_collection_slug_unique').on(table.collection, table.slug),
+  // Was (collection, slug); now scoped by locale so each language has its own row.
+  uniqueIndex('cms_entry_collection_slug_locale_unique').on(table.collection, table.slug, table.locale),
+
+  // Listing queries: published entries for a collection in a locale.
+  index('cms_entry_collection_locale_status_idx').on(table.collection, table.locale, table.status),
 
   // Index for created by (finding entries by author)
   index('cms_entry_created_by_idx').on(table.createdBy),
@@ -386,6 +401,10 @@ export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
     enum: cmsNavigationNodeTypeTuple,
   }).$type<CmsNavigationNodeType>().notNull(),
   title: text().notNull(),
+  // Per-locale overrides for `title`, keyed by locale (e.g. { es: "Documentación" }).
+  // GROUP/header nodes have no linked entry to borrow a translated title from, so
+  // the public tree overlays this for non-default locales; null = untranslated.
+  titleTranslations: text({ mode: "json" }).$type<Partial<Record<Locale, string>>>(),
   entryId: text().references(() => cmsEntryTable.id, { onDelete: "cascade" }),
   slugSegment: text(),
   resolvedPath: text(),
@@ -447,10 +466,16 @@ export const cmsTagTable = sqliteTable("cms_tag", {
   slug: text().notNull(),
   description: text(),
   color: text(),
+  // Language of this tag. Translations of one logical tag share `slug` and differ
+  // by locale (mirrors cmsEntryTable). Default 'en' keeps existing rows valid.
+  locale: text().notNull().default(DEFAULT_LOCALE),
   createdBy: text().notNull().references(() => userTable.id),
 }, (table) => ([
-  uniqueIndex('cms_tag_name_unique').on(table.name),
-  uniqueIndex('cms_tag_slug_unique').on(table.slug),
+  // Was global (name)/(slug); now scoped by locale so each language has its own row.
+  uniqueIndex('cms_tag_name_locale_unique').on(table.name, table.locale),
+  uniqueIndex('cms_tag_slug_locale_unique').on(table.slug, table.locale),
+  // `slug` groups the translation siblings; index it for group lookups.
+  index('cms_tag_slug_idx').on(table.slug),
 ]));
 
 // Junction table for many-to-many relationship between entries and tags

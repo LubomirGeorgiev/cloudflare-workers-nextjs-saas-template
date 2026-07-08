@@ -136,17 +136,40 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 📊 Per-tenant Analytics
   - 🔐 Tenant-specific Configurations
   - 💼 Team Collaboration Features
+- 🌐 Internationalization (i18n) with next-intl
+  - 🍪 Cookie-based locale with Accept-Language negotiation (no URL changes)
+  - 🔀 Locale switcher in the footer
+  - 🗂️ JSON message catalogs (English and Spanish included)
+  - 🧭 Auto-detected by Vinext (no `createNextIntlPlugin` wrapper needed)
+  - 🔒 Type-safe message keys
+
+## Internationalization (i18n)
+
+The template ships with [next-intl](https://next-intl.dev/) configured in
+"without i18n routing" mode: the active locale is resolved from a `NEXT_LOCALE`
+cookie, falling back to the request's `Accept-Language` header and then the
+default locale, so URLs stay unchanged across the app.
+
+Everything lives in `src/i18n/`:
+
+- `config.ts` — locale list, default locale, cookie name, and switcher labels.
+- `request.ts` — the Vinext-auto-detected next-intl request config.
+- `locale.ts` / `locale-actions.ts` — server-side locale resolution and the cookie-setting server action.
+- `messages/<locale>.json` — one message catalog per locale.
+
+To add a locale (e.g. French):
+
+1. Add `"fr"` to `LOCALES` and a `fr` entry to `LOCALE_LABELS` in `src/i18n/config.ts`.
+2. Create `src/i18n/messages/fr.json` mirroring the keys in `en.json`.
+
+Use `useTranslations` in client components and `getTranslations` in server
+components. `messages/en.json` is the source of truth for type-safe keys via the
+augmentation in `src/i18n/next-intl.d.ts`.
 
 ## Planned features (TODO):
 
-- [ ] Add Oxlint coverage for unused exports
-- [x] Add an Oxlint rule to check for unused variables and imports
-- [ ] Upgrade to Tailwind 4 and fix the errors and visual regressions. Already started here https://github.com/LubomirGeorgiev/cloudflare-workers-nextjs-saas-template/tree/tailwind-4-upgrade
 - [ ] Update Meta SEO tags 🔍
 - [ ] Dynamic OpenGraph images 📸
-- [ ] sitemap.xml 📄
-- [ ] robots.txt 📄
-- [ ] Multi-language support (i18n) 🌐
 - [ ] Notifications 🔔
 - [ ] Webhooks 🔗
 

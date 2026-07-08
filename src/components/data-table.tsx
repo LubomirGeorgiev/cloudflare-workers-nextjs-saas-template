@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -51,6 +52,11 @@ interface DataTableProps<TData, TValue> {
   getRowHref?: (row: TData) => string
   excludeClickableColumns?: string[]
   filterComponents?: React.ReactNode
+  // Optional row-grouping affordance: when provided, hovering a row highlights every
+  // other visible row sharing the same key (e.g. locale siblings of one CMS entry).
+  // Only activates when the key has 2+ rows on the current page, so singletons behave
+  // like a normal hover. Tables that omit it are unaffected.
+  getRowGroupKey?: (row: TData) => string | null | undefined
 }
 
 export function DataTable<TData, TValue>({
@@ -68,10 +74,24 @@ export function DataTable<TData, TValue>({
   getRowHref,
   excludeClickableColumns = ["actions"],
   filterComponents,
+  getRowGroupKey,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
+  const [hoveredGroupKey, setHoveredGroupKey] = React.useState<string | null>(null)
+
+  // Count how many visible rows share each group key, so we only treat a key as a
+  // "group" (worth cross-highlighting) when siblings actually exist on this page.
+  const groupSizes = React.useMemo(() => {
+    const sizes = new Map<string, number>()
+    if (!getRowGroupKey) return sizes
+    for (const row of data) {
+      const key = getRowGroupKey(row)
+      if (key) sizes.set(key, (sizes.get(key) ?? 0) + 1)
+    }
+    return sizes
+  }, [data, getRowGroupKey])
 
   const table = useReactTable({
     data,
@@ -192,12 +212,25 @@ export function DataTable<TData, TValue>({
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const href = getRowHref?.(row.original)
+                const groupKey = getRowGroupKey?.(row.original) ?? null
+                const isGroupable = groupKey !== null && (groupSizes.get(groupKey) ?? 0) > 1
+                const isGroupHighlighted =
+                  isGroupable && hoveredGroupKey === groupKey
 
                 return (
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    className={href ? "hover:bg-muted/50 transition-colors" : ""}
+                    onMouseEnter={
+                      isGroupable ? () => setHoveredGroupKey(groupKey) : undefined
+                    }
+                    onMouseLeave={
+                      isGroupable ? () => setHoveredGroupKey(null) : undefined
+                    }
+                    className={cn(
+                      href && "hover:bg-muted/50 transition-colors",
+                      isGroupHighlighted && "bg-muted/50",
+                    )}
                   >
                     {row.getVisibleCells().map((cell) => {
                       const isExcludedColumn = excludeClickableColumns.includes(cell.column.id)

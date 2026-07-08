@@ -19,6 +19,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import isProd from "@/utils/is-prod";
 import ms from "ms";
 import { emailString, v } from "@/lib/validation";
+import { getTranslations } from "next-intl/server";
 
 const generateRegistrationOptionsSchema = v.object({
   email: emailString(),
@@ -32,6 +33,7 @@ export const generateRegistrationOptionsAction = actionClient
   .inputSchema(generateRegistrationOptionsSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
+      const t = await getTranslations("Client.Settings.Security");
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
@@ -41,12 +43,12 @@ export const generateRegistrationOptionsAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", "User not found");
+        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ActionError("FORBIDDEN", "You can only register passkeys for your own account");
+        throw new ActionError("FORBIDDEN", t("errorRegisterOwnAccount"));
       }
 
       // Check if user has reached the passkey limit
@@ -58,7 +60,7 @@ export const generateRegistrationOptionsAction = actionClient
       if (existingPasskeys.length >= 5) {
         throw new ActionError(
           "FORBIDDEN",
-          "You have reached the maximum limit of 5 passkeys"
+          t("errorPasskeyLimit", { limit: 5 })
         );
       }
 
@@ -86,6 +88,7 @@ export const verifyRegistrationAction = actionClient
   .inputSchema(verifyRegistrationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
+      const t = await getTranslations("Client.Settings.Security");
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
@@ -95,19 +98,19 @@ export const verifyRegistrationAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", "User not found");
+        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ActionError("FORBIDDEN", "You can only register passkeys for your own account");
+        throw new ActionError("FORBIDDEN", t("errorRegisterOwnAccount"));
       }
 
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME)?.value;
 
       if (!challenge) {
-        throw new ActionError("PRECONDITION_FAILED", "Invalid registration session");
+        throw new ActionError("PRECONDITION_FAILED", t("errorInvalidRegistrationSession"));
       }
 
       try {
@@ -125,7 +128,7 @@ export const verifyRegistrationAction = actionClient
           throw error;
         }
 
-        throw new ActionError("PRECONDITION_FAILED", "Failed to register passkey");
+        throw new ActionError("PRECONDITION_FAILED", t("errorRegisterFailed"));
       } finally {
         cookieStore.delete(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME);
       }
@@ -140,18 +143,19 @@ export const deletePasskeyAction = actionClient
   .inputSchema(deletePasskeySchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
+      const t = await getTranslations("Client.Settings.Security");
       const session = await requireVerifiedEmail();
       const userId = session?.user?.id;
 
       if (!userId) {
-        throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+        throw new ActionError("NOT_AUTHORIZED", t("errorNotAuthenticated"));
       }
 
       // Prevent deletion of the current passkey
       if (session?.passkeyCredentialId === input.credentialId) {
         throw new ActionError(
           "FORBIDDEN",
-          "Cannot delete the current passkey"
+          t("errorDeleteCurrentPasskey")
         );
       }
 
@@ -165,7 +169,7 @@ export const deletePasskeyAction = actionClient
       });
 
       if (!passkey) {
-        throw new ActionError("NOT_FOUND", "Passkey not found");
+        throw new ActionError("NOT_FOUND", t("errorPasskeyNotFound"));
       }
 
       // Get all user's passkeys
@@ -180,14 +184,14 @@ export const deletePasskeyAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", "User not found");
+        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
       }
 
       // Check if this is the last passkey and if the user has a password
       if (passkeys.length === 1 && !user.passwordHash) {
         throw new ActionError(
           "FORBIDDEN",
-          "Cannot delete the last passkey when no password is set"
+          t("errorDeleteLastPasskey")
         );
       }
 
@@ -231,11 +235,12 @@ export const verifyAuthenticationAction = actionClient
   .inputSchema(verifyAuthenticationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
+      const t = await getTranslations("Client.Settings.Security");
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME)?.value;
 
       if (!challenge) {
-        throw new ActionError("PRECONDITION_FAILED", "Invalid authentication session");
+        throw new ActionError("PRECONDITION_FAILED", t("errorInvalidAuthSession"));
       }
 
       try {
@@ -245,7 +250,7 @@ export const verifyAuthenticationAction = actionClient
         });
 
         if (!verification.verified) {
-          throw new ActionError("FORBIDDEN", "Passkey authentication failed");
+          throw new ActionError("FORBIDDEN", t("errorAuthFailed"));
         }
 
         await createAndStoreSession(credential.userId, "passkey", input.response.id);
@@ -255,7 +260,7 @@ export const verifyAuthenticationAction = actionClient
           throw error;
         }
 
-        throw new ActionError("FORBIDDEN", "Passkey authentication failed");
+        throw new ActionError("FORBIDDEN", t("errorAuthFailed"));
       } finally {
         cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
       }

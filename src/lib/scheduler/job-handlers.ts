@@ -43,7 +43,7 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
     case SCHEDULED_JOB_TYPES.EMAIL_SEND: {
       const payload = v.parse(emailSendJobPayloadSchema, message.payload);
 
-      await sendTransactionalEmailNow(renderTransactionalEmail(payload));
+      await sendTransactionalEmailNow(await renderTransactionalEmail(payload));
       return;
     }
   }

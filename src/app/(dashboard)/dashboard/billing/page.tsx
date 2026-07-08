@@ -6,6 +6,7 @@ import { CreditPackages } from "./_components/credit-packages";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import { CreditSystemDisabled } from "@/components/credit-system-disabled";
+import { getTranslations } from "next-intl/server";
 
 export default async function BillingPage() {
   const session = await getSessionFromCookie();
@@ -14,17 +15,19 @@ export default async function BillingPage() {
     redirect("/sign-in");
   }
 
+  const t = await getTranslations("Client.Dashboard.Billing");
+
   return (
     <>
       <PageHeader
         items={[
           {
             href: "/dashboard",
-            label: "Dashboard"
+            label: t("breadcrumbDashboard")
           },
           {
             href: "/dashboard/billing",
-            label: "Billing"
+            label: t("breadcrumbBilling")
           }
         ]}
       />

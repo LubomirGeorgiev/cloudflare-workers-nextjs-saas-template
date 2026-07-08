@@ -80,6 +80,7 @@ function createSession({ now }: { now: Date }) {
       role: "user",
       emailVerified: null,
       avatar: null,
+      preferredLocale: null,
       currentCredits: 0,
       lastCreditRefreshAt: null,
       createdAt: now,

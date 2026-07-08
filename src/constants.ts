@@ -16,6 +16,13 @@ export const AUTH_SESSION_PRESENT_COOKIE_NAME = "auth_session_present";
 export const GOOGLE_OAUTH_STATE_COOKIE_NAME = "google-oauth-state";
 export const GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME = "google-oauth-code-verifier";
 
+// Master switch for internationalization. When false, the app serves only the
+// default locale (English): the `/<locale>` prefixed routes, language switcher,
+// hreflang/alternate meta tags, per-locale sitemap entries, and Accept-Language
+// locale detection are all disabled. The next-intl translation layer still powers
+// UI strings from the default catalog, so single-language sites keep working.
+export const I18N_ENABLED = false;
+
 export const DISABLE_CREDIT_BILLING_SYSTEM = false;
 export const CREDIT_PACKAGES = [
   { id: "package-1", credits: 500, price: 5 },
@@ -28,7 +35,11 @@ export const FREE_MONTHLY_CREDITS = CREDIT_PACKAGES[0].credits * 0.1;
 export const MAX_TRANSACTIONS_PER_PAGE = 10;
 export const BLOG_POSTS_PER_PAGE = 12;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
-export const DEFAULT_AI_MODEL = '@cf/google/gemma-3-12b-it' as const satisfies keyof AiModels;
+// Llama 3.3 70B (fp8-fast): strong multilingual quality, ~700ms latency, and — unlike
+// the Gemma models — accessible on this account. Used for SEO descriptions and CMS
+// translation. Verify a replacement actually runs (some catalog models 504 or are
+// access-gated) before swapping.
+export const DEFAULT_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const satisfies keyof AiModels;
 
 // CMS Image Upload Configuration
 export const CMS_IMAGES_BASE_PATH = "cms-images" as const;

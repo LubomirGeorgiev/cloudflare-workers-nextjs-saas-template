@@ -1,4 +1,5 @@
 import { v } from "@/lib/validation";
+import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 
 export const SCHEDULED_JOB_TYPES = {
   CMS_PUBLISH_ENTRY: "cms.publish-entry",
@@ -18,6 +19,10 @@ export const EMAIL_TEMPLATE_TYPES = {
 
 const nonEmptyString = v.pipe(v.string(), v.minLength(1));
 
+// Small primitive, safe to carry on the queue payload — the consumer has no
+// request context, so it can't resolve locale itself (see renderTransactionalEmail).
+const emailLocaleSchema = v.optional(v.picklist(LOCALES), DEFAULT_LOCALE);
+
 export const cmsPublishEntryJobPayloadSchema = v.object({
   entryId: nonEmptyString,
 });
@@ -36,6 +41,7 @@ type CreditRefreshUserJobPayload = v.InferOutput<typeof creditRefreshUserJobPayl
 const passwordResetEmailJobPayloadSchema = v.object({
   to: nonEmptyString,
   template: v.literal(EMAIL_TEMPLATE_TYPES.PASSWORD_RESET),
+  locale: emailLocaleSchema,
   data: v.object({
     resetToken: nonEmptyString,
     username: nonEmptyString,
@@ -45,6 +51,7 @@ const passwordResetEmailJobPayloadSchema = v.object({
 const emailVerificationJobPayloadSchema = v.object({
   to: nonEmptyString,
   template: v.literal(EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION),
+  locale: emailLocaleSchema,
   data: v.object({
     verificationToken: nonEmptyString,
     username: nonEmptyString,
@@ -54,6 +61,7 @@ const emailVerificationJobPayloadSchema = v.object({
 const teamInvitationEmailJobPayloadSchema = v.object({
   to: nonEmptyString,
   template: v.literal(EMAIL_TEMPLATE_TYPES.TEAM_INVITATION),
+  locale: emailLocaleSchema,
   data: v.object({
     invitationToken: nonEmptyString,
     inviterName: nonEmptyString,

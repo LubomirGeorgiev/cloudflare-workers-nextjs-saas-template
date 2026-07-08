@@ -1,7 +1,8 @@
 import "server-only";
 
 import { cache } from "react";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
+import type { SelectedFields } from "drizzle-orm/sqlite-core";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getDB } from "@/db";
@@ -18,26 +19,89 @@ import {
   getCmsCollectionParamsSchema,
   getCmsEntryByIdParamsSchema,
   getCmsEntryBySlugParamsSchema,
+  getEntryLocalesForSlugsParamsSchema,
+  getEntryLocalesParamsSchema,
 } from "@/lib/cms/entry/schemas";
 import type {
+  CmsCollectionListItem,
+  CmsEntryLocaleSibling,
   GetCmsCollectionCountParams,
   GetCmsCollectionParams,
   GetCmsCollectionResult,
   GetCmsEntryByIdParams,
   GetCmsEntryBySlugParams,
   GetCmsEntryBySlugResult,
+  GetEntryLocalesForSlugsParams,
+  GetEntryLocalesParams,
 } from "@/lib/cms/entry/types";
+import {
+  computeEntryTranslatableHashes,
+  computeStaleFields,
+} from "@/lib/cms/translation-staleness";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
-import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
+import type { JSONContent } from "@tiptap/core";
+import {
+  CMS_STATUS_FILTER_ALL,
+  isCmsEntryStatus,
+  type CmsStatusFilter,
+  type SourceContentHashes,
+} from "@/types/cms";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
+
+function resolveCollectionOrThrow(collectionSlug: string) {
+  const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
+  if (!collection) {
+    throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
+  }
+
+  return collection;
+}
+
+// Shared read for an entry's "locale group" — the rows that share a collection +
+// slug and differ only by locale (i.e. one entry's translation siblings). Callers
+// pick the columns and whether to dedupe; this centralizes the collection guard
+// and the collection+slug WHERE clause so the three locale-group readers can't
+// drift apart.
+async function selectEntryGroupRows<TColumns extends SelectedFields>({
+  collectionSlug,
+  slugs,
+  columns,
+  distinct = false,
+}: {
+  collectionSlug: string;
+  slugs: string[];
+  columns: TColumns;
+  distinct?: boolean;
+}) {
+  const collection = resolveCollectionOrThrow(collectionSlug);
+  const db = getDB();
+  // Single slug uses `=` rather than `IN (…)` so the common one-entry lookup hits
+  // a plain equality condition; `inArray` only when a batch of slugs is passed.
+  const slugCondition = slugs.length === 1
+    ? eq(cmsEntryTable.slug, slugs[0]!)
+    : inArray(cmsEntryTable.slug, slugs);
+  const query = distinct
+    ? db.selectDistinct(columns)
+    : db.select(columns);
+
+  return query
+    .from(cmsEntryTable)
+    .where(and(
+      eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
+      slugCondition,
+    ));
+}
 
 async function getCachedCmsCollection(
   collectionSlug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
+  locale: string,
+  allLocales: boolean,
   limit?: number,
   offset?: number,
-): Promise<GetCmsCollectionResult[]> {
+): Promise<CmsCollectionListItem[]> {
   "use cache: remote";
   setCacheScope({
     tags: [
@@ -59,7 +123,19 @@ async function getCachedCmsCollection(
   const entries = await db.query.cmsEntryTable.findMany({
     where: {
       collection: collection.slug as CollectionsUnion,
+      // Admin listing opts into every locale's rows via `allLocales`; every
+      // other (public) caller stays locale-filtered by omitting it, which
+      // defaults to false here.
+      ...(allLocales ? {} : { locale }),
       ...statusCondition,
+    },
+    // No list/collection caller renders the entry body, so exclude the large
+    // `content` and `fields` JSON columns from the projection. Multiplied by N
+    // locale rows per entry, streaming these was the dominant cost on the nav
+    // tree + admin table + blog listings. Single-entry reads keep the full row.
+    columns: {
+      content: false,
+      fields: false,
     },
     orderBy: { createdAt: "desc" },
     limit,
@@ -67,18 +143,20 @@ async function getCachedCmsCollection(
     with: buildCmsRelationsQuery(includeRelations),
   });
 
-  return entries.map((entry) => withFeaturedImageUrl(entry as GetCmsCollectionResult));
+  return entries.map((entry) => withFeaturedImageUrl(entry as CmsCollectionListItem));
 }
 
 export function getCmsCollection<T extends CollectionsUnion>(
   params: GetCmsCollectionParams<T>
-): Promise<GetCmsCollectionResult[]> {
+): Promise<CmsCollectionListItem[]> {
   const validated = v.parse(getCmsCollectionParamsSchema, params);
 
   return getCachedCmsCollection(
     validated.collectionSlug,
     validated.status,
     serializeCmsIncludeRelations(validated.includeRelations),
+    validated.locale,
+    validated.allLocales,
     validated.limit,
     validated.offset,
   );
@@ -87,6 +165,8 @@ export function getCmsCollection<T extends CollectionsUnion>(
 async function getCachedCmsCollectionCount(
   collectionSlug: string,
   status: CmsStatusFilter,
+  locale: string,
+  allLocales: boolean,
 ): Promise<number> {
   "use cache: remote";
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
@@ -105,6 +185,12 @@ async function getCachedCmsCollectionCount(
   const whereConditions = [
     eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
   ];
+
+  // Admin listing opts into every locale's rows via `allLocales`; every other
+  // (public) caller stays locale-filtered.
+  if (!allLocales) {
+    whereConditions.push(eq(cmsEntryTable.locale, locale));
+  }
 
   const statusCondition = status === CMS_STATUS_FILTER_ALL
     ? undefined
@@ -126,10 +212,17 @@ export function getCmsCollectionCount<T extends CollectionsUnion>(
 ): Promise<number> {
   const validated = v.parse(getCmsCollectionCountParamsSchema, params);
 
-  return getCachedCmsCollectionCount(validated.collectionSlug, validated.status);
+  return getCachedCmsCollectionCount(
+    validated.collectionSlug,
+    validated.status,
+    validated.locale,
+    validated.allLocales,
+  );
 }
 
-const getCachedCmsEntryById = cache(async (
+// Request-scoped dedup only (React cache), not the remote persistent cache its
+// siblings use: callers are admin edit + mutations that must read fresh DB state.
+const getFreshCmsEntryById = cache(async (
   id: string,
   includeRelationsKey: string,
 ): Promise<GetCmsCollectionResult | null> => {
@@ -152,7 +245,7 @@ const getCachedCmsEntryById = cache(async (
 export function getCmsEntryById(params: GetCmsEntryByIdParams): Promise<GetCmsCollectionResult | null> {
   const validated = v.parse(getCmsEntryByIdParamsSchema, params);
 
-  return getCachedCmsEntryById(
+  return getFreshCmsEntryById(
     validated.id,
     serializeCmsIncludeRelations(validated.includeRelations),
   );
@@ -163,6 +256,7 @@ async function getCachedCmsEntryBySlug(
   slug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
+  locale: string,
 ): Promise<GetCmsEntryBySlugResult | null> {
   "use cache: remote";
   const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
@@ -189,6 +283,7 @@ async function getCachedCmsEntryBySlug(
     where: {
       collection: collection.slug as CollectionsUnion,
       slug,
+      locale,
       ...statusCondition,
     },
     with: buildCmsRelationsQuery(includeRelations),
@@ -211,6 +306,7 @@ export async function getCmsEntryBySlug<T extends CollectionsUnion>(
     validated.slug,
     validated.status,
     serializeCmsIncludeRelations(validated.includeRelations),
+    validated.locale,
   );
 
   if (!cachedEntry) {
@@ -218,4 +314,134 @@ export async function getCmsEntryBySlug<T extends CollectionsUnion>(
   }
 
   return cachedEntry;
+}
+
+async function getCachedEntryLocales(
+  collectionSlug: string,
+  slug: string,
+): Promise<string[]> {
+  "use cache: remote";
+  const collection = resolveCollectionOrThrow(collectionSlug);
+
+  setCacheScope({
+    tags: [
+      CACHE_TAGS.cmsEntry({
+        collectionSlug: collection.slug,
+        slug,
+      }),
+    ],
+    ttl: "7 days",
+  });
+
+  const rows = await selectEntryGroupRows({
+    collectionSlug,
+    slugs: [slug],
+    columns: { locale: cmsEntryTable.locale },
+    distinct: true,
+  });
+
+  return rows.map((row) => row.locale);
+}
+
+// Returns every locale that has a row for this (collection, slug) translation group.
+// Used later (hreflang) to know which alternate-language links are valid to render.
+export function getEntryLocales(params: GetEntryLocalesParams): Promise<string[]> {
+  const validated = v.parse(getEntryLocalesParamsSchema, params);
+
+  return getCachedEntryLocales(validated.collectionSlug, validated.slug);
+}
+
+// Returns each locale row (id + locale + status) for a (collection, slug) group,
+// so the editor locale switcher can link to existing siblings and offer to create
+// missing ones. Not cached — the editor must see a just-created sibling immediately.
+export async function getEntryLocaleSiblings(
+  params: GetEntryLocalesParams
+): Promise<CmsEntryLocaleSibling[]> {
+  const validated = v.parse(getEntryLocalesParamsSchema, params);
+
+  const rows = await selectEntryGroupRows({
+    collectionSlug: validated.collectionSlug,
+    slugs: [validated.slug],
+    columns: {
+      id: cmsEntryTable.id,
+      locale: cmsEntryTable.locale,
+      status: cmsEntryTable.status,
+      title: cmsEntryTable.title,
+      seoDescription: cmsEntryTable.seoDescription,
+      content: cmsEntryTable.content,
+      sourceContentHashes: cmsEntryTable.sourceContentHashes,
+    },
+  });
+
+  // The default-locale row is the canonical source; a translation is stale when its
+  // captured source-hash snapshot no longer matches this row's live hashes. Hash it
+  // once for the whole group. No default row (a translation without its base) → no
+  // staleness is reported.
+  const sourceRow = rows.find((row) => row.locale === DEFAULT_LOCALE);
+  const sourceHashes = sourceRow
+    ? computeEntryTranslatableHashes({
+        title: sourceRow.title,
+        seoDescription: sourceRow.seoDescription,
+        content: sourceRow.content as JSONContent,
+      })
+    : null;
+
+  // Drop rows whose locale/status aren't in the known sets: a de-served or legacy
+  // value must not be offered by the switcher as a valid sibling to link to.
+  return rows.flatMap((row) => {
+    if (!isLocale(row.locale) || !isCmsEntryStatus(row.status)) {
+      return [];
+    }
+    const staleFields =
+      sourceHashes && row.locale !== DEFAULT_LOCALE
+        ? computeStaleFields({
+            snapshot: row.sourceContentHashes as SourceContentHashes | null,
+            current: sourceHashes,
+          })
+        : [];
+    return [
+      {
+        id: row.id,
+        locale: row.locale,
+        status: row.status,
+        isStale: staleFields.length > 0,
+        staleFields,
+      },
+    ];
+  });
+}
+
+// Returns the locales present per slug for a set of slugs in one collection, as a
+// Map<slug, Set<locale>>. Powers the admin table's per-row "missing translation"
+// indicator without an extra query per row.
+export async function getEntryLocalesForSlugs(
+  params: GetEntryLocalesForSlugsParams
+): Promise<Map<string, Set<Locale>>> {
+  const validated = v.parse(getEntryLocalesForSlugsParamsSchema, params);
+
+  const coverage = new Map<string, Set<Locale>>();
+  if (validated.slugs.length === 0) {
+    return coverage;
+  }
+
+  const rows = await selectEntryGroupRows({
+    collectionSlug: validated.collectionSlug,
+    slugs: validated.slugs,
+    columns: {
+      slug: cmsEntryTable.slug,
+      locale: cmsEntryTable.locale,
+    },
+    distinct: true,
+  });
+
+  for (const row of rows) {
+    if (!isLocale(row.locale)) {
+      continue;
+    }
+    const existing = coverage.get(row.slug) ?? new Set<Locale>();
+    existing.add(row.locale);
+    coverage.set(row.slug, existing);
+  }
+
+  return coverage;
 }

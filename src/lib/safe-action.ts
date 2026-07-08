@@ -1,7 +1,9 @@
 import "server-only";
 
 import { createSafeActionClient } from "next-safe-action";
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
+import { translateValidationKey } from "@/lib/validation-messages";
 import { RateLimitError } from "@/utils/with-rate-limit";
 
 const baseActionClient = createSafeActionClient({
@@ -34,7 +36,7 @@ export const actionClient = baseActionClient.use(async ({ next }) => {
   if (typeof result.validationErrors !== "undefined") {
     result.serverError = {
       code: "INPUT_PARSE_ERROR",
-      message: getValidationErrorMessage(result.validationErrors),
+      message: await getValidationErrorMessage(result.validationErrors),
     };
     result.validationErrors = undefined;
   }
@@ -42,10 +44,18 @@ export const actionClient = baseActionClient.use(async ({ next }) => {
   return result;
 });
 
-function getValidationErrorMessage(validationErrors: unknown): string {
+async function getValidationErrorMessage(validationErrors: unknown): Promise<string> {
   const messages = collectValidationMessages(validationErrors);
 
-  return messages.length > 0 ? messages.join(" ") : "Invalid input";
+  if (messages.length === 0) {
+    return "Invalid input";
+  }
+
+  // Valibot messages set via src/lib/validation.ts are stable `Validation.*` keys;
+  // translate them here since this runs server-side before the message reaches the
+  // client toast. Non-keyed (custom inline) schema messages pass through unchanged.
+  const t = await getTranslations("Client.Validation");
+  return messages.map((message) => translateValidationKey(t, message)).join(" ");
 }
 
 function collectValidationMessages(value: unknown): string[] {

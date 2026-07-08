@@ -13,8 +13,9 @@ import { toast } from "sonner";
 import { confirmPayment } from "@/actions/credits.action";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/components/ui/card";
-import { getPackageIcon } from "./credit-packages";
+import { getCreditPackageIcon } from "./credit-package-icon";
 import { CREDITS_EXPIRATION_YEARS } from "@/constants";
+import { useTranslations } from "next-intl";
 
 interface StripePaymentFormProps {
   packageId: string;
@@ -29,6 +30,7 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
+  const t = useTranslations("Client.Dashboard.Billing");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +48,7 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
       });
 
       if (error) {
-        toast.error(error.message || "Payment failed");
+        toast.error(error.message || t("paymentFailed"));
       } else {
         // The payment was successful
         const paymentIntent = await stripe.retrievePaymentIntent(clientSecret);
@@ -61,18 +63,18 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
           }
 
           if (data?.success) {
-            toast.success("Payment successful!");
+            toast.success(t("paymentSuccessful"));
             onSuccess();
           } else {
-            toast.error("Payment failed");
+            toast.error(t("paymentFailed"));
           }
         } else {
-          throw new Error("No payment intent found");
+          throw new Error(t("errorNoPaymentIntent"));
         }
       }
     } catch (error) {
       console.error("Payment error:", error);
-      toast.error(error instanceof Error ? error.message : "An unexpected error occurred");
+      toast.error(error instanceof Error ? error.message : t("errorUnexpected"));
     } finally {
       setIsProcessing(false);
     }
@@ -85,10 +87,10 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
           <div className="flex flex-col space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                {getPackageIcon(credits)}
+                {getCreditPackageIcon(packageId)}
                 <div>
                   <div className="text-2xl font-bold">
-                    {credits.toLocaleString()} credits
+                    {t("creditsCount", { count: credits })}
                   </div>
                 </div>
               </div>
@@ -99,13 +101,13 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
             <div className="h-px bg-border" />
             <div className="text-xs text-muted-foreground space-y-2">
               <p>
-                Your payment is secure and encrypted. We use Stripe, a trusted global payment provider, to process your payment.
+                {t("securePaymentInfo")}
               </p>
               <p>
-                For your security, your payment details are handled directly by Stripe and never touch our servers.
+                {t("paymentDetailsInfo")}
               </p>
               <p>
-                Credits will be added to your account immediately after successful payment and will be valid for {CREDITS_EXPIRATION_YEARS} years from the purchase date.
+                {t("creditsValidityInfo", { years: CREDITS_EXPIRATION_YEARS })}
               </p>
             </div>
           </div>
@@ -121,14 +123,14 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
             onClick={onCancel}
             disabled={isProcessing}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button
             type="submit"
             disabled={isProcessing || !stripe || !elements}
             className="px-8"
           >
-            {isProcessing ? "Processing..." : "Pay Now"}
+            {isProcessing ? t("processing") : t("payNow")}
           </Button>
         </div>
       </form>
