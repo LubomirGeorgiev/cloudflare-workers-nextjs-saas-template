@@ -185,9 +185,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   })
 
-  // Static routes. `alternates.languages` is added only for routes translated AND
-  // indexable in every locale; blog/docs stay out while their `/es/*` pages are
-  // `noindex` — advertising es alternates would be dishonest hreflang.
+  // Static + blog-listing routes are translated and indexable in every locale, so
+  // they advertise full hreflang via `localizedSitemapAlternates`. Individual blog
+  // posts and docs pages instead scope their alternates to the locales they are
+  // actually translated in (`entryAlternates`), because untranslated `/es/*`
+  // renders fall back to English and are `noindex`.
   const staticRoutes = [
     {
       url: SITE_URL,
@@ -219,30 +221,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: new Date(),
         changeFrequency: 'daily' as const,
         priority: 0.8,
+        alternates: { languages: localizedSitemapAlternates("/blog") },
       },
       {
         url: `${SITE_URL}/blog/tags`,
         lastModified: new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.6,
+        alternates: { languages: localizedSitemapAlternates("/blog/tags") },
       },
       {
         url: `${SITE_URL}/blog/authors`,
         lastModified: new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.6,
+        alternates: { languages: localizedSitemapAlternates("/blog/authors") },
       },
       ...Array.from(uniqueTags).map(tagSlug => ({
         url: `${SITE_URL}/blog/tags/${tagSlug}`,
         lastModified: new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.5,
+        alternates: { languages: localizedSitemapAlternates(`/blog/tags/${tagSlug}`) },
       })),
       ...Array.from(uniqueAuthors.values()).map(author => ({
         url: `${SITE_URL}/blog/authors/${getAuthorRouteParam(author)}`,
         lastModified: new Date(),
         changeFrequency: 'weekly' as const,
         priority: 0.5,
+        alternates: { languages: localizedSitemapAlternates(`/blog/authors/${getAuthorRouteParam(author)}`) },
       })),
     ]
     : []

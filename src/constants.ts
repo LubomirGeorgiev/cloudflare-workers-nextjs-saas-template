@@ -21,7 +21,7 @@ export const GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME = "google-oauth-code-verifie
 // hreflang/alternate meta tags, per-locale sitemap entries, and Accept-Language
 // locale detection are all disabled. The next-intl translation layer still powers
 // UI strings from the default catalog, so single-language sites keep working.
-export const I18N_ENABLED = false;
+export const I18N_ENABLED = true;
 
 export const DISABLE_CREDIT_BILLING_SYSTEM = false;
 export const CREDIT_PACKAGES = [

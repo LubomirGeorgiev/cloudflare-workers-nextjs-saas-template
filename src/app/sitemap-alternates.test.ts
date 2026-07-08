@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { I18N_ENABLED, SITE_URL } from "@/constants";
-import { LOCALES } from "@/i18n/config";
+import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
 
@@ -22,10 +22,24 @@ const { localizedSitemapAlternates, entryAlternates } = await import("./sitemap-
 // with the flag off they collapse to an empty map (single canonical URL). Guard the
 // enabled-behavior suites on the flag and cover the disabled collapse separately.
 describe.skipIf(!I18N_ENABLED)("localizedSitemapAlternates", () => {
-  test("returns one URL per LOCALES member", () => {
+  test("returns one URL per LOCALES member plus x-default", () => {
     const languages = localizedSitemapAlternates("/privacy");
 
-    expect(Object.keys(languages).sort()).toEqual([...LOCALES].sort());
+    expect(Object.keys(languages).sort()).toEqual([...LOCALES, "x-default"].sort());
+  });
+
+  test("x-default points at the default-locale URL", () => {
+    const languages = localizedSitemapAlternates("/privacy");
+
+    expect(languages["x-default"]).toBe(languages[DEFAULT_LOCALE]);
+  });
+
+  test("blog listing paths advertise every locale plus x-default", () => {
+    for (const pathname of ["/blog", "/blog/authors", "/blog/tags"]) {
+      const languages = localizedSitemapAlternates(pathname);
+
+      expect(Object.keys(languages).sort()).toEqual([...LOCALES, "x-default"].sort());
+    }
   });
 
   test("every URL is absolute, rooted at SITE_URL's origin", () => {
@@ -53,20 +67,22 @@ describe.skipIf(!I18N_ENABLED)("localizedSitemapAlternates", () => {
 });
 
 describe("entryAlternates", () => {
-  test.skipIf(!I18N_ENABLED)("given locales ['en', 'es'] returns both URLs", () => {
+  test.skipIf(!I18N_ENABLED)("given locales ['en', 'es'] returns both URLs plus x-default", () => {
     const languages = entryAlternates("/blog/hello-world", ["en", "es"]);
 
     expect(languages).toEqual({
       en: `${SITE_URL}/blog/hello-world`,
       es: `${SITE_URL}/es/blog/hello-world`,
+      "x-default": `${SITE_URL}/blog/hello-world`,
     });
   });
 
-  test.skipIf(!I18N_ENABLED)("given locales ['en'] returns only the bare URL", () => {
+  test.skipIf(!I18N_ENABLED)("given locales ['en'] returns the bare URL plus x-default", () => {
     const languages = entryAlternates("/blog/hello-world", ["en"]);
 
     expect(languages).toEqual({
       en: `${SITE_URL}/blog/hello-world`,
+      "x-default": `${SITE_URL}/blog/hello-world`,
     });
   });
 
@@ -75,10 +91,11 @@ describe("entryAlternates", () => {
 
     expect(languages).toEqual({
       en: `${SITE_URL}/blog/hello-world`,
+      "x-default": `${SITE_URL}/blog/hello-world`,
     });
   });
 
-  test("returns an empty object when given no locales", () => {
+  test("returns an empty object when given no locales (no lone x-default)", () => {
     const languages = entryAlternates("/blog/hello-world", []);
 
     expect(languages).toEqual({});
