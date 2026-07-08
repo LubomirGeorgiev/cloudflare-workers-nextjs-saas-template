@@ -54,7 +54,7 @@ import {
   computeEntryTranslatableHashes,
   computeStaleFields,
 } from "@/lib/cms/translation-staleness";
-import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 import type { SourceContentHashes } from "@/types/cms";
 import { requiredString, v } from "@/lib/validation";
 
@@ -613,12 +613,20 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
     return snapshotSourceContentHashes(id, currentHashes);
   }
 
+  // `locale` is a raw text column, so narrow it at runtime rather than trusting an
+  // `as` cast: a row whose locale left the catalog (removed from LOCALES, or hand-inserted)
+  // must fail loudly instead of firing a mis-targeted translation request.
+  const targetLocale = translationEntry.locale;
+  if (!isLocale(targetLocale)) {
+    throw new Error(`Translation entry "${id}" has an unsupported locale: "${targetLocale}"`);
+  }
+
   const translated = await translateEntryFields({
     title: sourceEntry.title,
     seoDescription: sourceEntry.seoDescription,
     content: sourceEntry.content as JSONContent,
-    sourceLocale: sourceEntry.locale as Locale,
-    targetLocale: translationEntry.locale as Locale,
+    sourceLocale: DEFAULT_LOCALE,
+    targetLocale,
     only: staleFields,
   });
 
