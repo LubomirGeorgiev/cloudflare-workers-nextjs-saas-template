@@ -34,6 +34,7 @@ export const generateRegistrationOptionsAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const t = await getTranslations("Client.Settings.Security");
+      const tErrors = await getTranslations("Client.Errors");
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
@@ -43,7 +44,7 @@ export const generateRegistrationOptionsAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
+        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
       }
 
       // Verify the email matches the logged-in user
@@ -89,6 +90,7 @@ export const verifyRegistrationAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const t = await getTranslations("Client.Settings.Security");
+      const tErrors = await getTranslations("Client.Errors");
       // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
@@ -98,7 +100,7 @@ export const verifyRegistrationAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
+        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
       }
 
       // Verify the email matches the logged-in user
@@ -144,11 +146,12 @@ export const deletePasskeyAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       const t = await getTranslations("Client.Settings.Security");
+      const tErrors = await getTranslations("Client.Errors");
       const session = await requireVerifiedEmail();
       const userId = session?.user?.id;
 
       if (!userId) {
-        throw new ActionError("NOT_AUTHORIZED", t("errorNotAuthenticated"));
+        throw new ActionError("NOT_AUTHORIZED", tErrors("notAuthenticated"));
       }
 
       // Prevent deletion of the current passkey
@@ -184,7 +187,7 @@ export const deletePasskeyAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", t("errorUserNotFound"));
+        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
       }
 
       // Check if this is the last passkey and if the user has a password

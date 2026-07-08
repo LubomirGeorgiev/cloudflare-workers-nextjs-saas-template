@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
@@ -16,6 +17,8 @@ export const resetPasswordAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.ResetPassword");
+        const tErrors = await getTranslations("Client.Errors");
         const db = getDB();
 
         try {
@@ -24,11 +27,11 @@ export const resetPasswordAction = actionClient
             key: getResetTokenKey,
             notFoundError: {
               code: "NOT_FOUND",
-              message: "Invalid or expired reset token",
+              message: t("errorInvalidToken"),
             },
             expiredError: {
               code: "PRECONDITION_FAILED",
-              message: "Reset token has expired",
+              message: t("errorTokenExpired"),
             },
           });
 
@@ -40,7 +43,7 @@ export const resetPasswordAction = actionClient
           if (!user) {
             throw new ActionError(
               "NOT_FOUND",
-              "User not found"
+              tErrors("userNotFound")
             );
           }
 
@@ -66,7 +69,7 @@ export const resetPasswordAction = actionClient
 
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "An unexpected error occurred"
+            tErrors("unexpected")
           );
         }
       },

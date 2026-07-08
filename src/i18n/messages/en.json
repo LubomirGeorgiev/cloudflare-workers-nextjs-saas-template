@@ -28,7 +28,10 @@
         "signUpWithGoogle": "Sign up with Google",
         "backToSignIn": "Back to sign in",
         "backToLogin": "Back to login",
-        "genericError": "Something went wrong"
+        "genericError": "Something went wrong",
+        "errorCaptcha": "Please complete the captcha",
+        "errorEmailAlreadyVerified": "Email is already verified",
+        "errorCreateUser": "Failed to create user"
       },
       "SignIn": {
         "meta": {
@@ -48,7 +51,10 @@
         "toastPasskeyAuthError": "Authentication failed",
         "toastAuthSuccess": "Authentication successful",
         "toastSigningIn": "Signing you in...",
-        "toastSignInSuccess": "Signed in successfully"
+        "toastSignInSuccess": "Signed in successfully",
+        "errorInvalidCredentials": "Invalid email or password",
+        "errorUseGoogle": "Please sign in with your Google account instead.",
+        "errorUsePasskey": "Please sign in with your passkey instead."
       },
       "SignUp": {
         "meta": {
@@ -74,7 +80,12 @@
         "toastAccountCreated": "Account created successfully",
         "toastStartingPasskeyRegistration": "Starting passkey registration...",
         "toastPasskeyRegistrationFailed": "Failed to start passkey registration",
-        "toastPasskeyRegistrationError": "Failed to register passkey"
+        "toastPasskeyRegistrationError": "Failed to register passkey",
+        "errorEmailTaken": "Email already taken",
+        "errorCreateSession": "Failed to create session after signup",
+        "errorAccountExists": "An account with this email already exists",
+        "errorInvalidRegistrationSession": "Invalid registration session",
+        "errorRegisterFailed": "Failed to register passkey"
       },
       "ForgotPassword": {
         "meta": {
@@ -108,7 +119,9 @@
         "toastResetSuccess": "Password reset successfully",
         "invalidLinkTitle": "Invalid Reset Link",
         "invalidLinkDescription": "This password reset link is invalid or has expired. Please request a new one.",
-        "requestNewLink": "Request New Reset Link"
+        "requestNewLink": "Request New Reset Link",
+        "errorInvalidToken": "Invalid or expired reset token",
+        "errorTokenExpired": "Reset token has expired"
       },
       "VerifyEmail": {
         "meta": {
@@ -130,7 +143,8 @@
         "toastVerifying": "Verifying your email...",
         "toastVerifySuccess": "Email verified successfully",
         "toastVerifyFailed": "Failed to verify email",
-        "toastInvalidToken": "Invalid verification token"
+        "toastInvalidToken": "Invalid verification token",
+        "errorTokenNotFound": "Verification token not found or expired"
       },
       "TeamInvite": {
         "meta": {
@@ -156,7 +170,9 @@
         "toastProcessing": "Processing your invitation...",
         "toastAcceptError": "Failed to accept team invitation",
         "toastAcceptSuccess": "You've successfully joined the team!",
-        "toastInvalidToken": "Invalid invitation token"
+        "toastInvalidToken": "Invalid invitation token",
+        "errorMustBeLoggedIn": "You must be logged in to accept an invitation",
+        "errorUnexpected": "An unexpected error occurred while accepting the invitation"
       },
       "GoogleCallback": {
         "meta": {
@@ -171,7 +187,11 @@
         "invalidCallbackDescription": "The sign in callback is invalid or has expired. Please try signing in again.",
         "toastSigningIn": "Signing you in with Google...",
         "toastSignInSuccess": "Signed in successfully",
-        "toastInvalidParams": "Invalid callback parameters"
+        "toastInvalidParams": "Invalid callback parameters",
+        "errorNotEnabled": "Google SSO is not enabled",
+        "errorMissingCookies": "Missing required cookies",
+        "errorInvalidState": "Invalid state parameter",
+        "errorInvalidCode": "Invalid authorization code"
       }
     },
     "Docs": {
@@ -504,7 +524,6 @@
         "paymentFailed": "Payment failed",
         "paymentSuccessful": "Payment successful!",
         "errorNoPaymentIntent": "No payment intent found",
-        "errorUnexpected": "An unexpected error occurred",
         "transactionHistoryTitle": "Transaction History",
         "columnDate": "Date",
         "columnType": "Type",
@@ -584,12 +603,10 @@
         "toastOptionsError": "Failed to get registration options",
         "toastDeleteSuccess": "Passkey deleted",
         "toastDeleteError": "Failed to delete passkey",
-        "errorUserNotFound": "User not found",
         "errorRegisterOwnAccount": "You can only register passkeys for your own account",
         "errorPasskeyLimit": "You have reached the maximum limit of {limit} passkeys",
         "errorInvalidRegistrationSession": "Invalid registration session",
         "errorRegisterFailed": "Failed to register passkey",
-        "errorNotAuthenticated": "Not authenticated",
         "errorDeleteCurrentPasskey": "Cannot delete the current passkey",
         "errorPasskeyNotFound": "Passkey not found",
         "errorDeleteLastPasskey": "Cannot delete the last passkey when no password is set",
@@ -615,9 +632,13 @@
         "cancel": "Cancel",
         "toastDeleteSuccess": "Session deleted",
         "toastDeleteError": "Failed to delete session",
-        "errorUnauthorized": "Unauthorized",
-        "errorNotAuthenticated": "Not authenticated"
+        "errorUnauthorized": "Unauthorized"
       }
+    },
+    "Errors": {
+      "unexpected": "An unexpected error occurred",
+      "notAuthenticated": "Not authenticated",
+      "userNotFound": "User not found"
     }
   },
   "Legal": {

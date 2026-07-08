@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@/utils/webauthn";
@@ -25,11 +26,14 @@ export const startPasskeyRegistrationAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.SignUp");
+        const tCommon = await getTranslations("Client.Auth.Common");
+
         if (await isTurnstileEnabled()) {
           if (!input.captchaToken) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
 
@@ -38,7 +42,7 @@ export const startPasskeyRegistrationAction = actionClient
           if (!success) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
         }
@@ -55,7 +59,7 @@ export const startPasskeyRegistrationAction = actionClient
         if (existingUser) {
           throw new ActionError(
             "CONFLICT",
-            "An account with this email already exists"
+            t("errorAccountExists")
           );
         }
 
@@ -73,7 +77,7 @@ export const startPasskeyRegistrationAction = actionClient
         if (!user) {
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "Failed to create user"
+            tCommon("errorCreateUser")
           );
         }
 
@@ -128,6 +132,8 @@ const completePasskeyRegistrationSchema = v.object({
 export const completePasskeyRegistrationAction = actionClient
   .inputSchema(completePasskeyRegistrationSchema)
   .action(async ({ parsedInput: input }) => {
+    const t = await getTranslations("Client.Auth.SignUp");
+    const tErrors = await getTranslations("Client.Errors");
     const cookieStore = await cookies();
     const challenge = cookieStore.get(PASSKEY_CHALLENGE_COOKIE_NAME)?.value;
     const userId = cookieStore.get(PASSKEY_USER_ID_COOKIE_NAME)?.value;
@@ -135,7 +141,7 @@ export const completePasskeyRegistrationAction = actionClient
     if (!challenge || !userId) {
       throw new ActionError(
         "PRECONDITION_FAILED",
-        "Invalid registration session"
+        t("errorInvalidRegistrationSession")
       );
     }
 
@@ -158,7 +164,7 @@ export const completePasskeyRegistrationAction = actionClient
       if (!user || !user.email) {
         throw new ActionError(
           "INTERNAL_SERVER_ERROR",
-          "User not found"
+          tErrors("userNotFound")
         );
       }
 
@@ -179,7 +185,7 @@ export const completePasskeyRegistrationAction = actionClient
       console.error("Failed to register passkey:", error);
       throw new ActionError(
         "PRECONDITION_FAILED",
-        "Failed to register passkey"
+        t("errorRegisterFailed")
       );
     }
   });

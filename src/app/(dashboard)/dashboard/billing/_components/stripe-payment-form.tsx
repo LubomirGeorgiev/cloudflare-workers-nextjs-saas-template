@@ -31,6 +31,7 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const t = useTranslations("Client.Dashboard.Billing");
+  const tErrors = useTranslations("Client.Errors");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +75,7 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
       }
     } catch (error) {
       console.error("Payment error:", error);
-      toast.error(error instanceof Error ? error.message : t("errorUnexpected"));
+      toast.error(error instanceof Error ? error.message : tErrors("unexpected"));
     } finally {
       setIsProcessing(false);
     }

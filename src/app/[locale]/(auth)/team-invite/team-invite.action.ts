@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
@@ -13,13 +14,14 @@ export const acceptTeamInviteAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.TeamInvite");
         // Check if user is logged in
         const session = await getSessionFromCookie();
 
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            "You must be logged in to accept an invitation"
+            t("errorMustBeLoggedIn")
           );
         }
 
@@ -35,7 +37,7 @@ export const acceptTeamInviteAction = actionClient
 
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "An unexpected error occurred while accepting the invitation"
+            t("errorUnexpected")
           );
         }
       },

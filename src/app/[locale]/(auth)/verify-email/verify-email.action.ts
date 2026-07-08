@@ -1,6 +1,7 @@
 "use server";
 
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
@@ -17,12 +18,14 @@ export const verifyEmailAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.VerifyEmail");
+        const tErrors = await getTranslations("Client.Errors");
         const verificationToken = await getValidExpiringToken({
           token: input.token,
           key: getVerificationTokenKey,
           notFoundError: {
             code: "NOT_FOUND",
-            message: "Verification token not found or expired",
+            message: t("errorTokenNotFound"),
           },
         });
 
@@ -36,7 +39,7 @@ export const verifyEmailAction = actionClient
         if (!user) {
           throw new ActionError(
             "NOT_FOUND",
-            "User not found"
+            tErrors("userNotFound")
           );
         }
 
@@ -61,7 +64,7 @@ export const verifyEmailAction = actionClient
 
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "An unexpected error occurred"
+            tErrors("unexpected")
           );
         }
       },

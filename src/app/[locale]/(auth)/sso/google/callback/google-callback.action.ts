@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
@@ -56,10 +57,13 @@ export const googleSSOCallbackAction = actionClient
   .inputSchema(googleSSOCallbackSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
+      const t = await getTranslations("Client.Auth.GoogleCallback");
+      const tErrors = await getTranslations("Client.Errors");
+
       if (!(await isGoogleSSOEnabled())) {
         throw new ActionError(
           "FORBIDDEN",
-          "Google SSO is not enabled"
+          t("errorNotEnabled")
         );
       }
 
@@ -70,14 +74,14 @@ export const googleSSOCallbackAction = actionClient
       if (!cookieState || !cookieCodeVerifier) {
         throw new ActionError(
           "NOT_AUTHORIZED",
-          "Missing required cookies"
+          t("errorMissingCookies")
         );
       }
 
       if (input.state !== cookieState) {
         throw new ActionError(
           "NOT_AUTHORIZED",
-          "Invalid state parameter"
+          t("errorInvalidState")
         );
       }
 
@@ -89,7 +93,7 @@ export const googleSSOCallbackAction = actionClient
         console.error("Google OAuth callback: Error validating authorization code", error);
         throw new ActionError(
           "NOT_AUTHORIZED",
-          "Invalid authorization code"
+          t("errorInvalidCode")
         );
       }
 
@@ -168,7 +172,7 @@ export const googleSSOCallbackAction = actionClient
 
         throw new ActionError(
           "INTERNAL_SERVER_ERROR",
-          "An unexpected error occurred"
+          tErrors("unexpected")
         );
       }
     }, RATE_LIMITS.GOOGLE_SSO_CALLBACK);

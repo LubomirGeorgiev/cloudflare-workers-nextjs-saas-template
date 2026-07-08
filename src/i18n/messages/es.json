@@ -28,7 +28,10 @@
         "signUpWithGoogle": "Registrarse con Google",
         "backToSignIn": "Volver a iniciar sesión",
         "backToLogin": "Volver al inicio de sesión",
-        "genericError": "Algo salió mal"
+        "genericError": "Algo salió mal",
+        "errorCaptcha": "Por favor, completa el captcha",
+        "errorEmailAlreadyVerified": "El correo electrónico ya está verificado",
+        "errorCreateUser": "No se pudo crear el usuario"
       },
       "SignIn": {
         "meta": {
@@ -48,7 +51,10 @@
         "toastPasskeyAuthError": "Error de autenticación",
         "toastAuthSuccess": "Autenticación correcta",
         "toastSigningIn": "Iniciando tu sesión...",
-        "toastSignInSuccess": "Sesión iniciada correctamente"
+        "toastSignInSuccess": "Sesión iniciada correctamente",
+        "errorInvalidCredentials": "Correo electrónico o contraseña no válidos",
+        "errorUseGoogle": "Inicia sesión con tu cuenta de Google.",
+        "errorUsePasskey": "Inicia sesión con tu passkey."
       },
       "SignUp": {
         "meta": {
@@ -74,7 +80,12 @@
         "toastAccountCreated": "Cuenta creada correctamente",
         "toastStartingPasskeyRegistration": "Iniciando el registro de la passkey...",
         "toastPasskeyRegistrationFailed": "No se pudo iniciar el registro de la passkey",
-        "toastPasskeyRegistrationError": "No se pudo registrar la passkey"
+        "toastPasskeyRegistrationError": "No se pudo registrar la passkey",
+        "errorEmailTaken": "El correo electrónico ya está en uso",
+        "errorCreateSession": "No se pudo crear la sesión después del registro",
+        "errorAccountExists": "Ya existe una cuenta con este correo electrónico",
+        "errorInvalidRegistrationSession": "Sesión de registro no válida",
+        "errorRegisterFailed": "No se pudo registrar la passkey"
       },
       "ForgotPassword": {
         "meta": {
@@ -108,7 +119,9 @@
         "toastResetSuccess": "Contraseña restablecida correctamente",
         "invalidLinkTitle": "Enlace de restablecimiento no válido",
         "invalidLinkDescription": "Este enlace de restablecimiento de contraseña no es válido o ha caducado. Solicita uno nuevo.",
-        "requestNewLink": "Solicitar nuevo enlace de restablecimiento"
+        "requestNewLink": "Solicitar nuevo enlace de restablecimiento",
+        "errorInvalidToken": "Token de restablecimiento no válido o expirado",
+        "errorTokenExpired": "El token de restablecimiento ha expirado"
       },
       "VerifyEmail": {
         "meta": {
@@ -130,7 +143,8 @@
         "toastVerifying": "Verificando tu correo electrónico...",
         "toastVerifySuccess": "Correo electrónico verificado correctamente",
         "toastVerifyFailed": "No se pudo verificar el correo electrónico",
-        "toastInvalidToken": "Token de verificación no válido"
+        "toastInvalidToken": "Token de verificación no válido",
+        "errorTokenNotFound": "Token de verificación no encontrado o expirado"
       },
       "TeamInvite": {
         "meta": {
@@ -156,7 +170,9 @@
         "toastProcessing": "Procesando tu invitación...",
         "toastAcceptError": "No se pudo aceptar la invitación al equipo",
         "toastAcceptSuccess": "¡Te has unido al equipo correctamente!",
-        "toastInvalidToken": "Token de invitación no válido"
+        "toastInvalidToken": "Token de invitación no válido",
+        "errorMustBeLoggedIn": "Debes iniciar sesión para aceptar una invitación",
+        "errorUnexpected": "Ocurrió un error inesperado al aceptar la invitación"
       },
       "GoogleCallback": {
         "meta": {
@@ -171,7 +187,11 @@
         "invalidCallbackDescription": "El callback de inicio de sesión no es válido o ha caducado. Inténtalo de nuevo.",
         "toastSigningIn": "Iniciando tu sesión con Google...",
         "toastSignInSuccess": "Sesión iniciada correctamente",
-        "toastInvalidParams": "Parámetros de callback no válidos"
+        "toastInvalidParams": "Parámetros de callback no válidos",
+        "errorNotEnabled": "El inicio de sesión con Google no está habilitado",
+        "errorMissingCookies": "Faltan cookies requeridas",
+        "errorInvalidState": "Parámetro de estado no válido",
+        "errorInvalidCode": "Código de autorización no válido"
       }
     },
     "Docs": {
@@ -504,7 +524,6 @@
         "paymentFailed": "El pago falló",
         "paymentSuccessful": "¡Pago realizado con éxito!",
         "errorNoPaymentIntent": "No se encontró ninguna intención de pago",
-        "errorUnexpected": "Ocurrió un error inesperado",
         "transactionHistoryTitle": "Historial de transacciones",
         "columnDate": "Fecha",
         "columnType": "Tipo",
@@ -584,12 +603,10 @@
         "toastOptionsError": "No se pudieron obtener las opciones de registro",
         "toastDeleteSuccess": "Clave de acceso eliminada",
         "toastDeleteError": "No se pudo eliminar la clave de acceso",
-        "errorUserNotFound": "Usuario no encontrado",
         "errorRegisterOwnAccount": "Solo puedes registrar claves de acceso para tu propia cuenta",
         "errorPasskeyLimit": "Has alcanzado el límite máximo de {limit} claves de acceso",
         "errorInvalidRegistrationSession": "Sesión de registro no válida",
         "errorRegisterFailed": "No se pudo registrar la clave de acceso",
-        "errorNotAuthenticated": "No has iniciado sesión",
         "errorDeleteCurrentPasskey": "No se puede eliminar la clave de acceso actual",
         "errorPasskeyNotFound": "Clave de acceso no encontrada",
         "errorDeleteLastPasskey": "No se puede eliminar la última clave de acceso cuando no hay una contraseña configurada",
@@ -615,9 +632,13 @@
         "cancel": "Cancelar",
         "toastDeleteSuccess": "Sesión eliminada",
         "toastDeleteError": "No se pudo eliminar la sesión",
-        "errorUnauthorized": "No autorizado",
-        "errorNotAuthenticated": "No has iniciado sesión"
+        "errorUnauthorized": "No autorizado"
       }
+    },
+    "Errors": {
+      "unexpected": "Ocurrió un error inesperado",
+      "notAuthenticated": "No autenticado",
+      "userNotFound": "Usuario no encontrado"
     }
   },
   "Legal": {

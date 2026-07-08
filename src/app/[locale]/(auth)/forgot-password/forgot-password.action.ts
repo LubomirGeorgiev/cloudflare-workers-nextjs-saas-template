@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
@@ -23,11 +24,13 @@ export const forgotPasswordAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const tCommon = await getTranslations("Client.Auth.Common");
+        const tErrors = await getTranslations("Client.Errors");
         if (await isTurnstileEnabled()) {
           if (!input.captchaToken) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
 
@@ -36,7 +39,7 @@ export const forgotPasswordAction = actionClient
           if (!success) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
         }
@@ -88,7 +91,7 @@ export const forgotPasswordAction = actionClient
 
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "An unexpected error occurred"
+            tErrors("unexpected")
           );
         }
       },

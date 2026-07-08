@@ -84,13 +84,13 @@ export const deleteSessionAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const t = await getTranslations("Client.Settings.Sessions");
+        const tErrors = await getTranslations("Client.Errors");
         const session = await getSessionFromCookie();
 
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            t("errorNotAuthenticated")
+            tErrors("notAuthenticated")
           );
         }
 

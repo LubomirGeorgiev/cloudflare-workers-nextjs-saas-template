@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
@@ -12,19 +13,21 @@ export const sendVerificationAction = actionClient
   .action(async () => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.Common");
+        const tErrors = await getTranslations("Client.Errors");
         const session = await getSessionFromCookie();
 
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            "Not authenticated"
+            tErrors("notAuthenticated")
           );
         }
 
         if (session?.user?.emailVerified) {
           throw new ActionError(
             "PRECONDITION_FAILED",
-            "Email is already verified"
+            t("errorEmailAlreadyVerified")
           );
         }
 

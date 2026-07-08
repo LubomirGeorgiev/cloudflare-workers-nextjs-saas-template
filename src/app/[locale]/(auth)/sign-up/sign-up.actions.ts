@@ -1,5 +1,6 @@
 "use server";
 
+import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db"
@@ -18,13 +19,15 @@ export const signUpAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Auth.SignUp");
+        const tCommon = await getTranslations("Client.Auth.Common");
         const db = getDB();
 
         if (await isTurnstileEnabled()) {
           if (!input.captchaToken) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
 
@@ -33,7 +36,7 @@ export const signUpAction = actionClient
           if (!success) {
             throw new ActionError(
               "INPUT_PARSE_ERROR",
-              "Please complete the captcha"
+              tCommon("errorCaptcha")
             )
           }
         }
@@ -49,7 +52,7 @@ export const signUpAction = actionClient
         if (existingUser) {
           throw new ActionError(
             "CONFLICT",
-            "Email already taken"
+            t("errorEmailTaken")
           );
         }
 
@@ -70,7 +73,7 @@ export const signUpAction = actionClient
         if (!user || !user.email) {
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "Failed to create user"
+            tCommon("errorCreateUser")
           );
         }
 
@@ -87,7 +90,7 @@ export const signUpAction = actionClient
 
           throw new ActionError(
             "INTERNAL_SERVER_ERROR",
-            "Failed to create session after signup"
+            t("errorCreateSession")
           );
         }
 
