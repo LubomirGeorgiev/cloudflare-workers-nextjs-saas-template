@@ -74,7 +74,8 @@ async function loadCatalog(locale: string): Promise<unknown> {
 // so a translation may omit keys (they fall back) but must never contain keys the default lacks — an
 // unknown key is a typo or an orphaned translation left behind after the default copy was renamed/removed. Looping over LOCALES keeps this coverage automatic for any locale a downstream template adds.
 const defaultCatalog = await loadCatalog(DEFAULT_LOCALE);
-const defaultKeys = new Set(keyPaths(defaultCatalog));
+const defaultKeyList = keyPaths(defaultCatalog);
+const defaultKeys = new Set(defaultKeyList);
 const defaultLeaves = new Map(stringLeaves(defaultCatalog));
 const nonDefaultLocales = LOCALES.filter((locale) => locale !== DEFAULT_LOCALE);
 
@@ -105,6 +106,16 @@ describe("message catalogs", () => {
       const missingKeys = [...defaultKeys].filter((key) => !localeKeys.has(key));
 
       expect(missingKeys).toEqual([]);
+    },
+  );
+
+  // Same key set is not enough: catalogs are hand-edited JSON, and divergent nesting/order
+  // makes diffs and reviews harder. Object key order is insertion order, so comparing the
+  // flattened path lists catches both reordered siblings and structural drift.
+  test.each(nonDefaultLocales)(
+    "%s.json defines keys in the same order as the default catalog",
+    async (locale) => {
+      expect(keyPaths(await loadCatalog(locale))).toEqual(defaultKeyList);
     },
   );
 
