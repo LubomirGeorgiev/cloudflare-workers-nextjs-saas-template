@@ -197,3 +197,22 @@ Reference implementation:
 - Server action: `src/app/(auth)/sign-up/sign-up.actions.ts`
 - Client form: `src/app/(auth)/sign-up/sign-up.client.tsx`
 - Schema: `src/schemas/signup.schema.ts`
+
+## Cursor Cloud specific instructions
+
+Standard dependency install, DB, test, lint, build, and run commands are in `README.md` and `package.json` scripts. Notes below are non-obvious caveats for this environment.
+
+### Node version (critical)
+- The build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) requires Node **>= 22.15** (`node:module`'s `registerHooks`). The VM's default `/exec-daemon/node` is 22.14 and will fail `pnpm build`/`pnpm dev` with `SyntaxError: ... does not provide an export named 'registerHooks'`.
+- The environment is configured to use Node 24 via nvm (`nvm alias default 24`), and `~/.bashrc` prepends the nvm default node ahead of `/exec-daemon`. New shells should already run Node 24 with `pnpm` available. If a shell resolves the wrong Node, run `nvm use 24` (or re-source `~/.bashrc`).
+
+### Running the app locally
+- By default `pnpm dev` (`vinext dev`) and `pnpm preview` (without `--local`) open a Cloudflare **remote proxy session** because the `EMAIL` `send_email` binding is `remote: true` in `wrangler.jsonc`. Without Cloudflare auth this hangs and fails with `Timed out waiting for authorization code`.
+- To run the dev server fully offline (no remote bindings, no Cloudflare login), set the `@cloudflare/vite-plugin` force-local flag: `CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm dev`. This serves the app at `http://localhost:3000/` with all bindings local (D1/KV/R2 via Miniflare). Note the dev server binds IPv6 `localhost` (`::1`), so use `http://localhost:3000` rather than `http://127.0.0.1:3000`. The first request is slow due to on-demand Vite compilation, then warm requests are fast.
+- Alternatively, run the built Worker offline: `pnpm build`, then `pnpm exec wrangler dev --local --port 3000 --var APP_TEST_MODE:true` (this is how the E2E harness in `tests/e2e/e2e-environment.mjs` runs the app).
+- To use the standard `pnpm dev` with real remote bindings, authenticate first (`pnpx wrangler login`, or set `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
+- Turnstile captcha is auto-disabled when `NEXT_PUBLIC_TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` are empty (see `src/flags.ts`), so email/password sign-in works locally without `APP_TEST_MODE`. `APP_TEST_MODE:true` also disables it and relaxes rate limiting.
+- Local data lives in `.wrangler/state`; seed it with `pnpm db:migrate:dev` then `pnpm db:seed` (or `pnpm reset`). Sign in with `test@test.com` / `password`.
+
+### Tests
+- E2E (`pnpm run test:e2e`) needs the Playwright Chromium browser (kept in `~/.cache/ms-playwright`, outside the repo). If it is ever missing, run `pnpm exec playwright install chromium`. The E2E runner builds the app and starts its own isolated local Wrangler/D1 preview, so it does not need the dev server running.
