@@ -112,11 +112,7 @@ function requirePermissionToAssignRole({
   }
 }
 
-/**
- * Get all members of a team
- */
 export const getTeamMembers = cache(async (teamId: string) => {
-  // Check if user has access to the team
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
 
   const db = getDB();
@@ -136,7 +132,6 @@ export const getTeamMembers = cache(async (teamId: string) => {
     },
   });
 
-  // Get all team roles for this team (for custom roles)
   const teamRoles = await db.query.teamRoleTable.findMany({
     where: { teamId: teamId },
   });
@@ -175,9 +170,6 @@ export const getTeamMembers = cache(async (teamId: string) => {
   }));
 });
 
-/**
- * Remove a member from a team
- */
 export async function removeTeamMember({
   teamId,
   userId
@@ -185,12 +177,10 @@ export async function removeTeamMember({
   teamId: string;
   userId: string;
 }) {
-  // Check if user has permission to remove members
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.REMOVE_MEMBERS);
 
   const db = getDB();
 
-  // Verify membership exists
   const membership = await db.query.teamMembershipTable.findFirst({
     where: {
       teamId,
@@ -207,7 +197,6 @@ export async function removeTeamMember({
     throw new ActionError("FORBIDDEN", "Cannot remove the team owner");
   }
 
-  // Delete the membership
   await db.delete(teamMembershipTable)
     .where(
       and(
@@ -216,15 +205,11 @@ export async function removeTeamMember({
       )
     );
 
-  // Update the user's session to remove this team
   await updateAllSessionsOfUser(userId);
 
   return { success: true };
 }
 
-/**
- * Invite a user to join a team
- */
 export async function inviteUserToTeam({
   teamId,
   email,
@@ -236,14 +221,12 @@ export async function inviteUserToTeam({
   roleId: string;
   isSystemRole?: boolean;
 }) {
-  // Check if user has permission to invite members
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.INVITE_MEMBERS);
 
   if (!session) {
     throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
   }
 
-  // Validate email
   try {
     await canSignUp({ email });
   } catch (error) {
@@ -267,7 +250,6 @@ export async function inviteUserToTeam({
     role: invitationRole,
   });
 
-  // Get team name for email
   const team = await db.query.teamTable.findFirst({
     where: { id: teamId },
   });
@@ -278,7 +260,6 @@ export async function inviteUserToTeam({
 
   const teamName = team.name as string || "Team";
 
-  // Get inviter's name for email
   const inviter = {
     firstName: session.user.firstName || "",
     lastName: session.user.lastName || "",
@@ -290,7 +271,6 @@ export async function inviteUserToTeam({
   // preferredLocale -> Accept-Language -> default).
   const inviterLocale = await getUserLocale();
 
-  // Check if user is already a member
   const existingUser = await db.query.userTable.findFirst({
     where: { email: email },
   });
@@ -307,7 +287,6 @@ export async function inviteUserToTeam({
       throw new ActionError("CONFLICT", "User is already a member of this team");
     }
 
-    // Check if user has reached their team joining limit
     const teamsCountResult = await db.select({ value: count() })
       .from(teamMembershipTable)
       .where(eq(teamMembershipTable.userId, existingUser.id));
@@ -330,7 +309,6 @@ export async function inviteUserToTeam({
       isActive: 1,
     });
 
-    // Update the user's session to include this team
     await updateAllSessionsOfUser(existingUser.id);
 
     return {
@@ -345,7 +323,6 @@ export async function inviteUserToTeam({
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // Valid for 7 days
 
-  // Check if there's an existing invitation
   const existingInvitation = await db.query.teamInvitationTable.findFirst({
     where: {
       teamId,
@@ -354,7 +331,6 @@ export async function inviteUserToTeam({
   });
 
   if (existingInvitation) {
-    // Update the existing invitation
     await db.update(teamInvitationTable)
       .set({
         roleId: invitationRole.roleId,
@@ -416,9 +392,6 @@ export async function inviteUserToTeam({
   };
 }
 
-/**
- * Accept a team invitation
- */
 export async function acceptTeamInvitation(token: string) {
   const session = await getSessionFromCookie();
 
@@ -437,22 +410,18 @@ export async function acceptTeamInvitation(token: string) {
     throw new ActionError("NOT_FOUND", "Invitation not found");
   }
 
-  // Check if invitation has expired
   if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
     throw new ActionError("ERROR", "Invitation has expired");
   }
 
-  // Check if invitation was already accepted
   if (invitation.acceptedAt) {
     throw new ActionError("CONFLICT", "Invitation has already been accepted");
   }
 
-  // Check if user's email matches the invitation email
   if (session.user.email !== invitation.email) {
     throw new ActionError("FORBIDDEN", "This invitation is for a different email address");
   }
 
-  // Check if user is already a member
   const existingMembership = await db.query.teamMembershipTable.findFirst({
     where: {
       teamId: invitation.teamId,
@@ -473,7 +442,6 @@ export async function acceptTeamInvitation(token: string) {
     throw new ActionError("CONFLICT", "You are already a member of this team");
   }
 
-  // Check if user has reached their team joining limit
   const teamsCountResult = await db.select({ value: count() })
     .from(teamMembershipTable)
     .where(eq(teamMembershipTable.userId, session.userId));
@@ -491,7 +459,6 @@ export async function acceptTeamInvitation(token: string) {
     isSystemRole: Boolean(invitation.isSystemRole),
   });
 
-  // Add user to the team
   await db.insert(teamMembershipTable).values({
     teamId: invitation.teamId,
     userId: session.userId,
@@ -512,7 +479,6 @@ export async function acceptTeamInvitation(token: string) {
     })
     .where(eq(teamInvitationTable.id, invitation.id));
 
-  // Update the user's session to include this team
   await updateAllSessionsOfUser(session.userId);
 
   return {
@@ -521,9 +487,6 @@ export async function acceptTeamInvitation(token: string) {
   };
 }
 
-/**
- * Get pending invitations for the current user
- */
 export async function getPendingInvitationsForCurrentUser() {
   const session = await getSessionFromCookie();
 
@@ -533,7 +496,6 @@ export async function getPendingInvitationsForCurrentUser() {
 
   const db = getDB();
 
-  // Get invitations for the user's email that have not been accepted
   const invitations = await db.query.teamInvitationTable.findMany({
     where: {
       ...(session.user.email ? { email: session.user.email } : {}),

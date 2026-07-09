@@ -35,7 +35,6 @@ export const generateRegistrationOptionsAction = actionClient
     return withRateLimit(async () => {
       const t = await getTranslations("Client.Settings.Security");
       const tErrors = await getTranslations("Client.Errors");
-      // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -52,7 +51,6 @@ export const generateRegistrationOptionsAction = actionClient
         throw new ActionError("FORBIDDEN", t("errorRegisterOwnAccount"));
       }
 
-      // Check if user has reached the passkey limit
       const existingPasskeys = await db
         .select()
         .from(passKeyCredentialTable)
@@ -91,7 +89,6 @@ export const verifyRegistrationAction = actionClient
     return withRateLimit(async () => {
       const t = await getTranslations("Client.Settings.Security");
       const tErrors = await getTranslations("Client.Errors");
-      // Check if user is logged in and email is verified
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -175,13 +172,11 @@ export const deletePasskeyAction = actionClient
         throw new ActionError("NOT_FOUND", t("errorPasskeyNotFound"));
       }
 
-      // Get all user's passkeys
       const passkeys = await db
         .select()
         .from(passKeyCredentialTable)
         .where(eq(passKeyCredentialTable.userId, userId));
 
-      // Get full user data to check password
       const user = await db.query.userTable.findFirst({
         where: { id: userId },
       });
@@ -190,7 +185,6 @@ export const deletePasskeyAction = actionClient
         throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
       }
 
-      // Check if this is the last passkey and if the user has a password
       if (passkeys.length === 1 && !user.passwordHash) {
         throw new ActionError(
           "FORBIDDEN",

@@ -52,10 +52,6 @@ export function cn(
   return classes.filter(Boolean).join(" ")
 }
 
-/**
- * Determines if the current platform is macOS
- * @returns boolean indicating if the current platform is Mac
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isMac(): boolean {
   return (
@@ -64,13 +60,6 @@ export function isMac(): boolean {
   )
 }
 
-/**
- * Formats a shortcut key based on the platform (Mac or non-Mac)
- * @param key - The key to format (e.g., "ctrl", "alt", "shift")
- * @param isMac - Boolean indicating if the platform is Mac
- * @param capitalize - Whether to capitalize the key (default: true)
- * @returns Formatted shortcut key symbol
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const formatShortcutKey = (
   key: string,
@@ -85,13 +74,6 @@ export const formatShortcutKey = (
   return capitalize ? key.charAt(0).toUpperCase() + key.slice(1) : key
 }
 
-/**
- * Parses a shortcut key string into an array of formatted key symbols
- * @param shortcutKeys - The string of shortcut keys (e.g., "ctrl-alt-shift")
- * @param delimiter - The delimiter used to split the keys (default: "-")
- * @param capitalize - Whether to capitalize the keys (default: true)
- * @returns Array of formatted shortcut key symbols
- */
 export const parseShortcutKeys = (props: {
   shortcutKeys: string | undefined
   delimiter?: string
@@ -107,12 +89,6 @@ export const parseShortcutKeys = (props: {
     .map((key) => formatShortcutKey(key, isMac(), capitalize))
 }
 
-/**
- * Checks if a mark exists in the editor schema
- * @param markName - The name of the mark to check
- * @param editor - The editor instance
- * @returns boolean indicating if the mark exists in the schema
- */
 export const isMarkInSchema = (
   markName: string,
   editor: Editor | null
@@ -121,12 +97,6 @@ export const isMarkInSchema = (
   return editor.schema.spec.marks.get(markName) !== undefined
 }
 
-/**
- * Checks if a node exists in the editor schema
- * @param nodeName - The name of the node to check
- * @param editor - The editor instance
- * @returns boolean indicating if the node exists in the schema
- */
 export const isNodeInSchema = (
   nodeName: string,
   editor: Editor | null
@@ -135,11 +105,6 @@ export const isNodeInSchema = (
   return editor.schema.spec.nodes.get(nodeName) !== undefined
 }
 
-/**
- * Moves the focus to the next node in the editor
- * @param editor - The editor instance
- * @returns boolean indicating if the focus was moved
- */
 export function focusNextNode(editor: Editor) {
   const { state, view } = editor
   const { doc, selection } = state
@@ -167,21 +132,10 @@ export function focusNextNode(editor: Editor) {
   return true
 }
 
-/**
- * Checks if a value is a valid number (not null, undefined, or NaN)
- * @param value - The value to check
- * @returns boolean indicating if the value is a valid number
- */
 export function isValidPosition(pos: number | null | undefined): pos is number {
   return typeof pos === "number" && pos >= 0
 }
 
-/**
- * Checks if one or more extensions are registered in the Tiptap editor.
- * @param editor - The Tiptap editor instance
- * @param extensionNames - A single extension name or an array of names to check
- * @returns True if at least one of the extensions is available, false otherwise
- */
 export function isExtensionAvailable(
   editor: Editor | null,
   extensionNames: string | string[]
@@ -205,12 +159,6 @@ export function isExtensionAvailable(
   return found
 }
 
-/**
- * Finds a node at the specified position with error handling
- * @param editor The Tiptap editor instance
- * @param position The position in the document to find the node
- * @returns The node at the specified position, or null if not found
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function findNodeAtPosition(editor: Editor, position: number) {
   try {
@@ -226,14 +174,6 @@ export function findNodeAtPosition(editor: Editor, position: number) {
   }
 }
 
-/**
- * Finds the position and instance of a node in the document
- * @param props Object containing editor, node (optional), and nodePos (optional)
- * @param props.editor The Tiptap editor instance
- * @param props.node The node to find (optional if nodePos is provided)
- * @param props.nodePos The position of the node to find (optional if node is provided)
- * @returns An object with the position and node, or null if not found
- */
 export function findNodePosition(props: {
   editor: Editor | null
   node?: PMNode | null
@@ -257,8 +197,6 @@ export function findNodePosition(props: {
     let foundNode: PMNode | null = null
 
     editor.state.doc.descendants((currentNode, pos) => {
-      // TODO: Needed?
-      // if (currentNode.type && currentNode.type.name === node!.type.name) {
       if (currentNode === node) {
         foundPos = pos
         foundNode = currentNode
@@ -283,13 +221,6 @@ export function findNodePosition(props: {
   return null
 }
 
-/**
- * Determines whether the current selection contains a node whose type matches
- * any of the provided node type names.
- * @param editor Tiptap editor instance
- * @param nodeTypeNames List of node type names to match against
- * @param checkAncestorNodes Whether to check ancestor node types up the depth chain
- */
 export function isNodeTypeSelected(
   editor: Editor | null,
   nodeTypeNames: string[] = [],
@@ -320,13 +251,6 @@ export function isNodeTypeSelected(
   return false
 }
 
-/**
- * Check whether the current selection is fully within nodes
- * whose type names are in the provided `types` list.
- *
- * - NodeSelection → checks the selected node.
- * - Text/AllSelection → ensures all textblocks within [from, to) are allowed.
- */
 export function selectionWithinConvertibleTypes(
   editor: Editor,
   types: string[] = []
@@ -357,21 +281,12 @@ export function selectionWithinConvertibleTypes(
   return false
 }
 
-/**
- * Handles image upload to R2 with progress tracking and abort capability
- * @param file The file to upload
- * @param collection The CMS collection slug for organizing images
- * @param onProgress Optional callback for tracking upload progress
- * @param abortSignal Optional AbortSignal for cancelling the upload
- * @returns Promise resolving to the URL of the uploaded image
- */
 export const handleImageUpload = async (
   file: File,
   collection: string,
   onProgress?: (event: { progress: number }) => void,
   abortSignal?: AbortSignal
 ): Promise<string> => {
-  // Validate file
   if (!file) {
     throw new Error("No file provided")
   }
@@ -382,7 +297,6 @@ export const handleImageUpload = async (
     )
   }
 
-  // Check if upload was cancelled before starting
   if (abortSignal?.aborted) {
     throw new Error("Upload cancelled")
   }
@@ -394,7 +308,6 @@ export const handleImageUpload = async (
     // Execute the upload action
     const { data: result, serverError } = await uploadImageAction({ file, collection })
 
-    // Check if upload was cancelled during execution
     if (abortSignal?.aborted) {
       throw new Error("Upload cancelled")
     }
@@ -420,19 +333,8 @@ export const handleImageUpload = async (
 }
 
 type ProtocolOptions = {
-  /**
-   * The protocol scheme to be registered.
-   * @default '''
-   * @example 'ftp'
-   * @example 'git'
-   */
   scheme: string
 
-  /**
-   * If enabled, it allows optional slashes after the protocol.
-   * @default false
-   * @example true
-   */
   optionalSlashes?: boolean
 }
 
@@ -500,16 +402,6 @@ export function sanitizeUrl(
   return "#"
 }
 
-/**
- * Update a single attribute on multiple nodes.
- *
- * @param tr - The transaction to mutate
- * @param targets - Array of { node, pos }
- * @param attrName - Attribute key to update
- * @param next - New value OR updater function receiving previous value
- *               Pass `undefined` to remove the attribute.
- * @returns true if at least one node was updated, false otherwise
- */
 export function updateNodesAttr<A extends string = string, V = unknown>(
   tr: Transaction,
   targets: readonly NodeWithPos[],
@@ -550,11 +442,6 @@ export function updateNodesAttr<A extends string = string, V = unknown>(
   return changed
 }
 
-/**
- * Selects the entire content of the current block node if the selection is empty.
- * If the selection is not empty, it does nothing.
- * @param editor The Tiptap editor instance
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function selectCurrentBlockContent(editor: Editor) {
   const { selection, doc } = editor.state
@@ -592,12 +479,6 @@ export function selectCurrentBlockContent(editor: Editor) {
   }
 }
 
-/**
- * Retrieves all nodes of specified types from the current selection.
- * @param selection The current editor selection
- * @param allowedNodeTypes An array of node type names to look for (e.g., ["image", "table"])
- * @returns An array of objects containing the node and its position
- */
 export function getSelectedNodesOfType(
   selection: Selection,
   allowedNodeTypes: string[]

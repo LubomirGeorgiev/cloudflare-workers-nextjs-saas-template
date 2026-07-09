@@ -3,7 +3,6 @@ import { cache } from "react";
 import { requireVerifiedEmail } from "./auth";
 import { ActionError } from "@/lib/action-error";
 
-// Check if the user has team membership and return both access status and session
 // This function doesn't throw exceptions, making it easier to use in pages
 export const hasTeamMembership = cache(async (teamId: string) => {
   const session = await requireVerifiedEmail();
@@ -20,7 +19,6 @@ export const hasTeamMembership = cache(async (teamId: string) => {
   };
 });
 
-// Check if the user has a specific permission in a team
 export const hasTeamPermission = cache(async (teamId: string, permission: string) => {
   const session = await requireVerifiedEmail();
 
@@ -34,7 +32,6 @@ export const hasTeamPermission = cache(async (teamId: string, permission: string
     return false;
   }
 
-  // Check if the permission is in the user's permissions for this team
   return team.permissions.includes(permission);
 });
 

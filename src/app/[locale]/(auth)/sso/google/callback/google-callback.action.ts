@@ -18,32 +18,17 @@ import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 
 type GoogleSSOResponse = {
-  /**
-   * Issuer
-   * Example: https://accounts.google.com
-   */
+  // JWT issuer, usually https://accounts.google.com.
   iss: string
-  /**
-   * Authorized party
-   * Example: 111111111111-x403h5fq3e4ts2qa022tcgdpm9lqhvj5.apps.googleusercontent.com
-   */
+  // OAuth client id authorized for this token.
   azp: string
-  /**
-   * Audience
-   * Example: 111111111111-x403h5fq3e4ts2qa022tcgdpm9lqhvj5.apps.googleusercontent.com
-   */
+  // Intended OAuth client id audience.
   aud: string
-  /**
-   * Subject
-   * Example: 111111111111111111111
-   */
+  // Stable Google user id.
   sub: string
   email: string
   email_verified: boolean
-  /**
-   * Access token hash
-   * Example: HhYIlZToOmC0QB1-N_SzE
-   */
+  // Access token hash from the ID token.
   at_hash: string
   name: string
   picture: string

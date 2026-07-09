@@ -28,10 +28,9 @@ vi.mock("@/utils/auth", () => ({
 
 const { getUserLocale } = await import("./locale");
 
-// A served locale and one that is not, derived from the enabled list so this stays
-// correct if downstream projects change LOCALES. When i18n is disabled the enabled
-// set is just the default, so `supportedLocale` collapses to it and getUserLocale
-// (which short-circuits to the default) still satisfies every expectation below.
+// A served locale and one that is not, derived from the enabled list so this stays correct if downstream
+// projects change LOCALES. When i18n is disabled the enabled set is just the default, so `supportedLocale`
+// collapses to it and getUserLocale (which short-circuits to the default) still satisfies every expectation below.
 const supportedLocale = ENABLED_LOCALES[ENABLED_LOCALES.length - 1];
 const unsupportedLocale = "zz";
 

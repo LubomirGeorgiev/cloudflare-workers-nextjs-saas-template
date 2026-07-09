@@ -1,11 +1,4 @@
-/**
- * Custom Cloudflare Worker entry — set `wrangler.jsonc` → `"main": "./worker-entrypoint.ts"`.
- *
- * vinext resolves `vinext/server/app-router-entry` in the RSC build; this file wraps it so you
- * can add edge-only behavior (security headers, auth, routing) before the App Router runs.
- *
- * @see https://github.com/vinext/vinext/blob/main/packages/vinext/src/server/app-router-entry.ts
- */
+// Worker entry for edge-only behavior before vinext's App Router handles the request.
 import handler from "vinext/server/app-router-entry";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import {
@@ -18,10 +11,6 @@ import {
   TRUSTED_CLIENT_IP_HEADER,
 } from "./src/utils/trusted-client-ip";
 
-/**
- * Edge-only logic that runs before vinext handles the request.
- * Return a `Response` to short-circuit; return `null` to continue.
- */
 async function handleCustomEdge(
   request: Request,
   __env: Env,

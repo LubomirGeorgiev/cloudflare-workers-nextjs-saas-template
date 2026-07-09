@@ -35,7 +35,6 @@ export const getSessionsAction = actionClient
             const sessionData = await getKVSession(sessionId, session.user.id);
             if (!sessionData) return null;
 
-            // Parse user agent on the server
             const result = new UAParser(sessionData.userAgent ?? '').getResult();
 
             return {

@@ -218,10 +218,9 @@ export function CmsEntriesTable({
   const totalCount = data?.totalCount ?? 0;
   const pageCount = Math.ceil(totalCount / pageSize);
 
-  // Deleting the default-locale row deletes the whole translation group (navigation
-  // anchors on it and it is the i18n fallback base), so warn when siblings would go
-  // with it. Sibling count comes from the row's group-wide coverage (translationGroupSize),
-  // so it stays accurate even when siblings are off the loaded page or filtered out.
+  // Deleting the default-locale row deletes the whole translation group (navigation anchors on it and it is
+  // the i18n fallback base), so warn when siblings would go with it. Sibling count comes from the row's
+  // group-wide coverage (translationGroupSize), so it stays accurate even when siblings are off the loaded page or filtered out.
   const entryPendingDelete = deleteEntryId
     ? entries.find((entry) => entry.id === deleteEntryId) ?? null
     : null;

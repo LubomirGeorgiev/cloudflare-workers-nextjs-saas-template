@@ -164,7 +164,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     Promise.all(navigations.map((navigation) => getNavigationUrls(navigation.navigationKey))),
   ])
 
-  // Get all unique tags
   const uniqueTags = new Set<string>()
   const uniqueAuthors = new Map<string, {
     id: string
@@ -185,11 +184,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   })
 
-  // Static + blog-listing routes are translated and indexable in every locale, so
-  // they advertise full hreflang via `localizedSitemapAlternates`. Individual blog
-  // posts and docs pages instead scope their alternates to the locales they are
-  // actually translated in (`entryAlternates`), because untranslated `/es/*`
-  // renders fall back to English and are `noindex`.
+  // Static + blog-listing routes are translated and indexable in every locale, so they advertise full
+  // hreflang via `localizedSitemapAlternates`. Individual blog posts and docs pages instead scope their
+  // alternates to the locales they are actually translated in (`entryAlternates`), because untranslated `/es/*` renders fall back to English and are `noindex`.
   const staticRoutes = [
     {
       url: SITE_URL,

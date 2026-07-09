@@ -21,28 +21,12 @@ import {
 
 export const BLOCKQUOTE_SHORTCUT_KEY = "mod+shift+b"
 
-/**
- * Configuration for the blockquote functionality
- */
 export interface UseBlockquoteConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * Whether the button should hide when blockquote is not available.
-   * @default false
-   */
   hideWhenUnavailable?: boolean
-  /**
-   * Callback function called after a successful toggle.
-   */
   onToggled?: () => void
 }
 
-/**
- * Checks if blockquote can be toggled in the current editor state
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggleBlockquote(
   editor: Editor | null,
@@ -78,9 +62,6 @@ export function canToggleBlockquote(
   return editor.can().toggleWrap("blockquote") || editor.can().clearNodes()
 }
 
-/**
- * Toggles blockquote formatting for a specific node or the current selection
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleBlockquote(editor: Editor | null): boolean {
   if (!editor || !editor.isEditable) return false
@@ -143,9 +124,6 @@ export function toggleBlockquote(editor: Editor | null): boolean {
   }
 }
 
-/**
- * Determines if the blockquote button should be shown
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
@@ -163,42 +141,6 @@ export function shouldShowButton(props: {
   return true
 }
 
-/**
- * Custom hook that provides blockquote functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage - no params needed
- * function MySimpleBlockquoteButton() {
- *   const { isVisible, handleToggle, isActive } = useBlockquote()
- *
- *   if (!isVisible) return null
- *
- *   return <button onClick={handleToggle}>Blockquote</button>
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedBlockquoteButton() {
- *   const { isVisible, handleToggle, label, isActive } = useBlockquote({
- *     editor: myEditor,
- *     hideWhenUnavailable: true,
- *     onToggled: () => console.log('Blockquote toggled!')
- *   })
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <MyButton
- *       onClick={handleToggle}
- *       aria-label={label}
- *       aria-pressed={isActive}
- *     >
- *       Toggle Blockquote
- *     </MyButton>
- *   )
- * }
- * ```
- */
 export function useBlockquote(config?: UseBlockquoteConfig) {
   const {
     editor: providedEditor,

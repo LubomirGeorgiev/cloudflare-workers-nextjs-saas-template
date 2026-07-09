@@ -81,7 +81,6 @@ export function CmsEntryForm({
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
 
-  // Get field configurations from the collection schema
   const collectionDefinition = cmsConfig.collections[collection as CollectionsUnion];
   const customFields = useMemo(() => {
     if (
@@ -403,7 +402,6 @@ export function CmsEntryForm({
     const serializedContent = JSON.parse(JSON.stringify(data.content));
 
     // Clean up custom fields before submitting
-    // Build a complete fields object with all defined fields from the schema
     const cleanedFields: Record<string, unknown> = {};
 
     // Process all fields defined in the schema

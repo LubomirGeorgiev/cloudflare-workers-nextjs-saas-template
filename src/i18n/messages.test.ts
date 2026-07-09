@@ -18,10 +18,9 @@ function stringLeaves(obj: unknown, prefix = ""): Array<[string, string]> {
   );
 }
 
-// Collect ICU argument names from a message: simple `{name}`, typed `{price, number}`,
-// and the argument of `{count, plural, ...}` / `{sel, select, ...}`. We brace-walk instead
-// of regex-matching `{word}` because a sub-message body like `other {Yes}` is literal text,
-// not an argument — a naive regex would wrongly report `Yes` as a placeholder.
+// Collect ICU argument names from a message: simple `{name}`, typed `{price, number}`, and the argument of
+// `{count, plural, ...}` / `{sel, select, ...}`. We brace-walk instead of regex-matching `{word}` because a
+// sub-message body like `other {Yes}` is literal text, not an argument — a naive regex would wrongly report `Yes` as a placeholder.
 function icuPlaceholders(message: string): Set<string> {
   const args = new Set<string>();
   collectArgs(message, args);
@@ -71,11 +70,9 @@ async function loadCatalog(locale: string): Promise<unknown> {
   return (await import(`./messages/${locale}.json`)).default;
 }
 
-// The default catalog is the source of truth: at runtime every non-default locale is
-// deep-merged under it, so a translation may omit keys (they fall back) but must never
-// contain keys the default lacks — an unknown key is a typo or an orphaned translation
-// left behind after the default copy was renamed/removed. Looping over LOCALES keeps
-// this coverage automatic for any locale a downstream template adds.
+// The default catalog is the source of truth: at runtime every non-default locale is deep-merged under it,
+// so a translation may omit keys (they fall back) but must never contain keys the default lacks — an
+// unknown key is a typo or an orphaned translation left behind after the default copy was renamed/removed. Looping over LOCALES keeps this coverage automatic for any locale a downstream template adds.
 const defaultCatalog = await loadCatalog(DEFAULT_LOCALE);
 const defaultKeys = new Set(keyPaths(defaultCatalog));
 const defaultLeaves = new Map(stringLeaves(defaultCatalog));

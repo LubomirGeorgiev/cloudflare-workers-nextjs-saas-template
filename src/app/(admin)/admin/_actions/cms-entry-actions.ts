@@ -26,13 +26,9 @@ import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, type Locale } from "@/i18n/co
 
 const listStatusEnum = v.picklist(cmsStatusFilterTuple);
 
-// A listed entry augmented with translation-group coverage for its (collection,
-// slug): the enabled locales still missing (so the table can flag incomplete
-// translations) and the total number of locale rows in the group (so the delete
-// dialog can state the true blast radius — a default-locale delete cascades the
-// whole group — independent of which siblings happen to be on the loaded page).
-// Kept at the action boundary rather than on the shared read type, since only this
-// listing populates it.
+// A listed entry augmented with translation-group coverage for its (collection, slug): the enabled locales
+// still missing (so the table can flag incomplete translations) and the total number of locale rows in the
+// group (so the delete dialog can state the true blast radius — a default-locale delete cascades the whole group — independent of which siblings happen to be on the loaded page). Kept at the action boundary rather than on the shared read type, since only this listing populates it.
 export type CmsEntryListRow = CmsCollectionListItem & {
   missingLocales: Locale[];
   translationGroupSize: number;
@@ -64,10 +60,9 @@ function revalidateCmsEntryPaths({
     return;
   }
 
-  // Public pages are locale-prefixed with "as-needed" prefixing (default locale
-  // unprefixed, e.g. /blog/x; other locales prefixed, e.g. /es/blog/x). A CMS
-  // mutation can affect the page in any served locale, so revalidate each enabled
-  // locale's path — with i18n disabled this collapses to the unprefixed path only.
+  // Public pages are locale-prefixed with "as-needed" prefixing (default locale unprefixed, e.g. /blog/x;
+  // other locales prefixed, e.g. /es/blog/x). A CMS mutation can affect the page in any served locale, so
+  // revalidate each enabled locale's path — with i18n disabled this collapses to the unprefixed path only.
   for (const slug of new Set(slugs.filter(Boolean))) {
     const path = previewUrlBuilder(slug);
 
@@ -111,10 +106,9 @@ export const listCmsEntriesAction = actionClient
       }),
     ]);
 
-    // Annotate each row with the enabled locales missing from its (collection,
-    // slug) translation group, so the table can flag incomplete translations.
-    // When i18n is disabled, ENABLED_LOCALES is just the default locale, so this
-    // is a no-op (nothing is ever "missing").
+    // Annotate each row with the enabled locales missing from its (collection, slug) translation group, so the
+    // table can flag incomplete translations. When i18n is disabled, ENABLED_LOCALES is just the default
+    // locale, so this is a no-op (nothing is ever "missing").
     const coverage = await getEntryLocalesForSlugs({
       collectionSlug: input.collection,
       slugs: entries.map((entry) => entry.slug),

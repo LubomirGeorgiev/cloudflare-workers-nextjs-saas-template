@@ -3,15 +3,8 @@ import { NextResponse } from "next/server";
 import { CMS_IMAGES_BASE_PATH } from "@/constants";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
-/**
- * API route handler to serve CMS images from R2 bucket
- *
- * This route ONLY serves images uploaded through the CMS system.
- * Images must be stored under the CMS_IMAGES_BASE_PATH prefix.
- *
- * Path format: /api/cms-images/cms-images/{collection}/{filename}
- * Example: /api/cms-images/cms-images/blog/cm2x3y4z5-photo.jpg
- */
+// Only serves R2 objects uploaded through the CMS under CMS_IMAGES_BASE_PATH.
+// Path format: /api/cms-images/cms-images/{collection}/{filename}.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path: string[] }> }
@@ -27,10 +20,8 @@ export async function GET(
         );
       }
 
-      // Await params for Next.js 15 compatibility
       const resolvedParams = await params;
 
-      // Reconstruct the full R2 key from the path segments
       const r2Key = resolvedParams.path.join("/");
 
       if (!r2Key) {
@@ -40,8 +31,7 @@ export async function GET(
         );
       }
 
-      // Security: Validate that the path starts with the CMS images base path
-      // This prevents accessing arbitrary files in the R2 bucket
+      // Prevent arbitrary R2 reads outside the CMS image prefix.
       if (!r2Key.startsWith(CMS_IMAGES_BASE_PATH + "/")) {
         console.warn(`Attempted to access non-CMS image: ${r2Key}`);
         return NextResponse.json(
@@ -50,7 +40,6 @@ export async function GET(
         );
       }
 
-      // Security: Prevent path traversal attacks
       if (r2Key.includes("..") || r2Key.includes("//")) {
         console.warn(`Path traversal attempt detected: ${r2Key}`);
         return NextResponse.json(
@@ -59,7 +48,6 @@ export async function GET(
         );
       }
 
-      // Validate path structure: cms-images/{collection}/{filename}
       const pathParts = r2Key.split("/");
       if (pathParts.length < 3) {
         return NextResponse.json(
@@ -68,7 +56,6 @@ export async function GET(
         );
       }
 
-      // Fetch the object from R2
       const object = await env.NEXT_INC_CACHE_R2_BUCKET.get(r2Key);
 
       if (!object) {
@@ -78,10 +65,8 @@ export async function GET(
         );
       }
 
-      // Get the content type from the object metadata
       const contentType = object.httpMetadata?.contentType || "application/octet-stream";
 
-      // Additional security: Verify this is actually an image content type
       if (!contentType.startsWith("image/")) {
         console.warn(`Non-image content type detected: ${contentType} for key: ${r2Key}`);
         return NextResponse.json(
@@ -90,7 +75,6 @@ export async function GET(
         );
       }
 
-      // Return the image with proper headers
       return new Response(object.body, {
         headers: {
           "Content-Type": contentType,

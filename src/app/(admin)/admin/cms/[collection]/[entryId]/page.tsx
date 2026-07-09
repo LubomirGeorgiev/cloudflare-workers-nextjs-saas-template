@@ -86,10 +86,9 @@ export default async function EditEntryPage({
   );
 
   const navigationKey = getCmsCollectionNavigationKey(collection as CollectionsUnion);
-  // Resolve nav membership by the translation-group slug, not the row id: a locale
-  // sibling shares its anchor's slug but has its own id, so an id lookup would report
-  // every translation as "not in navigation". The resolved path is locale-agnostic,
-  // so prefix it for the entry's locale to link the correct localized public URL.
+  // Resolve nav membership by the translation-group slug, not the row id: a locale sibling shares its
+  // anchor's slug but has its own id, so an id lookup would report every translation as "not in navigation".
+  // The resolved path is locale-agnostic, so prefix it for the entry's locale to link the correct localized public URL.
   const navigationNode = navigationKey
     ? getCmsNavigationNodeByEntrySlug({
         slug: entry.slug,

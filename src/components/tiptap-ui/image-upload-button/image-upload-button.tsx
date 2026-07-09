@@ -27,18 +27,8 @@ type IconComponent = ({ className, ...props }: IconProps) => React.ReactElement
 export interface ImageUploadButtonProps
   extends Omit<ButtonProps, "type">,
     UseImageUploadConfig {
-  /**
-   * Optional text to display alongside the icon.
-   */
   text?: string
-  /**
-   * Optional show shortcut keys in the button.
-   * @default false
-   */
   showShortcut?: boolean
-  /**
-   * Optional custom icon component to render instead of the default.
-   */
   icon?: React.MemoExoticComponent<IconComponent> | React.FC<IconProps>
 }
 
@@ -51,11 +41,6 @@ export function ImageShortcutBadge({
   return <Badge>{parseShortcutKeys({ shortcutKeys })}</Badge>
 }
 
-/**
- * Button component for uploading/inserting images in a Tiptap editor.
- *
- * For custom button implementations, use the `useImage` hook instead.
- */
 export const ImageUploadButton = forwardRef<
   HTMLButtonElement,
   ImageUploadButtonProps

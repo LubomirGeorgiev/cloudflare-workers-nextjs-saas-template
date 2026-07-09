@@ -1,8 +1,4 @@
-/**
- * For more details on how to configure Wrangler, refer to:
- * https://developers.cloudflare.com/workers/wrangler/configuration/
- */
- {
+{
     "$schema": "node_modules/wrangler/config-schema.json",
     "account_id": "0d5667a195a90458761fe59fca898f9c",
     "name": "cloudflare-workers-nextjs-saas-template",
@@ -34,10 +30,6 @@
       }
     },
     "upload_source_maps": true,
-    /**
-     * Smart Placement
-     * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-     */
     "placement": { "mode": "smart" },
     "triggers": {
       "crons": ["*/5 * * * *"]
@@ -64,18 +56,6 @@
     "ai": {
       "binding": "AI"
     },
-
-    /**
-     * Bindings
-     * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-     * databases, object storage, AI inference, real-time communication and more.
-     * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-     */
-
-    /**
-     * Environment Variables
-     * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-     */
     "vars": {
         "APP_TEST_MODE": "false",
         "EMAIL_FROM": "no-reply@notifications.lubomirgeorgiev.com",
@@ -91,11 +71,6 @@
             "remote": true
         }
     ],
-    /**
-     * Note: Use secrets to store sensitive data.
-     * https://developers.cloudflare.com/workers/configuration/secrets/
-     */
-
     "d1_databases": [
         {
             "binding": "NEXT_TAG_CACHE_D1",

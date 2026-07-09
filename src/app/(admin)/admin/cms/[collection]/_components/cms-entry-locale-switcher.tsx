@@ -11,10 +11,9 @@ import { LOCALE_LABELS, type Locale } from "@/i18n/config";
 import type { CmsEntryLocaleSibling } from "@/lib/cms/entry";
 import type { CollectionsUnion } from "@/../cms.config";
 
-// Editor-header switcher: shows every enabled locale for this entry's
-// (collection, slug) group — the one being edited, links to existing siblings,
-// and create-buttons for the missing ones. Lets an admin see coverage and add a
-// locale without leaving the entry (mirrors the table's globe menu).
+// Editor-header switcher: shows every enabled locale for this entry's (collection, slug) group — the one
+// being edited, links to existing siblings, and create-buttons for the missing ones. Lets an admin see
+// coverage and add a locale without leaving the entry (mirrors the table's globe menu).
 export function CmsEntryLocaleSwitcher({
   collection,
   slug,

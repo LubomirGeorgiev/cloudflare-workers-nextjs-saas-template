@@ -28,7 +28,6 @@ function normalizeIP(ip: string): string {
     const addr = ipaddr.parse(ip);
 
     if (addr.kind() === 'ipv6') {
-      // Get the first 64 bits for IPv6
       const ipv6 = addr as ipaddr.IPv6;
       const bytes = ipv6.toByteArray();
       // Zero out the last 8 bytes (64 bits)
@@ -67,7 +66,6 @@ export async function checkRateLimit({
     now / options.windowInSeconds
   )}`;
 
-  // Get the current count from KV
   const currentCount = parseInt((await env.NEXT_INC_CACHE_KV.get(windowKey)) || "0");
   const reset = (Math.floor(now / options.windowInSeconds) + 1) * options.windowInSeconds;
 
@@ -97,36 +95,3 @@ export async function checkRateLimit({
     limit: options.limit,
   };
 }
-
-// Helper function to get rate limit headers
-// export function getRateLimitHeaders(result: RateLimitResult): Headers {
-//   const headers = new Headers();
-//   headers.set("X-RateLimit-Limit", result.limit.toString());
-//   headers.set("X-RateLimit-Remaining", result.remaining.toString());
-//   headers.set("X-RateLimit-Reset", result.reset.toString());
-
-//   if (!result.success) {
-//     headers.set("Retry-After", (result.reset - Math.floor(Date.now() / 1000)).toString());
-//   }
-
-//   return headers;
-// }
-
-// Example usage:
-/*
-const rateLimitResult = await checkRateLimit({
-  key: "user-123", // Usually an IP address or user ID
-  options: {
-    limit: 100,
-    windowInSeconds: 60 * 60, // 1 hour
-    identifier: "api:auth",
-  },
-});
-
-if (!rateLimitResult.success) {
-  return new Response("Rate limit exceeded", {
-    status: 429,
-    headers: getRateLimitHeaders(rateLimitResult),
-  });
-}
-*/

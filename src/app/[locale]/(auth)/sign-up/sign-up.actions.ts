@@ -41,10 +41,8 @@ export const signUpAction = actionClient
           }
         }
 
-        // Check if email is disposable
         await canSignUp({ email: input.email });
 
-        // Check if email is already taken
         const existingUser = await db.query.userTable.findFirst({
           where: { email: input.email },
         });

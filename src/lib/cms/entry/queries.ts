@@ -58,11 +58,9 @@ function resolveCollectionOrThrow(collectionSlug: string) {
   return collection;
 }
 
-// Shared read for an entry's "locale group" — the rows that share a collection +
-// slug and differ only by locale (i.e. one entry's translation siblings). Callers
-// pick the columns and whether to dedupe; this centralizes the collection guard
-// and the collection+slug WHERE clause so the three locale-group readers can't
-// drift apart.
+// Shared read for an entry's "locale group" — the rows that share a collection + slug and differ only by
+// locale (i.e. one entry's translation siblings). Callers pick the columns and whether to dedupe; this
+// centralizes the collection guard and the collection+slug WHERE clause so the three locale-group readers can't drift apart.
 async function selectEntryGroupRows<TColumns extends SelectedFields>({
   collectionSlug,
   slugs,
@@ -129,10 +127,9 @@ async function getCachedCmsCollection(
       ...(allLocales ? {} : { locale }),
       ...statusCondition,
     },
-    // No list/collection caller renders the entry body, so exclude the large
-    // `content` and `fields` JSON columns from the projection. Multiplied by N
-    // locale rows per entry, streaming these was the dominant cost on the nav
-    // tree + admin table + blog listings. Single-entry reads keep the full row.
+    // No list/collection caller renders the entry body, so exclude the large `content` and `fields` JSON
+    // columns from the projection. Multiplied by N locale rows per entry, streaming these was the dominant cost
+    // on the nav tree + admin table + blog listings. Single-entry reads keep the full row.
     columns: {
       content: false,
       fields: false,
@@ -343,17 +340,14 @@ async function getCachedEntryLocales(
   return rows.map((row) => row.locale);
 }
 
-// Returns every locale that has a row for this (collection, slug) translation group.
-// Used later (hreflang) to know which alternate-language links are valid to render.
+// Used by hreflang generation to render only alternate-language links that exist.
 export function getEntryLocales(params: GetEntryLocalesParams): Promise<string[]> {
   const validated = v.parse(getEntryLocalesParamsSchema, params);
 
   return getCachedEntryLocales(validated.collectionSlug, validated.slug);
 }
 
-// Returns each locale row (id + locale + status) for a (collection, slug) group,
-// so the editor locale switcher can link to existing siblings and offer to create
-// missing ones. Not cached — the editor must see a just-created sibling immediately.
+// Not cached: the editor must see a just-created locale sibling immediately.
 export async function getEntryLocaleSiblings(
   params: GetEntryLocalesParams
 ): Promise<CmsEntryLocaleSibling[]> {
@@ -373,10 +367,9 @@ export async function getEntryLocaleSiblings(
     },
   });
 
-  // The default-locale row is the canonical source; a translation is stale when its
-  // captured source-hash snapshot no longer matches this row's live hashes. Hash it
-  // once for the whole group. No default row (a translation without its base) → no
-  // staleness is reported.
+  // The default-locale row is the canonical source; a translation is stale when its captured source-hash
+  // snapshot no longer matches this row's live hashes. Hash it once for the whole group. No default row (a
+  // translation without its base) → no staleness is reported.
   const sourceRow = rows.find((row) => row.locale === DEFAULT_LOCALE);
   const sourceHashes = sourceRow
     ? computeEntryTranslatableHashes({
@@ -411,9 +404,8 @@ export async function getEntryLocaleSiblings(
   });
 }
 
-// Returns the locales present per slug for a set of slugs in one collection, as a
-// Map<slug, Set<locale>>. Powers the admin table's per-row "missing translation"
-// indicator without an extra query per row.
+// Powers the admin table's per-row "missing translation" indicator without an
+// extra query per row.
 export async function getEntryLocalesForSlugs(
   params: GetEntryLocalesForSlugsParams
 ): Promise<Map<string, Set<Locale>>> {

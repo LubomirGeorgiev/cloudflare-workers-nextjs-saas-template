@@ -10,10 +10,9 @@ import { CmsTranslationSwitcher } from "../../_components/cms-translation-switch
 import { LOCALE_LABELS, type Locale } from "@/i18n/config";
 import type { CmsTagLocaleSibling } from "@/lib/cms/tags";
 
-// Tag-editor translations panel: shows every enabled locale for this tag's slug
-// group — the one being edited, links to existing sibling translations, and
-// create-buttons for the missing ones (AI-assisted). Mirrors the entry editor's
-// CmsEntryLocaleSwitcher; both render the shared CmsTranslationSwitcher shell.
+// Tag-editor translations panel: shows every enabled locale for this tag's slug group — the one being
+// edited, links to existing sibling translations, and create-buttons for the missing ones (AI-assisted).
+// Mirrors the entry editor's CmsEntryLocaleSwitcher; both render the shared CmsTranslationSwitcher shell.
 export function TagLocaleSwitcher({
   slug,
   currentLocale,

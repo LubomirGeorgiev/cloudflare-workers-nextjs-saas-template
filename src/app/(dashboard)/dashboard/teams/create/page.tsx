@@ -16,7 +16,6 @@ export async function generateMetadata() {
 export default async function CreateTeamPage() {
   const t = await getTranslations("Client.Dashboard.Teams");
 
-  // Check if the user is authenticated
   const session = await getSessionFromCookie();
 
   if (!session) {

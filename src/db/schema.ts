@@ -151,7 +151,6 @@ export const creditTransactionTable = sqliteTable("credit_transaction", {
 // Define item types that can be purchased
 export const PURCHASABLE_ITEM_TYPE = {
   COMPONENT: 'COMPONENT',
-  // Add more types in the future (e.g., TEMPLATE, PLUGIN, etc.)
 } as const;
 
 export const purchasableItemTypeTuple = Object.values(PURCHASABLE_ITEM_TYPE) as [string, ...string[]];
@@ -212,7 +211,6 @@ export const TEAM_PERMISSIONS = {
   EDIT_COMPONENTS: 'edit_components',
   DELETE_COMPONENTS: 'delete_components',
 
-  // Add more as needed
 } as const;
 
 // Team table
@@ -335,10 +333,9 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   // Language of this entry. Translations of one logical entry share (collection, slug)
   // and differ by locale. Default 'en' keeps existing rows valid and inert.
   locale: text().notNull().default(DEFAULT_LOCALE),
-  // Snapshot of the canonical (default-locale) source's per-field content hashes,
-  // captured when this translation was created or last refreshed. Compared against
-  // the source's live hashes to flag stale translations in the editor. Null on the
-  // source row itself and on legacy/pre-feature rows (treated as "not stale").
+  // Snapshot of the canonical (default-locale) source's per-field content hashes, captured when this
+  // translation was created or last refreshed. Compared against the source's live hashes to flag stale
+  // translations in the editor. Null on the source row itself and on legacy/pre-feature rows (treated as "not stale").
   sourceContentHashes: text({ mode: "json" }).$type<SourceContentHashes | null>(),
 }, (table) => ([
   // Index for filtering by collection (most common query)

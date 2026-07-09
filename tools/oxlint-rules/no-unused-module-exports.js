@@ -776,7 +776,6 @@ function analyzeProject(rawOptions, currentFileName) {
     [...internalFiles].map((fileName) => [fileName, getFileMtime(fileName)]),
   )
 
-  // Build the export graph first, then mark imports as live and propagate through barrels.
   for (const sourceFile of sourceFiles) {
     collectExports(sourceFile, resolveModule, analysis, options)
   }

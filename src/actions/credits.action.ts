@@ -142,7 +142,6 @@ export const confirmPayment = actionClient
           throw new ActionError("BAD_REQUEST", "Invalid payment intent");
         }
 
-        // Add credits and log transaction
         await addUserCredits(session.user.id, creditPackage.credits);
         await logTransaction({
           userId: session.user.id,
@@ -153,7 +152,6 @@ export const confirmPayment = actionClient
           paymentIntentId: paymentIntent?.id
         });
 
-        // Update all KV sessions to reflect the new credit balance
         await updateAllSessionsOfUser(session.user.id);
 
         return { success: true };

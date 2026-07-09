@@ -10,9 +10,6 @@ const updateSelectedTeamSchema = v.object({
   selectedTeam: v.optional(v.string()),
 });
 
-/**
- * Update the selected team for the current user's session
- */
 export const updateSelectedTeamAction = actionClient
   .inputSchema(updateSelectedTeamSchema)
   .action(async ({ parsedInput: input }) => {
@@ -26,7 +23,6 @@ export const updateSelectedTeamAction = actionClient
         );
       }
 
-      // Validate that the selected team exists in the user's teams (if provided)
       if (input.selectedTeam && session.teams) {
         const teamExists = session.teams.some(team => team.id === input.selectedTeam);
         if (!teamExists) {

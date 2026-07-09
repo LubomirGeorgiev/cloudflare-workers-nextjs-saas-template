@@ -401,11 +401,9 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
   const collectionSlug = existingEntry.collection;
   const slug = existingEntry.slug;
 
-  // Navigation anchors on the default-locale row (its `entryId` FK) and that same row
-  // is the i18n fallback base, so deleting it must take the whole translation group:
-  // a surviving translation sibling would be orphaned (no fallback) and its nav item
-  // cascades away regardless. Deleting a translation drops just that locale row.
-  // Mirrors deleteCmsTag's canonical-vs-translation policy.
+  // Navigation anchors on the default-locale row (its `entryId` FK) and that same row is the i18n fallback
+  // base, so deleting it must take the whole translation group: a surviving translation sibling would be
+  // orphaned (no fallback) and its nav item cascades away regardless. Deleting a translation drops just that locale row. Mirrors deleteCmsTag's canonical-vs-translation policy.
   const entriesToDelete = existingEntry.locale === DEFAULT_LOCALE
     ? await db.query.cmsEntryTable.findMany({
         where: { collection: collectionSlug, slug },
@@ -486,10 +484,9 @@ export async function createCmsEntryTranslation<T extends CollectionsUnion>(
         translated: false,
       };
 
-  // Snapshot the canonical (default-locale) source's content hashes so the editor can
-  // later detect when that source drifts. Translating straight from the default locale
-  // means we already hold it; otherwise fetch it. No default row, or the target IS the
-  // default locale → null (nothing canonical to be stale against).
+  // Snapshot the canonical (default-locale) source's content hashes so the editor can later detect when that
+  // source drifts. Translating straight from the default locale means we already hold it; otherwise fetch it.
+  // No default row, or the target IS the default locale → null (nothing canonical to be stale against).
   const defaultSourceEntry =
     sourceLocale === DEFAULT_LOCALE
       ? sourceEntry
@@ -588,11 +585,9 @@ async function snapshotSourceContentHashes(
   return updated ?? null;
 }
 
-// Re-translates a stale translation from the canonical source, overwriting only the
-// fields that drifted, then re-snapshots the source hashes so the row reads as up to
-// date. Translations are treated as disposable AI output (not hand-tuned), so
-// overwriting is safe; translating only the changed fields avoids re-processing an
-// unchanged body on a title-only edit.
+// Re-translates a stale translation from the canonical source, overwriting only the fields that drifted,
+// then re-snapshots the source hashes so the row reads as up to date. Translations are treated as
+// disposable AI output (not hand-tuned), so overwriting is safe; translating only the changed fields avoids re-processing an unchanged body on a title-only edit.
 export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEntry | null> {
   const { id } = v.parse(v.object({ id: requiredString() }), params);
 

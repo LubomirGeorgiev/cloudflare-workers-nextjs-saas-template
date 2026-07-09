@@ -10,10 +10,9 @@ import { requiredString, v } from "@/lib/validation";
 
 const cmsEntryStatusOrAllSchema = v.picklist(cmsStatusFilterTuple);
 
-// Translations of an entry share (collection, slug) and differ by locale.
-// Defaulting to DEFAULT_LOCALE keeps every existing caller returning the 'en' row
-// unchanged. Validate against LOCALES (not ENABLED_LOCALES) so a valid catalog
-// locale isn't rejected when i18n is off, while still rejecting garbage strings.
+// Translations of an entry share (collection, slug) and differ by locale. Defaulting to DEFAULT_LOCALE
+// keeps every existing caller returning the 'en' row unchanged. Validate against LOCALES (not
+// ENABLED_LOCALES) so a valid catalog locale isn't rejected when i18n is off, while still rejecting garbage strings.
 const cmsEntryLocaleSchema = v.optional(v.picklist(LOCALES), DEFAULT_LOCALE);
 
 // Internal-only: the source-hash snapshot the mutation stamps onto a translation

@@ -136,8 +136,7 @@ export type GetCmsCollectionResult = CmsEntry & {
   }>;
 };
 
-// List/collection reads never render the entry body, so `getCmsCollection` drops the
-// heavy `content` and `fields` JSON columns from its projection. This is the shape
-// those callers (blog/docs listings, admin table, nav tree, sitemap) actually get;
-// single-entry readers (`getCmsEntryBySlug`) still return the full `GetCmsCollectionResult`.
+// List/collection reads never render the entry body, so `getCmsCollection` drops the heavy `content` and
+// `fields` JSON columns from its projection. This is the shape those callers (blog/docs listings, admin
+// table, nav tree, sitemap) actually get; single-entry readers (`getCmsEntryBySlug`) still return the full `GetCmsCollectionResult`.
 export type CmsCollectionListItem = Omit<GetCmsCollectionResult, "content" | "fields">;

@@ -28,9 +28,6 @@ const invitationTokenSchema = v.object({
   token: requiredString("Invitation token is required"),
 });
 
-/**
- * Invite a user to a team
- */
 export const inviteUserAction = actionClient
   .inputSchema(inviteUserSchema)
   .action(async ({ parsedInput: input }) => {
@@ -46,9 +43,6 @@ export const inviteUserAction = actionClient
     );
   });
 
-/**
- * Remove a team member
- */
 export const removeTeamMemberAction = actionClient
   .inputSchema(removeMemberSchema)
   .action(async ({ parsedInput: input }) => {
@@ -59,9 +53,6 @@ export const removeTeamMemberAction = actionClient
     });
   });
 
-/**
- * Accept a team invitation
- */
 export const acceptInvitationAction = actionClient
   .inputSchema(invitationTokenSchema)
   .action(async ({ parsedInput: input }) => {
@@ -72,9 +63,6 @@ export const acceptInvitationAction = actionClient
     });
   });
 
-/**
- * Get pending team invitations for the current user
- */
 export const getPendingInvitationsForCurrentUserAction = actionClient
   .action(async () => {
     return runVerifiedAction({

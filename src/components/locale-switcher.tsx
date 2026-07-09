@@ -48,10 +48,9 @@ export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
   }
 
   return (
-    // Wrap in a single inline-flex element. When the menu opens, Base UI injects
-    // focus-guard <span>s as siblings of the trigger; kept inside this wrapper they
-    // stay out of the parent's layout. Otherwise, in a `space-x-*` row (the navbar),
-    // the trigger stops being the last child and gains a margin, shifting the row.
+    // Wrap in a single inline-flex element. When the menu opens, Base UI injects focus-guard <span>s as
+    // siblings of the trigger; kept inside this wrapper they stay out of the parent's layout. Otherwise, in a
+    // `space-x-*` row (the navbar), the trigger stops being the last child and gains a margin, shifting the row.
     <span className="inline-flex">
       <DropdownMenu>
         <DropdownMenuTrigger

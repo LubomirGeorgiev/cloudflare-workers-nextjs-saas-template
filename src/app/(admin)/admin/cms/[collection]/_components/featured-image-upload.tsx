@@ -71,7 +71,6 @@ export function FeaturedImageUpload({
           toast.error("Media not found");
           return;
         }
-        // Get the URL from the pending selection
         const bucketKey = data[0].bucketKey;
         const url = `${CMS_IMAGES_API_ROUTE}/${bucketKey}`;
         onChange(data[0].id);
@@ -86,13 +85,11 @@ export function FeaturedImageUpload({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file");
       return;
     }
 
-    // Validate file size (10MB max)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       toast.error("Image must be smaller than 10MB");

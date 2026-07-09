@@ -8,11 +8,9 @@ import { getDB } from "@/db";
 import { cmsEntryTable, userTable } from "@/db/schema";
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/entry";
 
-// `getCmsCollection`/`getCmsCollectionCount` are wrapped in `"use cache: remote"`
-// functions that call `cacheTag`/`cacheLife`. Those throw outside of Next's
-// `cacheComponents` runtime, which this Workers-runtime integration environment
-// doesn't provide. Stub them so the underlying D1 query (the thing this test
-// actually verifies) still runs.
+// `getCmsCollection`/`getCmsCollectionCount` are wrapped in `"use cache: remote"` functions that call
+// `cacheTag`/`cacheLife`. Those throw outside of Next's `cacheComponents` runtime, which this
+// Workers-runtime integration environment doesn't provide. Stub them so the underlying D1 query (the thing this test actually verifies) still runs.
 vi.mock("next/cache", () => ({
   cacheTag: vi.fn(),
   cacheLife: vi.fn(),

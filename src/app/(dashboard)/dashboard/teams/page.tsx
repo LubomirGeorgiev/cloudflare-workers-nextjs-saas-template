@@ -37,14 +37,12 @@ interface TeamItem {
 export default async function TeamsIndexPage() {
   const t = await getTranslations("Client.Dashboard.Teams");
 
-  // Check if the user is authenticated
   const session = await getSessionFromCookie();
 
   if (!session) {
     redirect("/sign-in?redirect=/dashboard/teams");
   }
 
-  // Get teams data
   const { data: result, serverError } = await getUserTeamsAction();
 
   let teams: TeamItem[] = [];

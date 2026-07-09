@@ -1,12 +1,8 @@
 import path from "node:path"
 
-// Translatable pages live under the `[locale]` App Router segment, where hrefs
-// must be locale-prefixed. The plain `next/link` renders bare hrefs and breaks
-// out of the active locale, so those pages must use `Link` from
-// `@/i18n/navigation` (next-intl's locale-aware Link) instead.
-//
-// Admin pages (and everything else outside `[locale]`) are intentionally
-// untranslated, so they may keep importing `next/link` directly.
+// Translatable pages live under the `[locale]` App Router segment, where hrefs must be locale-prefixed. The
+// plain `next/link` renders bare hrefs and breaks out of the active locale, so those pages must use `Link`
+// from `@/i18n/navigation` (next-intl's locale-aware Link) instead. Admin pages (and everything else outside `[locale]`) are intentionally untranslated, so they may keep importing `next/link` directly.
 const LOCALE_SEGMENT = "/app/[locale]/"
 const ADMIN_SEGMENT = "/admin/"
 const INTL_NAVIGATION_IMPORT = "@/i18n/navigation"

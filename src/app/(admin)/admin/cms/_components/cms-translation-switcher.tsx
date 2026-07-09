@@ -12,12 +12,9 @@ import {
   type Locale,
 } from "@/i18n/config";
 
-// Shared editor-header translations panel: shows every enabled locale for the
-// item being edited — the current one, links to existing siblings, and
-// create-buttons for the missing ones. The entry/tag models differ only in the
-// action and sibling shape, both of which the wrapper supplies via props; the
-// shell (globe header, coverage badges, AI checkbox, single-locale guard) is
-// identical, so it lives here.
+// Shared editor-header translations panel: shows every enabled locale for the item being edited — the
+// current one, links to existing siblings, and create-buttons for the missing ones. The entry/tag models
+// differ only in the action and sibling shape, both of which the wrapper supplies via props; the shell (globe header, coverage badges, AI checkbox, single-locale guard) is identical, so it lives here.
 export function CmsTranslationSwitcher<
   Sibling extends { locale: Locale; isStale?: boolean }
 >({

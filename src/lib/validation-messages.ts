@@ -1,8 +1,5 @@
-/**
- * Wire format for Valibot display messages: `Validation.<key>` + optional JSON params,
- * e.g. `Validation.minLength {"min":6}`. Owns encode (`validationKey`/`encodeValidationMessage`)
- * and decode (`translateValidationKey`); non-prefixed messages pass through unchanged.
- */
+// Wire format: `Validation.<key>` + optional JSON params, e.g.
+// `Validation.minLength {"min":6}`. Non-prefixed messages pass through unchanged.
 
 // Single source of truth for the prefix — never hard-code the `Validation.` literal.
 const VALIDATION_KEY_PREFIX = "Validation.";
@@ -17,9 +14,8 @@ export function encodeValidationMessage(key: string, params: Record<string, unkn
   return `${validationKey(key)} ${JSON.stringify(params)}`;
 }
 
-// Matches next-intl's `useTranslations`/`getTranslations` translator shape but
-// opts out of its strict key typing, which can't verify a runtime-built key
-// derived from an encoded Valibot message. Callers still pass real translators.
+// next-intl can't type-check runtime-built keys decoded from Valibot messages.
+// Callers still pass real `useTranslations`/`getTranslations` translators.
 // oxlint-disable-next-line typescript/no-explicit-any -- bridges next-intl's strongly-keyed translator to a runtime-built key.
 type AnyValidationTranslator = (...args: any[]) => string;
 

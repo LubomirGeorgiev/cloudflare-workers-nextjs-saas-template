@@ -9,11 +9,9 @@ import { runAiText, type AiBinding } from "@/lib/ai/generate-text";
 import { truncateSeoDescription } from "@/lib/cms/seo-description";
 import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
 
-// The model NEVER sees the ProseMirror/TipTap structure. We deep-clone the doc,
-// collect only the human-readable leaf strings, translate that flat list, and
-// write each translation back into its original node. Node types, nesting,
-// marks, links (href) and images (src) are preserved by construction — a bad
-// model response degrades to a verbatim copy, never a broken document.
+// The model NEVER sees the ProseMirror/TipTap structure. We deep-clone the doc, collect only the
+// human-readable leaf strings, translate that flat list, and write each translation back into its original
+// node. Node types, nesting, marks, links (href) and images (src) are preserved by construction — a bad model response degrades to a verbatim copy, never a broken document.
 
 // A translate function takes a flat list of strings and returns the same number
 // of strings in the same order. Injectable so the extract/reinject logic can be
@@ -84,10 +82,9 @@ export function collectTranslatableStrings(content: JSONContent): CollectedStrin
   return collected;
 }
 
-// Falls back to the source strings unless `parsed` is a same-length array;
-// per-item, keeps the source when an entry is missing or not a string. This is
-// the structural safety net: a malformed model response can only ever yield a
-// verbatim copy.
+// Falls back to the source strings unless `parsed` is a same-length array; per-item, keeps the source when
+// an entry is missing or not a string. This is the structural safety net: a malformed model response can
+// only ever yield a verbatim copy.
 export function reconcileTranslation(source: string[], parsed: unknown): string[] {
   if (!Array.isArray(parsed) || parsed.length !== source.length) {
     return source;
@@ -194,10 +191,9 @@ async function translateStringsViaAi({
   const out: string[] = [];
   let ok = true;
   const chunks = chunkStrings(values);
-  // Chunks are independent AI round-trips, so translate them concurrently in small
-  // batches — faster than strictly sequential, but bounded so a large document
-  // doesn't burst past Workers-AI rate limits. Batches (and results within a batch)
-  // stay in order so the reassembled output lines up with the source values.
+  // Chunks are independent AI round-trips, so translate them concurrently in small batches — faster than
+  // strictly sequential, but bounded so a large document doesn't burst past Workers-AI rate limits. Batches
+  // (and results within a batch) stay in order so the reassembled output lines up with the source values.
   for (let i = 0; i < chunks.length; i += TRANSLATE_CHUNK_CONCURRENCY) {
     const batch = chunks.slice(i, i + TRANSLATE_CHUNK_CONCURRENCY);
     const batchResults = await Promise.all(
@@ -270,12 +266,9 @@ function hasTranslatableValue<Name extends string>(
   return typeof field.value === "string" && field.value.trim().length > 0;
 }
 
-// Batches a set of named fields plus optional unnamed `appendValues` (the entry
-// body strings) into a single AI round-trip, then splits the flat result back
-// apart. Blank fields are dropped from the batch, so `fields` only contains keys
-// that actually had text — callers fall back to the source for anything absent.
-// `translateStringsViaAi` guarantees a same-length, same-order result, which is
-// what lets the index math below line the translations back up with their fields.
+// Batches a set of named fields plus optional unnamed `appendValues` (the entry body strings) into a single
+// AI round-trip, then splits the flat result back apart. Blank fields are dropped from the batch, so
+// `fields` only contains keys that actually had text — callers fall back to the source for anything absent. `translateStringsViaAi` guarantees a same-length, same-order result, which is what lets the index math below line the translations back up with their fields.
 async function translateNamedFields<Name extends string>(
   fields: Array<NamedTranslationField<Name>>,
   { sourceLocale, targetLocale, AI, appendValues = [] }: TranslateNamedFieldsOptions
@@ -309,11 +302,9 @@ async function translateNamedFields<Name extends string>(
   };
 }
 
-// Shared guard flow for every translate helper: short-circuits to `fallback`
-// when there is nothing to do (same locale, or caller-supplied `shouldTranslate`
-// is false) or the Cloudflare AI binding is unavailable, and turns any thrown
-// error into the same fallback. This is what makes "translation is best-effort,
-// never fatal" a single contract instead of four hand-rolled try/catch blocks.
+// Shared guard flow for every translate helper: short-circuits to `fallback` when there is nothing to do
+// (same locale, or caller-supplied `shouldTranslate` is false) or the Cloudflare AI binding is unavailable,
+// and turns any thrown error into the same fallback. This is what makes "translation is best-effort, never fatal" a single contract instead of four hand-rolled try/catch blocks.
 async function withAiTranslation<Result>({
   sourceLocale,
   targetLocale,
@@ -367,10 +358,8 @@ interface TranslatedEntryFields {
   translated: boolean;
 }
 
-// Translates an entry's title, SEO description, and body in a single batched AI
-// call. Returns the originals unchanged (translated: false) when the AI binding is
-// unavailable, the locales match, or anything throws — so the caller always gets a
-// valid, structurally intact document (a verbatim copy in the worst case).
+// Entry translation is best-effort: unavailable AI, matching locales, or thrown errors
+// leave the original fields unchanged with `translated: false`.
 export async function translateEntryFields({
   title,
   seoDescription,
@@ -439,10 +428,9 @@ export async function translateEntryFields({
   });
 }
 
-// Translates a single short string (e.g. a navigation label). Same safety contract
-// as the entry/tag helpers: returns the source unchanged (translated: false) when
-// the AI binding is unavailable, the locales match, the string is blank, or
-// anything throws.
+// Translates a single short string (e.g. a navigation label). Same safety contract as the entry/tag
+// helpers: returns the source unchanged (translated: false) when the AI binding is unavailable, the locales
+// match, the string is blank, or anything throws.
 export async function translateText({
   text,
   sourceLocale,
@@ -490,10 +478,9 @@ interface TranslatedTagFields {
   translated: boolean;
 }
 
-// Translates a tag's name and description in a single batched AI call. Mirrors
-// translateEntryFields' safety contract: returns the originals unchanged
-// (translated: false) when the AI binding is unavailable, the locales match, or
-// anything throws — the caller always gets valid strings.
+// Translates a tag's name and description in a single batched AI call. Mirrors translateEntryFields' safety
+// contract: returns the originals unchanged (translated: false) when the AI binding is unavailable, the
+// locales match, or anything throws — the caller always gets valid strings.
 export async function translateTagFields({
   name,
   description,

@@ -20,9 +20,6 @@ export const createTeamAction = actionClient
     });
   });
 
-/**
- * Get all teams for the current user
- */
 export const getUserTeamsAction = actionClient
   .action(async () => {
     return runVerifiedAction({

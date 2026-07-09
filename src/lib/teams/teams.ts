@@ -10,9 +10,6 @@ import { eq, and, count } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { MAX_TEAMS_CREATED_PER_USER, MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 
-/**
- * Create a new team with the current user as owner
- */
 export async function createTeam({
   name,
   description,
@@ -31,7 +28,6 @@ export async function createTeam({
   const userId = session.userId;
   const db = getDB();
 
-  // Check if user has reached their team creation limit
   const ownedTeamsCount = await db.select({ value: count() })
     .from(teamMembershipTable)
     .where(
@@ -48,7 +44,6 @@ export async function createTeam({
     throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_CREATED_PER_USER} teams you can create.`);
   }
 
-  // Generate unique slug for the team
   let slug = generateSlug(name);
   let slugIsUnique = false;
   let attempts = 0;
@@ -62,7 +57,6 @@ export async function createTeam({
     if (!existingTeam) {
       slugIsUnique = true;
     } else {
-      // Add a random suffix to make the slug unique
       slug = `${generateSlug(name)}-${createId().substring(0, 4)}`;
       attempts++;
     }
@@ -89,7 +83,6 @@ export async function createTeam({
 
   const teamId = team.id;
 
-  // Add the creator as an owner
   await db.insert(teamMembershipTable).values({
     teamId,
     userId,
@@ -114,7 +107,6 @@ export async function createTeam({
     isEditable: 1,
   });
 
-  // Update the user's session to include the new team
   await updateAllSessionsOfUser(userId);
 
   return {
@@ -124,9 +116,6 @@ export async function createTeam({
   };
 }
 
-/**
- * Get all teams for current user
- */
 export const getUserTeams = cache(async () => {
   const session = await requireVerifiedEmail();
 

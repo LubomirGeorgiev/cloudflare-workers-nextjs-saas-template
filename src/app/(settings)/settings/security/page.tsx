@@ -28,7 +28,6 @@ export default async function SecurityPage() {
     .from(passKeyCredentialTable)
     .where(eq(passKeyCredentialTable.userId, session.user.id));
 
-  // Parse user agent for each passkey
   const passkeysWithParsedUA = passkeys.map((passkey: PassKeyCredential): ParsedPasskey => {
     // Since userAgent is text() in the schema, it can be null or undefined
     // Convert undefined to null to match our Passkey interface

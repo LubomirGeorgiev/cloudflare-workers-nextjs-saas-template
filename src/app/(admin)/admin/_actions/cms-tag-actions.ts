@@ -14,10 +14,9 @@ import {
 import { requiredString, v } from "@/lib/validation";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES } from "@/i18n/config";
 
-// A tag mutation can change the admin list and every served locale's public tag
-// pages (localized names live on /blog/tags and /blog/tags/[slug]). Public pages
-// are locale-prefixed "as-needed": the default locale is unprefixed, others
-// prefixed. With i18n disabled this collapses to the unprefixed paths only.
+// A tag mutation can change the admin list and every served locale's public tag pages (localized names live
+// on /blog/tags and /blog/tags/[slug]). Public pages are locale-prefixed "as-needed": the default locale is
+// unprefixed, others prefixed. With i18n disabled this collapses to the unprefixed paths only.
 function revalidateCmsTagPaths(slug?: string) {
   revalidatePath("/admin/cms/tags");
 

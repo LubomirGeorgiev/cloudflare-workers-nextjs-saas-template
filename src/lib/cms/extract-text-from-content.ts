@@ -27,9 +27,6 @@ function extractNodeText(node: JSONContent | undefined): string {
   return (node.content ?? []).map((child) => extractNodeText(child)).join(" ");
 }
 
-/**
- * Extract plain text from TipTap JSON content for metadata and search indexing.
- */
 export function extractTextFromContent(content: JSONContent): string {
   if (!content) return "";
 
@@ -41,9 +38,6 @@ export function extractTextFromContent(content: JSONContent): string {
   }
 }
 
-/**
- * Extract plain text and truncate for meta descriptions
- */
 export function generateMetaDescription(
   content: JSONContent,
   maxLength: number = CMS_SEO_DESCRIPTION_MAX_LENGTH

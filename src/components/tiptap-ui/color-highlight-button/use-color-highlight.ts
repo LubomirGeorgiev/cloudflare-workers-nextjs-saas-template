@@ -77,37 +77,12 @@ export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number]
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export type HighlightMode = "mark" | "node"
 
-/**
- * Configuration for the color highlight functionality
- */
 export interface UseColorHighlightConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * The color to apply when toggling the highlight.
-   */
   highlightColor?: string
-  /**
-   * Optional label to display alongside the icon.
-   */
   label?: string
-  /**
-   * Whether the button should hide when the mark is not available.
-   * @default false
-   */
   hideWhenUnavailable?: boolean
-  /**
-   * The highlighting mode to use.
-   * - "mark": Uses the highlight mark extension (default)
-   * - "node": Uses the node background extension
-   * @default "mark"
-   */
   mode?: HighlightMode
-  /**
-   * Called when the highlight is applied.
-   */
   onApplied?: ({
     color,
     label,
@@ -128,9 +103,6 @@ export function pickHighlightColorsByValue(values: string[]) {
     .filter((color): color is (typeof HIGHLIGHT_COLORS)[number] => !!color)
 }
 
-/**
- * Checks if highlight can be applied based on the mode and current editor state
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canColorHighlight(
   editor: Editor | null,
@@ -157,9 +129,6 @@ export function canColorHighlight(
   }
 }
 
-/**
- * Checks if highlight is currently active
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isColorHighlightActive(
   editor: Editor | null,
@@ -193,9 +162,6 @@ export function isColorHighlightActive(
   }
 }
 
-/**
- * Removes highlight based on the mode
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function removeHighlight(
   editor: Editor | null,
@@ -211,9 +177,6 @@ export function removeHighlight(
   }
 }
 
-/**
- * Determines if the highlight button should be shown
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null

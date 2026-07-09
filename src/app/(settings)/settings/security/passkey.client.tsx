@@ -35,7 +35,6 @@ function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegis
     try {
       setIsRegistering(true);
 
-      // Get registration options from the server
       const { data: options, serverError: optionsError } = await generateRegistrationOptionsAction({ email });
 
       if (optionsError || !options) {

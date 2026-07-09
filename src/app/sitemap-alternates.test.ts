@@ -5,12 +5,9 @@ import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
 
-// `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which
-// pull in `next/navigation` client hooks that don't resolve in a plain Node/vitest
-// module graph (no Vinext/Vite shim present). `getPathname` itself is pure
-// path-building logic, so fake it directly against the routing shape instead of
-// exercising next-intl/next's internals here (same resolution quirk documented in
-// `src/utils/i18n-metadata.test.ts`).
+// `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which pull in `next/navigation`
+// client hooks that don't resolve in a plain Node/vitest module graph (no Vinext/Vite shim present).
+// `getPathname` itself is pure path-building logic, so fake it directly against the routing shape instead of exercising next-intl/next's internals here (same resolution quirk documented in `src/utils/i18n-metadata.test.ts`).
 vi.mock("@/i18n/navigation", () => ({
   getPathname: ({ href, locale }: { href: string; locale: string }) =>
     locale === "en" ? href : `/${locale}${href}`,

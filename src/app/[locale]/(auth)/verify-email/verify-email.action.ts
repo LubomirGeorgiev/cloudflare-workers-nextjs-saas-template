@@ -44,12 +44,10 @@ export const verifyEmailAction = actionClient
         }
 
         try {
-          // Update user's email verification status
           await db.update(userTable)
             .set({ emailVerified: new Date() })
             .where(eq(userTable.id, verificationToken.userId));
 
-          // Update all sessions of the user to reflect the new email verification status
           await updateAllSessionsOfUser(verificationToken.userId);
 
           // Delete the used token

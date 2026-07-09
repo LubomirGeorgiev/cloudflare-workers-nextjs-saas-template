@@ -15,7 +15,6 @@ export const acceptTeamInviteAction = actionClient
     return withRateLimit(
       async () => {
         const t = await getTranslations("Client.Auth.TeamInvite");
-        // Check if user is logged in
         const session = await getSessionFromCookie();
 
         if (!session) {

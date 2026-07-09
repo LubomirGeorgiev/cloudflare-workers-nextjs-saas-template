@@ -11,10 +11,6 @@ export interface TableOfContentsNode {
   children: TableOfContentsNode[];
 }
 
-/**
- * Builds a nested TOC from a flat heading list (document order).
- * A heading becomes a child of the nearest previous heading with a lower level.
- */
 export function buildTableOfContentsTree(
   items: TableOfContentsItem[]
 ): TableOfContentsNode[] {

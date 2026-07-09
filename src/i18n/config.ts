@@ -17,10 +17,9 @@ export function isLocale(value: string): value is Locale {
 
 export const DEFAULT_LOCALE: Locale = "en";
 
-// The locales actually served. `LOCALES` still types the full catalog, but
-// routing, static params, the switcher, hreflang alternates, and sitemaps all
-// derive from this narrowed set — so flipping `I18N_ENABLED` to `false` collapses
-// the site to a single (default) locale everywhere at once.
+// The locales actually served. `LOCALES` still types the full catalog, but routing, static params, the
+// switcher, hreflang alternates, and sitemaps all derive from this narrowed set — so flipping
+// `I18N_ENABLED` to `false` collapses the site to a single (default) locale everywhere at once.
 export const ENABLED_LOCALES: readonly Locale[] = I18N_ENABLED
   ? LOCALES
   : [DEFAULT_LOCALE];

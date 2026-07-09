@@ -40,13 +40,11 @@ export const purchaseAction = actionClient
           );
         }
 
-        // Get item details based on type
         let itemDetails: { name: string; credits: number } | undefined;
         switch (input.itemType) {
           case PURCHASABLE_ITEM_TYPE.COMPONENT:
             itemDetails = COMPONENTS.find(c => c.id === input.itemId);
             break;
-          // Add more cases as new item types are added
         }
 
         if (!itemDetails) {
@@ -58,7 +56,6 @@ export const purchaseAction = actionClient
 
         const db = getDB();
 
-        // Check if user already owns the item
         const existingPurchase = await db.query.purchasedItemsTable.findFirst({
           where: {
             userId: session.userId,
@@ -74,7 +71,6 @@ export const purchaseAction = actionClient
           );
         }
 
-        // Check if user has enough credits
         const hasCredits = await hasEnoughCredits({
           userId: session.userId,
           requiredCredits: itemDetails.credits,
@@ -97,7 +93,6 @@ export const purchaseAction = actionClient
           }),
         });
 
-        // Add item to user's purchased items
         await db.insert(purchasedItemsTable).values({
           userId: session.userId,
           itemType: input.itemType,

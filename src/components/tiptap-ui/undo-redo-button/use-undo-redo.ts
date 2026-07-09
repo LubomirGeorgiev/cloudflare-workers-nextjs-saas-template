@@ -15,26 +15,10 @@ import { Undo2Icon } from "@/components/tiptap-icons/undo2-icon"
 
 export type UndoRedoAction = "undo" | "redo"
 
-/**
- * Configuration for the history functionality
- */
 export interface UseUndoRedoConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * The history action to perform (undo or redo).
-   */
   action: UndoRedoAction
-  /**
-   * Whether the button should hide when action is not available.
-   * @default false
-   */
   hideWhenUnavailable?: boolean
-  /**
-   * Callback function called after a successful action execution.
-   */
   onExecuted?: () => void
 }
 
@@ -55,9 +39,6 @@ export const historyIcons = {
   redo: Redo2Icon,
 }
 
-/**
- * Checks if a history action can be executed
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canExecuteUndoRedoAction(
   editor: Editor | null,
@@ -69,9 +50,6 @@ export function canExecuteUndoRedoAction(
   return action === "undo" ? editor.can().undo() : editor.can().redo()
 }
 
-/**
- * Executes a history action on the editor
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function executeUndoRedoAction(
   editor: Editor | null,
@@ -84,9 +62,6 @@ export function executeUndoRedoAction(
   return action === "undo" ? chain.undo().run() : chain.redo().run()
 }
 
-/**
- * Determines if the history button should be shown
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
@@ -104,42 +79,6 @@ export function shouldShowButton(props: {
   return true
 }
 
-/**
- * Custom hook that provides history functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage
- * function MySimpleUndoButton() {
- *   const { isVisible, handleAction } = useHistory({ action: "undo" })
- *
- *   if (!isVisible) return null
- *
- *   return <button onClick={handleAction}>Undo</button>
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedRedoButton() {
- *   const { isVisible, handleAction, label } = useHistory({
- *     editor: myEditor,
- *     action: "redo",
- *     hideWhenUnavailable: true,
- *     onExecuted: () => console.log('Action executed!')
- *   })
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <MyButton
- *       onClick={handleAction}
- *       aria-label={label}
- *     >
- *       Redo
- *     </MyButton>
- *   )
- * }
- * ```
- */
 export function useUndoRedo(config: UseUndoRedoConfig) {
   const {
     editor: providedEditor,

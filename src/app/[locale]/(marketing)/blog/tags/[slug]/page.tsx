@@ -61,7 +61,6 @@ export default async function TagPage({ params }: TagPageProps) {
   const t = await getTranslations("Blog.TagDetail")
   const { locale, slug } = await params
 
-  // Get all tags (localized for this locale) to find the current one
   const tags = await getCmsTags({ locale })
   const tag = tags.find(t => t.slug === slug)
 

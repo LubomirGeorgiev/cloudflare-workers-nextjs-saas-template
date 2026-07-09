@@ -8,12 +8,9 @@ interface LocaleFlagProps {
   className?: string
 }
 
-// Inline flag SVGs, one per locale. Emoji flags (regional-indicator characters)
-// don't render on Windows, so we self-host tiny public-domain SVGs (from the
-// flag-icons set) instead of pulling the full ~250-flag library into the bundle.
-// Add one entry here for every locale in LOCALES; the Record type enforces it.
-// Spain uses the simplified civil ensign (no coat of arms) — the crest is
-// unreadable at this size and its SVG is ~80KB, which would defeat the point.
+// Emoji flags don't render on Windows, and the full flag-icons set is too large.
+// Add one SVG per LOCALES entry; Spain uses the small civil ensign because the
+// full crest is unreadable here and its SVG is about 80KB.
 const FLAG_SVGS: Record<Locale, React.ReactNode> = {
   en: (
     <svg viewBox="0 0 640 480" className="h-full w-full" role="presentation">

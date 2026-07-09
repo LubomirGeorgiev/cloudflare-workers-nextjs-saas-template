@@ -124,7 +124,6 @@ async function validateSessionToken(token: string, userId: string): Promise<Sess
     return null;
   }
 
-  // Check if session version needs to be updated
   if (!session.version || session.version !== CURRENT_SESSION_VERSION) {
     const updatedSession = await updateKVSession(sessionId, userId, new Date(session.expiresAt));
 
@@ -132,16 +131,13 @@ async function validateSessionToken(token: string, userId: string): Promise<Sess
       return null;
     }
 
-    // Update the user initials
     updatedSession.user.initials = getInitials(`${updatedSession.user.firstName} ${updatedSession.user.lastName}`);
 
     return updatedSession;
   }
 
-  // Update the user initials
   session.user.initials = getInitials(`${session.user.firstName} ${session.user.lastName}`);
 
-  // Return the user data directly from the session
   return session;
 }
 
@@ -322,13 +318,6 @@ async function checkWithMailcheck(email: string): Promise<ValidatorResult> {
   }
 }
 
-
-/**
- * Checks if an email is allowed for sign up by verifying it's not a disposable email
- * Uses multiple services in sequence for redundancy.
- *
- * @throws {ActionError} If email is disposable or if all services fail
- */
 export async function canSignUp(
   {
     email,
@@ -338,7 +327,6 @@ export async function canSignUp(
     email: string,
     skipDisposableEmailCheck?: boolean
   }): Promise<void> {
-  // Skip disposable email check in development
   if (!isProd) {
     return;
   }

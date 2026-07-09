@@ -1,22 +1,13 @@
-// Client components receive their messages from `NextIntlClientProvider`. The root
-// provider forwards ONLY the top-level `Client` namespace (see `getClientMessages`),
-// so every `useTranslations(...)` call inside a client component must reference a
-// namespace under `Client.` (e.g. `useTranslations("Client.Auth.SignIn")`). A call
-// to any other namespace would read messages that are never serialized to the
-// client, so the lookup would throw at runtime.
-//
-// Server components, metadata, and server actions use `getTranslations` (async)
-// and may read any namespace — including `Client.*` (the strings live in one place
-// and are not duplicated) — so this rule only applies to `useTranslations` inside
-// files carrying the `"use client"` directive.
+// Client components receive their messages from `NextIntlClientProvider`. The root provider forwards ONLY
+// the top-level `Client` namespace (see `getClientMessages`), so every `useTranslations(...)` call inside a
+// client component must reference a namespace under `Client.` (e.g. `useTranslations("Client.Auth.SignIn")`). A call to any other namespace would read messages that are never serialized to the client, so the lookup would throw at runtime. Server components, metadata, and server actions use `getTranslations` (async) and may read any namespace — including `Client.*` (the strings live in one place and are not duplicated) — so this rule only applies to `useTranslations` inside files carrying the `"use client"` directive.
 const CLIENT_NAMESPACE = "Client"
 const HOOK_NAME = "useTranslations"
 const NEXT_INTL_MODULE = "next-intl"
 
-// A file ships to the client only if it opens with the `"use client"` directive.
-// Path-based detection would miss client components living outside `[locale]`
-// (settings, dashboard, shared `src/components`), which still receive messages
-// from the root provider, so key off the directive instead.
+// A file ships to the client only if it opens with the `"use client"` directive. Path-based detection would
+// miss client components living outside `[locale]` (settings, dashboard, shared `src/components`), which
+// still receive messages from the root provider, so key off the directive instead.
 function hasUseClientDirective(programNode) {
   for (const statement of programNode.body) {
     // The directive prologue is a run of leading string-literal statements; stop

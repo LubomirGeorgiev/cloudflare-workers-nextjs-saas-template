@@ -8,10 +8,6 @@ import { isTestMode } from "./is-test-mode";
 const UNKNOWN_IP_RATE_LIMIT_KEY = "unknown-ip";
 
 interface RateLimitConfig {
-  /**
-   * The key to use for the rate limit. Usually an IP address or a user ID.
-   * @default IP address of the request
-   */
   userIdentifier?: string;
   /**
    * A unique identifier for the rate limit.

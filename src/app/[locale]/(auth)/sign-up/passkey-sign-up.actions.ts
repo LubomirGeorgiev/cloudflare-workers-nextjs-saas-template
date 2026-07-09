@@ -49,7 +49,6 @@ export const startPasskeyRegistrationAction = actionClient
 
         const db = getDB();
 
-        // Check if email is disposable
         await canSignUp({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
@@ -81,7 +80,6 @@ export const startPasskeyRegistrationAction = actionClient
           );
         }
 
-        // Generate passkey registration options
         const options = await generatePasskeyRegistrationOptions(user.id, input.email);
 
         const cookieStore = await cookies();
@@ -155,7 +153,6 @@ export const completePasskeyRegistrationAction = actionClient
         ipAddress: await getIP(),
       });
 
-      // Get user details for email verification
       const db = getDB();
       const user = await db.query.userTable.findFirst({
         where: { id: userId },

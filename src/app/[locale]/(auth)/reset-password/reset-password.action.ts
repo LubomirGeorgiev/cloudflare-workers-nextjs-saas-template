@@ -47,7 +47,6 @@ export const resetPasswordAction = actionClient
             );
           }
 
-          // Update password
           const passwordHash = await hashPassword({ password: input.password });
           await db.update(userTable)
             .set({ passwordHash })

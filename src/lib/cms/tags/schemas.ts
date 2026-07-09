@@ -37,10 +37,9 @@ export const deleteCmsTagParamsSchema = requiredString();
 
 export const createCmsTagTranslationParamsSchema = v.object({
   slug: requiredString(),
-  // Both feed a tag row insert, so validate against the full locale catalog here —
-  // the canonical write boundary — rather than casting raw strings downstream. Use
-  // LOCALES (not ENABLED_LOCALES) so a valid source/target isn't rejected when i18n
-  // is off.
+  // Both feed a tag row insert, so validate against the full locale catalog here — the canonical write
+  // boundary — rather than casting raw strings downstream. Use LOCALES (not ENABLED_LOCALES) so a valid
+  // source/target isn't rejected when i18n is off.
   sourceLocale: v.picklist(LOCALES),
   targetLocale: v.picklist(LOCALES),
   createdBy: requiredString(),

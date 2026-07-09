@@ -25,7 +25,6 @@ export const getUsersAction = actionClient
     // Calculate offset
     const offset = (page - 1) * pageSize
 
-    // Build where clause
     const whereClause = emailFilter
       ? sql`${userTable.email} LIKE ${`%${emailFilter}%`}`
       : undefined
@@ -33,13 +32,11 @@ export const getUsersAction = actionClient
       ? { email: { like: `%${emailFilter}%` } }
       : undefined
 
-    // Fetch total count
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(userTable)
       .where(whereClause)
 
-    // Fetch paginated users
     const users = await db.query.userTable.findMany({
       columns: {
         id: true,

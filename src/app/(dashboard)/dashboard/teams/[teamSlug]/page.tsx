@@ -72,7 +72,6 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
     notFound();
   }
 
-  // Check team membership using the new function
   const { hasAccess, session: teamSession } = await hasTeamMembership(team.id);
 
   // If user doesn't have access, show error message
@@ -102,11 +101,9 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
     );
   }
 
-  // Check permissions
   const canInviteMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS);
   const canRemoveMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS);
 
-  // Fetch team members
   const teamMembers = await getTeamMembers(team.id);
 
   return (

@@ -16,21 +16,10 @@ declare module "@tiptap/core" {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface NodeBackgroundOptions {
-  /**
-   * Node types that should support background colors
-   * @default ["paragraph", "heading", "blockquote", "taskList", "bulletList", "orderedList", "tableCell", "tableHeader"]
-   */
   types: string[]
-  /**
-   * Use inline style instead of data attribute
-   * @default true
-   */
   useStyle?: boolean
 }
 
-/**
- * Determines the target color for toggle operations
- */
 function getToggleColor(
   targets: NodeWithPos[],
   inputColor: string
@@ -104,9 +93,6 @@ export const NodeBackground = Extension.create<NodeBackgroundOptions>({
   },
 
   addCommands() {
-    /**
-     * Generic command executor for background color operations
-     */
     const executeBackgroundCommand = (
       getTargetColor: (
         targets: NodeWithPos[],
@@ -129,21 +115,12 @@ export const NodeBackground = Extension.create<NodeBackgroundOptions>({
     }
 
     return {
-      /**
-       * Set background color to specific value
-       */
       setNodeBackgroundColor: executeBackgroundCommand(
         (_, inputColor) => inputColor || null
       ),
 
-      /**
-       * Remove background color
-       */
       unsetNodeBackgroundColor: executeBackgroundCommand(() => null),
 
-      /**
-       * Toggle background color (set if different/missing, unset if all have it)
-       */
       toggleNodeBackgroundColor: executeBackgroundCommand(
         (targets, inputColor) => getToggleColor(targets, inputColor || "")
       ),

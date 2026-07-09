@@ -5,11 +5,9 @@ import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
 
-// `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which
-// pull in `next/navigation` client hooks that don't resolve in a plain Node/vitest
-// module graph (no Vinext/Vite shim present). `getPathname` itself is pure
-// path-building logic, so fake it directly against the `routing` config instead
-// of exercising next-intl/next's internals here.
+// `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which pull in `next/navigation`
+// client hooks that don't resolve in a plain Node/vitest module graph (no Vinext/Vite shim present).
+// `getPathname` itself is pure path-building logic, so fake it directly against the `routing` config instead of exercising next-intl/next's internals here.
 vi.mock("@/i18n/navigation", () => ({
   getPathname: ({ href, locale }: { href: string; locale: string }) =>
     locale === "en" ? href : `/${locale}${href}`,
@@ -129,15 +127,9 @@ describe("noindexNonDefaultLocale", () => {
   });
 });
 
-// Blog/docs `generateMetadata` compose these two helpers for a fallback render
-// (active locale has no translation, default-locale content is served under
-// the active locale's URL instead of redirecting — see resolve-localized-entry.ts
-// and resolve-docs-page.ts). This documents/locks the exact contract those
-// pages depend on: noindex the untranslated page and canonicalize it at the
-// real default-locale URL, while still advertising only genuine translations
-// via hreflang. Getting this wrong (e.g. self-canonicalizing) would resurrect
-// the mixed-language/duplicate-content risk the redirect was originally
-// (incorrectly) trying to solve.
+// Blog/docs `generateMetadata` compose these two helpers for a fallback render (active locale has no
+// translation, default-locale content is served under the active locale's URL instead of redirecting — see
+// resolve-localized-entry.ts and resolve-docs-page.ts). This documents/locks the exact contract those pages depend on: noindex the untranslated page and canonicalize it at the real default-locale URL, while still advertising only genuine translations via hreflang. Getting this wrong (e.g. self-canonicalizing) would resurrect the mixed-language/duplicate-content risk the redirect was originally (incorrectly) trying to solve.
 describe("fallback-render metadata composition (blog/docs untranslated pages)", () => {
   test("noindexes the untranslated locale render", () => {
     const fallbackMetadata = noindexNonDefaultLocale("es");

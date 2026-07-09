@@ -72,10 +72,9 @@ function mockTranslatedValues(values: string[]): void {
   runAiTextMock.mockResolvedValue(JSON.stringify(values));
 }
 
-// Per-chunk translator: parses the input array out of the prompt (it is the
-// trailing JSON array after "Input:") and uppercases each string. Because each
-// chunk is a separate runAiText call, this lets multi-chunk ordering be checked
-// end to end — the reassembled output must uppercase every value in source order.
+// Per-chunk translator: parses the input array out of the prompt (it is the trailing JSON array after
+// "Input:") and uppercases each string. Because each chunk is a separate runAiText call, this lets
+// multi-chunk ordering be checked end to end — the reassembled output must uppercase every value in source order.
 function uppercaseChunk(prompt: string): string {
   const arr = JSON.parse(prompt.slice(prompt.indexOf("["))) as string[];
   return JSON.stringify(arr.map((value) => value.toUpperCase()));

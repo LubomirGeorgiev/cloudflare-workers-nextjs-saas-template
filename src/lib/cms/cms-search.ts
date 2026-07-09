@@ -294,11 +294,9 @@ async function getCachedCmsSearchResults({
   await ensureCmsSearchIndex(collectionSlug);
 
   const d1 = await getSearchDatabase();
-  // Navigation items anchor on the default-locale row (`navigation.entryId` is a
-  // fixed FK to it), so resolve the shared, locale-independent path through the
-  // matched row's default-locale sibling — otherwise non-default-locale hits miss
-  // the join and fall back to the bare base path. Anchors self-match when
-  // `locale === DEFAULT_LOCALE`, keeping the default-locale query unchanged.
+  // Navigation items anchor on the default-locale row (`navigation.entryId` is a fixed FK to it), so resolve
+  // the shared, locale-independent path through the matched row's default-locale sibling — otherwise
+  // non-default-locale hits miss the join and fall back to the bare base path. Anchors self-match when `locale === DEFAULT_LOCALE`, keeping the default-locale query unchanged.
   const result = await d1
     .prepare(
       `SELECT

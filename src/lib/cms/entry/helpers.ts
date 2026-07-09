@@ -65,7 +65,6 @@ export function handlePublishedAt(
   }
 
   if (status === CMS_ENTRY_STATUS.SCHEDULED) {
-    // Validate that scheduled entries have a future publishedAt date
     if (!publishedAt) {
       throw new Error("publishedAt is required for scheduled entries");
     }

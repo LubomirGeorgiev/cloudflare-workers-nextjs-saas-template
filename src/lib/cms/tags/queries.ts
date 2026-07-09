@@ -28,9 +28,8 @@ import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
 
-// Returns canonical (DEFAULT_LOCALE) tags with their entry counts. When `locale`
-// is non-default, display fields are overlaid from the locale sibling while
-// id/slug/color/entryCount stay canonical for stable junctions and URLs.
+// Canonical tag rows own counts and stable junction fields; locale siblings only
+// overlay display fields.
 export async function getCmsTags(params?: GetCmsTagsParams) {
   "use cache: remote";
   setCacheScope({

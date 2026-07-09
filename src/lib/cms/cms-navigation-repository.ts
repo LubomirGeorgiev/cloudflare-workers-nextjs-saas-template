@@ -81,10 +81,9 @@ async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): P
   }
 }
 
-// Keeps only non-empty, trimmed overrides for served non-default locales (the
-// default locale always uses `title`), collapsing an empty map to null. Iterating
-// ENABLED_LOCALES drops overrides for locales that aren't served (e.g. every
-// non-default locale once i18n is disabled).
+// Keeps only non-empty, trimmed overrides for served non-default locales (the default locale always uses
+// `title`), collapsing an empty map to null. Iterating ENABLED_LOCALES drops overrides for locales that
+// aren't served (e.g. every non-default locale once i18n is disabled).
 function sanitizeTitleTranslations(
   raw: Partial<Record<Locale, string>> | null | undefined,
 ): Partial<Record<Locale, string>> | null {
@@ -427,10 +426,9 @@ export function getCmsNavigationNodeByResolvedPath({
   return flattenTree(nodes).find((node) => node.resolvedPath === normalizedPath) ?? null;
 }
 
-// Navigation attaches to the default-locale anchor row's `entryId`, but every locale
-// sibling shares the anchor's `(collection, slug)`. Resolving by the hydrated
-// `node.entry.slug` therefore treats a translation as in-navigation whenever its
-// anchor is, instead of missing because the translation row has a different id.
+// Navigation attaches to the default-locale anchor row's `entryId`, but every locale sibling shares the
+// anchor's `(collection, slug)`. Resolving by the hydrated `node.entry.slug` therefore treats a translation
+// as in-navigation whenever its anchor is, instead of missing because the translation row has a different id.
 export function getCmsNavigationNodeByEntrySlug({
   slug,
   nodes,

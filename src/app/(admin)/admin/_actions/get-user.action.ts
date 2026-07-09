@@ -17,7 +17,6 @@ export const getUserData = actionClient
 
     const db = getDB()
 
-    // Fetch user with all details
     const user = await db.query.userTable.findFirst({
       where: { id: input.userId },
     })
@@ -26,14 +25,12 @@ export const getUserData = actionClient
       throw new ActionError("NOT_FOUND", "User not found")
     }
 
-    // Fetch user's credit transactions (last 10)
     const transactions = await db.query.creditTransactionTable.findMany({
       where: { userId: input.userId },
       orderBy: { createdAt: "desc" },
       limit: 10,
     })
 
-    // Fetch user's passkey credentials
     const passkeys = await db.query.passKeyCredentialTable.findMany({
       where: { userId: input.userId },
       orderBy: { createdAt: "desc" },

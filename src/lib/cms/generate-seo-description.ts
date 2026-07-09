@@ -14,12 +14,6 @@ type GenerateSeoDescriptionParams = {
   collectionSlug: CollectionsUnion;
 };
 
-/**
- * Generate an SEO description using Cloudflare AI based on the entry's title and JSON content
- *
- * @param params - Object containing title, content (TipTap JSON), and collectionSlug
- * @returns A generated SEO description (max ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters) or null if AI is not available
- */
 export async function generateSeoDescription({
   title,
   content,

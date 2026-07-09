@@ -52,10 +52,7 @@ interface DataTableProps<TData, TValue> {
   getRowHref?: (row: TData) => string
   excludeClickableColumns?: string[]
   filterComponents?: React.ReactNode
-  // Optional row-grouping affordance: when provided, hovering a row highlights every
-  // other visible row sharing the same key (e.g. locale siblings of one CMS entry).
-  // Only activates when the key has 2+ rows on the current page, so singletons behave
-  // like a normal hover. Tables that omit it are unaffected.
+  // Hovering one grouped row highlights visible siblings only when 2+ rows share its key.
   getRowGroupKey?: (row: TData) => string | null | undefined
 }
 

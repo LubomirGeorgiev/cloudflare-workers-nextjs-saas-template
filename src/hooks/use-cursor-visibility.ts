@@ -7,24 +7,10 @@ import { useEffect } from "react"
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Hook modules intentionally expose reusable app APIs.
 export interface CursorVisibilityOptions {
-  /**
-   * The Tiptap editor instance
-   */
   editor?: Editor | null
-  /**
-   * Reference to the toolbar element that may obscure the cursor
-   */
   overlayHeight?: number
 }
 
-/**
- * Custom hook that ensures the cursor remains visible when typing in a Tiptap editor.
- * Automatically scrolls the window when the cursor would be hidden by the toolbar.
- *
- * @param options.editor The Tiptap editor instance
- * @param options.overlayHeight Toolbar height to account for
- * @returns The bounding rect of the body
- */
 export function useCursorVisibility({
   editor,
   overlayHeight = 0,
@@ -43,7 +29,6 @@ export function useCursorVisibility({
       const { state, view } = editor
       if (!view.hasFocus()) return
 
-      // Get current cursor position coordinates
       const { from } = state.selection
       const cursorCoords = view.coordsAtPos(from)
 

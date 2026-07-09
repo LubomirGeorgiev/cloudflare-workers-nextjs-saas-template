@@ -126,10 +126,9 @@ export interface CmsEntryRef {
   slug: string;
 }
 
-// The (collection, slug) of every entry that references this tag group. Junction
-// rows anchor on the canonical (DEFAULT_LOCALE) tag row, so we join through it by
-// group slug. Callers that need these refs *after* the tag rows are gone (delete)
-// must collect them before the mutation runs.
+// The (collection, slug) of every entry that references this tag group. Junction rows anchor on the
+// canonical (DEFAULT_LOCALE) tag row, so we join through it by group slug. Callers that need these refs
+// *after* the tag rows are gone (delete) must collect them before the mutation runs.
 export async function getCmsTagGroupEntryRefs({
   tagSlug,
 }: {
@@ -154,11 +153,9 @@ export async function getCmsTagGroupEntryRefs({
     .innerJoin(cmsEntryTable, eq(cmsEntryTable.id, cmsEntryTagTable.entryId));
 }
 
-// Scoped invalidation for a tag write: only the entries that render this tag (and
-// their collection list pages) plus the tags catalog and sitemap. A tag edit can't
-// change collection counts or navigation, so those tags are deliberately left alone
-// — the previous behavior flushed the entire CMS cache (all entries/collections/
-// counts/nav) after an unfiltered full-table scan on every tag mutation.
+// Scoped invalidation for a tag write: only the entries that render this tag (and their collection list
+// pages) plus the tags catalog and sitemap. A tag edit can't change collection counts or navigation, so
+// those tags are deliberately left alone — the previous behavior flushed the entire CMS cache (all entries/collections/ counts/nav) after an unfiltered full-table scan on every tag mutation.
 export function invalidateCmsTagGroupCaches({
   entryRefs,
 }: {

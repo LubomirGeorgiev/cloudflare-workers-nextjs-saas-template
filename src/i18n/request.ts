@@ -13,10 +13,9 @@ function isMessageTree(value: unknown): value is MessageTree {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// Deep-merge the default-locale catalog under the active one so keys missing from a
-// translation fall back to DEFAULT_LOCALE instead of rendering the raw key path.
-// next-intl has no built-in cross-locale fallback; this is the recommended pattern.
-// Active-locale values always win; recursion only descends when both sides are subtrees.
+// Deep-merge the default-locale catalog under the active one so keys missing from a translation fall back
+// to DEFAULT_LOCALE instead of rendering the raw key path. next-intl has no built-in cross-locale fallback;
+// this is the recommended pattern. Active-locale values always win; recursion only descends when both sides are subtrees.
 function mergeMessagesWithFallback({
   fallbackMessages,
   messages,

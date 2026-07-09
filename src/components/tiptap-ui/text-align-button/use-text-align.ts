@@ -21,26 +21,10 @@ import { AlignRightIcon } from "@/components/tiptap-icons/align-right-icon"
 
 export type TextAlign = "left" | "center" | "right" | "justify"
 
-/**
- * Configuration for the text align functionality
- */
 export interface UseTextAlignConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * The text alignment to apply.
-   */
   align: TextAlign
-  /**
-   * Whether the button should hide when alignment is not available.
-   * @default false
-   */
   hideWhenUnavailable?: boolean
-  /**
-   * Callback function called after a successful alignment change.
-   */
   onAligned?: () => void
 }
 
@@ -67,9 +51,6 @@ export const textAlignLabels: Record<TextAlign, string> = {
   justify: "Align justify",
 }
 
-/**
- * Checks if text alignment can be performed in the current editor state
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canSetTextAlign(
   editor: Editor | null,
@@ -94,9 +75,6 @@ export function hasSetTextAlign(
   return "setTextAlign" in commands
 }
 
-/**
- * Checks if the text alignment is currently active
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isTextAlignActive(
   editor: Editor | null,
@@ -106,9 +84,6 @@ export function isTextAlignActive(
   return editor.isActive({ textAlign: align })
 }
 
-/**
- * Sets text alignment in the editor
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
   if (!editor || !editor.isEditable) return false
@@ -122,9 +97,6 @@ export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
   return false
 }
 
-/**
- * Determines if the text align button should be shown
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
@@ -143,43 +115,6 @@ export function shouldShowButton(props: {
   return true
 }
 
-/**
- * Custom hook that provides text align functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage
- * function MySimpleAlignButton() {
- *   const { isVisible, handleTextAlign } = useTextAlign({ align: "center" })
- *
- *   if (!isVisible) return null
- *
- *   return <button onClick={handleTextAlign}>Align Center</button>
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedAlignButton() {
- *   const { isVisible, handleTextAlign, label, isActive } = useTextAlign({
- *     editor: myEditor,
- *     align: "right",
- *     hideWhenUnavailable: true,
- *     onAligned: () => console.log('Text aligned!')
- *   })
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <MyButton
- *       onClick={handleTextAlign}
- *       aria-pressed={isActive}
- *       aria-label={label}
- *     >
- *       Align Right
- *     </MyButton>
- *   )
- * }
- * ```
- */
 export function useTextAlign(config: UseTextAlignConfig) {
   const {
     editor: providedEditor,

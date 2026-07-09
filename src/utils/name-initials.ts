@@ -1,9 +1,4 @@
-/**
- * Generates initials from a name string
- * @param name - The full name to generate initials from
- * @param maxLength - Maximum number of initials to return (default: 2)
- * @returns The initials as a string
- */
+
 export function getInitials(name: string, maxLength = 2): string {
   if (!name) return ""
 

@@ -3,10 +3,9 @@ import { describe, expect, test } from "vitest";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "./config";
 import { routing } from "./routing";
 
-// The as-needed prefix contract is SEO-critical: default locale served at the bare
-// path, others prefixed. We assert the routing configuration (the prefixing behavior
-// itself is next-intl's, validated at runtime by the Task 1 spike). Values derive from
-// config for template safety.
+// The as-needed prefix contract is SEO-critical: default locale served at the bare path, others prefixed.
+// We assert the routing configuration (the prefixing behavior itself is next-intl's, validated at runtime
+// by the Task 1 spike). Values derive from config for template safety.
 describe("routing configuration", () => {
   test("uses as-needed locale prefixing", () => {
     const prefix = routing.localePrefix;
