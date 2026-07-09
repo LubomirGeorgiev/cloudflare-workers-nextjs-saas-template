@@ -153,7 +153,8 @@ When using Cloudflare MCP `execute` for account inventory or deployment prep, do
 
 ### Schemas
 
-- All Zod schemas must live in `src/schemas/`.
+- All Valibot schemas must live in `src/schemas/`.
+- Import `v` and shared validation helpers from `src/lib/validation.ts` instead of importing Valibot directly in schema files.
 - Reuse the same schema on both client and server.
 - Do not duplicate validation logic between React Hook Form and server actions.
 - Export both the schema and its inferred type.
@@ -161,14 +162,23 @@ When using Cloudflare MCP `execute` for account inventory or deployment prep, do
 Example:
 
 ```typescript
-import { z } from "zod"
+import { emailString, minString, v } from "@/lib/validation";
 
-export const mySchema = z.object({
-  email: z.string().email(),
-})
+export const mySchema = v.object({
+  email: emailString(),
+  password: minString(8),
+});
 
-export type MySchema = z.infer<typeof mySchema>
+export type MySchema = v.InferOutput<typeof mySchema>;
 ```
+
+### Localized Validation Messages
+
+- User-facing schema messages should be stable validation keys, not inline English copy.
+- Use helpers from `src/lib/validation.ts` such as `requiredString`, `emailString`, `minString`, `maxString`, and `minMaxString` so common rules emit localized `Validation.*` keys automatically.
+- For custom validation messages, use `validationKey("messageName")` or `encodeValidationMessage("messageName", params)` from `src/lib/validation.ts`; never hard-code the `Validation.` prefix in schemas.
+- Add new validation keys to `Client.Validation` in every locale catalog under `src/i18n/messages/`.
+- `FormMessage` and `actionClient` validation error handling translate keyed messages with `translateValidationKey`; non-keyed inline messages pass through unchanged and should not be used for user-facing form validation.
 
 ### Server Actions
 
@@ -179,7 +189,7 @@ export type MySchema = z.infer<typeof mySchema>
 
 ### Client Forms
 
-- Use `react-hook-form` with `zodResolver(schema)`.
+- Use `react-hook-form` with `valibotResolver(schema)`.
 - Use `useAction` from `next-safe-action/hooks` to call server actions.
 - Use toast notifications for loading, success, and error states.
 
