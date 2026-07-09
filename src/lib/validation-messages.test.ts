@@ -59,74 +59,55 @@ describe("schema validation messages", () => {
     expect(violations).toEqual([]);
   });
 
-  test("do not pass raw English copy as Valibot validation messages", () => {
+  test("referenced validation message keys exist in every locale", () => {
     const sourceDirectory = fileURLToPath(new URL("..", import.meta.url));
-    const sourceFiles = listSourceFiles(sourceDirectory).filter((filePath) =>
-      shouldCheckPublicValidationMessages({ filePath, sourceDirectory })
+    const messagesDirectory = fileURLToPath(new URL("../i18n/messages", import.meta.url));
+    const validationKeys = new Set(
+      listSourceFiles(sourceDirectory).flatMap((filePath) => {
+        const source = readFileSync(filePath, "utf8");
+
+        return [...source.matchAll(/\b(?:validationKey|encodeValidationMessage)\(\s*["']([^"']+)["']/g)].map(
+          (match) => match[1]
+        );
+      })
     );
-    const rawMessagePatterns = [
-      /\b(?:requiredString|emailString|minString|maxString)\([^)]*["'][A-Z][^"']*[a-z][^"']*["']/,
-      /\bv\.(?:string|number|boolean|date|custom|url)\([^)]*["'][A-Z][^"']*[a-z][^"']*["']/,
-      /\bv\.(?:minLength|maxLength|minValue|maxValue)\([^)]*,\s*["'][A-Z][^"']*[a-z][^"']*["']/,
-      /^\s*},\s*["'][A-Z][^"']*[a-z][^"']*["']/,
-    ];
+    const missingKeys = listMessageFiles(messagesDirectory).flatMap((filePath) => {
+      const messages = JSON.parse(readFileSync(filePath, "utf8")) as {
+        Client?: { Validation?: Record<string, string> };
+      };
+      const localizedKeys = new Set(Object.keys(messages.Client?.Validation ?? {}));
 
-    const violations = sourceFiles.flatMap((filePath) => {
-      const source = readFileSync(filePath, "utf8");
-
-      return source.split("\n").flatMap((line, index) =>
-        rawMessagePatterns.some((pattern) => pattern.test(line))
-          ? [`${relative(sourceDirectory, filePath)}:${index + 1}`]
-          : []
-      );
+      return [...validationKeys]
+        .filter((key) => !localizedKeys.has(key))
+        .map((key) => `${relative(messagesDirectory, filePath)}:${key}`);
     });
 
-    expect(violations).toEqual([]);
+    expect(missingKeys).toEqual([]);
   });
 });
 
 function listSchemaFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = join(directory, entry.name);
-
-    if (entry.isDirectory()) {
-      return listSchemaFiles(entryPath);
-    }
-
-    return entry.isFile() && entry.name.endsWith(".schema.ts") ? [entryPath] : [];
-  });
+  return listFiles(directory, (fileName) => fileName.endsWith(".schema.ts"));
 }
 
 function listSourceFiles(directory: string): string[] {
+  return listFiles(directory, (fileName) => /\.(?:ts|tsx)$/.test(fileName));
+}
+
+function listMessageFiles(directory: string): string[] {
+  return listFiles(directory, (fileName) => fileName.endsWith(".json"));
+}
+
+function listFiles(directory: string, shouldInclude: (fileName: string) => boolean): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      return listSourceFiles(entryPath);
+      return listFiles(entryPath, shouldInclude);
     }
 
-    return entry.isFile() && /\.(?:ts|tsx)$/.test(entry.name) ? [entryPath] : [];
+    return entry.isFile() && shouldInclude(entry.name) ? [entryPath] : [];
   });
-}
-
-function shouldCheckPublicValidationMessages({
-  filePath,
-  sourceDirectory,
-}: {
-  filePath: string;
-  sourceDirectory: string;
-}) {
-  const relativePath = relative(sourceDirectory, filePath);
-
-  if (relativePath.startsWith("app/(admin)/")) {
-    return false;
-  }
-
-  if (relativePath === "actions/upload-image.action.ts") {
-    return false;
-  }
-
-  return true;
 }
 
 function lineNumberForIndex(source: string, index: number) {
