@@ -320,7 +320,7 @@ export async function deleteCmsTag(id: DeleteCmsTagParams) {
   });
 
   if (!existingTag) {
-    return;
+    return undefined;
   }
 
   // Collect the entries that reference this tag before the delete cascades the
@@ -337,6 +337,8 @@ export async function deleteCmsTag(id: DeleteCmsTagParams) {
   }
 
   await invalidateCmsTagMutationCaches({ entryRefs });
+
+  return existingTag;
 }
 
 // Creates a translation of a canonical tag: a sibling row sharing `slug`/`color`

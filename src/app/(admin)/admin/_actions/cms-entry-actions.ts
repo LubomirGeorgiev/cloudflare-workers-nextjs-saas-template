@@ -1,10 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { cmsConfig, collectionSchema, type CollectionsUnion } from "@/../cms.config";
+import { collectionSchema, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
 import {
   getCmsCollection,
@@ -20,9 +19,10 @@ import {
   type CmsCollectionListItem,
 } from "@/lib/cms/entry";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
+import { revalidateCmsEntryPaths } from "@/app/(admin)/admin/_actions/cms-entry-revalidation";
 import { cmsStatusFilterTuple } from "@/types/cms";
 import { requiredString, v } from "@/lib/validation";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, type Locale } from "@/i18n/config";
+import { ENABLED_LOCALES, LOCALES, type Locale } from "@/i18n/config";
 
 const listStatusEnum = v.picklist(cmsStatusFilterTuple);
 
@@ -33,44 +33,6 @@ export type CmsEntryListRow = CmsCollectionListItem & {
   missingLocales: Locale[];
   translationGroupSize: number;
 };
-
-function revalidateCmsEntryPaths({
-  collection,
-  entryId,
-  slugs,
-  includeCreatePath = false,
-}: {
-  collection: CollectionsUnion;
-  entryId: string;
-  slugs: string[];
-  includeCreatePath?: boolean;
-}) {
-  revalidatePath("/admin/cms");
-  revalidatePath(`/admin/cms/${collection}`);
-  revalidatePath(`/admin/cms/${collection}/${entryId}`);
-
-  if (includeCreatePath) {
-    revalidatePath(`/admin/cms/${collection}/new`);
-  }
-
-  const collectionConfig = cmsConfig.collections[collection];
-  const previewUrlBuilder = "previewUrl" in collectionConfig ? collectionConfig.previewUrl : undefined;
-
-  if (!previewUrlBuilder) {
-    return;
-  }
-
-  // Public pages are locale-prefixed with "as-needed" prefixing (default locale unprefixed, e.g. /blog/x;
-  // other locales prefixed, e.g. /es/blog/x). A CMS mutation can affect the page in any served locale, so
-  // revalidate each enabled locale's path — with i18n disabled this collapses to the unprefixed path only.
-  for (const slug of new Set(slugs.filter(Boolean))) {
-    const path = previewUrlBuilder(slug);
-
-    for (const locale of ENABLED_LOCALES) {
-      revalidatePath(locale === DEFAULT_LOCALE ? path : `/${locale}${path}`);
-    }
-  }
-}
 
 export const listCmsEntriesAction = actionClient
   .inputSchema(
@@ -179,7 +141,13 @@ export const deleteCmsEntryAction = actionClient
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
-    await deleteCmsEntry({ id: input.id });
+    const deletedEntry = await deleteCmsEntry({ id: input.id });
+
+    revalidateCmsEntryPaths({
+      collection: deletedEntry.collection as CollectionsUnion,
+      entryId: deletedEntry.id,
+      slugs: [deletedEntry.slug],
+    });
 
     return { success: true };
   });

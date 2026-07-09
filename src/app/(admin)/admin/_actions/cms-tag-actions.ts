@@ -100,9 +100,9 @@ export const deleteCmsTagAction = actionClient
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
-    await deleteCmsTag(input.id);
+    const deletedTag = await deleteCmsTag(input.id);
 
-    revalidateCmsTagPaths();
+    revalidateCmsTagPaths(deletedTag?.slug);
 
     return { success: true };
   });

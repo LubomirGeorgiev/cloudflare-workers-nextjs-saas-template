@@ -386,7 +386,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   return updatedEntry || null;
 }
 
-export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void> {
+export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<CmsEntry> {
   const validated = v.parse(deleteCmsEntryParamsSchema, params);
   const { id } = validated;
 
@@ -422,6 +422,8 @@ export async function deleteCmsEntry(params: DeleteCmsEntryParams): Promise<void
 
   // Every sibling shares (collection, slug), so one invalidation covers the group.
   await invalidateEntryAndCollection({ collectionSlug, slug });
+
+  return existingEntry;
 }
 
 // Creates a new translation: a sibling row sharing (collection, slug) with a
