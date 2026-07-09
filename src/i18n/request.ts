@@ -3,11 +3,8 @@ import { getRequestConfig } from "next-intl/server";
 
 import { DEFAULT_LOCALE, type Locale } from "./config";
 import { getUserLocale } from "./locale";
+import { MESSAGE_CATALOGS, type MessageTree } from "./message-catalogs";
 import { routing } from "./routing";
-
-type MessageTree = {
-  [key: string]: string | MessageTree;
-};
 
 function isMessageTree(value: unknown): value is MessageTree {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -42,15 +39,15 @@ function mergeMessagesWithFallback({
 // request; the isolate is reused across requests, so this runs at most once per locale.
 const mergedMessagesCache = new Map<Locale, MessageTree>();
 
-async function loadMessages(locale: Locale): Promise<MessageTree> {
-  const messages: MessageTree = (await import(`./messages/${locale}.json`)).default;
+function loadMessages(locale: Locale): MessageTree {
+  const messages = MESSAGE_CATALOGS[locale];
   if (locale === DEFAULT_LOCALE) return messages;
 
   const cached = mergedMessagesCache.get(locale);
   if (cached) return cached;
 
   const merged = mergeMessagesWithFallback({
-    fallbackMessages: (await import(`./messages/${DEFAULT_LOCALE}.json`)).default,
+    fallbackMessages: MESSAGE_CATALOGS[DEFAULT_LOCALE],
     messages,
   });
   mergedMessagesCache.set(locale, merged);
@@ -69,6 +66,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: await loadMessages(locale),
+    messages: loadMessages(locale),
   };
 });

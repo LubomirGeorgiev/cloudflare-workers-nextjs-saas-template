@@ -8,6 +8,7 @@ import {
   SITE_URL,
 } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import {
   createScheduledQueueMessage,
@@ -18,8 +19,8 @@ import {
 import isProd from "./is-prod";
 
 // The queue consumer has no request context (no cookies/headers), so it can't
-// call getUserLocale()/getTranslations(). Load the message catalog directly and
-// build a one-off translator instead - this mirrors src/i18n/request.ts.
+// call getUserLocale()/getTranslations(). Keep catalogs statically registered so
+// the Worker bundle doesn't rely on Vite resolving an aliased variable import.
 async function getEmailTranslator(locale: string) {
   // Resolve against the full catalog, not ENABLED_LOCALES: email language follows
   // the recipient's stored preference and is decoupled from public-route i18n, so a
@@ -28,7 +29,7 @@ async function getEmailTranslator(locale: string) {
     ? (locale as Locale)
     : DEFAULT_LOCALE;
 
-  const messages = (await import(`@/i18n/messages/${resolvedLocale}.json`)).default;
+  const messages = MESSAGE_CATALOGS[resolvedLocale];
 
   return {
     locale: resolvedLocale,

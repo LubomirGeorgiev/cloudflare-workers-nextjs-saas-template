@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { LOCALES } from "@/i18n/config";
+import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { EMAIL_TEMPLATE_TYPES } from "@/lib/scheduler/jobs";
 
 const { getCloudflareContextMock } = vi.hoisted(() => ({
@@ -20,6 +22,14 @@ const {
 describe("transactional email", () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  test("registers an email message catalog for every configured locale", () => {
+    expect(Object.keys(MESSAGE_CATALOGS).sort()).toEqual([...LOCALES].sort());
+
+    for (const locale of LOCALES) {
+      expect(MESSAGE_CATALOGS[locale]).toHaveProperty("Emails");
+    }
   });
 
   test("escapes user-controlled team invitation content in HTML", async () => {
