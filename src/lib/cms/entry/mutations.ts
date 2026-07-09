@@ -91,11 +91,12 @@ export async function createCmsEntry<T extends CollectionsUnion>(
     where: {
       collection: collection.slug as CollectionsUnion,
       slug,
+      locale: DEFAULT_LOCALE,
     },
   });
 
   if (existingEntry) {
-    throw new Error(`Entry with slug "${slug}" already exists in collection "${collection.slug}"`);
+    throw new Error(`Entry with slug "${slug}" already exists in collection "${collection.slug}" for locale "${DEFAULT_LOCALE}"`);
   }
 
   const finalPublishedAt = handlePublishedAt(status, publishedAt);
@@ -103,6 +104,7 @@ export async function createCmsEntry<T extends CollectionsUnion>(
   const [newEntry] = await db.insert(cmsEntryTable).values({
     collection: collection.slug as CollectionsUnion,
     slug,
+    locale: DEFAULT_LOCALE,
     title,
     content,
     fields: validatedFields,

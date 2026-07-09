@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
+  cmsEntryTable,
   cmsMediaTable,
   cmsTagTable,
   userTable,
@@ -239,6 +240,45 @@ describe("CMS entry write path integration", () => {
       where: { dedupeKey: `cms-entry:${createdEntry.id}` },
     })).resolves.toHaveLength(0);
   });
+
+  test.skipIf(!translationLocale)(
+    "creates the default-locale entry when only a translation row uses the slug",
+    async () => {
+      const authorId = await seedCmsAuthor();
+
+      await db.insert(cmsEntryTable).values({
+        collection: "docs",
+        content: testContent,
+        createdBy: authorId,
+        fields: {},
+        locale: translationLocale!,
+        seoDescription: "Orphaned translation SEO description",
+        slug: "orphaned-translation-slug",
+        status: CMS_ENTRY_STATUS.PUBLISHED,
+        title: "Orphaned Translation",
+      });
+
+      const defaultEntry = await createCmsEntry({
+        collectionSlug: "docs",
+        content: testContent,
+        createdBy: authorId,
+        fields: {},
+        seoDescription: "Default anchor SEO description",
+        slug: "orphaned-translation-slug",
+        status: CMS_ENTRY_STATUS.PUBLISHED,
+        title: "Default Anchor",
+        tagIds: [],
+      });
+
+      expect(defaultEntry.locale).toBe(DEFAULT_LOCALE);
+      await expect(db.query.cmsEntryTable.findMany({
+        where: { collection: "docs", slug: "orphaned-translation-slug" },
+      })).resolves.toEqual(expect.arrayContaining([
+        expect.objectContaining({ locale: DEFAULT_LOCALE, title: "Default Anchor" }),
+        expect.objectContaining({ locale: translationLocale, title: "Orphaned Translation" }),
+      ]));
+    }
+  );
 
   test.skipIf(!translationLocale)(
     "renaming the default-locale entry updates search rows for translation siblings",
