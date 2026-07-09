@@ -14,7 +14,7 @@ import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
 import Image from "next/image"
 import { SITE_NAME, SITE_URL } from "@/constants"
-import { DEFAULT_LOCALE, type Locale } from "@/i18n/config"
+import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config"
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
@@ -136,13 +136,14 @@ export async function generateMetadata({
   })
 
   const availableLocales = await getEntryLocales({ collectionSlug: "blog", slug })
+  const validLocales = availableLocales.filter(isLocale)
 
   // A fallback render serves default-locale content under a non-default-locale
   // prefix (noindexed, mixed-language), so it canonicalizes to the real
   // default-locale URL; hreflang still lists only genuine translations.
   const alternates = isFallback
-    ? buildAlternates({ pathname: `/blog/${slug}`, locale: DEFAULT_LOCALE, availableLocales: availableLocales as Locale[] })
-    : buildAlternates({ pathname: `/blog/${slug}`, locale, availableLocales: availableLocales as Locale[] })
+    ? buildAlternates({ pathname: `/blog/${slug}`, locale: DEFAULT_LOCALE, availableLocales: validLocales })
+    : buildAlternates({ pathname: `/blog/${slug}`, locale, availableLocales: validLocales })
 
   return {
     title: entry.title,
