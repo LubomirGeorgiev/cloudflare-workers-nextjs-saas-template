@@ -197,3 +197,19 @@ Reference implementation:
 - Server action: `src/app/(auth)/sign-up/sign-up.actions.ts`
 - Client form: `src/app/(auth)/sign-up/sign-up.client.tsx`
 - Schema: `src/schemas/signup.schema.ts`
+
+## Cursor Cloud specific instructions
+
+Standard dependency install, DB, test, lint, build, and run commands are in `README.md` and `package.json` scripts. Notes below are non-obvious caveats for this environment.
+
+### Node version (critical)
+- The build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) requires Node **>= 22.15** (`node:module`'s `registerHooks`). The VM's default `/exec-daemon/node` is 22.14 and will fail `pnpm build`/`pnpm dev` with `SyntaxError: ... does not provide an export named 'registerHooks'`.
+- The environment is configured to use Node 24 via nvm (`nvm alias default 24`), and `~/.bashrc` prepends the nvm default node ahead of `/exec-daemon`. New shells should already run Node 24 with `pnpm` available. If a shell resolves the wrong Node, run `nvm use 24` (or re-source `~/.bashrc`).
+
+### Running the app locally
+- `pnpm dev` (`vinext dev`) and `pnpm preview` without `--local` try to open a Cloudflare **remote proxy session** because the `EMAIL` `send_email` binding is `remote: true` in `wrangler.jsonc`. Without Cloudflare auth this hangs and fails with `Timed out waiting for authorization code`. To use `pnpm dev` you must authenticate (`pnpx wrangler login`, or set `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
+- To run the app fully offline, use the local Worker runtime: build once with `pnpm build`, then `pnpm exec wrangler dev --local --port 3000 --ip 127.0.0.1 --var APP_TEST_MODE:true`. `--local` avoids the remote proxy; `APP_TEST_MODE:true` bypasses the Turnstile captcha (Turnstile keys are empty locally, so sign-in/sign-up would otherwise be blocked). This mirrors how the E2E harness (`tests/e2e/e2e-environment.mjs`) runs the app.
+- Local data lives in `.wrangler/state`; seed it with `pnpm db:migrate:dev` then `pnpm db:seed` (or `pnpm reset`). Sign in with `test@test.com` / `password`.
+
+### Tests
+- E2E (`pnpm run test:e2e`) needs the Playwright Chromium browser (kept in `~/.cache/ms-playwright`, outside the repo). If it is ever missing, run `pnpm exec playwright install chromium`. The E2E runner builds the app and starts its own isolated local Wrangler/D1 preview, so it does not need the dev server running.
