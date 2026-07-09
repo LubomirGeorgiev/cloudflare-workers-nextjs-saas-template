@@ -18,7 +18,7 @@ import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import isProd from "@/utils/is-prod";
 import ms from "ms";
-import { emailString, v } from "@/lib/validation";
+import { emailString, v, validationKey } from "@/lib/validation";
 import { getTranslations } from "next-intl/server";
 
 const generateRegistrationOptionsSchema = v.object({
@@ -225,7 +225,7 @@ export const generateAuthenticationOptionsAction = actionClient
 const verifyAuthenticationSchema = v.object({
   response: v.custom<AuthenticationResponseJSON>((val): val is AuthenticationResponseJSON => {
     return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
-  }, "Invalid authentication response"),
+  }, validationKey("invalidAuthenticationResponse")),
 });
 
 export const verifyAuthenticationAction = actionClient

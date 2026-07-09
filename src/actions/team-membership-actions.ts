@@ -9,23 +9,23 @@ import {
   getPendingInvitationsForCurrentUser
 } from "@/lib/teams/team-members";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { emailString, requiredString, v } from "@/lib/validation";
+import { emailString, encodeValidationMessage, requiredString, v, validationKey } from "@/lib/validation";
 
 // Invite user schema
 const inviteUserSchema = v.object({
-  teamId: requiredString("Team ID is required"),
-  email: v.pipe(emailString("Invalid email"), v.maxLength(255, "Email is too long")),
-  roleId: requiredString("Role is required"),
+  teamId: requiredString(validationKey("teamIdRequired")),
+  email: v.pipe(emailString(), v.maxLength(255, encodeValidationMessage("emailMaxLength", { max: 255 }))),
+  roleId: requiredString(validationKey("roleRequired")),
   isSystemRole: v.optional(v.boolean(), true),
 });
 
 const removeMemberSchema = v.object({
-  teamId: requiredString("Team ID is required"),
-  userId: requiredString("User ID is required"),
+  teamId: requiredString(validationKey("teamIdRequired")),
+  userId: requiredString(validationKey("userIdRequired")),
 });
 
 const invitationTokenSchema = v.object({
-  token: requiredString("Invitation token is required"),
+  token: requiredString(validationKey("invitationTokenRequired")),
 });
 
 export const inviteUserAction = actionClient

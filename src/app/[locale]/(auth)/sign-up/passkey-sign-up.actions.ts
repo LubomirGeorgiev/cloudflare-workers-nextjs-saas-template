@@ -16,7 +16,7 @@ import { passkeyEmailSchema } from "@/schemas/passkey.schema";
 import ms from "ms";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
-import { v } from "@/lib/validation";
+import { v, validationKey } from "@/lib/validation";
 
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
 const PASSKEY_USER_ID_COOKIE_NAME = "passkey_user_id";
@@ -124,7 +124,7 @@ export const startPasskeyRegistrationAction = actionClient
 const completePasskeyRegistrationSchema = v.object({
   response: v.custom<RegistrationResponseJSON>((val): val is RegistrationResponseJSON => {
     return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
-  }, "Invalid registration response"),
+  }, validationKey("invalidRegistrationResponse")),
 });
 
 export const completePasskeyRegistrationAction = actionClient

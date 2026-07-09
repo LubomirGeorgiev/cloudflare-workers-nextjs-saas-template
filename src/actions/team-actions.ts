@@ -3,11 +3,14 @@
 import { createTeam, getUserTeams } from "@/lib/teams/teams";
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
-import { maxString, requiredString, v } from "@/lib/validation";
+import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
 
 const createTeamSchema = v.object({
-  name: v.pipe(requiredString("Name is required"), v.maxLength(100, "Name is too long")),
-  description: v.optional(maxString(1000, "Description is too long")),
+  name: v.pipe(
+    requiredString(validationKey("nameRequired")),
+    v.maxLength(100, encodeValidationMessage("nameMaxLength", { max: 100 }))
+  ),
+  description: v.optional(maxString(1000, encodeValidationMessage("descriptionMaxLength", { max: 1000 }))),
 });
 
 export const createTeamAction = actionClient
