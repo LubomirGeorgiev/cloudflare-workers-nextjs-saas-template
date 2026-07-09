@@ -11,6 +11,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
+import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import { v } from "@/lib/validation";
 
 export const listCmsMediaAction = actionClient
@@ -180,6 +181,8 @@ export const updateCmsMediaAction = actionClient
           id: cmsEntryTable.id,
           slug: cmsEntryTable.slug,
           collection: cmsEntryTable.collection,
+          title: cmsEntryTable.title,
+          seoDescription: cmsEntryTable.seoDescription,
           content: cmsEntryTable.content,
         })
         .from(cmsEntryMediaTable)
@@ -205,6 +208,14 @@ export const updateCmsMediaAction = actionClient
             .update(cmsEntryTable)
             .set({ content })
             .where(eq(cmsEntryTable.id, entry.id));
+          await syncCmsEntrySearch({
+            entryId: entry.id,
+            collection: entry.collection,
+            slug: entry.slug,
+            title: entry.title,
+            seoDescription: entry.seoDescription,
+            content,
+          });
         }
 
         entriesToInvalidate.push({

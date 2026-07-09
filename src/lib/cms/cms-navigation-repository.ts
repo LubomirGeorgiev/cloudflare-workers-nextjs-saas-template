@@ -2,6 +2,7 @@ import "server-only";
 
 import { eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
+import { revalidatePath } from "next/cache";
 import { type CmsNavigationKey } from "@/../cms.config";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -78,6 +79,14 @@ async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): P
 
   if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
     await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));
+  }
+}
+
+function revalidateCmsNavigationPaths(paths: Iterable<string | null | undefined>): void {
+  for (const path of new Set(Array.from(paths).filter((value): value is string => Boolean(value)))) {
+    for (const locale of ENABLED_LOCALES) {
+      revalidatePath(locale === DEFAULT_LOCALE ? path : `/${locale}${path}`);
+    }
   }
 }
 
@@ -719,6 +728,10 @@ export async function saveCmsNavigationTree({
   }
 
   await invalidateCmsNavigationCaches(navigationKey);
+  revalidateCmsNavigationPaths([
+    ...existingPaths.values(),
+    ...pathById.values(),
+  ]);
 
   return getCmsNavigationTree({
     navigationKey,
