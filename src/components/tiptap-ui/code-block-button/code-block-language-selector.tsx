@@ -39,38 +39,17 @@ const LANGUAGE_ALIASES: Record<string, string> = {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface CodeBlockLanguageSelectorProps {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
 }
 
-/**
- * Language selector component for code blocks.
- * Allows users to change the syntax highlighting language of the current code block.
- *
- * @example
- * ```tsx
- * function MyToolbar() {
- *   return (
- *     <div>
- *       <CodeBlockButton />
- *       <CodeBlockLanguageSelector />
- *     </div>
- *   )
- * }
- * ```
- */
 export function CodeBlockLanguageSelector({
   editor: providedEditor,
 }: CodeBlockLanguageSelectorProps) {
   const { editor } = useTiptapEditor(providedEditor)
   const [currentLanguage, setCurrentLanguage] = useState<string>("plaintext")
 
-  // Check if we're currently in a code block
   const isInCodeBlock = editor?.isActive("codeBlock") ?? false
 
-  // Update current language when selection changes
   useEffect(() => {
     if (!editor || !isInCodeBlock) {
       setCurrentLanguage("plaintext")
@@ -78,7 +57,6 @@ export function CodeBlockLanguageSelector({
     }
 
     const handleUpdate = () => {
-      // Find the code block node by checking parent nodes
       const { $from } = editor.state.selection
       
       // Traverse up the tree to find the code block

@@ -13,14 +13,6 @@ const defaultOptions: ThrottleSettings = {
   trailing: true,
 }
 
-/**
- * A hook that returns a throttled callback function.
- *
- * @param fn The function to throttle
- * @param wait The time in ms to wait before calling the function
- * @param dependencies The dependencies to watch for changes
- * @param options The throttle options
- */
 // oxlint-disable-next-line typescript/no-explicit-any
 export function useThrottledCallback<T extends (...args: any[]) => any>(
   fn: T,

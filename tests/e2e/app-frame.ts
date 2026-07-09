@@ -204,6 +204,29 @@ export async function expectAppText(
     .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
 
+// Wait until at least `count` elements match `text`. Use when several fields share
+// one central validation message, so a single `.first()` check can't prove each field
+// rendered its own error.
+export async function expectAppTextCount(
+  text: string,
+  count: number,
+  options?: { exact?: boolean }
+): Promise<void> {
+  const matches = getAppPage().getByText(text, { exact: options?.exact });
+  await matches.first().waitFor({ state: "visible", timeout: expectationTimeoutMs });
+
+  const timeoutAt = Date.now() + expectationTimeoutMs;
+  while (Date.now() < timeoutAt) {
+    if ((await matches.count()) >= count) {
+      return;
+    }
+
+    await getAppPage().waitForTimeout(pollIntervalMs);
+  }
+
+  throw new Error(`Expected at least ${count} elements matching "${text}"`);
+}
+
 export async function expectNoAppText(
   text: string,
   options?: { exact?: boolean }

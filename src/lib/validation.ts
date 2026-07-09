@@ -1,13 +1,20 @@
 import * as v from "valibot";
 
-export { v };
+import { encodeValidationMessage, validationKey } from "@/lib/validation-messages";
 
-const REQUIRED_FIELD_MESSAGE = "This field is required";
-const INVALID_STRING_MESSAGE = "Please enter text";
-const INVALID_NUMBER_MESSAGE = "Please enter a number";
-const INVALID_BOOLEAN_MESSAGE = "Please choose an option";
-const INVALID_DATE_MESSAGE = "Please enter a valid date";
-const INVALID_EMAIL_MESSAGE = "Please enter a valid email address";
+export { v };
+// Re-exported so schemas import validation from one module; wire format lives in `validation-messages.ts`.
+export { encodeValidationMessage, validationKey };
+
+// Stable `Validation.*` i18n keys (not English copy); `translateValidationKey` localizes them
+// via `FormMessage`. Built with `validationKey` so the prefix lives in one place; keys needing
+// a runtime value encode it as `Validation.minLength {"min":6}`.
+const REQUIRED_FIELD_MESSAGE = validationKey("required");
+const INVALID_STRING_MESSAGE = validationKey("invalidString");
+const INVALID_NUMBER_MESSAGE = validationKey("invalidNumber");
+const INVALID_BOOLEAN_MESSAGE = validationKey("invalidBoolean");
+const INVALID_DATE_MESSAGE = validationKey("invalidDate");
+const INVALID_EMAIL_MESSAGE = validationKey("invalidEmail");
 
 function humanTypeMessage({
   received,
@@ -50,14 +57,14 @@ export function emailString(message?: string) {
 export function minString(length: number, message?: string) {
   return v.pipe(
     v.string(REQUIRED_FIELD_MESSAGE),
-    v.minLength(length, message ?? `Must be at least ${length} characters`)
+    v.minLength(length, message ?? encodeValidationMessage("minLength", { min: length }))
   );
 }
 
 export function maxString(length: number, message?: string) {
   return v.pipe(
     v.string(REQUIRED_FIELD_MESSAGE),
-    v.maxLength(length, message ?? `Must be ${length} characters or less`)
+    v.maxLength(length, message ?? encodeValidationMessage("maxLength", { max: length }))
   );
 }
 
@@ -75,8 +82,8 @@ export function minMaxString({
   if (typeof min === "number" && typeof max === "number") {
     return v.pipe(
       v.string(REQUIRED_FIELD_MESSAGE),
-      v.minLength(min, minMessage ?? `Must be at least ${min} characters`),
-      v.maxLength(max, maxMessage ?? `Must be ${max} characters or less`)
+      v.minLength(min, minMessage ?? encodeValidationMessage("minLength", { min })),
+      v.maxLength(max, maxMessage ?? encodeValidationMessage("maxLength", { max }))
     );
   }
 

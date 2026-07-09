@@ -9,6 +9,7 @@ import {
   expectAppPathname,
   expectAppRoleText,
   expectAppText,
+  expectAppTextCount,
   expectAppToast,
   fillAppLabel,
   fillAppPlaceholder,
@@ -293,8 +294,9 @@ describe("profile settings", () => {
     await fillAppLabel({ label: "Last Name", value: "B" });
     await clickAppRole("button", "Save changes");
 
-    await expectAppText("First name must be at least 2 characters.", { exact: true });
-    await expectAppText("Last name must be at least 2 characters.", { exact: true });
+    // Both name fields share the central `Validation.minLength` message, so expect it
+    // to render once per invalid field rather than field-specific copy.
+    await expectAppTextCount("Must be at least 2 characters", 2, { exact: true });
   });
 
   test("updates profile settings and shows a visible success toast", async () => {

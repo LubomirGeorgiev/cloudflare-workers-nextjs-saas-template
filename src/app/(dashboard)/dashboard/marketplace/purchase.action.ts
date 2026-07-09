@@ -10,6 +10,7 @@ import { purchasedItemsTable, PURCHASABLE_ITEM_TYPE } from "@/db/schema";
 import { COMPONENTS } from "@/app/(dashboard)/dashboard/marketplace/components-catalog";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import { v } from "@/lib/validation";
+import { getTranslations } from "next-intl/server";
 
 const purchaseSchema = v.object({
   itemId: v.string(),
@@ -21,10 +22,12 @@ export const purchaseAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
+        const t = await getTranslations("Client.Dashboard.Marketplace");
+
         if (DISABLE_CREDIT_BILLING_SYSTEM) {
           throw new ActionError(
             "INSUFFICIENT_CREDITS",
-            "Marketplace is not available when credit billing is disabled"
+            t("errorBillingDisabled")
           );
         }
 
@@ -33,29 +36,26 @@ export const purchaseAction = actionClient
         if (!session) {
           throw new ActionError(
             "NOT_AUTHORIZED",
-            "You must be logged in to make purchases"
+            t("errorNotLoggedIn")
           );
         }
 
-        // Get item details based on type
         let itemDetails: { name: string; credits: number } | undefined;
         switch (input.itemType) {
           case PURCHASABLE_ITEM_TYPE.COMPONENT:
             itemDetails = COMPONENTS.find(c => c.id === input.itemId);
             break;
-          // Add more cases as new item types are added
         }
 
         if (!itemDetails) {
           throw new ActionError(
             "NOT_FOUND",
-            "Item not found"
+            t("errorItemNotFound")
           );
         }
 
         const db = getDB();
 
-        // Check if user already owns the item
         const existingPurchase = await db.query.purchasedItemsTable.findFirst({
           where: {
             userId: session.userId,
@@ -67,11 +67,10 @@ export const purchaseAction = actionClient
         if (existingPurchase) {
           throw new ActionError(
             "CONFLICT",
-            "You already own this item"
+            t("errorAlreadyOwned")
           );
         }
 
-        // Check if user has enough credits
         const hasCredits = await hasEnoughCredits({
           userId: session.userId,
           requiredCredits: itemDetails.credits,
@@ -80,7 +79,7 @@ export const purchaseAction = actionClient
         if (!hasCredits) {
           throw new ActionError(
             "INSUFFICIENT_CREDITS",
-            "You don't have enough credits to purchase this item"
+            t("errorInsufficientCredits")
           );
         }
 
@@ -88,10 +87,12 @@ export const purchaseAction = actionClient
         await consumeCredits({
           userId: session.userId,
           amount: itemDetails.credits,
-          description: `Purchased ${input.itemType.toLowerCase()}: ${itemDetails.name}`,
+          description: t("purchaseTransactionDescription", {
+            itemType: input.itemType.toLowerCase(),
+            itemName: itemDetails.name,
+          }),
         });
 
-        // Add item to user's purchased items
         await db.insert(purchasedItemsTable).values({
           userId: session.userId,
           itemType: input.itemType,

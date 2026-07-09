@@ -353,7 +353,6 @@ export async function consumeCredits({
     throw new Error("Insufficient credits");
   }
 
-  // Get all non-expired transactions with remaining credits, ordered by creation date
   const activeTransactionsWithBalance = await db.query.creditTransactionTable.findMany({
     where: {
       userId,
@@ -431,7 +430,6 @@ export async function consumeCredits({
     updatedAt: currentTime,
   });
 
-  // Update all KV sessions to reflect the new credit balance
   await updateAllSessionsOfUser(userId);
 
   return userUpdateResult[0].currentCredits;

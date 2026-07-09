@@ -79,7 +79,6 @@ function getPublicBuildEnv(env) {
 export function getE2EBuildEnv() {
   return {
     ...publicBuildEnv,
-    // Build production-shaped output so deploy can reuse the same dist after e2e.
     // The Wrangler preview still runs with getE2ERuntimeEnv().
     NODE_ENV: "production",
   };

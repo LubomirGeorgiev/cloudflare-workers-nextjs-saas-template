@@ -7,6 +7,7 @@ import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { DOCS_BASE_PATH, DOCS_SLUG } from "@/lib/cms/docs-config";
 import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
@@ -43,12 +44,14 @@ interface PrepareCmsEntrySearchInsertParams extends SyncCmsEntrySearchParams {
 interface SearchCmsParams {
   query: string;
   limit?: number;
+  locale: Locale;
 }
 
 interface SearchCmsCollectionParams {
   collectionSlug: CollectionsUnion;
   query: string;
   limit: number;
+  locale: Locale;
 }
 
 interface CmsSearchCollectionConfig {
@@ -119,11 +122,6 @@ export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion
       .map(([slug]) => slug as CollectionsUnion);
 
   collectionSlugs.forEach((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)));
-}
-
-// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
-export async function invalidateDocsSearchCache(): Promise<void> {
-  await invalidateCmsSearchCache(DOCS_SLUG);
 }
 
 async function getSearchDatabase(): Promise<D1Database> {
@@ -247,11 +245,11 @@ export async function removeCmsEntrySearch({
   await optimizeCmsSearchIndex(d1);
 }
 
-// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
-export async function searchCmsCollection({
+async function searchCmsCollection({
   collectionSlug,
   query,
   limit,
+  locale,
 }: SearchCmsCollectionParams): Promise<CmsSearchResult[]> {
   if (!isCollectionSearchEnabled(collectionSlug)) {
     return [];
@@ -266,6 +264,7 @@ export async function searchCmsCollection({
   return getCachedCmsSearchResults({
     collectionSlug,
     limit,
+    locale,
     matchQuery,
     query: query.trim().toLowerCase().replace(/\s+/g, " "),
   });
@@ -275,11 +274,13 @@ async function getCachedCmsSearchResults({
   collectionSlug,
   matchQuery,
   limit,
+  locale,
 }: {
   collectionSlug: CollectionsUnion;
   query: string;
   matchQuery: string;
   limit: number;
+  locale: Locale;
 }): Promise<CmsSearchResult[]> {
   "use cache: remote";
   setCacheScope({
@@ -293,6 +294,9 @@ async function getCachedCmsSearchResults({
   await ensureCmsSearchIndex(collectionSlug);
 
   const d1 = await getSearchDatabase();
+  // Navigation items anchor on the default-locale row (`navigation.entryId` is a fixed FK to it), so resolve
+  // the shared, locale-independent path through the matched row's default-locale sibling — otherwise
+  // non-default-locale hits miss the join and fall back to the bare base path. Anchors self-match when `locale === DEFAULT_LOCALE`, keeping the default-locale query unchanged.
   const result = await d1
     .prepare(
       `SELECT
@@ -305,19 +309,26 @@ async function getCachedCmsSearchResults({
       FROM cms_entry_search AS search
       INNER JOIN cms_entry AS entry
         ON entry.id = search.entryId
+      LEFT JOIN cms_entry AS anchor
+        ON anchor.collection = entry.collection
+        AND anchor.slug = entry.slug
+        AND anchor.locale = ?
       LEFT JOIN cms_navigation_item AS navigation
-        ON navigation.entryId = entry.id
+        ON navigation.entryId = anchor.id
         AND navigation.navigationKey = ?
       WHERE cms_entry_search MATCH ?
         AND entry.collection = ?
+        AND entry.locale = ?
         AND entry.status = ?
       ORDER BY bm25(cms_entry_search, 0.0, 0.0, 0.0, 8.0, 3.0, 1.5)
       LIMIT ?`
     )
     .bind(
+      DEFAULT_LOCALE,
       collectionConfig.navigationKey,
       matchQuery,
       collectionSlug,
+      locale,
       CMS_ENTRY_STATUS.PUBLISHED,
       limit
     )
@@ -342,10 +353,12 @@ export type DocsSearchResult = CmsSearchResult;
 export async function searchDocs({
   query,
   limit = DEFAULT_CMS_SEARCH_LIMIT,
+  locale,
 }: SearchCmsParams): Promise<DocsSearchResult[]> {
   return searchCmsCollection({
     collectionSlug: DOCS_SLUG,
     query,
     limit,
+    locale,
   });
 }

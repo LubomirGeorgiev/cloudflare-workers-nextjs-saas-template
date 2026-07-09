@@ -29,10 +29,6 @@ export interface KVSession {
   userAgent?: string | null;
   authenticationType?: "passkey" | "password" | "google-oauth";
   passkeyCredentialId?: string;
-  /**
-   * Teams data - contains list of teams the user is a member of
-   * along with role and permissions data
-   */
   teams?: {
     id: string;
     name: string;
@@ -44,30 +40,13 @@ export interface KVSession {
     };
     permissions: string[];
   }[];
-  /**
-   * The ID of the currently selected team for this session
-   */
   selectedTeam?: string;
-  /**
-   *  !!!!!!!!!!!!!!!!!!!!!
-   *  !!!   IMPORTANT   !!!
-   *  !!!!!!!!!!!!!!!!!!!!!
-   *
-   *  IF YOU MAKE ANY CHANGES TO THIS OBJECT DON'T FORGET TO INCREMENT "CURRENT_SESSION_VERSION" BELOW
-   *  IF YOU FORGET, THE SESSION WILL NOT BE UPDATED IN THE DATABASE
-   */
+  // Increment CURRENT_SESSION_VERSION when changing persisted session shape.
   version?: number;
 }
 
-/**
- *  !!!!!!!!!!!!!!!!!!!!!
- *  !!!   IMPORTANT   !!!
- *  !!!!!!!!!!!!!!!!!!!!!
- *
- * IF YOU MAKE ANY CHANGES TO THE KVSESSION TYPE ABOVE, YOU NEED TO INCREMENT THIS VERSION.
- * THIS IS HOW WE TRACK WHEN WE NEED TO UPDATE THE SESSIONS IN THE KV STORE.
- */
-export const CURRENT_SESSION_VERSION = 4;
+// Bump when KVSession changes so stored KV sessions are refreshed.
+export const CURRENT_SESSION_VERSION = 5;
 
 async function getKV() {
   const { env } = await getCloudflareContext();
@@ -116,7 +95,6 @@ export async function createKVSession({
     version: CURRENT_SESSION_VERSION
   };
 
-  // Check if user has reached the session limit
   const existingSessions = await getAllSessionIdsOfUser(userId);
 
   // Calculate how many sessions we need to delete to make room for the new one
@@ -294,10 +272,6 @@ export async function getAllSessionIdsOfUser(userId: string) {
   }))
 }
 
-/**
- * Update all sessions of a user. It can only be called in a server actions and api routes.
- * @param userId
- */
 export async function updateAllSessionsOfUser(userId: string) {
   const sessions = await getAllSessionIdsOfUser(userId);
 
@@ -305,7 +279,6 @@ export async function updateAllSessionsOfUser(userId: string) {
 
   if (!newUserData) return;
 
-  // Get updated teams data with permissions
   const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
 
   for (const sessionObj of sessions) {

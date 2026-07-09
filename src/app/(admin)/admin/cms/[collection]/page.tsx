@@ -11,13 +11,16 @@ import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
-function collectNavigationEntryIds(
+// Collect the slugs of nav-attached entries, not their ids: nav membership belongs to
+// the (collection, slug) translation group, so the table can flag every locale sibling
+// of an attached anchor as in-navigation regardless of its own row id.
+function collectNavigationEntrySlugs(
   nodes: Awaited<ReturnType<typeof getCmsNavigationTree>>
 ): string[] {
   return nodes.flatMap((node) => {
-    const childEntryIds = collectNavigationEntryIds(node.children);
+    const childSlugs = collectNavigationEntrySlugs(node.children);
 
-    return node.entryId ? [node.entryId, ...childEntryIds] : childEntryIds;
+    return node.entry?.slug ? [node.entry.slug, ...childSlugs] : childSlugs;
   });
 }
 
@@ -60,8 +63,8 @@ export default async function CollectionPage({
   }
 
   const navigationKey = getCmsCollectionNavigationKey(collection);
-  const navigationEntryIds = navigationKey
-    ? collectNavigationEntryIds(
+  const navigationEntrySlugs = navigationKey
+    ? collectNavigationEntrySlugs(
         await getCmsNavigationTree({
           navigationKey,
           status: CMS_STATUS_FILTER_ALL,
@@ -110,7 +113,7 @@ export default async function CollectionPage({
 
       <CmsEntriesTable
         collection={collection}
-        navigationEntryIds={navigationEntryIds}
+        navigationEntrySlugs={navigationEntrySlugs}
       />
     </div>
   );

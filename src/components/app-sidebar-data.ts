@@ -16,9 +16,18 @@ import {
 import { ROLES_ENUM } from "@/app/enums";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import type { SessionValidationResult } from "@/types";
+import type messages from "@/i18n/messages/en.json";
+
+// Valid keys under the `Client.Sidebar.nav.*` message namespace, derived from the
+// source catalog so the type stays in sync without duplicating the key list.
+type SidebarNavKey = keyof (typeof messages)["Client"]["Sidebar"]["nav"];
 
 export type NavItem = {
   title: string;
+  // Stable i18n key (under the `Sidebar.nav.*` namespace) used to translate the
+  // title at render time. `title` is kept as a stable English fallback so the
+  // data builder stays a pure, translation-free module (see app-sidebar-data.test.ts).
+  titleKey?: SidebarNavKey;
   url: Route;
   icon?: ComponentType;
 }
@@ -63,44 +72,53 @@ export function getAppSidebarData({
     navMain: [
       {
         title: "Dashboard",
+        titleKey: "dashboard",
         url: "/dashboard",
         icon: SquareTerminal,
         isActive: true,
       },
       {
         title: "Teams",
+        titleKey: "teams",
         url: "/dashboard/teams" as Route,
         icon: Users,
       },
       ...(!DISABLE_CREDIT_BILLING_SYSTEM ? [{
         title: "Marketplace",
+        titleKey: "marketplace",
         url: "/dashboard/marketplace" as Route,
         icon: ShoppingCart,
-      }] : []),
+      } as NavMainItem] : []),
       {
         title: "Billing",
+        titleKey: "billing",
         url: "/dashboard/billing",
         icon: CreditCard,
       },
       {
         title: "Settings",
+        titleKey: "settings",
         url: "/settings",
         icon: Settings2,
         items: [
           {
             title: "Profile",
+            titleKey: "profile",
             url: "/settings",
           },
           {
             title: "Security",
+            titleKey: "security",
             url: "/settings/security",
           },
           {
             title: "Sessions",
+            titleKey: "sessions",
             url: "/settings/sessions",
           },
           {
             title: "Change Password",
+            titleKey: "changePassword",
             url: "/forgot-password",
           },
         ],
@@ -108,6 +126,7 @@ export function getAppSidebarData({
       ...(session?.user?.role === ROLES_ENUM.ADMIN ? [
         {
           title: "Admin Panel",
+          titleKey: "adminPanel",
           url: "/admin",
           icon: Shield,
         } as NavMainItem,
@@ -116,16 +135,19 @@ export function getAppSidebarData({
     projects: [
       {
         title: "Design Engineering",
+        titleKey: "designEngineering",
         url: "#",
         icon: Frame,
       },
       {
         title: "Sales & Marketing",
+        titleKey: "salesMarketing",
         url: "#",
         icon: PieChart,
       },
       {
         title: "Travel",
+        titleKey: "travel",
         url: "#",
         icon: Map,
       },

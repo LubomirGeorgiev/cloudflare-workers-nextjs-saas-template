@@ -81,7 +81,6 @@ export function CmsEntryForm({
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
 
-  // Get field configurations from the collection schema
   const collectionDefinition = cmsConfig.collections[collection as CollectionsUnion];
   const customFields = useMemo(() => {
     if (
@@ -403,7 +402,6 @@ export function CmsEntryForm({
     const serializedContent = JSON.parse(JSON.stringify(data.content));
 
     // Clean up custom fields before submitting
-    // Build a complete fields object with all defined fields from the schema
     const cleanedFields: Record<string, unknown> = {};
 
     // Process all fields defined in the schema
@@ -520,6 +518,54 @@ export function CmsEntryForm({
             >
               Cancel
             </Button>
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                // space-y-0 overrides FormItem's default space-y-2, which would
+                // otherwise put an 8px top-margin on Radix Select's hidden input
+                // sibling and push the trigger above the header buttons.
+                <FormItem className="w-[150px] space-y-0">
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Clear publishedAt when changing away from scheduled
+                      if (value !== CMS_ENTRY_STATUS.SCHEDULED) {
+                        form.setValue("publishedAt", undefined);
+                      }
+                    }}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger aria-label="Status" className="h-10">
+                        <SelectValue>
+                          {(value: string | null) => {
+                            const status = value ? getStatusConfig(value) : undefined;
+
+                            return status ? (
+                              <span className="flex items-center gap-2">
+                                <span className={`h-2 w-2 rounded-full ${status.color}`} />
+                                <span>{status.label}</span>
+                              </span>
+                            ) : null;
+                          }}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CMS_ENTRY_STATUS_CONFIG.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2 w-2 rounded-full ${status.color}`} />
+                            <span>{status.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
             <Button type="submit" disabled={isExecuting}>
               {isExecuting ? (
                 <>
@@ -733,63 +779,12 @@ export function CmsEntryForm({
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Publishing</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          // Clear publishedAt when changing away from scheduled
-                          if (value !== CMS_ENTRY_STATUS.SCHEDULED) {
-                            form.setValue("publishedAt", undefined);
-                          }
-                        }}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue>
-                              {(value: string | null) => {
-                                const status = value ? getStatusConfig(value) : undefined;
-
-                                return status ? (
-                                  <span className="flex items-center gap-2">
-                                    <span className={`h-2 w-2 rounded-full ${status.color}`} />
-                                    <span>{status.label}</span>
-                                  </span>
-                                ) : null;
-                              }}
-                            </SelectValue>
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CMS_ENTRY_STATUS_CONFIG.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              <div className="flex items-center gap-2">
-                                <div className={`h-2 w-2 rounded-full ${status.color}`} />
-                                <span>{status.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Control the visibility of this entry
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {statusValue === CMS_ENTRY_STATUS.SCHEDULED && (
+            {statusValue === CMS_ENTRY_STATUS.SCHEDULED && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Publishing</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <FormField
                     control={form.control}
                     name="publishedAt"
@@ -816,9 +811,9 @@ export function CmsEntryForm({
                       </FormItem>
                     )}
                   />
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

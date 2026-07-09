@@ -35,7 +35,7 @@ describe("CMS search", () => {
   });
 
   test("returns no results for empty search terms without opening a cache scope", async () => {
-    await expect(searchDocs({ query: "!!!", limit: 8 })).resolves.toEqual([]);
+    await expect(searchDocs({ query: "!!!", limit: 8, locale: "en" })).resolves.toEqual([]);
 
     expect(setCacheScopeMock).not.toHaveBeenCalled();
   });
@@ -94,7 +94,7 @@ describe("CMS search", () => {
         },
       },
     });
-    await expect(searchDocs({ query: "authentication", limit: 3 })).resolves.toEqual([
+    await expect(searchDocs({ query: "authentication", limit: 3, locale: "es" })).resolves.toEqual([
       {
         entryId: "cms_ent_docs002",
         title: "Authentication Setup",
@@ -118,5 +118,13 @@ describe("CMS search", () => {
         }),
       ])
     );
+
+    // The search query filters by the requested locale and resolves the path via
+    // the default-locale anchor (bound first for the anchor join).
+    const searchStatement = statements.find((statement) =>
+      statement.sql.includes("cms_entry_search MATCH ?")
+    );
+    expect(searchStatement?.sql).toContain("AND entry.locale = ?");
+    expect(searchStatement?.binds).toEqual(["en", "docs", "authentication*", "docs", "es", "published", 3]);
   });
 });

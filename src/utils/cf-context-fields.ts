@@ -1,9 +1,5 @@
-/**
- * Shared mapping between `request.cf` properties and the HTTP headers that
- * carry them into Next.js/vinext server code. The worker entry copies each
- * value from `request.cf` onto the request (never trusting inbound client
- * headers) before invoking vinext. Downstream code reads them via `next/headers`.
- */
+// The Worker copies trusted `request.cf` values into these headers before vinext runs.
+// Downstream server code reads them through `next/headers`; inbound client values are ignored.
 export const CF_CONTEXT_FIELDS = [
   { key: "city", header: "cf-ipcity" },
   { key: "continent", header: "cf-ipcontinent" },

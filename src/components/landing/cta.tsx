@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Check, Copy } from "lucide-react";
 import { SiGithub as GithubIcon } from "@icons-pack/react-simple-icons";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { GITHUB_REPO_URL } from "@/constants";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 const CLONE_COMMAND = "git clone " + GITHUB_REPO_URL + ".git";
 
 export function CallToAction() {
+  const t = useTranslations("Client.Landing.Cta");
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -37,12 +39,11 @@ export function CallToAction() {
           />
 
           <h2 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-            One command to clone.
-            <br className="hidden sm:block" /> Yours to ship.
+            {t("titleLine1")}
+            <br className="hidden sm:block" /> {t("titleLine2")}
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-            Free and open source. No license fees, no attribution required. Fork it,
-            rename it, and make it your own.
+            {t("description")}
           </p>
 
           <div className="mx-auto mt-10 flex max-w-xl items-center gap-2 rounded-lg border border-border bg-background px-4 py-3 text-left font-mono text-sm">
@@ -52,14 +53,14 @@ export function CallToAction() {
               type="button"
               onClick={handleCopy}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={copied ? "Copied" : "Copy clone command"}
+              aria-label={copied ? t("copiedAriaLabel") : t("copyAriaLabel")}
             >
               {copied ? (
                 <Check className="size-4 text-edge" />
               ) : (
                 <Copy className="size-4" />
               )}
-              {copied ? "Copied" : "Copy"}
+              {copied ? t("copied") : t("copy")}
             </button>
           </div>
 
@@ -74,13 +75,13 @@ export function CallToAction() {
               )}
             >
               <GithubIcon className="size-5 transition-transform duration-300 ease-out group-hover:scale-110 group-hover:-rotate-6 motion-reduce:transform-none" />
-              Star on GitHub
+              {t("starOnGithub")}
             </a>
             <Link
               href="/sign-in"
               className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
             >
-              Explore the demo
+              {t("exploreDemo")}
             </Link>
           </div>
         </div>

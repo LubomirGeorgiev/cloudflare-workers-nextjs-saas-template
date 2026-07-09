@@ -13,18 +13,30 @@ import {
   FileText,
   FolderTree,
   GripVertical,
+  Languages,
+  Loader2,
   Plus,
   Save,
   Trash2,
 } from "lucide-react";
 
-import { saveCmsNavigationTreeAction } from "@/app/(admin)/admin/_actions/cms-navigation-actions";
+import {
+  saveCmsNavigationTreeAction,
+  translateNavTitleAction,
+} from "@/app/(admin)/admin/_actions/cms-navigation-actions";
+import {
+  DEFAULT_LOCALE,
+  ENABLED_LOCALES,
+  LOCALE_LABELS,
+  type Locale,
+} from "@/i18n/config";
+import { LocaleFlag } from "@/components/locale-flag";
 import { type CmsNavigationKey } from "@/../cms.config";
 import {
   type CmsNavigationFlatNode,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
-import type { GetCmsCollectionResult } from "@/lib/cms/entry";
+import type { CmsCollectionListItem } from "@/lib/cms/entry";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -54,6 +66,7 @@ import { buildCmsResolvedPath } from "@/lib/cms/cms-paths";
 import { cn } from "@/lib/utils";
 import { generateSlug } from "@/utils/slugify";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+import { LocaleCoverageBadges } from "../../../_components/locale-coverage-badges";
 
 type DropPosition = "before" | "inside" | "after";
 type VisibleCmsNavigationRow = EditableTreeNode & { depth: number };
@@ -64,8 +77,11 @@ const CMS_NAVIGATION_ROOT_DROP_TYPE = "cms-navigation-root-drop";
 const CMS_NAVIGATION_TREE_INDENT_PX = 24;
 
 interface CmsNavigationManagerProps {
-  entries: GetCmsCollectionResult[];
+  entries: CmsCollectionListItem[];
   initialTree: CmsNavigationTreeNode[];
+  // locales each linked entry is translated into, keyed by entryId — powers the
+  // per-row PAGE coverage flags.
+  entryLocalesByEntryId: Record<string, string[]>;
   navigationKey: CmsNavigationKey;
   navigationLabel: string;
   basePath: string;
@@ -74,6 +90,37 @@ interface CmsNavigationManagerProps {
 
 interface EditableTreeNode extends CmsNavigationFlatNode {
   children: EditableTreeNode[];
+}
+
+// The locales a node resolves a translated title in: a PAGE node borrows its
+// linked entry's translations; any node's explicit `titleTranslations` override
+// counts too. Drives the at-a-glance row coverage flags.
+function getRowTranslatedLocales({
+  node,
+  entryLocalesByEntryId,
+}: {
+  node: CmsNavigationFlatNode;
+  entryLocalesByEntryId: Record<string, string[]>;
+}): Set<Locale> {
+  const translated = new Set<Locale>([DEFAULT_LOCALE]);
+
+  if (node.entryId) {
+    for (const locale of entryLocalesByEntryId[node.entryId] ?? []) {
+      if (ENABLED_LOCALES.includes(locale as Locale)) {
+        translated.add(locale as Locale);
+      }
+    }
+  }
+
+  if (node.titleTranslations) {
+    for (const [locale, value] of Object.entries(node.titleTranslations)) {
+      if (value?.trim() && ENABLED_LOCALES.includes(locale as Locale)) {
+        translated.add(locale as Locale);
+      }
+    }
+  }
+
+  return translated;
 }
 
 type CmsNavigationRowDragData = Record<string, unknown> & {
@@ -108,6 +155,9 @@ interface CmsNavigationRowProps {
   draggedId: string | null;
   isSelected: boolean;
   resolvedPath: string | null;
+  // Keep row coverage hidden in single-locale mode; the badges render all enabled locales.
+  translatableLocales: Locale[];
+  translatedLocales: Set<Locale>;
   onCanDrop: (args: {
     sourceData: Record<string | symbol, unknown>;
     targetId: string;
@@ -203,6 +253,7 @@ function flattenNavigationTree(nodes: CmsNavigationTreeNode[]): CmsNavigationFla
       parentId: node.parentId,
       nodeType: node.nodeType,
       title: node.title,
+      titleTranslations: node.titleTranslations ?? null,
       entryId: node.entryId ?? null,
       slugSegment: node.slugSegment ?? null,
       sortOrder: node.sortOrder,
@@ -249,6 +300,7 @@ function serializeEditableTree(
       parentId,
       nodeType: node.nodeType,
       title: node.title,
+      titleTranslations: node.titleTranslations ?? null,
       entryId: node.entryId,
       slugSegment: node.slugSegment,
       sortOrder: index,
@@ -475,6 +527,8 @@ function CmsNavigationRow({
   draggedId,
   isSelected,
   resolvedPath,
+  translatableLocales,
+  translatedLocales,
   onCanDrop,
   onSelect,
   onSetDropTarget,
@@ -576,6 +630,12 @@ function CmsNavigationRow({
               : "Group without URL segment"}
         </p>
       </div>
+      {translatableLocales.length > 0 ? (
+        <LocaleCoverageBadges
+          translatedLocales={translatedLocales}
+          className="shrink-0 justify-end"
+        />
+      ) : null}
       </div>
     </div>
   );
@@ -649,6 +709,7 @@ function CmsNavigationRootDropZone({
 export function CmsNavigationManager({
   entries,
   initialTree,
+  entryLocalesByEntryId,
   navigationKey,
   navigationLabel,
   basePath,
@@ -663,6 +724,13 @@ export function CmsNavigationManager({
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
+  // The node an in-flight title translation targets — captured at click so the
+  // async result merges into the right node even if selection changes.
+  const translateTargetNodeIdRef = useRef<string | null>(null);
+  const translatableLocales = useMemo(
+    () => ENABLED_LOCALES.filter((locale) => locale !== DEFAULT_LOCALE),
+    []
+  );
 
   const { execute: saveNavigationTree, isExecuting: isSaving } = useAction(
     saveCmsNavigationTreeAction,
@@ -751,7 +819,7 @@ export function CmsNavigationManager({
     setSelectedNodeId(nextNode.id);
   };
 
-  const addPage = (entry: GetCmsCollectionResult) => {
+  const addPage = (entry: CmsCollectionListItem) => {
     const nextNode: CmsNavigationFlatNode = {
       id: createTempId(),
       parentId: null,
@@ -776,6 +844,30 @@ export function CmsNavigationManager({
       currentItems.map((item) => (item.id === nodeId ? updater(item) : item))
     );
   };
+
+  const { execute: translateTitle, isExecuting: isTranslatingTitle } = useAction(
+    translateNavTitleAction,
+    {
+      onError: ({ error }) => {
+        toast.error(error.serverError?.message || "Failed to translate title");
+      },
+      onSuccess: ({ data }) => {
+        const nodeId = translateTargetNodeIdRef.current;
+        if (!data || !nodeId) return;
+
+        updateNode(nodeId, (node) => ({
+          ...node,
+          titleTranslations: { ...(node.titleTranslations ?? {}), ...data.translations },
+        }));
+
+        if (data.aiTranslated) {
+          toast.success("Titles translated with AI");
+        } else {
+          toast.warning("AI translation unavailable — filled with the source title. Edit manually.");
+        }
+      },
+    }
+  );
 
   const removeSelectedNode = () => {
     if (!selectedNodeId) {
@@ -975,6 +1067,11 @@ export function CmsNavigationManager({
                     draggedId={draggedId}
                     isSelected={row.id === selectedNodeId}
                     resolvedPath={resolvedPaths.get(row.id) ?? null}
+                    translatableLocales={translatableLocales}
+                    translatedLocales={getRowTranslatedLocales({
+                      node: row,
+                      entryLocalesByEntryId,
+                    })}
                     onCanDrop={canDropOnRow}
                     onSelect={setSelectedNodeId}
                     onSetDropTarget={setDropTarget}
@@ -1058,6 +1155,60 @@ export function CmsNavigationManager({
                   }
                 />
               </div>
+
+              {translatableLocales.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-sm font-medium">Title translations</label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isTranslatingTitle || !selectedNode.title.trim()}
+                      onClick={() => {
+                        translateTargetNodeIdRef.current = selectedNode.id;
+                        translateTitle({ title: selectedNode.title, sourceLocale: DEFAULT_LOCALE });
+                      }}
+                    >
+                      {isTranslatingTitle ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Languages className="h-3.5 w-3.5" />
+                      )}
+                      Translate
+                    </Button>
+                  </div>
+                  {translatableLocales.map((locale) => (
+                    <div key={locale} className="flex items-center gap-2">
+                      <span
+                        className="flex w-6 shrink-0 justify-center"
+                        title={LOCALE_LABELS[locale]}
+                      >
+                        <LocaleFlag locale={locale} />
+                      </span>
+                      <Input
+                        value={selectedNode.titleTranslations?.[locale] ?? ""}
+                        placeholder={selectedNode.title}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          updateNode(selectedNode.id, (node) => ({
+                            ...node,
+                            titleTranslations: {
+                              ...(node.titleTranslations ?? {}),
+                              [locale]: value,
+                            },
+                          }));
+                        }}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground">
+                    {selectedNode.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE
+                      ? "Pages show the linked entry's translated title first; these apply when it has no translation."
+                      : "Overrides this group's label per language. Blank falls back to the title above."}
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Node Type</label>

@@ -40,14 +40,7 @@ import {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ColorHighlightPopoverContentProps {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * Optional colors to use in the highlight popover.
-   * If not provided, defaults to a predefined set of colors.
-   */
   colors?: HighlightColor[]
 }
 
@@ -58,10 +51,6 @@ export interface ColorHighlightPopoverProps
       UseColorHighlightConfig,
       "editor" | "hideWhenUnavailable" | "onApplied"
     > {
-  /**
-   * Optional colors to use in the highlight popover.
-   * If not provided, defaults to a predefined set of colors.
-   */
   colors?: HighlightColor[]
 }
 

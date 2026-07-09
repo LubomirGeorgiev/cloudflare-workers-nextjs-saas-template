@@ -2,6 +2,7 @@ import "server-only";
 
 import { eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
+import { revalidatePath } from "next/cache";
 import { type CmsNavigationKey } from "@/../cms.config";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -14,7 +15,7 @@ import {
 } from "@/db/schema";
 import {
   getCmsCollection,
-  type GetCmsCollectionResult,
+  type CmsCollectionListItem,
 } from "@/lib/cms/entry";
 import {
   buildCmsResolvedPath,
@@ -29,14 +30,19 @@ import {
   CMS_NAVIGATION_NODE_TYPES,
   type CmsNavigationNodeType,
 } from "@/types/cms-navigation";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
 
 interface GetCmsNavigationTreeParams {
   navigationKey: CmsNavigationKey;
   status?: CmsStatusFilter;
+  // Locale whose entry rows populate `node.entry`. Defaults to DEFAULT_LOCALE so
+  // existing callers (admin nav editor, sitemap, llms.txt) resolve the English entry
+  // unchanged; the docs render path passes the active locale for the translated row.
+  locale?: Locale;
 }
 
 export interface CmsNavigationTreeNode extends CmsNavigationItem {
-  entry: GetCmsCollectionResult | null;
+  entry: CmsCollectionListItem | null;
   children: CmsNavigationTreeNode[];
 }
 
@@ -45,6 +51,8 @@ export interface CmsNavigationFlatNode {
   parentId: string | null;
   nodeType: CmsNavigationNodeType;
   title: string;
+  // Per-locale `title` overrides (non-default locales only); null/empty = untranslated.
+  titleTranslations?: Partial<Record<Locale, string>> | null;
   entryId: string | null;
   slugSegment: string | null;
   sortOrder: number;
@@ -72,6 +80,38 @@ async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): P
   if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
     await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));
   }
+}
+
+function revalidateCmsNavigationPaths(paths: Iterable<string | null | undefined>): void {
+  for (const path of new Set(Array.from(paths).filter((value): value is string => Boolean(value)))) {
+    for (const locale of ENABLED_LOCALES) {
+      revalidatePath(locale === DEFAULT_LOCALE ? path : `/${locale}${path}`);
+    }
+  }
+}
+
+// Keeps only non-empty, trimmed overrides for served non-default locales (the default locale always uses
+// `title`), collapsing an empty map to null. Iterating ENABLED_LOCALES drops overrides for locales that
+// aren't served (e.g. every non-default locale once i18n is disabled).
+function sanitizeTitleTranslations(
+  raw: Partial<Record<Locale, string>> | null | undefined,
+): Partial<Record<Locale, string>> | null {
+  if (!raw) {
+    return null;
+  }
+
+  const cleaned: Partial<Record<Locale, string>> = {};
+  for (const locale of ENABLED_LOCALES) {
+    if (locale === DEFAULT_LOCALE) {
+      continue;
+    }
+    const value = raw[locale]?.trim();
+    if (value) {
+      cleaned[locale] = value;
+    }
+  }
+
+  return Object.keys(cleaned).length > 0 ? cleaned : null;
 }
 
 function normalizeSlugSegment(slugSegment: string | null | undefined): string | null {
@@ -131,19 +171,41 @@ function flattenTree(nodes: CmsNavigationTreeNode[]): CmsNavigationTreeNode[] {
 function buildTree({
   items,
   entryById,
+  localizedEntryByTranslationKey,
+  locale = DEFAULT_LOCALE,
 }: {
   items: CmsNavigationItem[];
-  entryById: Map<string, GetCmsCollectionResult>;
+  entryById: Map<string, CmsCollectionListItem>;
+  // `entryId` is a fixed FK to the default-locale (English) row; translations are
+  // separate rows sharing (collection, slug) with a different `id`. This optional
+  // `${collection}::${slug}`-keyed map supplies the locale row for `node.entry`.
+  localizedEntryByTranslationKey?: Map<string, CmsCollectionListItem>;
+  // Overlays `titleTranslations[locale]` onto GROUP/header titles for non-default
+  // locales. PAGE nodes still borrow the linked entry's translated title via
+  // getNavigationNodeDisplayTitle, so this only fills nodes with no linked entry.
+  locale?: Locale;
 }): CmsNavigationTreeNode[] {
   const nodeMap = new Map<string, CmsNavigationTreeNode>(
-    items.map((item) => [
-      item.id,
-      {
-        ...item,
-        entry: item.entryId ? entryById.get(item.entryId) ?? null : null,
-        children: [],
-      },
-    ])
+    items.map((item) => {
+      const anchorEntry = item.entryId ? entryById.get(item.entryId) ?? null : null;
+      const localizedEntry = anchorEntry && localizedEntryByTranslationKey
+        ? localizedEntryByTranslationKey.get(`${anchorEntry.collection}::${anchorEntry.slug}`) ?? null
+        : anchorEntry;
+
+      const localizedTitle = locale !== DEFAULT_LOCALE
+        ? item.titleTranslations?.[locale] ?? item.title
+        : item.title;
+
+      return [
+        item.id,
+        {
+          ...item,
+          title: localizedTitle,
+          entry: localizedEntry,
+          children: [],
+        },
+      ];
+    })
   );
 
   const roots: CmsNavigationTreeNode[] = [];
@@ -245,6 +307,7 @@ function getTreeAncestorChain({
 async function getCachedCmsNavigationTree(
   navigationKey: CmsNavigationKey,
   status: CmsStatusFilter,
+  locale: Locale,
 ): Promise<CmsNavigationTreeNode[]> {
   "use cache: remote";
   setCacheScope({
@@ -255,24 +318,46 @@ async function getCachedCmsNavigationTree(
   });
 
   const db = getDB();
-  const [items, entries] = await Promise.all([
+  const collectionSlug = getNavigationCollectionSlug(navigationKey);
+  const isNonDefaultLocale = locale !== DEFAULT_LOCALE;
+
+  // `entryId` is a fixed FK to the default-locale anchor row (see `buildTree`), so
+  // the anchor set always maps entryId -> (collection, slug); non-default locales
+  // additionally fetch that locale's rows to resolve the actual translation.
+  const [items, anchorEntries, localizedEntries] = await Promise.all([
     db.query.cmsNavigationItemTable.findMany({
       where: { navigationKey: navigationKey },
       orderBy: { sortOrder: "asc", createdAt: "asc" },
     }),
     getCmsCollection({
-      collectionSlug: getNavigationCollectionSlug(navigationKey),
+      collectionSlug,
       status,
+      locale: DEFAULT_LOCALE,
       includeRelations: {
         createdByUser: true,
         tags: true,
       },
     }),
+    isNonDefaultLocale
+      ? getCmsCollection({
+          collectionSlug,
+          status,
+          locale,
+          includeRelations: {
+            createdByUser: true,
+            tags: true,
+          },
+        })
+      : Promise.resolve<CmsCollectionListItem[]>([]),
   ]);
 
   const tree = buildTree({
     items,
-    entryById: new Map(entries.map((entry) => [entry.id, entry])),
+    entryById: new Map(anchorEntries.map((entry) => [entry.id, entry])),
+    localizedEntryByTranslationKey: isNonDefaultLocale
+      ? new Map(localizedEntries.map((entry) => [`${entry.collection}::${entry.slug}`, entry]))
+      : undefined,
+    locale,
   });
   const hydratedTree = hydrateMissingResolvedPaths({
     nodes: tree,
@@ -285,18 +370,9 @@ async function getCachedCmsNavigationTree(
 export function getCmsNavigationTree({
   navigationKey,
   status = CMS_ENTRY_STATUS.PUBLISHED,
+  locale = DEFAULT_LOCALE,
 }: GetCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> {
-  return getCachedCmsNavigationTree(navigationKey, status);
-}
-
-// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
-export async function getDocsNavigationTree({
-  status = CMS_ENTRY_STATUS.PUBLISHED,
-}: Omit<GetCmsNavigationTreeParams, "navigationKey"> = {}): Promise<CmsNavigationTreeNode[]> {
-  return getCmsNavigationTree({
-    navigationKey: "docs",
-    status,
-  });
+  return getCachedCmsNavigationTree(navigationKey, status, locale);
 }
 
 export async function getCmsNavigationRedirectByPath({
@@ -348,13 +424,6 @@ export async function getCmsNavigationRootPath({
   );
 }
 
-// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
-export async function getDocsNavigationRootPath(): Promise<string | null> {
-  return getCmsNavigationRootPath({
-    navigationKey: "docs",
-  });
-}
-
 export function getCmsNavigationNodeByResolvedPath({
   path,
   nodes,
@@ -366,14 +435,17 @@ export function getCmsNavigationNodeByResolvedPath({
   return flattenTree(nodes).find((node) => node.resolvedPath === normalizedPath) ?? null;
 }
 
-export function getCmsNavigationNodeByEntryId({
-  entryId,
+// Navigation attaches to the default-locale anchor row's `entryId`, but every locale sibling shares the
+// anchor's `(collection, slug)`. Resolving by the hydrated `node.entry.slug` therefore treats a translation
+// as in-navigation whenever its anchor is, instead of missing because the translation row has a different id.
+export function getCmsNavigationNodeByEntrySlug({
+  slug,
   nodes,
 }: {
-  entryId: string;
+  slug: string;
   nodes: CmsNavigationTreeNode[];
 }): CmsNavigationTreeNode | null {
-  return flattenTree(nodes).find((node) => node.entryId === entryId) ?? null;
+  return flattenTree(nodes).find((node) => node.entry?.slug === slug) ?? null;
 }
 
 export function getCmsNavigationAncestors({
@@ -548,6 +620,7 @@ export async function saveCmsNavigationTree({
   const remappedItems = remapTemporaryIds(items).map((item) => ({
     ...item,
     title: item.title.trim(),
+    titleTranslations: sanitizeTitleTranslations(item.titleTranslations),
     entryId: item.entryId ?? null,
     slugSegment: item.slugSegment?.trim() ? item.slugSegment.trim() : null,
   }));
@@ -602,6 +675,7 @@ export async function saveCmsNavigationTree({
       parentId: item.parentId,
       nodeType: item.nodeType,
       title: item.title,
+      titleTranslations: item.titleTranslations,
       entryId: item.entryId,
       slugSegment: normalizedSlugById.get(item.id) ?? null,
       resolvedPath: pathById.get(item.id) ?? null,
@@ -654,6 +728,10 @@ export async function saveCmsNavigationTree({
   }
 
   await invalidateCmsNavigationCaches(navigationKey);
+  revalidateCmsNavigationPaths([
+    ...existingPaths.values(),
+    ...pathById.values(),
+  ]);
 
   return getCmsNavigationTree({
     navigationKey,

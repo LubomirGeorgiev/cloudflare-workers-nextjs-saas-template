@@ -1,8 +1,10 @@
 import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
-import { getCmsTagById, getCmsEntriesByTagId } from "@/lib/cms/tags";
+import { getCmsTagById, getCmsEntriesByTagId, getCmsTagLocaleSiblings } from "@/lib/cms/tags";
 import { TagForm } from "../_components/tag-form";
+import { TagLocaleSwitcher } from "../_components/tag-locale-switcher";
+import type { Locale } from "@/i18n/config";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +36,8 @@ export default async function EditTagPage({
     return redirect("/admin/cms/tags");
   }
 
+  const localeSiblings = await getCmsTagLocaleSiblings(tag.slug);
+
   const entriesByCollection = await getCmsEntriesByTagId({ tagId: id, status: "all" as const });
   const totalEntries = Object.values(entriesByCollection).reduce(
     (sum, entries) => sum + entries.length,
@@ -56,6 +60,12 @@ export default async function EditTagPage({
           </p>
         </div>
       </div>
+
+      <TagLocaleSwitcher
+        slug={tag.slug}
+        currentLocale={tag.locale as Locale}
+        siblings={localeSiblings}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <TagForm mode="edit" tag={tag} />

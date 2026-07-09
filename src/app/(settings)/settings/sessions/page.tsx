@@ -3,11 +3,15 @@ import { SessionsClient } from "./sessions.client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSessionsAction } from "./sessions.actions";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = {
-  title: "Sessions",
-  description: "Manage your active sessions",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("Client.Settings.Sessions");
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  };
+}
 
 export default async function SessionsPage() {
   const { data: sessions, serverError } = await getSessionsAction()

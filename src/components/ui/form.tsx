@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRender } from "@base-ui/react/use-render"
+import { useTranslations } from "next-intl"
 import {
   Controller,
   ControllerProps,
@@ -13,6 +14,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
+import { translateValidationKey } from "@/lib/validation-messages"
 
 const Form = FormProvider
 
@@ -147,7 +149,11 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message) : children
+  const t = useTranslations("Client.Validation")
+  // Valibot messages set via src/lib/validation.ts are stable `Validation.*` keys;
+  // this translates them at display time so every form is localized centrally.
+  // Custom/inline schema messages that aren't keyed pass through unchanged.
+  const body = error ? translateValidationKey(t, String(error?.message)) : children
 
   if (!body) {
     return null
@@ -166,8 +172,9 @@ const FormMessage = React.forwardRef<
 })
 FormMessage.displayName = "FormMessage"
 
+// oxlint-disable project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
 export {
-// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
+// fallow-ignore-next-line unused-export
   useFormField,
   Form,
   FormItem,
@@ -177,3 +184,4 @@ export {
   FormMessage,
   FormField,
 }
+// oxlint-enable project/no-unused-module-exports

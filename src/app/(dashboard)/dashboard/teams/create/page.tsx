@@ -2,14 +2,20 @@ import { getSessionFromCookie } from "@/utils/auth";
 import { redirect } from "next/navigation";
 import { CreateTeamForm } from "@/components/teams/create-team-form";
 import { PageHeader } from "@/components/page-header";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = {
-  title: "Create Team",
-  description: "Create a new team for your organization",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("Client.Dashboard.Teams");
+
+  return {
+    title: t("createMetaTitle"),
+    description: t("createMetaDescription"),
+  };
+}
 
 export default async function CreateTeamPage() {
-  // Check if the user is authenticated
+  const t = await getTranslations("Client.Dashboard.Teams");
+
   const session = await getSessionFromCookie();
 
   if (!session) {
@@ -22,20 +28,20 @@ export default async function CreateTeamPage() {
         items={[
           {
             href: "/dashboard/teams",
-            label: "Teams"
+            label: t("breadcrumb")
           },
           {
             href: "/dashboard/teams/create",
-            label: "Create Team"
+            label: t("createTeam")
           }
         ]}
       />
       <div className="container mx-auto px-5 pb-12">
         <div className="max-w-xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mt-4">Create a new team</h1>
+            <h1 className="text-4xl font-bold mt-4">{t("createNewTeam")}</h1>
             <p className="text-muted-foreground mt-2">
-              Create a team to collaborate with others on projects and share resources.
+              {t("createPageSubtitle")}
             </p>
           </div>
 

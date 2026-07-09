@@ -5,11 +5,6 @@ import { parse } from 'jsonc-parser';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
-/**
- * Parses the wrangler.jsonc file and returns the configuration object
- * @returns {object} The parsed wrangler configuration
- * @throws {Error} If the file cannot be read or parsed
- */
 export function parseWranglerConfig() {
   const wranglerPath = path.join(scriptDir, '..', '..', 'wrangler.jsonc');
   const wranglerContent = fs.readFileSync(wranglerPath, 'utf8');
@@ -21,10 +16,6 @@ export function parseWranglerConfig() {
   }
 }
 
-/**
- * Gets the D1 database configuration from wrangler.jsonc
- * @returns {{ name: string, id: string } | null} The database configuration or null if not found
- */
 export function getD1Database() {
   const config = parseWranglerConfig();
   const d1Config = config.d1_databases?.[0];

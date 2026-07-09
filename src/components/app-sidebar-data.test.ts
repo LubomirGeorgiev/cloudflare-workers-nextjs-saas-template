@@ -51,6 +51,7 @@ function createSession({ role }: { role: "admin" | "user" }) {
       role,
       emailVerified: null,
       avatar: null,
+      preferredLocale: null,
       currentCredits: 0,
       lastCreditRefreshAt: null,
       createdAt: now,

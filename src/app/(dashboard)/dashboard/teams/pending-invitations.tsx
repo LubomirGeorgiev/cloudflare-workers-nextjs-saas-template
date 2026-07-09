@@ -10,6 +10,7 @@ import {
 } from "@/actions/team-membership-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 interface PendingInvitation {
   id: string;
@@ -39,6 +40,7 @@ export function PendingInvitations() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState<Record<string, boolean>>({});
   const router = useRouter();
+  const t = useTranslations("Client.Dashboard.Teams");
 
   useEffect(() => {
     const fetchPendingInvitations = async () => {
@@ -55,7 +57,7 @@ export function PendingInvitations() {
         }
       } catch (err) {
         console.error("Failed to fetch pending invitations:", err);
-        toast.error(err instanceof Error ? err.message : "Failed to fetch pending invitations");
+        toast.error(err instanceof Error ? err.message : t("fetchInvitationsError"));
       } finally {
         setIsLoading(false);
       }
@@ -75,7 +77,7 @@ export function PendingInvitations() {
       }
 
       if (result?.success) {
-        toast.success("You have successfully joined the team");
+        toast.success(t("joinedTeamSuccess"));
 
         // Remove from pending list
         setPendingInvitations(prev => prev.filter(inv => inv.token !== token));
@@ -84,7 +86,7 @@ export function PendingInvitations() {
         router.refresh();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to accept invitation");
+      toast.error(error instanceof Error ? error.message : t("acceptInvitationError"));
     } finally {
       setIsAccepting(prev => ({ ...prev, [token]: false }));
     }
@@ -101,9 +103,9 @@ export function PendingInvitations() {
   return (
     <Card className="mb-8 border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/20">
       <CardHeader>
-        <CardTitle className="text-xl">Pending Team Invitations</CardTitle>
+        <CardTitle className="text-xl">{t("pendingInvitationsTitle")}</CardTitle>
         <CardDescription>
-          You have been invited to join the following teams
+          {t("pendingInvitationsDescription")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -127,7 +129,7 @@ export function PendingInvitations() {
               <div>
                 <h3 className="font-medium">{invitation.team.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  Invited by {invitation.invitedBy.firstName || ''} {invitation.invitedBy.lastName || ''}
+                  {t("invitedBy", { name: `${invitation.invitedBy.firstName || ''} ${invitation.invitedBy.lastName || ''}`.trim() })}
                 </p>
               </div>
             </div>
@@ -137,11 +139,11 @@ export function PendingInvitations() {
               size="sm"
             >
               {isAccepting[invitation.token] ? (
-                "Accepting..."
+                t("accepting")
               ) : (
                 <>
                   <CheckCircle className="mr-2 h-4 w-4" />
-                  Accept
+                  {t("accept")}
                 </>
               )}
             </Button>

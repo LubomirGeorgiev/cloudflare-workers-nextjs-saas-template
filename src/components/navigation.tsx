@@ -1,8 +1,9 @@
 "use client"
 
-import Link from "next/link"
+import NextLink from "next/link"
 import type { Route } from 'next'
 import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { ComponentIcon, Menu } from 'lucide-react'
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
@@ -13,10 +14,15 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SITE_NAME } from "@/constants"
 import { DOCS_BASE_PATH } from "@/lib/cms/docs-config"
 import { ROLES_ENUM } from "@/app/enums"
+import { Link } from "@/i18n/navigation"
+import LocaleSwitcher from "@/components/locale-switcher"
 
 type NavItem = {
-  name: string;
+  labelKey: "home" | "blog" | "docs" | "settings" | "dashboard" | "adminPanel";
   href: Route;
+  // `/settings`, `/dashboard`, `/admin` live outside `[locale]` (app routes) —
+  // a locale-prefixed Link would 404 there, so only public routes get one.
+  isLocalized: boolean;
 }
 
 interface NavigationProps {
@@ -25,6 +31,7 @@ interface NavigationProps {
 }
 
 const ActionButtons = () => {
+  const t = useTranslations("Client.Nav")
   const { session, isLoading } = useSessionStore()
   const { setIsOpen } = useNavStore()
 
@@ -43,7 +50,7 @@ const ActionButtons = () => {
       className={buttonVariants()}
       onClick={() => setIsOpen(false)}
     >
-      Sign In
+      {t("signIn")}
     </Link>
   )
 }
@@ -52,6 +59,7 @@ export function Navigation({
   hasBlogPosts,
   hasDocsPages,
 }: NavigationProps) {
+  const t = useTranslations("Client.Nav")
   const { session, isLoading } = useSessionStore()
   const { isOpen, setIsOpen } = useNavStore()
   const pathname = usePathname()
@@ -60,17 +68,20 @@ export function Navigation({
   const docsPath = DOCS_BASE_PATH as Route
 
   const navItems: NavItem[] = [
-    { name: "Home", href: "/" },
-    ...(hasBlogPosts ? [{ name: "Blog", href: "/blog" }] as NavItem[] : []),
-    ...(hasDocsPages ? [{ name: "Docs", href: docsPath }] as NavItem[] : []),
+    { labelKey: "home", href: "/", isLocalized: true },
+    ...(hasBlogPosts ? [{ labelKey: "blog", href: "/blog", isLocalized: true }] as NavItem[] : []),
+    ...(hasDocsPages ? [{ labelKey: "docs", href: docsPath, isLocalized: true }] as NavItem[] : []),
+    // `/settings` and `/dashboard` are app routes outside `[locale]`.
     ...(session ? [
-      { name: "Settings", href: "/settings" },
-      { name: "Dashboard", href: "/dashboard" },
+      { labelKey: "settings", href: "/settings", isLocalized: false },
+      { labelKey: "dashboard", href: "/dashboard", isLocalized: false },
     ] as NavItem[] : []),
+    // `/admin` is also an app route outside `[locale]`.
     ...(isAdmin ? [
       {
-        name: "Admin Panel",
-        href: "/admin"
+        labelKey: "adminPanel",
+        href: "/admin",
+        isLocalized: false,
       }
     ] as NavItem[] : [])
   ]
@@ -101,21 +112,25 @@ export function Navigation({
                   <Skeleton className="h-8 w-16" />
                 </>
               ) : (
-                navItems.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    prefetch={false}
-                    className={cn(
-                      "text-muted-foreground hover:text-foreground no-underline px-3 h-16 flex items-center text-sm font-medium transition-colors relative",
-                      isActiveLink(item.href) && "text-foreground after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-full after:bg-foreground"
-                    )}
-                  >
-                    {item.name}
-                  </Link>
-                ))
+                navItems.map((item) => {
+                  const ItemLink = item.isLocalized ? Link : NextLink
+                  return (
+                    <ItemLink
+                      key={item.href}
+                      href={item.href}
+                      prefetch={false}
+                      className={cn(
+                        "text-muted-foreground hover:text-foreground no-underline px-3 h-16 flex items-center text-sm font-medium transition-colors relative",
+                        isActiveLink(item.href) && "text-foreground after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-full after:bg-foreground"
+                      )}
+                    >
+                      {t(item.labelKey)}
+                    </ItemLink>
+                  )
+                })
               )}
             </div>
+            <LocaleSwitcher />
             <ActionButtons />
           </div>
           <div className="md:hidden flex items-center">
@@ -124,7 +139,7 @@ export function Navigation({
                 render={<Button variant="ghost" size="icon" className="p-6" />}
               >
                   <Menu className="w-9 h-9" />
-                  <span className="sr-only">Open menu</span>
+                  <span className="sr-only">{t("openMenu")}</span>
               </SheetTrigger>
               <SheetContent side="right" className="w-[240px] sm:w-[300px]">
                 <div className="mt-6 flow-root">
@@ -137,21 +152,25 @@ export function Navigation({
                       </>
                     ) : (
                       <>
-                        {navItems.map((item) => (
-                          <Link
-                            key={item.name}
-                            href={item.href}
-                            prefetch={false}
-                            className={cn(
-                              "block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 no-underline transition-colors relative",
-                              isActiveLink(item.href) && "text-foreground"
-                            )}
-                            onClick={() => setIsOpen(false)}
-                          >
-                            {item.name}
-                          </Link>
-                        ))}
-                        <div className="px-3 pt-4">
+                        {navItems.map((item) => {
+                          const ItemLink = item.isLocalized ? Link : NextLink
+                          return (
+                            <ItemLink
+                              key={item.href}
+                              href={item.href}
+                              prefetch={false}
+                              className={cn(
+                                "block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 no-underline transition-colors relative",
+                                isActiveLink(item.href) && "text-foreground"
+                              )}
+                              onClick={() => setIsOpen(false)}
+                            >
+                              {t(item.labelKey)}
+                            </ItemLink>
+                          )
+                        })}
+                        <div className="flex items-center gap-3 px-3 pt-4">
+                          <LocaleSwitcher />
                           <ActionButtons />
                         </div>
                       </>

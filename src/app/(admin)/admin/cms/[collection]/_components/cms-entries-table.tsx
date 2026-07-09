@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useAction } from "next-safe-action/hooks";
-import { listCmsEntriesAction, deleteCmsEntryAction } from "../../../_actions/cms-entry-actions";
+import {
+  listCmsEntriesAction,
+  type CmsEntryListRow,
+  deleteCmsEntryAction,
+} from "../../../_actions/cms-entry-actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { CmsEntryTags } from "@/components/cms-entry-tags";
@@ -26,30 +30,36 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
-import { type GetCmsCollectionResult } from "@/lib/cms/entry";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import { type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import { toast } from "sonner";
+import { ENABLED_LOCALES, DEFAULT_LOCALE } from "@/i18n/config";
+import { LocaleCoverageBadges } from "../../_components/locale-coverage-badges";
 
 export function CmsEntriesTable({
   collection,
-  navigationEntryIds = [],
+  navigationEntrySlugs = [],
 }: {
   collection: CollectionsUnion;
-  navigationEntryIds?: string[];
+  navigationEntrySlugs?: string[];
 }) {
   const [statusFilter, setStatusFilter] = useState<CmsStatusFilter>(CMS_STATUS_FILTER_ALL);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(20);
-  const docsNavigationEntryIdsSet = useMemo(
-    () => new Set(navigationEntryIds),
-    [navigationEntryIds]
+  // Membership is keyed by the (collection, slug) translation group, so every locale
+  // sibling of an attached entry counts as in-navigation.
+  const docsNavigationSlugsSet = useMemo(
+    () => new Set(navigationEntrySlugs),
+    [navigationEntrySlugs]
   );
   const hasNavigation = Boolean(getCmsCollectionNavigationKey(collection));
+  // With a single active locale (i18n disabled) translation coverage carries no
+  // information, so drop it entirely.
+  const showLocaleColumns = ENABLED_LOCALES.length > 1;
 
   const { execute: listEntries, result, isExecuting } = useAction(listCmsEntriesAction, {
     onError: ({ error }) => {
@@ -71,13 +81,13 @@ export function CmsEntriesTable({
     },
   });
 
-  const columns: ColumnDef<GetCmsCollectionResult>[] = useMemo(() => [
+  const columns: ColumnDef<CmsEntryListRow>[] = useMemo(() => [
     {
       accessorKey: "title",
       header: "Title",
       cell: ({ row }) => {
         const isEntryMissingNavigation =
-          hasNavigation && !docsNavigationEntryIdsSet.has(row.original.id);
+          hasNavigation && !docsNavigationSlugsSet.has(row.original.slug);
 
         return (
           <div className="flex flex-col gap-1">
@@ -96,6 +106,30 @@ export function CmsEntriesTable({
       header: "Slug",
       cell: ({ row }) => <span className="text-muted-foreground">{row.original.slug}</span>,
     },
+    // Translation coverage only makes sense with more than one active locale;
+    // with i18n disabled it is dropped entirely.
+    ...(showLocaleColumns
+      ? ([
+          {
+            id: "translations",
+            header: "Translations",
+            cell: ({ row }) => {
+              // Group-wide coverage: missing enabled locales for this (collection, slug).
+              const missing = new Set(row.original.missingLocales ?? []);
+              const translatedLocales = new Set(
+                ENABLED_LOCALES.filter((locale) => !missing.has(locale))
+              );
+
+              return (
+                <LocaleCoverageBadges
+                  translatedLocales={translatedLocales}
+                  currentLocale={row.original.locale}
+                />
+              );
+            },
+          },
+        ] as ColumnDef<CmsEntryListRow>[])
+      : []),
     {
       accessorKey: "status",
       header: "Status",
@@ -163,7 +197,7 @@ export function CmsEntriesTable({
         </div>
       ),
     },
-  ], [collection, docsNavigationEntryIdsSet, hasNavigation, setDeleteEntryId]);
+  ], [collection, docsNavigationSlugsSet, hasNavigation, showLocaleColumns, setDeleteEntryId]);
 
   useEffect(() => {
     listEntries({
@@ -183,6 +217,20 @@ export function CmsEntriesTable({
   const entries = data?.entries ?? [];
   const totalCount = data?.totalCount ?? 0;
   const pageCount = Math.ceil(totalCount / pageSize);
+
+  // Deleting the default-locale row deletes the whole translation group (navigation anchors on it and it is
+  // the i18n fallback base), so warn when siblings would go with it. Sibling count comes from the row's
+  // group-wide coverage (translationGroupSize), so it stays accurate even when siblings are off the loaded page or filtered out.
+  const entryPendingDelete = deleteEntryId
+    ? entries.find((entry) => entry.id === deleteEntryId) ?? null
+    : null;
+  const translationSiblingCount = entryPendingDelete
+    ? Math.max(0, entryPendingDelete.translationGroupSize - 1)
+    : 0;
+  const willDeleteTranslationGroup =
+    showLocaleColumns &&
+    entryPendingDelete?.locale === DEFAULT_LOCALE &&
+    translationSiblingCount > 0;
 
   return (
     <>
@@ -210,6 +258,8 @@ export function CmsEntriesTable({
           itemNameSingular="entry"
           itemNamePlural="entries"
           getRowHref={(row) => `/admin/cms/${collection}/${row.id}`}
+          // Hovering one locale row highlights its translation siblings (same slug).
+          getRowGroupKey={(row) => row.slug}
           excludeClickableColumns={["actions"]}
           filterComponents={(
             <div className="flex items-center gap-2">
@@ -242,7 +292,10 @@ export function CmsEntriesTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this entry.
+              This action cannot be undone.{" "}
+              {willDeleteTranslationGroup
+                ? `This will permanently delete this entry and all ${translationSiblingCount} of its translation${translationSiblingCount === 1 ? "" : "s"}.`
+                : "This will permanently delete this entry."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

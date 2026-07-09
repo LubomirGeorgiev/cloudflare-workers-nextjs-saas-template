@@ -1,8 +1,10 @@
-import { emailString, minString, v } from "@/lib/validation";
+import { emailString, encodeValidationMessage, minString, v } from "@/lib/validation";
 
 export const signInSchema = v.object({
-  email: emailString("Please enter a valid email address"),
-  password: minString(8, "Password must be at least 8 characters"),
+  // Matches the central `INVALID_EMAIL_MESSAGE` default exactly; drop the inline
+  // override so it falls back to the keyed `Validation.invalidEmail` message.
+  email: emailString(),
+  password: minString(8, encodeValidationMessage("passwordMinLength", { min: 8 })),
 });
 
 export type SignInSchema = v.InferOutput<typeof signInSchema>;

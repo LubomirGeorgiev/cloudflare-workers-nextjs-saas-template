@@ -1,0 +1,839 @@
+{
+  "Client": {
+    "LocaleSwitcher": {
+      "label": "Language",
+      "change": "Change language"
+    },
+    "Nav": {
+      "home": "Home",
+      "blog": "Blog",
+      "docs": "Docs",
+      "settings": "Settings",
+      "dashboard": "Dashboard",
+      "adminPanel": "Admin Panel",
+      "signIn": "Sign In",
+      "openMenu": "Open menu",
+      "loadingMenu": "Loading menu"
+    },
+    "Auth": {
+      "Common": {
+        "emailLabel": "Email",
+        "emailPlaceholder": "Email address",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Password",
+        "or": "Or",
+        "signIn": "Sign In",
+        "continueWithGoogle": "Continue with Google",
+        "signInWithGoogle": "Sign in with Google",
+        "signUpWithGoogle": "Sign up with Google",
+        "backToSignIn": "Back to sign in",
+        "backToLogin": "Back to login",
+        "genericError": "Something went wrong",
+        "errorCaptcha": "Please complete the captcha",
+        "errorEmailAlreadyVerified": "Email is already verified",
+        "errorCreateUser": "Failed to create user"
+      },
+      "SignIn": {
+        "meta": {
+          "title": "Sign In",
+          "description": "Sign in to your account"
+        },
+        "heading": "Sign in to your account",
+        "noAccountPrompt": "Or",
+        "createAccountLink": "create a new account",
+        "signInWithPasskey": "Sign in with a Passkey",
+        "authenticatingPasskey": "Authenticating...",
+        "signInWithPassword": "Sign In with Password",
+        "signingIn": "Signing in...",
+        "forgotPassword": "Forgot your password?",
+        "toastAuthenticatingPasskey": "Authenticating with passkey...",
+        "toastPasskeyOptionsError": "Failed to get authentication options",
+        "toastPasskeyAuthError": "Authentication failed",
+        "toastAuthSuccess": "Authentication successful",
+        "toastSigningIn": "Signing you in...",
+        "toastSignInSuccess": "Signed in successfully",
+        "errorInvalidCredentials": "Invalid email or password",
+        "errorUseGoogle": "Please sign in with your Google account instead.",
+        "errorUsePasskey": "Please sign in with your passkey instead."
+      },
+      "SignUp": {
+        "meta": {
+          "title": "Sign Up",
+          "description": "Create a new account"
+        },
+        "heading": "Create your account",
+        "hasAccountPrompt": "Already have an account?",
+        "signInLink": "Sign in",
+        "signUpWithPasskey": "Sign up with a Passkey",
+        "createAccountWithPassword": "Create Account with Password",
+        "firstNamePlaceholder": "First Name",
+        "lastNamePlaceholder": "Last Name",
+        "passkeyDialogTitle": "Sign up with a Passkey",
+        "passkeyContinue": "Continue",
+        "passkeyRegistering": "Registering...",
+        "passkeyHelpText": "After clicking continue, your browser will prompt you to create and save your Passkey. This will allow you to sign in securely without a password in the future.",
+        "agreementPrefix": "By signing up, you agree to our",
+        "termsOfService": "Terms of Service",
+        "and": "and",
+        "privacyPolicy": "Privacy Policy",
+        "toastCreatingAccount": "Creating your account...",
+        "toastAccountCreated": "Account created successfully",
+        "toastStartingPasskeyRegistration": "Starting passkey registration...",
+        "toastPasskeyRegistrationFailed": "Failed to start passkey registration",
+        "toastPasskeyRegistrationError": "Failed to register passkey",
+        "errorEmailTaken": "Email already taken",
+        "errorCreateSession": "Failed to create session after signup",
+        "errorAccountExists": "An account with this email already exists",
+        "errorInvalidRegistrationSession": "Invalid registration session",
+        "errorRegisterFailed": "Failed to register passkey"
+      },
+      "ForgotPassword": {
+        "meta": {
+          "title": "Forgot Password",
+          "description": "Reset your password"
+        },
+        "changePasswordTitle": "Change Password",
+        "forgotPasswordTitle": "Forgot Password",
+        "description": "Enter your email address and we'll send you instructions to reset your password.",
+        "sendInstructions": "Send Reset Instructions",
+        "backToSettings": "Back to settings",
+        "checkEmailTitle": "Check your email",
+        "checkEmailDescription": "If an account exists with that email, we've sent you instructions to reset your password.",
+        "toastSending": "Sending reset instructions...",
+        "toastSent": "Reset instructions sent"
+      },
+      "ResetPassword": {
+        "meta": {
+          "title": "Reset Password",
+          "description": "Set a new password for your account"
+        },
+        "title": "Reset Password",
+        "description": "Enter your new password below.",
+        "newPasswordLabel": "New Password",
+        "confirmPasswordLabel": "Confirm Password",
+        "submit": "Reset Password",
+        "successTitle": "Password Reset Successfully",
+        "successDescription": "Your password has been reset. You can now log in with your new password.",
+        "goToLogin": "Go to Login",
+        "toastResetting": "Resetting password...",
+        "toastResetSuccess": "Password reset successfully",
+        "invalidLinkTitle": "Invalid Reset Link",
+        "invalidLinkDescription": "This password reset link is invalid or has expired. Please request a new one.",
+        "requestNewLink": "Request New Reset Link",
+        "errorInvalidToken": "Invalid or expired reset token",
+        "errorTokenExpired": "Reset token has expired"
+      },
+      "VerifyEmail": {
+        "meta": {
+          "title": "Verify Email",
+          "description": "Verify your email address"
+        },
+        "verifyingTitle": "Verifying Email",
+        "verifyingDescription": "Please wait while we verify your email address...",
+        "failedTitle": "Verification failed",
+        "failedDescription": "Failed to verify email",
+        "invalidLinkTitle": "Invalid verification link",
+        "invalidLinkDescription": "The verification link is invalid. Please request a new verification email.",
+        "notFoundTitle": "Invalid Verification Link",
+        "notFoundDescription": "The verification link you clicked is invalid or has expired. This can happen if:",
+        "notFoundReasonExpired": "The link has expired (verification links are valid for 24 hours)",
+        "notFoundReasonAlreadyVerified": "You've already verified your email",
+        "notFoundReasonModified": "The link was modified or is incomplete",
+        "goToHome": "Go to Home",
+        "toastVerifying": "Verifying your email...",
+        "toastVerifySuccess": "Email verified successfully",
+        "toastVerifyFailed": "Failed to verify email",
+        "toastInvalidToken": "Invalid verification token",
+        "errorTokenNotFound": "Verification token not found or expired"
+      },
+      "TeamInvite": {
+        "meta": {
+          "title": "Accept Team Invitation",
+          "description": "Accept an invitation to join a team"
+        },
+        "acceptingTitle": "Accepting Invitation",
+        "acceptingDescription": "Please wait while we process your team invitation...",
+        "errorTitle": "Invitation Error",
+        "errorDescriptionFallback": "Failed to process the invitation",
+        "errorAlreadyMember": "You are already a member of this team.",
+        "errorTeamLimitReached": "You've reached the maximum number of teams you can join.",
+        "errorExpiredOrRevoked": "The invitation may have expired or been revoked.",
+        "invalidLinkTitle": "Invalid Invitation Link",
+        "invalidLinkDescription": "The invitation link is invalid or has expired.",
+        "goToDashboard": "Go to Dashboard",
+        "notFoundTitle": "Invitation Not Found",
+        "notFoundDescription": "The team invitation you're looking for doesn't exist or has expired.",
+        "notFoundReasonsIntro": "This could be because:",
+        "notFoundReasonIncorrectUrl": "The invitation URL is incorrect",
+        "notFoundReasonRevoked": "The invitation has been revoked by the team admin",
+        "notFoundReasonExpired": "The invitation has expired",
+        "toastProcessing": "Processing your invitation...",
+        "toastAcceptError": "Failed to accept team invitation",
+        "toastAcceptSuccess": "You've successfully joined the team!",
+        "toastInvalidToken": "Invalid invitation token",
+        "errorMustBeLoggedIn": "You must be logged in to accept an invitation",
+        "errorUnexpected": "An unexpected error occurred while accepting the invitation"
+      },
+      "GoogleCallback": {
+        "meta": {
+          "title": "Sign in with Google",
+          "description": "Complete your sign in with Google"
+        },
+        "signingInTitle": "Signing in with Google",
+        "signingInDescription": "Please wait while we complete your sign in...",
+        "failedTitle": "Sign in failed",
+        "failedDescriptionFallback": "Failed to sign in with Google",
+        "invalidCallbackTitle": "Invalid callback",
+        "invalidCallbackDescription": "The sign in callback is invalid or has expired. Please try signing in again.",
+        "toastSigningIn": "Signing you in with Google...",
+        "toastSignInSuccess": "Signed in successfully",
+        "toastInvalidParams": "Invalid callback parameters",
+        "errorNotEnabled": "Google SSO is not enabled",
+        "errorMissingCookies": "Missing required cookies",
+        "errorInvalidState": "Invalid state parameter",
+        "errorInvalidCode": "Invalid authorization code"
+      }
+    },
+    "Docs": {
+      "meta": {
+        "fallbackTitle": "Docs",
+        "groupDescriptionWithPreview": "{group} docs: {previews}.",
+        "groupDescription": "Browse documentation in {group}.",
+        "pageDescription": "Documentation for {title}",
+        "andMore": ", and more"
+      },
+      "Navigation": {
+        "heading": "Documentation",
+        "searchButton": "Search docs",
+        "browseDocs": "Browse docs",
+        "llmsTxt": "llms.txt"
+      },
+      "Search": {
+        "placeholder": "Search docs...",
+        "searching": "Searching docs...",
+        "minChars": "Type at least {count} characters to search.",
+        "noResults": "No matching docs found."
+      },
+      "MarkdownButton": {
+        "copyMarkdown": "Copy Markdown",
+        "copied": "Copied",
+        "moreOptions": "More options",
+        "openAsMarkdown": "Open as Markdown",
+        "llmsTxt": "llms.txt",
+        "download": "Download"
+      },
+      "Page": {
+        "docs": "Docs",
+        "sectionFallbackDescription": "Browse pages in this section.",
+        "section": "Section",
+        "noChildPages": "No public child pages are available in this section yet.",
+        "previous": "Previous",
+        "next": "Next",
+        "onThisPage": "On This Page"
+      }
+    },
+    "Landing": {
+      "meta": {
+        "title": "SaaS Template",
+        "description": "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
+      },
+      "Hero": {
+        "titleLine1": "Ship your SaaS",
+        "titleLine2": "to the",
+        "titleEdge": "edge",
+        "description": "A complete, production-ready starter for building SaaS apps on Cloudflare Workers. Auth, database, billing, email, and admin tooling are already wired up — clone it and deploy globally in minutes.",
+        "starOnGithub": "Star on GitHub",
+        "tryLiveDemo": "Try the live demo"
+      },
+      "Stack": {
+        "heading": "// the whole stack, already assembled",
+        "cloudflarePlatform": "Cloudflare platform",
+        "appFramework": "App framework"
+      },
+      "Features": {
+        "eyebrow": "// what's in the box",
+        "heading": "Skip the boilerplate. Build the product.",
+        "description": "Every undifferentiated part of a SaaS is already here and tested. Open the repo and start writing the code that only your product needs.",
+        "auth": {
+          "name": "Authentication, solved",
+          "description": "Email and password sign-in, sign-up, password reset, and sessions on Lucia Auth — plus passkeys and Google OAuth."
+        },
+        "data": {
+          "name": "Database & email",
+          "description": "Drizzle ORM over Cloudflare D1, KV-backed sessions, and transactional email sent straight from the Worker."
+        },
+        "edge": {
+          "name": "Deployed to the edge",
+          "description": "Ship to Cloudflare Workers and serve from 330+ cities with zero cold starts. One command pushes to production."
+        },
+        "runtime": {
+          "name": "Modern runtime",
+          "description": "Next.js App Router and React Server Components running on Vinext and Vite for an instant dev loop."
+        },
+        "billing": {
+          "name": "Billing built in",
+          "description": "Stripe checkout and a credit system are wired up, so you can charge customers without starting from scratch."
+        },
+        "ui": {
+          "name": "A real design system",
+          "description": "Tailwind CSS with Shadcn and Base UI components, dark mode, and responsive layouts ready to extend."
+        },
+        "teams": {
+          "name": "Teams & admin",
+          "description": "Multi-tenant teams, role-based access, and an admin panel for managing users and content out of the box."
+        },
+        "dx": {
+          "name": "Developer experience",
+          "description": "TypeScript end to end, Oxlint, a CMS for blog and docs, and GitHub Actions deployment you don't have to write."
+        }
+      },
+      "Cta": {
+        "titleLine1": "One command to clone.",
+        "titleLine2": "Yours to ship.",
+        "description": "Free and open source. No license fees, no attribution required. Fork it, rename it, and make it your own.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "copyAriaLabel": "Copy clone command",
+        "copiedAriaLabel": "Copied",
+        "starOnGithub": "Star on GitHub",
+        "exploreDemo": "Explore the demo"
+      },
+      "Faq": {
+        "eyebrow": "// faq",
+        "heading": "Questions, answered",
+        "description": "Still curious? The README covers everything else, and issues are always open.",
+        "isFree": {
+          "question": "Is this template really free?",
+          "answer": "Yes, this template is completely free and <link>open source</link>! You can use it for both personal and commercial projects without any licensing fees. You can fork, copy, modify, and distribute it as you see fit without any restrictions and attribution."
+        },
+        "featuresIncluded": {
+          "question": "What features are included?",
+          "intro": "The template includes a comprehensive set of features:",
+          "item1": "Authentication with email/password and forgot password flow",
+          "item2": "Database integration with Drizzle ORM and Cloudflare D1",
+          "item3": "Email service powered by Cloudflare Email Service",
+          "item4": "Modern UI components from Shadcn UI and Tailwind CSS",
+          "item5": "Form validations and error handling",
+          "item6": "Dark mode support",
+          "item7": "Responsive design",
+          "item8": "TypeScript throughout the codebase",
+          "item9": "Automated deployments with GitHub Actions",
+          "item10": "Captcha integration with Turnstile",
+          "item11": "SEO optimization with Next.js",
+          "item12": "And countless other features..."
+        },
+        "techStack": {
+          "question": "What's the tech stack?",
+          "intro": "The template uses modern and reliable technologies:",
+          "item1": "Next.js App Router with React Server Components through Vinext and Vite",
+          "item2": "TypeScript for type safety",
+          "item3": "Tailwind CSS and Shadcn UI for styling",
+          "item4": "DrizzleORM with Cloudflare D1 for database",
+          "item5": "Lucia Auth for authentication",
+          "item6": "Cloudflare Workers for serverless deployment",
+          "item7": "Cloudflare KV for session storage",
+          "item8": "Cloudflare Email Service for transactional email"
+        },
+        "deploy": {
+          "question": "How do I deploy my application?",
+          "intro": "Deployment is automated with GitHub Actions. You'll need to:",
+          "item1": "Create Cloudflare D1 and KV namespaces",
+          "item2": "Onboard your sending domain in Cloudflare Email Service",
+          "item3": "Enable Cloudflare Images for image optimization",
+          "item4": "Configure Turnstile for captcha",
+          "item5": "Add your Cloudflare API token to GitHub secrets",
+          "item6": "Push to the main branch",
+          "outro": "The deployment process is fully documented in the <link>GitHub repository</link>."
+        },
+        "gettingStarted": {
+          "question": "What do I need to get started?",
+          "paragraph1": "You'll need a Cloudflare account (free tier is fine), Node.js installed locally, and basic knowledge of React and TypeScript. The template includes detailed documentation to guide you through the setup.",
+          "paragraph2": "You can also check out the <link>documentation</link> for more information."
+        },
+        "roadmap": {
+          "question": "What are the upcoming features?",
+          "intro": "We have an exciting roadmap ahead! Planned features include:",
+          "item1": "Multi-language support (i18n)",
+          "item2": "Billing and payment processing",
+          "item3": "Admin dashboard",
+          "item4": "Email verification on sign up",
+          "item5": "Notifications system",
+          "item6": "Webhooks support",
+          "item7": "Team collaboration features",
+          "item8": "Real-time updates",
+          "item9": "Analytics dashboard"
+        },
+        "emailTemplates": {
+          "question": "How are email templates handled?",
+          "answer": "Transactional email templates are rendered by the app and sent through Cloudflare Email Service from the Worker."
+        },
+        "customize": {
+          "question": "How do I customize the template?",
+          "intro": "Before deploying to production, you should:",
+          "item1": "Update project details in <code>src/constants.ts</code>",
+          "item2": "Modify the footer in <code>src/components/footer.tsx</code>",
+          "item3": "Optionally update the color palette in <code>src/app/globals.css</code>"
+        },
+        "contribute": {
+          "question": "How can I contribute?",
+          "answer": "Contributions are welcome! Feel free to open issues, submit pull requests, or help improve the documentation on <link>GitHub</link>. The project follows standard open source contribution guidelines."
+        }
+      },
+      "DeployTerminal": {
+        "windowTitle": "~/your-saas — deploy"
+      }
+    },
+    "Validation": {
+      "required": "This field is required",
+      "invalidString": "Please enter text",
+      "invalidNumber": "Please enter a number",
+      "invalidBoolean": "Please choose an option",
+      "invalidDate": "Please enter a valid date",
+      "invalidEmail": "Please enter a valid email address",
+      "invalidUrl": "Please enter a valid URL",
+      "minLength": "Must be at least {min} characters",
+      "maxLength": "Must be {max} characters or less",
+      "passwordMinLength": "Password must be at least {min} characters",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "emailRequired": "Email is required",
+      "emailMaxLength": "Email must be {max} characters or less",
+      "nameRequired": "Name is required",
+      "nameMaxLength": "Name must be {max} characters or less",
+      "teamNameRequired": "Team name is required",
+      "teamNameMaxLength": "Team name must be {max} characters or less",
+      "descriptionMaxLength": "Description must be {max} characters or less",
+      "urlMaxLength": "URL must be {max} characters or less",
+      "titleRequired": "Title is required",
+      "slugRequired": "Slug is required",
+      "teamIdRequired": "Team ID is required",
+      "userIdRequired": "User ID is required",
+      "roleRequired": "Role is required",
+      "invitationTokenRequired": "Invitation token is required",
+      "verificationTokenRequired": "Verification token is required",
+      "authorizationCodeRequired": "Authorization code is required",
+      "stateParameterRequired": "State parameter is required",
+      "invalidPage": "Invalid page",
+      "invalidLimit": "Invalid limit",
+      "limitMaxValue": "Limit cannot be greater than {max}",
+      "packageRequired": "Package is required",
+      "paymentIntentRequired": "Payment intent is required",
+      "invalidRegistrationResponse": "Invalid registration response",
+      "invalidAuthenticationResponse": "Invalid authentication response",
+      "scheduledStatusRequiresFutureDate": "Status must be 'scheduled' when publishedAt is set to a future date",
+      "scheduledRequiresFuturePublishDate": "A future publish date is required for scheduled entries"
+    },
+    "Sidebar": {
+      "groups": {
+        "platform": "Platform",
+        "projects": "Projects"
+      },
+      "nav": {
+        "dashboard": "Dashboard",
+        "teams": "Teams",
+        "marketplace": "Marketplace",
+        "billing": "Billing",
+        "settings": "Settings",
+        "profile": "Profile",
+        "security": "Security",
+        "sessions": "Sessions",
+        "changePassword": "Change Password",
+        "adminPanel": "Admin Panel",
+        "designEngineering": "Design Engineering",
+        "salesMarketing": "Sales & Marketing",
+        "travel": "Travel"
+      },
+      "projects": {
+        "more": "More",
+        "view": "View Project",
+        "share": "Share Project",
+        "delete": "Delete Project"
+      },
+      "user": {
+        "account": "Account",
+        "billing": "Billing",
+        "notifications": "Notifications",
+        "changeTheme": "Change theme",
+        "themeSystem": "System default",
+        "themeLight": "Light",
+        "themeDark": "Dark",
+        "changeLanguage": "Change language",
+        "logOut": "Log out",
+        "credits": "{count} credits"
+      }
+    },
+    "Dashboard": {
+      "Home": {
+        "breadcrumb": "Dashboard",
+        "example": "Example"
+      },
+      "layout": {
+        "header": "Dashboard"
+      },
+      "Teams": {
+        "metaTitle": "My Teams",
+        "metaDescription": "Manage your teams and collaborations",
+        "breadcrumb": "Teams",
+        "title": "My Teams",
+        "subtitle": "Manage your teams and collaborations",
+        "createTeam": "Create Team",
+        "emptyTitle": "You don't have any teams yet",
+        "emptyDescription": "Teams let you collaborate with others on projects and share resources.",
+        "createFirstTeam": "Create your first team",
+        "yourRole": "Your role:",
+        "noDescription": "No description provided",
+        "createNewTeam": "Create a new team",
+        "createMetaTitle": "Create Team",
+        "createMetaDescription": "Create a new team for your organization",
+        "createPageSubtitle": "Create a team to collaborate with others on projects and share resources.",
+        "teamNotFound": "Team Not Found",
+        "teamMetaTitle": "{name} - Dashboard",
+        "teamMetaDescription": "Team dashboard for {name}",
+        "accessDenied": "Access Denied",
+        "accessDeniedDescription": "You don't have permission to access team \"{name}\". Please contact the team owner to request access.",
+        "returnToTeams": "Return to Teams",
+        "inviteMembers": "Invite Members",
+        "teamCredits": "Team Credits",
+        "yourRoleLabel": "Your Role",
+        "memberRole": "Member",
+        "created": "Created",
+        "teamMembers": "Team Members",
+        "columnMember": "Member",
+        "columnEmail": "Email",
+        "columnRole": "Role",
+        "columnJoined": "Joined",
+        "columnStatus": "Status",
+        "columnAction": "Action",
+        "noMembersFound": "No members found",
+        "notJoined": "Not joined",
+        "statusActive": "Active",
+        "statusInactive": "Inactive",
+        "ownerCannotBeRemoved": "Team owners cannot be removed",
+        "fetchInvitationsError": "Failed to fetch pending invitations",
+        "joinedTeamSuccess": "You have successfully joined the team",
+        "acceptInvitationError": "Failed to accept invitation",
+        "pendingInvitationsTitle": "Pending Team Invitations",
+        "pendingInvitationsDescription": "You have been invited to join the following teams",
+        "invitedBy": "Invited by {name}",
+        "accepting": "Accepting...",
+        "accept": "Accept"
+      },
+      "Billing": {
+        "breadcrumbDashboard": "Dashboard",
+        "breadcrumbBilling": "Billing",
+        "creditsTitle": "Credits",
+        "currentCredits": "{count, number} credits",
+        "freeMonthlyCredits": "You get {count, number} free credits every month.",
+        "topUpTitle": "Top up your credits",
+        "topUpDescription": "Purchase additional credits to use our services. The more credits you buy, the better the value.",
+        "creditsLabel": "credits",
+        "oneTimePayment": "one-time payment",
+        "savePercent": "Save {percent}%",
+        "purchaseNow": "Purchase Now",
+        "purchaseCreditsDialogTitle": "Purchase Credits",
+        "errorCreatePaymentIntent": "Failed to create payment intent",
+        "errorStartCheckout": "Failed to start checkout",
+        "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
+        "creditsCount": "{count, number} credits",
+        "securePaymentInfo": "Your payment is secure and encrypted. We use Stripe, a trusted global payment provider, to process your payment.",
+        "paymentDetailsInfo": "For your security, your payment details are handled directly by Stripe and never touch our servers.",
+        "creditsValidityInfo": "Credits will be added to your account immediately after successful payment and will be valid for {years} years from the purchase date.",
+        "cancel": "Cancel",
+        "processing": "Processing...",
+        "payNow": "Pay Now",
+        "paymentFailed": "Payment failed",
+        "paymentSuccessful": "Payment successful!",
+        "errorNoPaymentIntent": "No payment intent found",
+        "transactionHistoryTitle": "Transaction History",
+        "columnDate": "Date",
+        "columnType": "Type",
+        "columnAmount": "Amount",
+        "columnDescription": "Description",
+        "expiredLabel": "Expired: ",
+        "expiresLabel": "Expires: ",
+        "noTransactions": "No transactions found",
+        "pageOf": "Page {page} of {total}"
+      },
+      "Marketplace": {
+        "breadcrumbMarketplace": "Marketplace",
+        "title": "Component Marketplace",
+        "subtitle": "Purchase and use our premium components using your credits",
+        "demoAlertTitle": "Demo Template Feature",
+        "demoAlertDescription": "This marketplace page demonstrates how to implement a credit-based billing system in your SaaS application. Feel free to use this as a starting point and customize it for your specific needs.",
+        "purchaseTransactionDescription": "Purchased {itemType}: {itemName}",
+        "errorBillingDisabled": "Marketplace is not available when credit billing is disabled",
+        "errorNotLoggedIn": "You must be logged in to make purchases",
+        "errorItemNotFound": "Item not found",
+        "errorAlreadyOwned": "You already own this item",
+        "errorInsufficientCredits": "You don't have enough credits to purchase this item"
+      }
+    },
+    "Settings": {
+      "Nav": {
+        "settings": "Settings",
+        "overview": "Overview",
+        "profile": "Profile",
+        "security": "Security",
+        "sessions": "Sessions",
+        "changePassword": "Change Password",
+        "signOut": "Sign out",
+        "signOutConfirmTitle": "Sign out?",
+        "signOutConfirmDescription": "Are you sure you want to sign out of your account?",
+        "cancel": "Cancel"
+      },
+      "Profile": {
+        "cardTitle": "Profile Settings",
+        "cardDescription": "Update your personal information and contact details.",
+        "firstNameLabel": "First Name",
+        "lastNameLabel": "Last Name",
+        "emailLabel": "Email",
+        "emailDescription": "This is the email you use to sign in.",
+        "saveButton": "Save changes",
+        "toastUpdating": "Updating profile...",
+        "toastUpdateSuccess": "Profile updated successfully",
+        "toastUpdateError": "Failed to update profile",
+        "errorUnauthorized": "Unauthorized",
+        "errorUpdateFailed": "Failed to update profile"
+      },
+      "Language": {
+        "cardTitle": "Language",
+        "cardDescription": "Choose the language for your dashboard and account pages."
+      },
+      "Security": {
+        "passkeysHeading": "Passkeys",
+        "passkeysSubheading": "Manage your passkeys for passwordless authentication.",
+        "registerButton": "Register Passkey",
+        "registering": "Registering...",
+        "unknownAuthenticator": "Unknown Authenticator App",
+        "currentPasskeyBadge": "Current Passkey",
+        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Unknown browser",
+        "unknownVersion": "Unknown version",
+        "unknownDevice": "Unknown device",
+        "unknownModel": "Unknown model",
+        "unknownType": "Unknown type",
+        "unknownOs": "Unknown OS",
+        "deletePasskey": "Delete passkey",
+        "deletePasskeyConfirmTitle": "Delete passkey?",
+        "deletePasskeyConfirmDescription": "This will remove this passkey from your account. This action cannot be undone.",
+        "cancel": "Cancel",
+        "emptyState": "No passkeys found. Add a passkey to enable passwordless authentication.",
+        "toastRegisterSuccess": "Passkey registered successfully",
+        "toastRegisterError": "Failed to register passkey",
+        "toastOptionsError": "Failed to get registration options",
+        "toastDeleteSuccess": "Passkey deleted",
+        "toastDeleteError": "Failed to delete passkey",
+        "errorRegisterOwnAccount": "You can only register passkeys for your own account",
+        "errorPasskeyLimit": "You have reached the maximum limit of {limit} passkeys",
+        "errorInvalidRegistrationSession": "Invalid registration session",
+        "errorRegisterFailed": "Failed to register passkey",
+        "errorDeleteCurrentPasskey": "Cannot delete the current passkey",
+        "errorPasskeyNotFound": "Passkey not found",
+        "errorDeleteLastPasskey": "Cannot delete the last passkey when no password is set",
+        "errorInvalidAuthSession": "Invalid authentication session",
+        "errorAuthFailed": "Passkey authentication failed"
+      },
+      "Sessions": {
+        "metaTitle": "Sessions",
+        "metaDescription": "Manage your active sessions",
+        "unknownLocation": "Unknown location",
+        "currentSessionBadge": "Current Session",
+        "authenticatedWith": "Authenticated with {method}",
+        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Unknown browser",
+        "unknownVersion": "Unknown version",
+        "unknownDevice": "Unknown device",
+        "unknownModel": "Unknown model",
+        "unknownType": "Unknown type",
+        "unknownOs": "Unknown OS",
+        "deleteSession": "Delete session",
+        "deleteSessionConfirmTitle": "Delete session?",
+        "deleteSessionConfirmDescription": "This will sign out this device. This action cannot be undone.",
+        "cancel": "Cancel",
+        "toastDeleteSuccess": "Session deleted",
+        "toastDeleteError": "Failed to delete session",
+        "errorUnauthorized": "Unauthorized"
+      }
+    },
+    "Errors": {
+      "unexpected": "An unexpected error occurred",
+      "notAuthenticated": "Not authenticated",
+      "userNotFound": "User not found"
+    }
+  },
+  "Legal": {
+    "Privacy": {
+      "meta": {
+        "title": "Privacy Policy",
+        "description": "Learn how we collect, use, and protect your data"
+      },
+      "title": "Privacy Policy",
+      "lastUpdated": "Last updated: {date}",
+      "informationWeCollect": {
+        "heading": "1. Information We Collect",
+        "body": "We collect information you provide directly to us, including but not limited to your name, email address, and any other information you choose to provide."
+      },
+      "howWeUseInformation": {
+        "heading": "2. How We Use Your Information",
+        "intro": "We use the information we collect to:",
+        "item1": "Provide, maintain, and improve our services",
+        "item2": "Send you technical notices and support messages",
+        "item3": "Respond to your comments and questions",
+        "item4": "Protect against fraud and abuse"
+      },
+      "dataSecurity": {
+        "heading": "3. Data Security",
+        "body": "We take reasonable measures to help protect information about you from loss, theft, misuse and unauthorized access, disclosure, alteration, and destruction."
+      },
+      "contactUs": {
+        "heading": "4. Contact Us",
+        "body": "If you have any questions about this Privacy Policy, please contact us at:",
+        "email": "Email: {email}"
+      },
+      "returnToHome": "Return to Home"
+    },
+    "Terms": {
+      "meta": {
+        "title": "Terms of Service",
+        "description": "Read our terms of service and usage agreement"
+      },
+      "title": "Terms of Service",
+      "lastUpdated": "Last updated: {date}",
+      "acceptanceOfTerms": {
+        "heading": "1. Acceptance of Terms",
+        "body": "By accessing and using this website, you accept and agree to be bound by the terms and provision of this agreement."
+      },
+      "useLicense": {
+        "heading": "2. Use License",
+        "body": "Permission is granted to temporarily download one copy of the materials (information or software) on our website for personal, non-commercial transitory viewing only."
+      },
+      "disclaimer": {
+        "heading": "3. Disclaimer",
+        "body": "The materials on our website are provided on an 'as is' basis. We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights."
+      },
+      "creditSystem": {
+        "heading": "4. Credit System and Payments",
+        "body1": "Our service operates on a credit-based system. Credits purchased through our platform are valid for {years} years from the date of purchase. All payments are processed securely through Stripe, our payment processing partner.",
+        "body2": "Once a payment is successfully processed, credits will be immediately added to your account. We do not offer refunds for purchased credits. The price and availability of credit packages may change without prior notice.",
+        "body3": "Free credits may be provided as part of promotional offers or monthly allocations. These credits are subject to different terms and expiration periods, which will be clearly communicated at the time they are issued."
+      },
+      "limitations": {
+        "heading": "5. Limitations",
+        "body": "In no event shall we or our suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on our website."
+      },
+      "returnToHome": "Return to Home"
+    }
+  },
+  "Footer": {
+    "legal": "Legal",
+    "company": "Company",
+    "social": "Social",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "home": "Home",
+    "allRightsReserved": "All rights reserved.",
+    "builtBy": "Built by"
+  },
+  "Blog": {
+    "ListPage": {
+      "meta": {
+        "title": "Blog",
+        "titleWithPage": "Blog - Page {page}",
+        "description": "Read our latest articles and updates"
+      },
+      "title": "Blog",
+      "description": "Read our latest articles and updates",
+      "browseByTags": "Browse by Tags",
+      "browseByAuthors": "Browse by Authors",
+      "empty": "No blog posts published yet."
+    },
+    "PostNotFound": {
+      "title": "Blog Post Not Found",
+      "description": "The blog post you're looking for doesn't exist or has been removed.",
+      "backToBlog": "Back to Blog"
+    },
+    "Post": {
+      "backToBlog": "← Back to Blog",
+      "author": "Author",
+      "updated": "Updated: {date}",
+      "onThisPage": "On This Page"
+    },
+    "Authors": {
+      "meta": {
+        "title": "Blog Authors",
+        "description": "Browse blog posts by author"
+      },
+      "title": "Blog Authors",
+      "description": "Meet the people behind our content",
+      "backToBlog": "← Back to Blog",
+      "empty": "No authors found.",
+      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+    },
+    "AuthorDetail": {
+      "meta": {
+        "title": "{name} - Blog Authors",
+        "description": "Browse blog posts by {name}",
+        "notFound": "Author Not Found"
+      },
+      "backToAuthors": "← Back to all authors",
+      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+    },
+    "Tags": {
+      "meta": {
+        "title": "Blog Tags",
+        "description": "Browse blog posts by tag"
+      },
+      "title": "Blog Tags",
+      "description": "Browse articles by topic",
+      "backToBlog": "← Back to Blog",
+      "empty": "No tags found.",
+      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+    },
+    "TagDetail": {
+      "meta": {
+        "title": "{name} - Blog Tags",
+        "description": "Browse blog posts tagged with {name}",
+        "notFound": "Tag Not Found"
+      },
+      "backToTags": "← Back to all tags",
+      "postCount": "{count, plural, =1 {1 post} other {# posts}}",
+      "empty": "No blog posts found with this tag."
+    }
+  },
+  "Breadcrumb": {
+    "home": "Home",
+    "blog": "Blog"
+  },
+  "Emails": {
+    "Common": {
+      "fallbackText": "If you're having trouble with the button above, copy and paste this URL into your browser:",
+      "footerText": "This is an automated message from {siteDomain}. Please do not reply to this email."
+    },
+    "PasswordReset": {
+      "subject": "Reset your password for {siteDomain}",
+      "title": "Reset your {siteDomain} password",
+      "greeting": "Hi {username},",
+      "intro": "We received a request to reset your password for your {siteDomain} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.",
+      "buttonLabel": "Reset Password",
+      "secondaryText": "If you didn't request this password reset, you can safely ignore this email. Your {siteDomain} account password will remain unchanged.",
+      "footerText": "This is an automated message from {siteDomain}. If you did not request this email, please ignore it or contact support if you have concerns."
+    },
+    "EmailVerification": {
+      "subject": "Verify your email for {siteDomain}",
+      "title": "Verify your {siteDomain} email",
+      "greeting": "Hi {username},",
+      "intro": "Thanks for signing up for {siteDomain}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.",
+      "buttonLabel": "Verify Email Address",
+      "secondaryText": "This verification link will expire in {expirationHours, plural, =1 {1 hour} other {# hours}}. After that, you'll need to request a new verification email.",
+      "fallbackText": "If you didn't create an account on {siteDomain}, you can safely ignore this email."
+    },
+    "TeamInvitation": {
+      "subject": "You've been invited to join a team on {siteDomain}",
+      "title": "You've been invited to join a team on {siteDomain}",
+      "greeting": "Hello,",
+      "intro": "{inviterName} has invited you to join the \"{teamName}\" team on {siteDomain}.",
+      "buttonLabel": "Accept Invitation",
+      "secondaryText": "This invitation was sent to {recipientEmail}. If you don't have an account yet, you'll be able to create one when you accept the invitation.",
+      "fallbackText": "If you didn't expect to receive an invitation to this team, you can safely ignore this email."
+    }
+  }
+}

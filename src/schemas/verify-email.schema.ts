@@ -1,5 +1,5 @@
-import { requiredString, v } from "@/lib/validation";
+import { requiredString, v, validationKey } from "@/lib/validation";
 
 export const verifyEmailSchema = v.object({
-  token: requiredString("Verification token is required"),
+  token: requiredString(validationKey("verificationTokenRequired")),
 });

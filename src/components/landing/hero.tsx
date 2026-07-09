@@ -1,8 +1,9 @@
 import { buttonVariants } from "@/components/ui/button";
 import { GITHUB_REPO_URL } from "@/constants";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { Suspense } from "react";
 import { ArrowRight, Star } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { DeployTerminal } from "@/components/landing/deploy-terminal";
 import {
   GithubStarsBadge,
@@ -11,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export function Hero() {
+  const t = useTranslations("Client.Landing.Hero");
   return (
     <section className="relative isolate overflow-hidden bg-background">
       <div
@@ -29,11 +31,11 @@ export function Hero() {
           </Suspense>
 
           <h1 className="mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-            Ship your SaaS
+            {t("titleLine1")}
             <br />
-            to the{" "}
+            {t("titleLine2")}{" "}
             <span className="relative whitespace-nowrap text-edge">
-              edge
+              {t("titleEdge")}
               <svg
                 aria-hidden
                 viewBox="0 0 200 14"
@@ -53,9 +55,7 @@ export function Hero() {
           </h1>
 
           <p className="mt-7 max-w-xl text-lg leading-8 text-muted-foreground">
-            A complete, production-ready starter for building SaaS apps on Cloudflare
-            Workers. Auth, database, billing, email, and admin tooling are already wired
-            up&nbsp;— clone it and deploy globally in minutes.
+            {t("description")}
           </p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -69,7 +69,7 @@ export function Hero() {
               )}
             >
               <Star className="size-5 fill-current transition-transform duration-300 ease-out group-hover:scale-125 group-hover:-rotate-12 motion-reduce:transform-none" />
-              Star on GitHub
+              {t("starOnGithub")}
             </a>
             <Link
               href="/sign-in"
@@ -78,7 +78,7 @@ export function Hero() {
                 "group gap-2",
               )}
             >
-              Try the live demo
+              {t("tryLiveDemo")}
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>

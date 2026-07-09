@@ -2,15 +2,17 @@ import { collectionSchema } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { cmsEntryStatusTuple } from "@/types/cms";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
-import { coerceDate, maxString, requiredString, v } from "@/lib/validation";
+import { coerceDate, maxString, requiredString, v, validationKey } from "@/lib/validation";
 
 export const cmsEntryStatusSchema = v.picklist(cmsEntryStatusTuple);
 
 export const baseCmsEntrySchema = v.object({
-  title: requiredString("Title is required"),
-  slug: requiredString("Slug is required"),
+  title: requiredString(validationKey("titleRequired")),
+  slug: requiredString(validationKey("slugRequired")),
   content: v.any(),
-  seoDescription: v.optional(maxString(CMS_SEO_DESCRIPTION_MAX_LENGTH, `SEO description must be ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters or less`)),
+  // Falls back to the central keyed `maxLength` default; the max is still encoded via
+  // `maxString`, so the rendered message keeps the field-specific number.
+  seoDescription: v.optional(maxString(CMS_SEO_DESCRIPTION_MAX_LENGTH)),
   status: v.optional(cmsEntryStatusSchema, CMS_ENTRY_STATUS.DRAFT),
   publishedAt: v.optional(coerceDate()),
   tagIds: v.optional(v.array(v.string())),
@@ -40,7 +42,7 @@ function withStatusPublishedAtValidation<T extends v.GenericSchema>(schema: T) {
         }
         return true;
       },
-        "Status must be 'scheduled' when publishedAt is set to a future date"
+        validationKey("scheduledStatusRequiresFutureDate")
       ),
       ["status"]
     ),
@@ -60,7 +62,7 @@ function withStatusPublishedAtValidation<T extends v.GenericSchema>(schema: T) {
         }
         return true;
       },
-        "A future publish date is required for scheduled entries"
+        validationKey("scheduledRequiresFuturePublishDate")
       ),
       ["publishedAt"]
     )

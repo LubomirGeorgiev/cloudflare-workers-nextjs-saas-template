@@ -8,9 +8,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { redirect } from "next/navigation"
+import { getTranslations } from "next-intl/server"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionFromCookie()
+  const t = await getTranslations("Client.Dashboard.layout")
 
   if (!session) {
     return redirect('/')
@@ -24,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <header className="flex h-14 shrink-0 items-center gap-2 px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="h-4" />
-            <span className="text-sm font-medium">Dashboard</span>
+            <span className="text-sm font-medium">{t("header")}</span>
           </header>
           {children}
         </SidebarInset>

@@ -1,10 +1,14 @@
 import "server-only";
 
+import { createTranslator } from "next-intl";
+
 import {
   EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
   SITE_DOMAIN,
   SITE_URL,
 } from "@/constants";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import {
   createScheduledQueueMessage,
@@ -13,6 +17,25 @@ import {
   type EmailSendJobPayload,
 } from "@/lib/scheduler/jobs";
 import isProd from "./is-prod";
+
+// The queue consumer has no request context (no cookies/headers), so it can't
+// call getUserLocale()/getTranslations(). Keep catalogs statically registered so
+// the Worker bundle doesn't rely on Vite resolving an aliased variable import.
+async function getEmailTranslator(locale: string) {
+  // Resolve against the full catalog, not ENABLED_LOCALES: email language follows
+  // the recipient's stored preference and is decoupled from public-route i18n, so a
+  // localized message catalog is used even when locale-prefixed routing is disabled.
+  const resolvedLocale: Locale = (LOCALES as readonly string[]).includes(locale)
+    ? (locale as Locale)
+    : DEFAULT_LOCALE;
+
+  const messages = MESSAGE_CATALOGS[resolvedLocale];
+
+  return {
+    locale: resolvedLocale,
+    t: createTranslator({ locale: resolvedLocale, messages, namespace: "Emails" }),
+  };
+}
 
 type EmailSendOptions = Parameters<Cloudflare.Env["EMAIL"]["send"]>[0];
 type TransactionalEmailOptions = Pick<EmailSendOptions, "html" | "subject" | "text" | "to"> & {
@@ -90,6 +113,7 @@ function escapeHtml(value: string): string {
 }
 
 function buildEmailTemplate({
+  locale,
   title,
   greeting,
   intro,
@@ -99,6 +123,7 @@ function buildEmailTemplate({
   fallbackText,
   footerText,
 }: {
+  locale: Locale;
   title: string;
   greeting: string;
   intro: string;
@@ -119,7 +144,7 @@ function buildEmailTemplate({
 
   return {
     html: `<!DOCTYPE html>
-<html lang="en">
+<html lang="${locale}">
   <head>
     <meta charSet="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -158,24 +183,29 @@ function buildEmailTemplate({
   };
 }
 
-export function renderTransactionalEmail(payload: EmailSendJobPayload): TransactionalEmailOptions {
+export async function renderTransactionalEmail(
+  payload: EmailSendJobPayload,
+): Promise<TransactionalEmailOptions> {
+  const { locale, t } = await getEmailTranslator(payload.locale);
+
   switch (payload.template) {
     case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET: {
       const resetUrl = `${SITE_URL}/reset-password?token=${payload.data.resetToken}`;
       const emailTemplate = buildEmailTemplate({
-        title: `Reset your ${SITE_DOMAIN} password`,
-        greeting: `Hi ${payload.data.username},`,
-        intro: `We received a request to reset your password for your ${SITE_DOMAIN} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.`,
-        buttonLabel: "Reset Password",
+        locale,
+        title: t("PasswordReset.title", { siteDomain: SITE_DOMAIN }),
+        greeting: t("PasswordReset.greeting", { username: payload.data.username }),
+        intro: t("PasswordReset.intro", { siteDomain: SITE_DOMAIN }),
+        buttonLabel: t("PasswordReset.buttonLabel"),
         buttonUrl: resetUrl,
-        secondaryText: `If you didn't request this password reset, you can safely ignore this email. Your ${SITE_DOMAIN} account password will remain unchanged.`,
-        fallbackText: "If you're having trouble with the button above, copy and paste this URL into your browser:",
-        footerText: `This is an automated message from ${SITE_DOMAIN}. If you did not request this email, please ignore it or contact support if you have concerns.`,
+        secondaryText: t("PasswordReset.secondaryText", { siteDomain: SITE_DOMAIN }),
+        fallbackText: t("Common.fallbackText"),
+        footerText: t("PasswordReset.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
       return {
         to: payload.to,
-        subject: `Reset your password for ${SITE_DOMAIN}`,
+        subject: t("PasswordReset.subject", { siteDomain: SITE_DOMAIN }),
         html: emailTemplate.html,
         text: emailTemplate.text,
         type: payload.template,
@@ -185,19 +215,20 @@ export function renderTransactionalEmail(payload: EmailSendJobPayload): Transact
       const verificationUrl = `${SITE_URL}/verify-email?token=${payload.data.verificationToken}`;
       const expirationHours = EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60 / 60;
       const emailTemplate = buildEmailTemplate({
-        title: `Verify your ${SITE_DOMAIN} email`,
-        greeting: `Hi ${payload.data.username},`,
-        intro: `Thanks for signing up for ${SITE_DOMAIN}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.`,
-        buttonLabel: "Verify Email Address",
+        locale,
+        title: t("EmailVerification.title", { siteDomain: SITE_DOMAIN }),
+        greeting: t("EmailVerification.greeting", { username: payload.data.username }),
+        intro: t("EmailVerification.intro", { siteDomain: SITE_DOMAIN }),
+        buttonLabel: t("EmailVerification.buttonLabel"),
         buttonUrl: verificationUrl,
-        secondaryText: `This verification link will expire in ${expirationHours} hour${expirationHours > 1 ? "s" : ""}. After that, you'll need to request a new verification email.`,
-        fallbackText: `If you didn't create an account on ${SITE_DOMAIN}, you can safely ignore this email.`,
-        footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
+        secondaryText: t("EmailVerification.secondaryText", { expirationHours }),
+        fallbackText: t("EmailVerification.fallbackText", { siteDomain: SITE_DOMAIN }),
+        footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
       return {
         to: payload.to,
-        subject: `Verify your email for ${SITE_DOMAIN}`,
+        subject: t("EmailVerification.subject", { siteDomain: SITE_DOMAIN }),
         html: emailTemplate.html,
         text: emailTemplate.text,
         type: payload.template,
@@ -206,19 +237,24 @@ export function renderTransactionalEmail(payload: EmailSendJobPayload): Transact
     case EMAIL_TEMPLATE_TYPES.TEAM_INVITATION: {
       const inviteUrl = `${SITE_URL}/team-invite?token=${payload.data.invitationToken}`;
       const emailTemplate = buildEmailTemplate({
-        title: `You've been invited to join a team on ${SITE_DOMAIN}`,
-        greeting: "Hello,",
-        intro: `${payload.data.inviterName} has invited you to join the "${payload.data.teamName}" team on ${SITE_DOMAIN}.`,
-        buttonLabel: "Accept Invitation",
+        locale,
+        title: t("TeamInvitation.title", { siteDomain: SITE_DOMAIN }),
+        greeting: t("TeamInvitation.greeting"),
+        intro: t("TeamInvitation.intro", {
+          inviterName: payload.data.inviterName,
+          teamName: payload.data.teamName,
+          siteDomain: SITE_DOMAIN,
+        }),
+        buttonLabel: t("TeamInvitation.buttonLabel"),
         buttonUrl: inviteUrl,
-        secondaryText: `This invitation was sent to ${payload.to}. If you don't have an account yet, you'll be able to create one when you accept the invitation.`,
-        fallbackText: `If you didn't expect to receive an invitation to this team, you can safely ignore this email.`,
-        footerText: `This is an automated message from ${SITE_DOMAIN}. Please do not reply to this email.`,
+        secondaryText: t("TeamInvitation.secondaryText", { recipientEmail: payload.to }),
+        fallbackText: t("TeamInvitation.fallbackText"),
+        footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
       return {
         to: payload.to,
-        subject: `You've been invited to join a team on ${SITE_DOMAIN}`,
+        subject: t("TeamInvitation.subject", { siteDomain: SITE_DOMAIN }),
         html: emailTemplate.html,
         text: emailTemplate.text,
         type: payload.template,
@@ -230,11 +266,15 @@ export function renderTransactionalEmail(payload: EmailSendJobPayload): Transact
 export async function sendPasswordResetEmail({
   email,
   resetToken,
-  username
+  username,
+  // Resolved by the caller via getUserLocale() when available (request-scoped);
+  // the queue consumer has no request context, so it can't resolve this itself.
+  locale = DEFAULT_LOCALE,
 }: {
   email: string;
   resetToken: string;
   username: string;
+  locale?: Locale;
 }) {
   const resetUrl = `${SITE_URL}/reset-password?token=${resetToken}`;
 
@@ -247,6 +287,7 @@ export async function sendPasswordResetEmail({
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+    locale,
     data: {
       resetToken,
       username,
@@ -257,11 +298,15 @@ export async function sendPasswordResetEmail({
 export async function sendVerificationEmail({
   email,
   verificationToken,
-  username
+  username,
+  // Resolved by the caller via getUserLocale() when available (request-scoped);
+  // the queue consumer has no request context, so it can't resolve this itself.
+  locale = DEFAULT_LOCALE,
 }: {
   email: string;
   verificationToken: string;
   username: string;
+  locale?: Locale;
 }) {
   const verificationUrl = `${SITE_URL}/verify-email?token=${verificationToken}`;
 
@@ -274,6 +319,7 @@ export async function sendVerificationEmail({
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+    locale,
     data: {
       verificationToken,
       username,
@@ -285,12 +331,16 @@ export async function sendTeamInvitationEmail({
   email,
   invitationToken,
   teamName,
-  inviterName
+  inviterName,
+  // The recipient may not be a user yet (non-user invite), so we use the
+  // inviter's locale instead, resolved by the caller via getUserLocale().
+  locale = DEFAULT_LOCALE,
 }: {
   email: string;
   invitationToken: string;
   teamName: string;
   inviterName: string;
+  locale?: Locale;
 }) {
   const inviteUrl = `${SITE_URL}/team-invite?token=${invitationToken}`;
 
@@ -302,6 +352,7 @@ export async function sendTeamInvitationEmail({
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+    locale,
     data: {
       invitationToken,
       inviterName,

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { and, eq } from "drizzle-orm";
+
 import {
   cmsConfig,
   cmsNavigationKeys,
@@ -7,7 +9,8 @@ import {
   type CollectionsUnion,
 } from "@/../cms.config";
 import { getDB } from "@/db";
-import { cmsEntryTable } from "@/db/schema";
+import { cmsEntryTable, cmsEntryTagTable, cmsTagTable } from "@/db/schema";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 import { CACHE_TAGS, revalidateCacheTag } from "@/utils/cache";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import {
@@ -116,6 +119,56 @@ export async function invalidateSitemapCache(): Promise<void> {
 
 export async function invalidateCmsTagsCache(): Promise<void> {
   revalidateCacheTag(CACHE_TAGS.CMS_TAGS);
+}
+
+export interface CmsEntryRef {
+  collection: CollectionsUnion;
+  slug: string;
+}
+
+// The (collection, slug) of every entry that references this tag group. Junction rows anchor on the
+// canonical (DEFAULT_LOCALE) tag row, so we join through it by group slug. Callers that need these refs
+// *after* the tag rows are gone (delete) must collect them before the mutation runs.
+export async function getCmsTagGroupEntryRefs({
+  tagSlug,
+}: {
+  tagSlug: string;
+}): Promise<CmsEntryRef[]> {
+  const db = getDB();
+
+  return db
+    .select({
+      collection: cmsEntryTable.collection,
+      slug: cmsEntryTable.slug,
+    })
+    .from(cmsEntryTagTable)
+    .innerJoin(
+      cmsTagTable,
+      and(
+        eq(cmsTagTable.id, cmsEntryTagTable.tagId),
+        eq(cmsTagTable.slug, tagSlug),
+        eq(cmsTagTable.locale, DEFAULT_LOCALE),
+      ),
+    )
+    .innerJoin(cmsEntryTable, eq(cmsEntryTable.id, cmsEntryTagTable.entryId));
+}
+
+// Scoped invalidation for a tag write: only the entries that render this tag (and their collection list
+// pages) plus the tags catalog and sitemap. A tag edit can't change collection counts or navigation, so
+// those tags are deliberately left alone — the previous behavior flushed the entire CMS cache (all entries/collections/ counts/nav) after an unfiltered full-table scan on every tag mutation.
+export function invalidateCmsTagGroupCaches({
+  entryRefs,
+}: {
+  entryRefs: CmsEntryRef[];
+}): void {
+  const tags = new Set<string>([CACHE_TAGS.CMS_TAGS, CACHE_TAGS.SITEMAP]);
+
+  for (const ref of entryRefs) {
+    tags.add(CACHE_TAGS.cmsEntry({ collectionSlug: ref.collection, slug: ref.slug }));
+    tags.add(CACHE_TAGS.cmsCollection(ref.collection));
+  }
+
+  invalidateCacheTags(Array.from(tags));
 }
 
 export async function invalidateEntryAndCollection({

@@ -36,16 +36,10 @@ export const CMS_ENTRY_STATUS_CONFIG: CmsEntryStatusConfig[] = [
   },
 ] as const;
 
-/**
- * Get the status configuration by value
- */
 export function getStatusConfig(status: string): CmsEntryStatusConfig | undefined {
   return CMS_ENTRY_STATUS_CONFIG.find((config) => config.value === status);
 }
 
-/**
- * Get the badge variant for a status
- */
 export function getStatusBadgeVariant(status: string): BadgeVariant {
   return getStatusConfig(status)?.badgeVariant ?? "secondary";
 }

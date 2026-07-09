@@ -4,10 +4,6 @@ import { cmsEntryMediaTable, cmsMediaTable } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 
-/**
- * Extract media IDs from TipTap content
- * Parses the content JSON and finds all image nodes with our media URLs
- */
 function extractMediaIdsFromContent(content: unknown): string[] {
   if (!content || typeof content !== "object") {
     return [];
@@ -20,7 +16,6 @@ function extractMediaIdsFromContent(content: unknown): string[] {
 
     const nodeObj = node as Record<string, unknown>;
 
-    // Check if this is an image node with our media URL
     if (nodeObj.type === "image" && nodeObj.attrs && typeof nodeObj.attrs === "object") {
       const attrs = nodeObj.attrs as Record<string, unknown>;
       const src = attrs.src;
@@ -43,9 +38,6 @@ function extractMediaIdsFromContent(content: unknown): string[] {
   return Array.from(mediaIds);
 }
 
-/**
- * Get media IDs from R2 keys by looking them up in the database
- */
 async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<string[]> {
   if (bucketKeys.length === 0) return [];
 
@@ -59,11 +51,6 @@ async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<string[]> 
   return mediaRecords.map((m) => m.id);
 }
 
-/**
- * Sync media relationships for a CMS entry
- * Removes old relationships and creates new ones based on current content
- * Featured image is inserted first with position -1 to distinguish it from content images
- */
 export async function syncEntryMediaRelationships({
   entryId,
   content,
@@ -78,7 +65,6 @@ export async function syncEntryMediaRelationships({
   // Extract bucket keys from content
   const bucketKeys = extractMediaIdsFromContent(content);
 
-  // Get actual media IDs from the database
   const contentMediaIds = await getMediaIdsByBucketKeys(bucketKeys);
 
   // Delete existing relationships for this entry

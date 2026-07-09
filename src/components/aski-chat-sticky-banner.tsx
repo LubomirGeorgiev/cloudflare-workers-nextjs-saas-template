@@ -14,7 +14,6 @@ export function AskiChatStickyBanner() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Get initial state from localStorage
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored !== null) {
       setIsCollapsed(JSON.parse(stored));

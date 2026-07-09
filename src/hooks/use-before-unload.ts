@@ -1,12 +1,5 @@
 import { useCallback, useEffect } from "react";
 
-/**
- * A React hook that listens for the `beforeunload` event.
- *
- * @param {boolean} enabled - A boolean or a function that returns a boolean. If the
- * function returns `false`, the event will be prevented.
- * @param {string | undefined} message - An optional message to display in the dialog.
- */
 export default function useBeforeUnload(
   enabled: boolean | (() => boolean) = true,
   message?: string,

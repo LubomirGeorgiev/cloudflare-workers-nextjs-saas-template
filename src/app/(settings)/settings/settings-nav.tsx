@@ -26,31 +26,37 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRef } from "react";
 import useSignOut from "@/hooks/useSignOut";
+import { useTranslations } from "next-intl";
+import type messages from "@/i18n/messages/en.json";
+
+// Valid label keys under the `Client.Settings.Nav` message namespace, derived from
+// the source catalog so this list stays in sync with the translations.
+type SettingsNavKey = keyof (typeof messages)["Client"]["Settings"]["Nav"];
 
 interface SettingsNavItem {
-  title: string;
+  titleKey: SettingsNavKey;
   href: Route;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const settingsNavItems: SettingsNavItem[] = [
   {
-    title: "Profile",
+    titleKey: "profile",
     href: "/settings",
     icon: User,
   },
   {
-    title: "Security",
+    titleKey: "security",
     href: "/settings/security",
     icon: Lock,
   },
   {
-    title: "Sessions",
+    titleKey: "sessions",
     href: "/settings/sessions",
     icon: Smartphone,
   },
   {
-    title: "Change Password",
+    titleKey: "changePassword",
     href: "/forgot-password",
     icon: Lock,
   },
@@ -61,6 +67,7 @@ export function SettingsNav() {
   const isLgAndSmaller = useMediaQuery('LG_AND_SMALLER')
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const { signOut } = useSignOut();
+  const t = useTranslations("Client.Settings.Nav");
 
   const tabs = (
     <Tabs value={pathname}>
@@ -73,7 +80,7 @@ export function SettingsNav() {
             render={<Link href={item.href} className="flex items-center gap-2" />}
           >
               <item.icon className="h-4 w-4" />
-              {item.title}
+              {t(item.titleKey)}
           </TabsTrigger>
         ))}
       </TabsList>
@@ -106,13 +113,13 @@ export function SettingsNav() {
           }
         >
             <LogOut className="mr-2 h-4 w-4" />
-            Sign out
+            {t("signOut")}
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sign out?</DialogTitle>
+            <DialogTitle>{t("signOutConfirmTitle")}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to sign out of your account?
+              {t("signOutConfirmDescription")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 flex flex-col gap-4">
@@ -120,7 +127,7 @@ export function SettingsNav() {
               ref={dialogCloseRef}
               render={<Button variant="outline" />}
             >
-              Cancel
+              {t("cancel")}
             </DialogClose>
             <Button
               variant="destructive"
@@ -129,7 +136,7 @@ export function SettingsNav() {
                 dialogCloseRef.current?.click();
               }}
             >
-              Sign out
+              {t("signOut")}
             </Button>
           </DialogFooter>
         </DialogContent>

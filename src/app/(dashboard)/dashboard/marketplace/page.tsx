@@ -6,10 +6,12 @@ import { getUserPurchasedItems } from "@/utils/credits"
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
 import { CreditSystemDisabled } from "@/components/credit-system-disabled"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { getTranslations } from "next-intl/server"
 
 export default async function MarketplacePage() {
   const session = await getSessionFromCookie();
   const purchasedItems = session ? await getUserPurchasedItems(session.userId) : new Set();
+  const t = await getTranslations("Client.Dashboard.Marketplace");
 
   return (
     <>
@@ -17,7 +19,7 @@ export default async function MarketplacePage() {
         items={[
           {
             href: "/dashboard/marketplace",
-            label: "Marketplace"
+            label: t("breadcrumbMarketplace")
           }
         ]}
       />
@@ -27,16 +29,16 @@ export default async function MarketplacePage() {
         ) : (
           <>
             <div className="mb-8">
-              <h1 className="text-4xl font-bold mt-4">Component Marketplace</h1>
+              <h1 className="text-4xl font-bold mt-4">{t("title")}</h1>
               <p className="text-muted-foreground mt-2">
-                Purchase and use our premium components using your credits
+                {t("subtitle")}
               </p>
             </div>
 
             <Alert className="mb-6">
-              <AlertTitle>Demo Template Feature</AlertTitle>
+              <AlertTitle>{t("demoAlertTitle")}</AlertTitle>
               <AlertDescription>
-                This marketplace page demonstrates how to implement a credit-based billing system in your SaaS application. Feel free to use this as a starting point and customize it for your specific needs.
+                {t("demoAlertDescription")}
               </AlertDescription>
             </Alert>
 

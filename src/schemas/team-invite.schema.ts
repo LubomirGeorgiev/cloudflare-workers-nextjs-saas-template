@@ -1,5 +1,5 @@
-import { requiredString, v } from "@/lib/validation";
+import { requiredString, v, validationKey } from "@/lib/validation";
 
 export const teamInviteSchema = v.object({
-  token: requiredString("Invitation token is required"),
+  token: requiredString(validationKey("invitationTokenRequired")),
 });

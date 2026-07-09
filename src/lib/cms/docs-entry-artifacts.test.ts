@@ -77,11 +77,13 @@ describe("docs entry artifacts", () => {
     const artifacts = await getCachedDocsEntryArtifacts({
       collectionSlug: "docs",
       slug: "getting-started",
+      locale: "es",
     });
 
     expect(getCmsEntryBySlugMock).toHaveBeenCalledWith({
       collectionSlug: "docs",
       slug: "getting-started",
+      locale: "es",
       status: "published",
     });
     expect(setCacheScopeMock).toHaveBeenCalledWith({

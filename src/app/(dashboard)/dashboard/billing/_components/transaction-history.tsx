@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTransactionStore } from "@/state/transaction";
 import { useQueryState } from "nuqs";
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
+import { useTranslations } from "next-intl";
 
 type TransactionData = NonNullable<Awaited<ReturnType<typeof getTransactions>>["data"]>
 
@@ -31,6 +32,7 @@ export function TransactionHistory() {
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useQueryState("page", { defaultValue: "1" });
   const refreshTrigger = useTransactionStore((state) => state.refreshTrigger);
+  const t = useTranslations("Client.Dashboard.Billing");
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -65,7 +67,7 @@ export function TransactionHistory() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle>{t("transactionHistoryTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -92,10 +94,10 @@ export function TransactionHistory() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Description</TableHead>
+                  <TableHead>{t("columnDate")}</TableHead>
+                  <TableHead>{t("columnType")}</TableHead>
+                  <TableHead>{t("columnAmount")}</TableHead>
+                  <TableHead>{t("columnDescription")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -129,7 +131,7 @@ export function TransactionHistory() {
                             : "bg-muted"
                             }`}
                         >
-                          {isTransactionExpired(transaction) ? "Expired: " : "Expires: "}
+                          {isTransactionExpired(transaction) ? t("expiredLabel") : t("expiresLabel")}
                           {format(new Date(transaction.expirationDate), "MMM d, yyyy")}
                         </Badge>
                       )}
@@ -137,7 +139,7 @@ export function TransactionHistory() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">No transactions found</TableCell>
+                    <TableCell colSpan={4} className="h-24 text-center">{t("noTransactions")}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -185,14 +187,14 @@ export function TransactionHistory() {
                     : "bg-muted"
                     }`}
                 >
-                  {isTransactionExpired(transaction) ? "Expired: " : "Expires: "}
+                  {isTransactionExpired(transaction) ? t("expiredLabel") : t("expiresLabel")}
                   {format(new Date(transaction.expirationDate), "MMM d, yyyy")}
                 </Badge>
               )}
             </div>
           )) : (
             <div className="text-center py-8 text-muted-foreground">
-              No transactions found
+              {t("noTransactions")}
             </div>
           )}
         </div>
@@ -208,7 +210,7 @@ export function TransactionHistory() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="text-sm text-muted-foreground">
-              Page {page} of {data?.pagination.pages ?? 1}
+              {t("pageOf", { page, total: data?.pagination.pages ?? 1 })}
             </span>
             <Button
               variant="outline"

@@ -1,0 +1,47 @@
+import "server-only";
+
+import type { JSONContent } from "@tiptap/core";
+
+import { collectTranslatableStrings } from "@/lib/cms/translate-entry";
+import { fnv1a } from "@/utils/hash";
+import {
+  TRANSLATABLE_ENTRY_FIELDS,
+  type TranslatableEntryField,
+  type SourceContentHashes,
+} from "@/types/cms";
+
+// Hash only translatable copy, not metadata like featured image, status, or publish date.
+// The body hash uses the same leaf strings the translator sees, so only real copy
+// edits mark translations stale.
+export function computeEntryTranslatableHashes({
+  title,
+  seoDescription,
+  content,
+}: {
+  title: string;
+  seoDescription: string | null;
+  content: JSONContent;
+}): SourceContentHashes {
+  const bodyStrings = collectTranslatableStrings(content).values;
+  return {
+    title: fnv1a(title),
+    seoDescription: fnv1a(seoDescription ?? ""),
+    content: fnv1a(bodyStrings.join("\0")),
+  };
+}
+
+// Which translatable fields have drifted from the current source. A missing snapshot
+// (legacy or manually-created rows) yields [] — we never nag about translations we
+// have no baseline for.
+export function computeStaleFields({
+  snapshot,
+  current,
+}: {
+  snapshot: SourceContentHashes | null | undefined;
+  current: SourceContentHashes;
+}): TranslatableEntryField[] {
+  if (!snapshot) {
+    return [];
+  }
+  return TRANSLATABLE_ENTRY_FIELDS.filter((field) => snapshot[field] !== current[field]);
+}

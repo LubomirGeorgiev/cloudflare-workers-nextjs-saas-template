@@ -1,10 +1,12 @@
 import { Metadata } from "next";
 import { requireAdmin } from "@/utils/auth";
 import { redirect } from "next/navigation";
-import { getCmsTags } from "@/lib/cms/tags";
+import { getCmsTags, getCmsTagLocaleCoverage } from "@/lib/cms/tags";
 import { buttonVariants } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Plus, Tag } from "lucide-react";
+import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
+import { LocaleCoverageBadges } from "../_components/locale-coverage-badges";
 import {
   Table,
   TableBody,
@@ -27,6 +29,11 @@ export default async function TagsPage() {
   }
 
   const tags = await getCmsTags();
+
+  // Only surface translation coverage when the site actually serves >1 locale.
+  const showTranslations = ENABLED_LOCALES.length > 1;
+  const coverage = showTranslations ? await getCmsTagLocaleCoverage() : new Map();
+  const columnCount = showTranslations ? 7 : 6;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -60,13 +67,14 @@ export default async function TagsPage() {
               <TableHead>Color</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Used in</TableHead>
+              {showTranslations && <TableHead>Translations</TableHead>}
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tags.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={columnCount} className="text-center py-8 text-muted-foreground">
                   No tags found. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -99,6 +107,13 @@ export default async function TagsPage() {
                   <TableCell>
                     <span className="text-muted-foreground">{tag.entryCount}</span>
                   </TableCell>
+                  {showTranslations && (
+                    <TableCell>
+                      <LocaleCoverageBadges
+                        translatedLocales={coverage.get(tag.slug) ?? new Set<Locale>()}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="text-right">
                     <Link
                       href={`/admin/cms/tags/${tag.id}`}

@@ -32,6 +32,8 @@
     "no-unused-expressions": "warn",
     "project/no-unused-module-exports": "error",
     "project/no-object-params-in-react-cache": "error",
+    "project/no-next-link-in-translatable-pages": "error",
+    "project/client-translations-under-client-namespace": "error",
     "array-callback-return": "error",
     "eqeqeq": "error",
     "no-fallthrough": "error",

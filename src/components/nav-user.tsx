@@ -3,8 +3,10 @@
 import {
   BadgeCheck,
   Bell,
+  Check,
   ChevronsUpDown,
   CreditCard,
+  Globe,
   LogOut,
   Moon,
   Sun,
@@ -42,6 +44,11 @@ import { useRouter } from "next/navigation"
 import { useSessionStore } from "@/state/session"
 import { useTheme } from "next-themes"
 import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
+import { useLocale, useTranslations } from "next-intl"
+import { cn } from "@/lib/utils"
+import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config"
+import { LocaleFlag } from "@/components/locale-flag"
+import { useChangeLocale } from "@/hooks/useChangeLocale"
 import type { SessionValidationResult } from "@/types"
 
 interface NavUserProps {
@@ -55,6 +62,9 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
   const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
   const { setTheme } = useTheme()
+  const activeLocale = useLocale() as Locale
+  const { changeLocale } = useChangeLocale()
+  const t = useTranslations("Client.Sidebar.user")
 
   if (isLoading && !session) {
     return (
@@ -108,7 +118,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                     setOpenMobile(false)
                     router.push('/dashboard/billing')
                   }}>
-                    {user.currentCredits} credits
+                    {t("credits", { count: user.currentCredits })}
                   </Badge>
                 )}
               </div>
@@ -131,7 +141,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                   <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                   {!DISABLE_CREDIT_BILLING_SYSTEM && (
                     <Badge variant="secondary" className="w-fit text-[10px]">
-                      {user.currentCredits} credits
+                      {t("credits", { count: user.currentCredits })}
                     </Badge>
                   )}
                 </div>
@@ -143,18 +153,18 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                 router.push('/settings')
               }}>
                 <BadgeCheck />
-                Account
+                {t("account")}
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={() => {
                 setOpenMobile(false)
                 router.push('/dashboard/billing')
               }}>
                 <CreditCard />
-                Billing
+                {t("billing")}
               </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer">
                 <Bell />
-                Notifications
+                {t("notifications")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
@@ -163,25 +173,56 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Sun className="h-4 w-4" />
-                Change theme
+                {t("changeTheme")}
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent>
                   <DropdownMenuItem onClick={() => setTheme("system")}>
                     <Monitor className="h-4 w-4" />
-                    System default
+                    {t("themeSystem")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme("light")}>
                     <Sun className="h-4 w-4" />
-                    Light
+                    {t("themeLight")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme("dark")}>
                     <Moon className="h-4 w-4" />
-                    Dark
+                    {t("themeDark")}
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>
             </DropdownMenuSub>
+
+            {ENABLED_LOCALES.length > 1 && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Globe className="h-4 w-4" />
+                  {t("changeLanguage")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent>
+                    {ENABLED_LOCALES.map((locale) => (
+                      <DropdownMenuItem
+                        key={locale}
+                        onClick={() => changeLocale(locale)}
+                        className="justify-between gap-4"
+                      >
+                        <span className="flex items-center gap-2">
+                          <LocaleFlag locale={locale} />
+                          {LOCALE_LABELS[locale]}
+                        </span>
+                        <Check
+                          className={cn(
+                            "h-4 w-4",
+                            locale === activeLocale ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            )}
 
             <DropdownMenuSeparator />
 
@@ -193,7 +234,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
               className="cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
             >
               <LogOut />
-              Log out
+              {t("logOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "server-only";
 
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale } from "next-intl/server";
+
+import { getClientMessages } from "@/i18n/client-messages";
+
 import { ThemeProvider } from "@/components/providers";
 import { NavigationTopLoader } from "@/components/navigation-top-loader";
 import { AskiChatStickyBanner } from "@/components/aski-chat-sticky-banner";
@@ -53,30 +58,37 @@ async function PublicConfigRootHydrator() {
   return <PublicConfigHydrator publicConfig={publicConfig} />;
 }
 
-export default function BaseLayout({
+export default async function BaseLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  // Forward only the namespaces client components use, instead of the whole
+  // catalog, so server-only messages are not serialized into every page payload.
+  const messages = await getClientMessages();
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <PublicConfigRootHydrator />
-        <NavigationTopLoader />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-        >
-          <TooltipProvider
-            delayDuration={100}
-            skipDelayDuration={50}
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <PublicConfigRootHydrator />
+          <NavigationTopLoader />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
           >
-            {children}
-          </TooltipProvider>
-        </ThemeProvider>
-        <Toaster richColors closeButton position="top-right" expand duration={7000} />
-        <AskiChatStickyBanner />
+            <TooltipProvider
+              delayDuration={100}
+              skipDelayDuration={50}
+            >
+              {children}
+            </TooltipProvider>
+          </ThemeProvider>
+          <Toaster richColors closeButton position="top-right" expand duration={7000} />
+          <AskiChatStickyBanner />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -63,10 +63,6 @@ interface GetBaseExtensionsOptions {
   }
 }
 
-/**
- * Returns the base TipTap extensions configuration shared between editor and static rendering.
- * This ensures consistent rendering across both contexts.
- */
 export function getTiptapBaseExtensions({
   lowlight = sharedLowlight,
   alertBlockExtension = AlertBlockExtension,

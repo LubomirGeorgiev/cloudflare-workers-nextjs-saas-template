@@ -1,8 +1,9 @@
 import "server-only";
+import { cache } from "react";
 import { setCacheScope } from "./cache";
 import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 
-export async function getGithubStars() {
+export const getGithubStars = cache(async () => {
   if (!GITHUB_REPO_URL || typeof GITHUB_REPO_URL !== "string") {
     return null;
   }
@@ -16,7 +17,7 @@ export async function getGithubStars() {
   if (!owner || !repo) return null;
 
   return getCachedGithubStars({ owner, repo });
-}
+});
 
 async function getCachedGithubStars({
   owner,

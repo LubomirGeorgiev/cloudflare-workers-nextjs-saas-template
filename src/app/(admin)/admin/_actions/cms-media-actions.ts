@@ -11,11 +11,9 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
+import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import { v } from "@/lib/validation";
 
-/**
- * List all media files with pagination and entry relationships
- */
 export const listCmsMediaAction = actionClient
   .inputSchema(v.object({
     page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
@@ -28,7 +26,6 @@ export const listCmsMediaAction = actionClient
     const { page, limit } = input;
     const offset = (page - 1) * limit;
 
-    // Get media with usage count
     const mediaWithUsage = await db
       .select({
         id: cmsMediaTable.id,
@@ -51,7 +48,6 @@ export const listCmsMediaAction = actionClient
       .limit(limit)
       .offset(offset);
 
-    // Get total count
     const [{ count }] = await db
       .select({ count: sql<number>`count(*)` })
       .from(cmsMediaTable);
@@ -67,9 +63,6 @@ export const listCmsMediaAction = actionClient
     };
   });
 
-/**
- * Get media details with all related entries
- */
 export const getCmsMediaDetailsAction = actionClient
   .inputSchema(v.object({
     mediaId: v.string(),
@@ -79,7 +72,6 @@ export const getCmsMediaDetailsAction = actionClient
 
     const db = getDB();
 
-    // Get media record
     const [media] = await db
       .select()
       .from(cmsMediaTable)
@@ -89,7 +81,6 @@ export const getCmsMediaDetailsAction = actionClient
       throw new ActionError("NOT_FOUND", "Media not found");
     }
 
-    // Get all entries using this media
     const relatedEntries = await db
       .select({
         id: cmsEntryTable.id,
@@ -110,9 +101,6 @@ export const getCmsMediaDetailsAction = actionClient
     };
   });
 
-/**
- * Recursively update image nodes in Tiptap JSON content
- */
 function updateImageNodesInContent(
   content: JSONContent,
   bucketKey: string,
@@ -129,14 +117,12 @@ function updateImageNodesInContent(
     const isMatch = srcPath.includes(bucketKey) || srcPath === bucketKey;
 
     if (isMatch) {
-      // Update the alt and title attributes
       if (updates.alt !== undefined) {
         content.attrs.alt = updates.alt;
         content.attrs.title = updates.alt; // Title typically matches alt
         hasChanges = true;
       }
 
-      // Update dimensions if provided
       if (updates.width !== undefined) {
         content.attrs.width = updates.width;
         hasChanges = true;
@@ -149,7 +135,6 @@ function updateImageNodesInContent(
     }
   }
 
-  // Recursively process content array
   if (Array.isArray(content.content)) {
     for (const child of content.content) {
       if (updateImageNodesInContent(child, bucketKey, updates)) {
@@ -161,10 +146,6 @@ function updateImageNodesInContent(
   return hasChanges;
 }
 
-/**
- * Update media metadata (alt text, dimensions, etc.)
- * Also updates the content JSON in all related cms_entry records
- */
 export const updateCmsMediaAction = actionClient
   .inputSchema(v.object({
     mediaId: v.string(),
@@ -178,7 +159,6 @@ export const updateCmsMediaAction = actionClient
     const db = getDB();
     const { mediaId, ...updates } = input;
 
-    // Get the media record to find its bucket key
     const [media] = await db
       .select()
       .from(cmsMediaTable)
@@ -188,7 +168,6 @@ export const updateCmsMediaAction = actionClient
       throw new ActionError("NOT_FOUND", "Media not found");
     }
 
-    // Update the media record
     const [updated] = await db
       .update(cmsMediaTable)
       .set(updates)
@@ -197,12 +176,13 @@ export const updateCmsMediaAction = actionClient
 
     // If alt text or dimensions were updated, also update all related entries
     if (updates.alt !== undefined || updates.width !== undefined || updates.height !== undefined) {
-      // Get all entries that use this media
       const relatedEntries = await db
         .select({
           id: cmsEntryTable.id,
           slug: cmsEntryTable.slug,
           collection: cmsEntryTable.collection,
+          title: cmsEntryTable.title,
+          seoDescription: cmsEntryTable.seoDescription,
           content: cmsEntryTable.content,
         })
         .from(cmsEntryMediaTable)
@@ -211,7 +191,6 @@ export const updateCmsMediaAction = actionClient
 
       const entriesToInvalidate: Array<{ collectionSlug: CollectionsUnion; slug: string }> = [];
 
-      // Update each entry's content
       for (const entry of relatedEntries) {
         const content = entry.content as JSONContent;
         const imageUpdates = {
@@ -221,7 +200,6 @@ export const updateCmsMediaAction = actionClient
           height: updates.height,
         };
 
-        // Update the content JSON
         const hasChanges = updateImageNodesInContent(content, media.bucketKey, imageUpdates);
 
         // Save the updated content if changes were made
@@ -230,6 +208,14 @@ export const updateCmsMediaAction = actionClient
             .update(cmsEntryTable)
             .set({ content })
             .where(eq(cmsEntryTable.id, entry.id));
+          await syncCmsEntrySearch({
+            entryId: entry.id,
+            collection: entry.collection,
+            slug: entry.slug,
+            title: entry.title,
+            seoDescription: entry.seoDescription,
+            content,
+          });
         }
 
         entriesToInvalidate.push({
@@ -258,9 +244,6 @@ export const updateCmsMediaAction = actionClient
     return { success: true, media: updated };
   });
 
-/**
- * Get media by bucket key (used for featured image selection)
- */
 export const getCmsMediaByBucketKeyAction = actionClient
   .inputSchema(v.object({
     bucketKey: v.string(),
@@ -285,9 +268,6 @@ export const getCmsMediaByBucketKeyAction = actionClient
     return media;
   });
 
-/**
- * Delete media file from both R2 and database
- */
 export const deleteCmsMediaAction = actionClient
   .inputSchema(v.object({
     mediaId: v.string(),
@@ -303,7 +283,6 @@ export const deleteCmsMediaAction = actionClient
         throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
       }
 
-      // Get media record
       const [media] = await db
         .select()
         .from(cmsMediaTable)
@@ -313,7 +292,6 @@ export const deleteCmsMediaAction = actionClient
         throw new ActionError("NOT_FOUND", "Media not found");
       }
 
-      // Check if media is in use (in cms_entry_media junction table)
       // This now includes both content images and featured images (position -1)
       const [usage] = await db
         .select({ count: sql<number>`count(*)` })

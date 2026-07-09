@@ -7,10 +7,6 @@ import { cmsMediaTable } from "@/db/schema";
 import { desc, like, or } from "drizzle-orm";
 import { v } from "@/lib/validation";
 
-/**
- * List CMS media files for content creators (non-admin version)
- * Used in the TipTap editor media picker
- */
 export const listCmsMediaForPickerAction = actionClient
   .inputSchema(v.object({
     page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
@@ -24,7 +20,6 @@ export const listCmsMediaForPickerAction = actionClient
     const { page, limit, search } = input;
     const offset = (page - 1) * limit;
 
-    // Build query with optional search filter
     let query = db
       .select({
         id: cmsMediaTable.id,
@@ -39,7 +34,6 @@ export const listCmsMediaForPickerAction = actionClient
       })
       .from(cmsMediaTable);
 
-    // Add search filter if provided
     if (search && search.trim()) {
       query = query.where(
         or(

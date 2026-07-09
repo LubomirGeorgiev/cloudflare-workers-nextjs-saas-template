@@ -22,24 +22,10 @@ import {
   type ListType,
 } from "@/components/tiptap-ui/list-button"
 
-/**
- * Configuration for the list dropdown menu functionality
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface UseListDropdownMenuConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * The list types to display in the dropdown.
-   * @default ["bulletList", "orderedList", "taskList"]
-   */
   types?: ListType[]
-  /**
-   * Whether the dropdown should be hidden when no list types are available
-   * @default false
-   */
   hideWhenUnavailable?: boolean
 }
 
@@ -117,9 +103,6 @@ export function shouldShowListDropdown(params: {
   return true
 }
 
-/**
- * Gets the currently active list type from the available types
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function getActiveListType(
   editor: Editor | null,
@@ -129,45 +112,6 @@ export function getActiveListType(
   return availableTypes.find((type) => isListActive(editor, type))
 }
 
-/**
- * Custom hook that provides list dropdown menu functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage
- * function MyListDropdown() {
- *   const {
- *     isVisible,
- *     activeType,
- *     isAnyActive,
- *     canToggleAny,
- *     filteredLists,
- *   } = useListDropdownMenu()
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <DropdownMenu>
- *       // dropdown content
- *     </DropdownMenu>
- *   )
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedListDropdown() {
- *   const {
- *     isVisible,
- *     activeType,
- *   } = useListDropdownMenu({
- *     editor: myEditor,
- *     types: ["bulletList", "orderedList"],
- *     hideWhenUnavailable: true,
- *   })
- *
- *   // component implementation
- * }
- * ```
- */
 export function useListDropdownMenu(config?: UseListDropdownMenuConfig) {
   const {
     editor: providedEditor,

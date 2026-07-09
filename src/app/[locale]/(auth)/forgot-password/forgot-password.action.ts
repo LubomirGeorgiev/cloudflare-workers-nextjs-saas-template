@@ -1,0 +1,100 @@
+"use server";
+
+import { getTranslations } from "next-intl/server";
+import { ActionError } from "@/lib/action-error";
+import { actionClient } from "@/lib/safe-action";
+import { getDB } from "@/db";
+import { sendPasswordResetEmail } from "@/utils/email";
+import { init } from "@paralleldrive/cuid2";
+import { getResetTokenKey } from "@/utils/auth-utils";
+import { validateTurnstileToken } from "@/utils/validate-captcha";
+import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
+import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS } from "@/constants";
+import { isTurnstileEnabled } from "@/flags";
+import { createExpiringToken } from "@/utils/kv-token";
+import { getUserLocale } from "@/i18n/locale";
+
+const createId = init({
+  length: 32,
+});
+
+export const forgotPasswordAction = actionClient
+  .inputSchema(forgotPasswordSchema)
+  .action(async ({ parsedInput: input }) => {
+    return withRateLimit(
+      async () => {
+        const tCommon = await getTranslations("Client.Auth.Common");
+        const tErrors = await getTranslations("Client.Errors");
+        if (await isTurnstileEnabled()) {
+          if (!input.captchaToken) {
+            throw new ActionError(
+              "INPUT_PARSE_ERROR",
+              tCommon("errorCaptcha")
+            )
+          }
+
+          const success = await validateTurnstileToken(input.captchaToken)
+
+          if (!success) {
+            throw new ActionError(
+              "INPUT_PARSE_ERROR",
+              tCommon("errorCaptcha")
+            )
+          }
+        }
+
+        const db = getDB();
+
+        try {
+          // Find user by email
+          const user = await db.query.userTable.findFirst({
+            where: { email: input.email.toLowerCase() },
+          });
+
+          // Even if user is not found, return success to prevent email enumeration
+          if (!user) {
+            return { success: true };
+          }
+
+          const token = await createExpiringToken({
+            key: getResetTokenKey,
+            expiresInSeconds: PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS,
+            payload: {
+              userId: user.id,
+            },
+            createToken: createId,
+          });
+
+          // Send reset email
+          if (user?.email) {
+            // forgot-password is always self-service, so the requester is the
+            // target user: getUserLocale() (cookie -> preferredLocale ->
+            // Accept-Language -> default) is the right locale for their email.
+            const locale = await getUserLocale();
+
+            await sendPasswordResetEmail({
+              email: user.email,
+              resetToken: token,
+              username: user.firstName ?? user.email,
+              locale,
+            });
+          }
+
+          return { success: true };
+        } catch (error) {
+          console.error(error)
+
+          if (error instanceof ActionError) {
+            throw error;
+          }
+
+          throw new ActionError(
+            "INTERNAL_SERVER_ERROR",
+            tErrors("unexpected")
+          );
+        }
+      },
+      RATE_LIMITS.FORGOT_PASSWORD
+    );
+  });

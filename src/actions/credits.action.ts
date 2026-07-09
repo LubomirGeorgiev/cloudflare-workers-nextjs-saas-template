@@ -15,24 +15,24 @@ import { MAX_TRANSACTIONS_PER_PAGE, CREDITS_EXPIRATION_YEARS, DISABLE_CREDIT_BIL
 import ms from "ms";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
-import { requiredString, v } from "@/lib/validation";
+import { encodeValidationMessage, requiredString, v, validationKey } from "@/lib/validation";
 
 const getTransactionsSchema = v.object({
-  page: v.pipe(v.number(), v.minValue(1, "Invalid page")),
+  page: v.pipe(v.number(), v.minValue(1, validationKey("invalidPage"))),
   limit: v.optional(v.pipe(
     v.number(),
-    v.minValue(1, "Invalid limit"),
-    v.maxValue(MAX_TRANSACTIONS_PER_PAGE, `Limit cannot be greater than ${MAX_TRANSACTIONS_PER_PAGE}`)
+    v.minValue(1, validationKey("invalidLimit")),
+    v.maxValue(MAX_TRANSACTIONS_PER_PAGE, encodeValidationMessage("limitMaxValue", { max: MAX_TRANSACTIONS_PER_PAGE }))
   ), MAX_TRANSACTIONS_PER_PAGE),
 });
 
 const createPaymentIntentSchema = v.object({
-  packageId: requiredString("Package is required"),
+  packageId: requiredString(validationKey("packageRequired")),
 });
 
 const confirmPaymentSchema = v.object({
-  packageId: requiredString("Package is required"),
-  paymentIntentId: requiredString("Payment intent is required"),
+  packageId: requiredString(validationKey("packageRequired")),
+  paymentIntentId: requiredString(validationKey("paymentIntentRequired")),
 });
 
 export const getTransactions = actionClient
@@ -142,7 +142,6 @@ export const confirmPayment = actionClient
           throw new ActionError("BAD_REQUEST", "Invalid payment intent");
         }
 
-        // Add credits and log transaction
         await addUserCredits(session.user.id, creditPackage.credits);
         await logTransaction({
           userId: session.user.id,
@@ -153,7 +152,6 @@ export const confirmPayment = actionClient
           paymentIntentId: paymentIntent?.id
         });
 
-        // Update all KV sessions to reflect the new credit balance
         await updateAllSessionsOfUser(session.user.id);
 
         return { success: true };

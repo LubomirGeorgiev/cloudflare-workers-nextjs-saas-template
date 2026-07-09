@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { LOCALES } from "@/i18n/config";
+import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { EMAIL_TEMPLATE_TYPES } from "@/lib/scheduler/jobs";
 
 const { getCloudflareContextMock } = vi.hoisted(() => ({
@@ -22,10 +24,19 @@ describe("transactional email", () => {
     vi.clearAllMocks();
   });
 
-  test("escapes user-controlled team invitation content in HTML", () => {
-    const renderedEmail = renderTransactionalEmail({
+  test("registers an email message catalog for every configured locale", () => {
+    expect(Object.keys(MESSAGE_CATALOGS).sort()).toEqual([...LOCALES].sort());
+
+    for (const locale of LOCALES) {
+      expect(MESSAGE_CATALOGS[locale]).toHaveProperty("Emails");
+    }
+  });
+
+  test("escapes user-controlled team invitation content in HTML", async () => {
+    const renderedEmail = await renderTransactionalEmail({
       to: "invitee@example.com",
       template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+      locale: "en",
       data: {
         invitationToken: "invite-token",
         inviterName: "<script>alert('x')</script>",
@@ -38,6 +49,57 @@ describe("transactional email", () => {
     expect(renderedEmail.html).not.toContain("<script>alert");
     expect(renderedEmail.text).toContain("<script>alert('x')</script>");
     expect(renderedEmail.text).toContain("/team-invite?token=invite-token");
+  });
+
+  test("renders the password reset email in Spanish when the payload locale is es", async () => {
+    const renderedEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+      locale: "es",
+      data: {
+        resetToken: "reset-token",
+        username: "Ana",
+      },
+    });
+
+    expect(renderedEmail.html).toContain('<html lang="es">');
+    expect(renderedEmail.html).toContain("Restablece tu contraseña");
+    expect(renderedEmail.html).toContain("Hola Ana,");
+    expect(renderedEmail.subject).toContain("Restablece tu contraseña");
+    expect(renderedEmail.html).not.toContain("Reset your");
+  });
+
+  test("renders the password reset email in English by default", async () => {
+    const renderedEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+      locale: "en",
+      data: {
+        resetToken: "reset-token",
+        username: "Ana",
+      },
+    });
+
+    expect(renderedEmail.html).toContain('<html lang="en">');
+    expect(renderedEmail.html).toContain("Reset your");
+    expect(renderedEmail.html).toContain("Hi Ana,");
+    expect(renderedEmail.subject).toContain("Reset your password");
+  });
+
+  test("falls back to the default locale for an unknown payload locale", async () => {
+    const renderedEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+      // @ts-expect-error - intentionally testing an unsupported locale value
+      locale: "xx",
+      data: {
+        resetToken: "reset-token",
+        username: "Ana",
+      },
+    });
+
+    expect(renderedEmail.html).toContain('<html lang="en">');
+    expect(renderedEmail.html).toContain("Reset your");
   });
 
   test("sends transactional emails with configured sender metadata", async () => {

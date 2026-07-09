@@ -12,43 +12,13 @@ export type UploadFunction = (
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export interface ImageUploadNodeOptions {
-  /**
-   * The type of the node.
-   * @default 'image'
-   */
   type?: string | NodeType | undefined
-  /**
-   * Acceptable file types for upload.
-   * @default 'image/*'
-   */
   accept?: string
-  /**
-   * Maximum number of files that can be uploaded.
-   * @default 1
-   */
   limit?: number
-  /**
-   * Maximum file size in bytes (0 for unlimited).
-   * @default 0
-   */
   maxSize?: number
-  /**
-   * Function to handle the upload process.
-   */
   upload?: UploadFunction
-  /**
-   * Callback for upload errors.
-   */
   onError?: (error: Error) => void
-  /**
-   * Callback for successful uploads.
-   */
   onSuccess?: (url: string) => void
-  /**
-   * HTML attributes to add to the image element.
-   * @default {}
-   * @example { class: 'foo' }
-   */
   // oxlint-disable-next-line typescript/no-explicit-any
   HTMLAttributes: Record<string, any>
 }
@@ -61,10 +31,6 @@ declare module "@tiptap/react" {
   }
 }
 
-/**
- * A Tiptap node extension that creates an image upload component.
- * @see registry/tiptap-node/image-upload-node/image-upload-node
- */
 export const ImageUploadNode = Node.create<ImageUploadNodeOptions>({
   name: "imageUpload",
 
@@ -131,9 +97,6 @@ export const ImageUploadNode = Node.create<ImageUploadNodeOptions>({
     }
   },
 
-  /**
-   * Adds Enter key handler to trigger the upload component when it's selected.
-   */
   addKeyboardShortcuts() {
     return {
       Enter: ({ editor }) => {

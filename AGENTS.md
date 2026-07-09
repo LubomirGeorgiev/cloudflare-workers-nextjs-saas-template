@@ -47,6 +47,7 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Do not comment obvious code.
 - Add comments only for non-trivial logic, edge cases, workarounds, or business rules.
 - Comments should explain why, not what.
+- Keep comments to 3 lines max, and to the point. Longer comments do not get read.
 - Keep TODO comments unless the work is actually completed and verified.
 
 ### Functions and Types
@@ -104,6 +105,7 @@ Suggested homes:
 - Use dynamic loading for non-critical UI when useful.
 - Use `nuqs` for URL search parameter state.
 - Use declarative JSX and concise conditionals.
+- `src/proxy.ts` runs next-intl on all paths except an exclusion list of non-public routes. When adding a new top-level non-public/authed section (outside `app/[locale]/`, like `/dashboard`), add its segment to that matcher; public pages need no change.
 - Use Tailwind, Shadcn UI, and Base UI consistently with the existing design system.
 - Implement responsive, mobile-first layouts and support light/dark mode.
 - When using a `container` class, also use `mx-auto`.
@@ -115,6 +117,7 @@ Authentication is based on Lucia Auth.
 - Auth logic lives in `src/utils/auth.ts` and `src/utils/kv-session.ts`.
 - In server components, access the session via `getSessionFromCookie` from `src/utils/auth.ts`.
 - In client components, access the session via `useSessionStore()` from `src/state/session.ts`.
+- AI agents may use the test credentials `test@test.com` / `password` with browser automation to test authenticated flows.
 
 ## Database and Migrations
 
@@ -150,7 +153,8 @@ When using Cloudflare MCP `execute` for account inventory or deployment prep, do
 
 ### Schemas
 
-- All Zod schemas must live in `src/schemas/`.
+- All Valibot schemas must live in `src/schemas/`.
+- Import `v` and shared validation helpers from `src/lib/validation.ts` instead of importing Valibot directly in schema files.
 - Reuse the same schema on both client and server.
 - Do not duplicate validation logic between React Hook Form and server actions.
 - Export both the schema and its inferred type.
@@ -158,14 +162,23 @@ When using Cloudflare MCP `execute` for account inventory or deployment prep, do
 Example:
 
 ```typescript
-import { z } from "zod"
+import { emailString, minString, v } from "@/lib/validation";
 
-export const mySchema = z.object({
-  email: z.string().email(),
-})
+export const mySchema = v.object({
+  email: emailString(),
+  password: minString(8),
+});
 
-export type MySchema = z.infer<typeof mySchema>
+export type MySchema = v.InferOutput<typeof mySchema>;
 ```
+
+### Localized Validation Messages
+
+- User-facing schema messages should be stable validation keys, not inline English copy.
+- Use helpers from `src/lib/validation.ts` such as `requiredString`, `emailString`, `minString`, `maxString`, and `minMaxString` so common rules emit localized `Validation.*` keys automatically.
+- For custom validation messages, use `validationKey("messageName")` or `encodeValidationMessage("messageName", params)` from `src/lib/validation.ts`; never hard-code the `Validation.` prefix in schemas.
+- Add new validation keys to `Client.Validation` in every locale catalog under `src/i18n/messages/`.
+- `FormMessage` and `actionClient` validation error handling translate keyed messages with `translateValidationKey`; non-keyed inline messages pass through unchanged and should not be used for user-facing form validation.
 
 ### Server Actions
 
@@ -176,7 +189,7 @@ export type MySchema = z.infer<typeof mySchema>
 
 ### Client Forms
 
-- Use `react-hook-form` with `zodResolver(schema)`.
+- Use `react-hook-form` with `valibotResolver(schema)`.
 - Use `useAction` from `next-safe-action/hooks` to call server actions.
 - Use toast notifications for loading, success, and error states.
 
@@ -184,3 +197,22 @@ Reference implementation:
 - Server action: `src/app/(auth)/sign-up/sign-up.actions.ts`
 - Client form: `src/app/(auth)/sign-up/sign-up.client.tsx`
 - Schema: `src/schemas/signup.schema.ts`
+
+## Cursor Cloud specific instructions
+
+Standard dependency install, DB, test, lint, build, and run commands are in `README.md` and `package.json` scripts. Notes below are non-obvious caveats for this environment.
+
+### Node version (critical)
+- The build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) requires Node **>= 22.15** (`node:module`'s `registerHooks`). The VM's default `/exec-daemon/node` is 22.14 and will fail `pnpm build`/`pnpm dev` with `SyntaxError: ... does not provide an export named 'registerHooks'`.
+- The environment is configured to use Node 24 via nvm (`nvm alias default 24`), and `~/.bashrc` prepends the nvm default node ahead of `/exec-daemon`. New shells should already run Node 24 with `pnpm` available. If a shell resolves the wrong Node, run `nvm use 24` (or re-source `~/.bashrc`).
+
+### Running the app locally
+- By default `pnpm dev` (`vinext dev`) and `pnpm preview` (without `--local`) open a Cloudflare **remote proxy session** because the `EMAIL` `send_email` binding is `remote: true` in `wrangler.jsonc`. Without Cloudflare auth this hangs and fails with `Timed out waiting for authorization code`.
+- To run the dev server fully offline (no remote bindings, no Cloudflare login), set the `@cloudflare/vite-plugin` force-local flag: `CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm dev`. This serves the app at `http://localhost:3000/` with all bindings local (D1/KV/R2 via Miniflare). Note the dev server binds IPv6 `localhost` (`::1`), so use `http://localhost:3000` rather than `http://127.0.0.1:3000`. The first request is slow due to on-demand Vite compilation, then warm requests are fast.
+- Alternatively, run the built Worker offline: `pnpm build`, then `pnpm exec wrangler dev --local --port 3000 --var APP_TEST_MODE:true` (this is how the E2E harness in `tests/e2e/e2e-environment.mjs` runs the app).
+- To use the standard `pnpm dev` with real remote bindings, authenticate first (`pnpx wrangler login`, or set `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`).
+- Turnstile captcha is auto-disabled when `NEXT_PUBLIC_TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` are empty (see `src/flags.ts`), so email/password sign-in works locally without `APP_TEST_MODE`. `APP_TEST_MODE:true` also disables it and relaxes rate limiting.
+- Local data lives in `.wrangler/state`; seed it with `pnpm db:migrate:dev` then `pnpm db:seed` (or `pnpm reset`). Sign in with `test@test.com` / `password`.
+
+### Tests
+- E2E (`pnpm run test:e2e`) needs the Playwright Chromium browser (kept in `~/.cache/ms-playwright`, outside the repo). If it is ever missing, run `pnpm exec playwright install chromium`. The E2E runner builds the app and starts its own isolated local Wrangler/D1 preview, so it does not need the dev server running.

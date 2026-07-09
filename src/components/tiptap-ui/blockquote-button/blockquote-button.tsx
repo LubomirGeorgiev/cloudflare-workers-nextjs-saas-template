@@ -24,14 +24,7 @@ import { Badge } from "@/components/tiptap-ui-primitive/badge"
 export interface BlockquoteButtonProps
   extends Omit<ButtonProps, "type">,
     UseBlockquoteConfig {
-  /**
-   * Optional text to display alongside the icon.
-   */
   text?: string
-  /**
-   * Optional show shortcut keys in the button.
-   * @default false
-   */
   showShortcut?: boolean
 }
 
@@ -44,11 +37,6 @@ export function BlockquoteShortcutBadge({
   return <Badge>{parseShortcutKeys({ shortcutKeys })}</Badge>
 }
 
-/**
- * Button component for toggling blockquote in a Tiptap editor.
- *
- * For custom button implementations, use the `useBlockquote` hook instead.
- */
 export const BlockquoteButton = forwardRef<
   HTMLButtonElement,
   BlockquoteButtonProps

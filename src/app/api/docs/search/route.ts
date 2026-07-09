@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const parseResult = v.safeParse(docsSearchQuerySchema, {
     q: searchParams.get("q") ?? undefined,
     limit: searchParams.get("limit") ?? undefined,
+    locale: searchParams.get("locale") ?? undefined,
   });
 
   if (!parseResult.success) {
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
       const docsResults = await searchDocs({
         query: parseResult.output.q,
         limit: parseResult.output.limit,
+        locale: parseResult.output.locale,
       });
 
       return docsResults.map(withAbsoluteResolvedPath);

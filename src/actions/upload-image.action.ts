@@ -14,9 +14,6 @@ import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
 import { requiredString, v } from "@/lib/validation";
 
-/**
- * Validates and sanitizes the filename
- */
 function sanitizeFilename(filename: string): string {
   // Remove any path separators and keep only alphanumeric, dash, underscore, and dot
   return filename
@@ -26,9 +23,6 @@ function sanitizeFilename(filename: string): string {
     .slice(0, 100); // Limit length
 }
 
-/**
- * Generate a unique filename for R2 storage
- */
 function generateUniqueFilename({
   originalFilename,
   extension,
@@ -48,10 +42,6 @@ const uploadImageSchema = v.object({
   collection: requiredString("Collection slug is required"),
 });
 
-/**
- * Upload an image to R2 bucket
- * Returns the public URL of the uploaded image
- */
 export const uploadImageAction = actionClient
   .inputSchema(uploadImageSchema)
   .action(async ({ parsedInput: input }) => {
@@ -65,7 +55,6 @@ export const uploadImageAction = actionClient
 
         const { file, collection } = input;
 
-        // Validate file size first
         if (file.size > CMS_IMAGE_MAX_FILE_SIZE) {
           throw new ActionError(
             "INPUT_PARSE_ERROR",
@@ -76,7 +65,6 @@ export const uploadImageAction = actionClient
         // Convert File to ArrayBuffer for validation and upload
         const arrayBuffer = await file.arrayBuffer();
 
-        // Validate actual file type using file-type (checks magic bytes, not just MIME type)
         const detectedType = await fileTypeFromBuffer(arrayBuffer);
 
         // Special handling for SVG (file-type doesn't detect SVG via magic bytes)
@@ -106,7 +94,6 @@ export const uploadImageAction = actionClient
           fileExtension = detectedType.ext;
         }
 
-        // Validate against allowed types
         if (!(CMS_ALLOWED_IMAGE_TYPES as readonly string[]).includes(actualMimeType)) {
           throw new ActionError(
             "INPUT_PARSE_ERROR",
@@ -114,20 +101,17 @@ export const uploadImageAction = actionClient
           );
         }
 
-        // Get Cloudflare context
         const { env } = await getCloudflareContext();
 
         if (!env.NEXT_INC_CACHE_R2_BUCKET) {
           throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
         }
 
-        // Generate unique filename using the detected extension
         const uniqueFilename = generateUniqueFilename({
           originalFilename: file.name,
           extension: fileExtension,
         });
 
-        // Generate R2 key with collection slug structure
         const r2Key = getCmsImageR2Key({
           collection,
           filename: uniqueFilename,
@@ -177,7 +161,6 @@ export const uploadImageAction = actionClient
           height,
         }).returning();
 
-        // Generate public URL
         const publicUrl = getCmsImagePublicUrl(r2Key);
 
         return {

@@ -83,13 +83,14 @@ describe("scheduled job handlers", () => {
       text: "Verify",
       type: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
     };
-    renderTransactionalEmailMock.mockReturnValue(renderedEmail);
+    renderTransactionalEmailMock.mockResolvedValue(renderedEmail);
 
     await runScheduledJob({
       type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
       payload: {
         to: "user@example.com",
         template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+        locale: "en",
         data: {
           verificationToken: "token-1",
           username: "Ada",
@@ -101,6 +102,7 @@ describe("scheduled job handlers", () => {
     expect(renderTransactionalEmailMock).toHaveBeenCalledWith({
       to: "user@example.com",
       template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+      locale: "en",
       data: {
         verificationToken: "token-1",
         username: "Ada",

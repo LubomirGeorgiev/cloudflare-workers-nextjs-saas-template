@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSessionStore } from "@/state/session";
 import { useAction } from "next-safe-action/hooks";
-import { sendVerificationAction } from "@/app/(auth)/send-verification.action";
+import { sendVerificationAction } from "@/app/[locale]/(auth)/send-verification.action";
 import { toast } from "sonner";
 import { useState } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";

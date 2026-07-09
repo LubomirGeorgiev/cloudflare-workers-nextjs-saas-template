@@ -7,5 +7,10 @@
       "**/*.spec.tsx",
       "tests/**"
     ]
+  },
+  "duplicates": {
+    "ignore": [
+      "worker-configuration.d.ts"
+    ]
   }
 }

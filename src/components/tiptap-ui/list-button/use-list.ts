@@ -23,26 +23,10 @@ import {
 
 export type ListType = "bulletList" | "orderedList" | "taskList"
 
-/**
- * Configuration for the list functionality
- */
 export interface UseListConfig {
-  /**
-   * The Tiptap editor instance.
-   */
   editor?: Editor | null
-  /**
-   * The type of list to toggle.
-   */
   type: ListType
-  /**
-   * Whether the button should hide when list is not available.
-   * @default false
-   */
   hideWhenUnavailable?: boolean
-  /**
-   * Callback function called after a successful toggle.
-   */
   onToggled?: () => void
 }
 
@@ -65,9 +49,6 @@ export const LIST_SHORTCUT_KEYS: Record<ListType, string> = {
   taskList: "mod+shift+9",
 }
 
-/**
- * Checks if a list can be toggled in the current editor state
- */
 export function canToggleList(
   editor: Editor | null,
   type: ListType,
@@ -121,9 +102,6 @@ export function canToggleList(
   }
 }
 
-/**
- * Checks if list is currently active
- */
 export function isListActive(editor: Editor | null, type: ListType): boolean {
   if (!editor || !editor.isEditable) return false
 
@@ -139,9 +117,6 @@ export function isListActive(editor: Editor | null, type: ListType): boolean {
   }
 }
 
-/**
- * Toggles list in the editor
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleList(editor: Editor | null, type: ListType): boolean {
   if (!editor || !editor.isEditable) return false
@@ -220,9 +195,6 @@ export function toggleList(editor: Editor | null, type: ListType): boolean {
   }
 }
 
-/**
- * Determines if the list button should be shown
- */
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function shouldShowButton(props: {
   editor: Editor | null
@@ -241,43 +213,6 @@ export function shouldShowButton(props: {
   return true
 }
 
-/**
- * Custom hook that provides list functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage
- * function MySimpleListButton() {
- *   const { isVisible, handleToggle, isActive } = useList({ type: "bulletList" })
- *
- *   if (!isVisible) return null
- *
- *   return <button onClick={handleToggle}>Bullet List</button>
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedListButton() {
- *   const { isVisible, handleToggle, label, isActive } = useList({
- *     type: "orderedList",
- *     editor: myEditor,
- *     hideWhenUnavailable: true,
- *     onToggled: () => console.log('List toggled!')
- *   })
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <MyButton
- *       onClick={handleToggle}
- *       aria-label={label}
- *       aria-pressed={isActive}
- *     >
- *       Toggle List
- *     </MyButton>
- *   )
- * }
- * ```
- */
 export function useList(config: UseListConfig) {
   const {
     editor: providedEditor,

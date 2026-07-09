@@ -10,13 +10,20 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { createTeamAction } from "@/actions/team-actions";
-import { maxString, requiredString, v } from "@/lib/validation";
+import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
 
 const formSchema = v.object({
-  name: v.pipe(requiredString("Team name is required"), v.maxLength(100, "Team name is too long")),
-  description: v.optional(maxString(1000, "Description is too long")),
+  name: v.pipe(
+    requiredString(validationKey("teamNameRequired")),
+    v.maxLength(100, encodeValidationMessage("teamNameMaxLength", { max: 100 }))
+  ),
+  description: v.optional(maxString(1000, encodeValidationMessage("descriptionMaxLength", { max: 1000 }))),
   avatarUrl: v.optional(v.union([
-    v.pipe(v.string(), v.url("Invalid URL"), v.maxLength(600, "URL is too long")),
+    v.pipe(
+      v.string(),
+      v.url(validationKey("invalidUrl")),
+      v.maxLength(600, encodeValidationMessage("urlMaxLength", { max: 600 }))
+    ),
     v.literal(""),
   ])),
 });

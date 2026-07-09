@@ -23,6 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useTranslations } from "next-intl"
 import type { NavItem } from "./app-sidebar-data"
 
 type Props = {
@@ -33,57 +34,62 @@ export function NavProjects({
   projects,
 }: Props) {
   const { isMobile, setOpenMobile } = useSidebar()
+  const t = useTranslations("Client.Sidebar")
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Projects</SidebarGroupLabel>
+      <SidebarGroupLabel>{t("groups.projects")}</SidebarGroupLabel>
       <SidebarMenu>
-        {projects.map((item) => (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton
-              render={
-                <a
-                  href={item.url}
-                  onClick={() => setOpenMobile(false)}
-                />
-              }
-            >
-                {item?.icon && <item.icon />}
-                <span>{item.title}</span>
-            </SidebarMenuButton>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<SidebarMenuAction showOnHover />}
+        {projects.map((item) => {
+          const itemLabel = item.titleKey ? t(`nav.${item.titleKey}`) : item.title
+
+          return (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton
+                render={
+                  <a
+                    href={item.url}
+                    onClick={() => setOpenMobile(false)}
+                  />
+                }
               >
-                  <MoreHorizontal />
-                  <span className="sr-only">More</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-48 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
-                align={isMobile ? "end" : "start"}
-              >
-                <DropdownMenuItem>
-                  <Folder className="text-muted-foreground" />
-                  <span>View Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Forward className="text-muted-foreground" />
-                  <span>Share Project</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Trash2 className="text-muted-foreground" />
-                  <span>Delete Project</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        ))}
+                  {item?.icon && <item.icon />}
+                  <span>{itemLabel}</span>
+              </SidebarMenuButton>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={<SidebarMenuAction showOnHover />}
+                >
+                    <MoreHorizontal />
+                    <span className="sr-only">{t("projects.more")}</span>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-48 rounded-lg"
+                  side={isMobile ? "bottom" : "right"}
+                  align={isMobile ? "end" : "start"}
+                >
+                  <DropdownMenuItem>
+                    <Folder className="text-muted-foreground" />
+                    <span>{t("projects.view")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Forward className="text-muted-foreground" />
+                    <span>{t("projects.share")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Trash2 className="text-muted-foreground" />
+                    <span>{t("projects.delete")}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          )
+        })}
         <SidebarMenuItem>
           <SidebarMenuButton className="text-sidebar-foreground/70">
             <MoreHorizontal className="text-sidebar-foreground/70" />
-            <span>More</span>
+            <span>{t("projects.more")}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

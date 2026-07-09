@@ -17,11 +17,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { emailString, v } from "@/lib/validation";
+import { requiredString, v, validationKey } from "@/lib/validation";
 
 // Define the form schema with validation
 const formSchema = v.object({
-  email: v.pipe(emailString("Please enter a valid email address"), v.minLength(1, "Email is required"))
+  email: v.pipe(requiredString(validationKey("emailRequired")), v.email(validationKey("invalidEmail")))
 });
 
 type FormValues = v.InferOutput<typeof formSchema>;

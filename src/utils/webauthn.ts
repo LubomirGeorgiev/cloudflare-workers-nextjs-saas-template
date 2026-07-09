@@ -127,7 +127,6 @@ export async function verifyPasskeyAuthentication({
     throw new Error("Passkey authentication failed");
   }
 
-  // Update the counter
   await db
     .update(passKeyCredentialTable)
     .set({ counter: verification.authenticationInfo.newCounter })

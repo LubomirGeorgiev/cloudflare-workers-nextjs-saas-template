@@ -82,10 +82,6 @@ type SimpleEditorProps = {
   content?: unknown
   onChange?: (content: unknown) => void
   editable?: boolean
-  /**
-   * CMS collection slug for organizing uploaded images
-   * Example: "blog", "products", etc.
-   */
   collection?: string
 }
 

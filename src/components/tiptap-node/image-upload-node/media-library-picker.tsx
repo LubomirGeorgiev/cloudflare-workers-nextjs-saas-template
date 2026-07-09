@@ -49,7 +49,6 @@ export function MediaLibraryPicker({ onSelect, onCancel }: MediaLibraryPickerPro
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch media when search or page changes
   useEffect(() => {
     execute({
       page,
