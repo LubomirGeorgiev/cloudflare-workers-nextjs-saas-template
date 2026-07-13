@@ -105,6 +105,7 @@
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
+    "@typescript/typescript6": "^6.0.2",
     "@vinext/cloudflare": "1.0.0-beta.1",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitejs/plugin-rsc": "^0.5.27",

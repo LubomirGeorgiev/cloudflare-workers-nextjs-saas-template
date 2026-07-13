@@ -1,6 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
-import ts from "typescript"
+// TODO: Switch to `typescript` and drop `@typescript/typescript6` once TS 7.1 ships the programmatic API.
+import ts from "@typescript/typescript6"
 
 const RECORD_SEPARATOR = "\0"
 const EXPORT_KIND_TYPE = 1
