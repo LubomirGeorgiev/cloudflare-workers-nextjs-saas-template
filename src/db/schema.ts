@@ -1,9 +1,12 @@
 import { sqliteTable, integer, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { defineRelations, type InferSelectModel, sql } from "drizzle-orm";
 
+import type Stripe from "stripe";
 import { createId } from '@paralleldrive/cuid2'
-import { CMS_ENTRY_STATUS, ROLES_ENUM } from "@/app/enums";
+import { CMS_ENTRY_STATUS, ROLES_ENUM, type UserRole } from "@/app/enums";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
+import type { BillingInterval, TeamPlanId } from "@/constants/plans";
+import type { TeamAddonQuantities } from "@/constants/addons";
 import type { JSONContent } from "@tiptap/core"
 import { cmsNavigationKeys, type CmsNavigationKey } from "@/../cms.config";
 import { cmsEntryStatusTuple, type CmsEntryStatus, type SourceContentHashes } from "@/types/cms";
@@ -41,7 +44,7 @@ export const userTable = sqliteTable("user", {
   passwordHash: text(),
   role: text({
     enum: roleTuple,
-  }).default(ROLES_ENUM.USER).notNull(),
+  }).$type<UserRole>().default(ROLES_ENUM.USER).notNull(),
   emailVerified: integer({
     mode: "timestamp",
   }),
@@ -59,7 +62,7 @@ export const userTable = sqliteTable("user", {
   }),
   // User's explicit UI language (BCP-47 short code, e.g. "en"/"es"). Null = not set;
   // negotiate from cookie/Accept-Language instead. Validated against LOCALES in app code.
-  preferredLocale: text({ length: 10 }),
+  preferredLocale: text({ length: 10 }).$type<Locale>(),
   // Set when this user starts a free trial on any team, so trials can't be farmed by
   // creating fresh teams. Checked together with team.trialUsedAt for eligibility.
   trialUsedAt: integer({ mode: "timestamp" }),
@@ -156,7 +159,7 @@ export const teamTable = sqliteTable("team", {
   // migration treats it as a NEW column: `ALTER TABLE ADD COLUMN ... DEFAULT 'free'` is a valid
   // SQLite primitive (unlike changing an existing column's default, which would force a full
   // table rebuild). getPlan()/entitlements still coalesce null -> "free" defensively.
-  subscriptionPlanId: text({ length: 100 }).default("free"),
+  subscriptionPlanId: text({ length: 100 }).$type<TeamPlanId>().default("free"),
   // Subscription current period end (item-level current_period_end from Stripe).
   planExpiresAt: integer({ mode: "timestamp" }),
   stripeCustomerId: text({ length: 255 }),
@@ -165,10 +168,13 @@ export const teamTable = sqliteTable("team", {
   stripeSubscriptionId: text({ length: 255 }),
   // Stripe subscription status (active, trialing, past_due, canceled, incomplete,
   // incomplete_expired, unpaid, paused) or null.
-  subscriptionStatus: text({ length: 50 }),
+  subscriptionStatus: text({ length: 50 }).$type<Stripe.Subscription.Status>(),
   // Billing interval of the current subscription ("month" | "year"), mirrored from the
   // Stripe price so the billing UI can tell yearly from monthly without a Stripe call.
-  subscriptionInterval: text({ length: 10 }),
+  subscriptionInterval: text({ length: 10 }).$type<BillingInterval>(),
+  // JSON object mapping TeamAddonId -> quantity (src/constants/addons.ts) mirrored from
+  // the subscription's add-on items by reconcileTeamFromSubscription; null when none.
+  subscriptionAddonIds: text({ mode: "json" }).$type<TeamAddonQuantities>(),
   // Mirrors Stripe's cancel_at_period_end (0/1) so billing reads stay DB-only.
   cancelAtPeriodEnd: integer().default(0).notNull(),
   // Set the first time a subscription reaches `trialing`; a team gets one free trial ever.
@@ -260,7 +266,7 @@ export const cmsMediaTable = sqliteTable("cms_media", {
 const cmsEntryCommonColumns = {
   title: text().notNull(),
   content: text({ mode: 'json' }).$type<JSONContent>().notNull(),
-  fields: text({ mode: 'json' }).default('{}').notNull(),
+  fields: text({ mode: 'json' }).default('{}').$type<Record<string, unknown>>().notNull(),
   slug: text().notNull(),
   seoDescription: text(),
   status: text({
@@ -281,7 +287,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(), // Override status to add default
   // Language of this entry. Translations of one logical entry share (collection, slug)
   // and differ by locale. Default 'en' keeps existing rows valid and inert.
-  locale: text().notNull().default(DEFAULT_LOCALE),
+  locale: text().$type<Locale>().notNull().default(DEFAULT_LOCALE),
   // Snapshot of the canonical (default-locale) source's per-field content hashes, captured when this
   // translation was created or last refreshed. Compared against the source's live hashes to flag stale
   // translations in the editor. Null on the source row itself and on legacy/pre-feature rows (treated as "not stale").
@@ -414,7 +420,7 @@ export const cmsTagTable = sqliteTable("cms_tag", {
   color: text(),
   // Language of this tag. Translations of one logical tag share `slug` and differ
   // by locale (mirrors cmsEntryTable). Default 'en' keeps existing rows valid.
-  locale: text().notNull().default(DEFAULT_LOCALE),
+  locale: text().$type<Locale>().notNull().default(DEFAULT_LOCALE),
   createdBy: text().notNull().references(() => userTable.id),
 }, (table) => ([
   // Was global (name)/(slug); now scoped by locale so each language has its own row.

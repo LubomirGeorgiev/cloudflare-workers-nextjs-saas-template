@@ -79,11 +79,16 @@ export function getPlan(planId: string | null | undefined): TeamPlan {
   return isTeamPlanId(planId) ? TEAM_PLANS[planId] : TEAM_PLANS[DEFAULT_PLAN_ID];
 }
 
-// Derived yearly amount, in the currency's smallest unit. Keep the formula in sync with
-// scripts/stripe-setup.mjs, which provisions the matching Stripe price from the JSON.
+// Derived yearly amount for any monthly amount (plans and add-ons alike), in the
+// currency's smallest unit. Keep the formula in sync with scripts/stripe-setup.mjs,
+// which provisions the matching Stripe prices from the JSON catalogs.
+export function deriveYearlyAmount(monthlyAmount: number): number {
+  return Math.round((monthlyAmount * 12 * (100 - (YEARLY_DISCOUNT_PERCENT ?? 0))) / 100);
+}
+
 export function getYearlyAmount(plan: TeamPlan): number {
   if (plan.interval === "year") return plan.amount;
-  return Math.round((plan.amount * 12 * (100 - (YEARLY_DISCOUNT_PERCENT ?? 0))) / 100);
+  return deriveYearlyAmount(plan.amount);
 }
 
 export function getPlanAmount({ plan, interval }: { plan: TeamPlan; interval: BillingInterval }): number {

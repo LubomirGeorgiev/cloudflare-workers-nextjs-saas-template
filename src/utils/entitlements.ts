@@ -1,4 +1,5 @@
 import { getPlan, type TeamPlan, type TeamPlanLimits } from "@/constants/plans";
+import { getAddon, type TeamAddonQuantities } from "@/constants/addons";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 
 // Backstop for lost/delayed webhooks: paid access lapses this long after the recorded
@@ -21,6 +22,25 @@ interface EntitlementInput {
   // Recorded subscription period end. Optional: callers without it (e.g. KV sessions)
   // gate on status alone; callers with the team row get the expiry backstop.
   planExpiresAt?: Date | null;
+  // Active add-on units per add-on id (fromStoredAddonQuantities of the team row).
+  // Their per-unit limit grants stack on the plan's limits only while the
+  // subscription is active.
+  addons?: TeamAddonQuantities | null;
+}
+
+// Add-on limit grants are additive on top of the plan's limits, multiplied by the held
+// quantity; ids no longer in the catalog contribute nothing (stale rows degrade to
+// plan limits, never crash).
+function applyAddonLimits(base: TeamPlanLimits, addons: TeamAddonQuantities): TeamPlanLimits {
+  return Object.entries(addons).reduce((limits, [addonId, quantity]) => {
+    const grants = getAddon(addonId)?.limits;
+    if (!grants || quantity <= 0) return limits;
+
+    return {
+      seats: limits.seats + (grants.seats ?? 0) * quantity,
+      projects: limits.projects + (grants.projects ?? 0) * quantity,
+    };
+  }, base);
 }
 
 // Pure mapping from a team's stored plan + status to its entitlements. Legacy rows with
@@ -30,6 +50,7 @@ export function getTeamEntitlements({
   planId,
   subscriptionStatus,
   planExpiresAt,
+  addons,
 }: EntitlementInput): TeamEntitlements {
   const plan = getPlan(planId);
   const freePlan = getPlan("free");
@@ -42,5 +63,9 @@ export function getTeamEntitlements({
 
   const isActive = isFree ? true : grantsPaidAccess && withinGrace;
 
-  return { plan, isActive, limits: isActive ? plan.limits : freePlan.limits };
+  const limits = isActive
+    ? applyAddonLimits(plan.limits, addons ?? {})
+    : freePlan.limits;
+
+  return { plan, isActive, limits };
 }

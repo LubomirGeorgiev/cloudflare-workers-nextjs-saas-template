@@ -3,6 +3,7 @@ ALTER TABLE `team` ADD `stripeCustomerId` text(255);--> statement-breakpoint
 ALTER TABLE `team` ADD `stripeSubscriptionId` text(255);--> statement-breakpoint
 ALTER TABLE `team` ADD `subscriptionStatus` text(50);--> statement-breakpoint
 ALTER TABLE `team` ADD `subscriptionInterval` text(10);--> statement-breakpoint
+ALTER TABLE `team` ADD `subscriptionAddonIds` text;--> statement-breakpoint
 ALTER TABLE `team` ADD `cancelAtPeriodEnd` integer DEFAULT 0 NOT NULL;--> statement-breakpoint
 ALTER TABLE `team` ADD `trialUsedAt` integer;--> statement-breakpoint
 ALTER TABLE `user` ADD `trialUsedAt` integer;--> statement-breakpoint

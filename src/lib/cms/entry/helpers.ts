@@ -26,9 +26,11 @@ export function buildStatusWhereCondition(status: CmsStatusFilter) {
 export function validateEntryFields(
   fields: unknown,
   collection: typeof cmsConfig.collections[keyof typeof cmsConfig.collections]
-): unknown {
+): Record<string, unknown> | undefined {
   if (!("fieldsSchema" in collection) || !collection.fieldsSchema) {
-    return fields;
+    // No schema to validate against — pass through what the caller sent. Collections
+    // define fields via object schemas, so a defined value is an object by contract.
+    return fields as Record<string, unknown> | undefined;
   }
 
   const parseResult = v.safeParse(collection.fieldsSchema, fields);
@@ -39,7 +41,7 @@ export function validateEntryFields(
     );
   }
 
-  return parseResult.output;
+  return parseResult.output as Record<string, unknown>;
 }
 
 function formatValibotIssue(issue: { path?: Array<{ key: unknown }>; message: string }): string {

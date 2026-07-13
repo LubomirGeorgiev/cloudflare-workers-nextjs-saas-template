@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import type { UserRole } from "@/app/enums";
 import type { SessionValidationResult } from "@/types";
 import { useSessionStore } from "@/state/session";
 
@@ -16,7 +17,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 interface CreateSessionOptions {
-  role?: string;
+  role?: UserRole;
   emailVerified?: Date | null;
   updatedAt?: Date;
 }

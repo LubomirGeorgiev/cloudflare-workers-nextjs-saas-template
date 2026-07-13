@@ -103,7 +103,7 @@ async function queryCmsCollection({
   collectionSlug: string;
   status: CmsStatusFilter;
   includeRelationsKey: string;
-  locale: string;
+  locale: Locale;
   allLocales: boolean;
   limit?: number;
   offset?: number;
@@ -147,7 +147,7 @@ async function getCachedCmsCollection(
   collectionSlug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
-  locale: string,
+  locale: Locale,
   allLocales: boolean,
   limit?: number,
   offset?: number,
@@ -209,7 +209,7 @@ async function queryCmsCollectionCount({
 }: {
   collectionSlug: string;
   status: CmsStatusFilter;
-  locale: string;
+  locale: Locale;
   allLocales: boolean;
 }): Promise<number> {
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
@@ -246,7 +246,7 @@ async function queryCmsCollectionCount({
 async function getCachedCmsCollectionCount(
   collectionSlug: string,
   status: CmsStatusFilter,
-  locale: string,
+  locale: Locale,
   allLocales: boolean,
 ): Promise<number> {
   "use cache: remote";
@@ -320,7 +320,7 @@ async function getCachedCmsEntryBySlug(
   slug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
-  locale: string,
+  locale: Locale,
 ): Promise<GetCmsEntryBySlugResult | null> {
   "use cache: remote";
   const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);

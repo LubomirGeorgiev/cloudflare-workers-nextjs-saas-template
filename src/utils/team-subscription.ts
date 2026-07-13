@@ -9,20 +9,31 @@ import { getStripe } from "@/lib/stripe";
 import { getDB } from "@/db";
 import { teamTable, userTable } from "@/db/schema";
 import { createScheduledQueueMessage, SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
-import { planIdFromPriceId } from "@/utils/plan-prices";
+import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
+import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
+
+// The item whose period/interval describes the subscription: the plan item when one
+// resolves, otherwise the first item (all items share an interval on one subscription,
+// so an add-on-only fallback still reads correctly).
+function getAnchorItem(
+  subscription: Stripe.Subscription,
+  classified: ClassifiedSubscriptionItems,
+): Stripe.SubscriptionItem | null {
+  return resolvePlanItem(classified) ?? subscription.items?.data?.[0] ?? null;
+}
 
 // On the current Stripe API version the billing period lives on subscription ITEMS,
 // not on the subscription object (`sub.current_period_end` was removed in basil+).
-function getSubscriptionPeriodEnd(subscription: Stripe.Subscription): Date | null {
-  const periodEnd = subscription.items?.data?.[0]?.current_period_end;
+function getSubscriptionPeriodEnd(anchorItem: Stripe.SubscriptionItem | null): Date | null {
+  const periodEnd = anchorItem?.current_period_end;
   return periodEnd ? new Date(periodEnd * 1000) : null;
 }
 
 // Narrows Stripe's recurring interval (day/week/month/year) to the two the app sells.
-function getSubscriptionInterval(subscription: Stripe.Subscription): BillingInterval | null {
-  const interval = subscription.items?.data?.[0]?.price?.recurring?.interval;
+function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): BillingInterval | null {
+  const interval = anchorItem?.price?.recurring?.interval;
   return interval === "month" || interval === "year" ? interval : null;
 }
 
@@ -220,13 +231,25 @@ export async function reconcileTeamFromSubscription({
         stripeSubscriptionId: policy.subscription === "clear" ? null : subscription.id,
         subscriptionStatus: policy.statusWrite === "clear" ? null : subscription.status,
         subscriptionInterval: null,
+        subscriptionAddonIds: null,
         cancelAtPeriodEnd,
         planExpiresAt: null,
       })
       .where(eq(teamTable.id, team.id));
   } else {
-    const priceId = subscription.items.data[0]?.price?.id;
-    const planId = planIdFromPriceId(priceId) ?? (team.subscriptionPlanId as TeamPlanId | null) ?? DEFAULT_PLAN_ID;
+    const classified = classifySubscriptionItems(subscription);
+    const anchorItem = getAnchorItem(subscription, classified);
+    const planId = classified.planId ?? team.subscriptionPlanId ?? DEFAULT_PLAN_ID;
+
+    // Unknown items mean this deployment can't fully interpret the subscription
+    // (rotated price envs, or items added in the Stripe dashboard). Keep going with the
+    // fallbacks above, but say so — silence here would mislabel billing state quietly.
+    if (classified.unknownItems.length) {
+      console.warn("reconcileTeamFromSubscription: unrecognized subscription item prices", {
+        subscriptionId: subscription.id,
+        priceIds: classified.unknownItems.map((item) => item.price?.id ?? null),
+      });
+    }
 
     await db
       .update(teamTable)
@@ -234,9 +257,10 @@ export async function reconcileTeamFromSubscription({
         stripeSubscriptionId: subscription.id,
         subscriptionPlanId: planId,
         subscriptionStatus: subscription.status,
-        subscriptionInterval: getSubscriptionInterval(subscription),
+        subscriptionInterval: getSubscriptionInterval(anchorItem),
+        subscriptionAddonIds: toStoredAddonQuantities(addonQuantitiesFromItems(classified)),
         cancelAtPeriodEnd,
-        planExpiresAt: getSubscriptionPeriodEnd(subscription),
+        planExpiresAt: getSubscriptionPeriodEnd(anchorItem),
         // A team gets one free trial ever; stamp the first time Stripe reports `trialing`
         // (covers both app-created trials and ones granted in the Stripe dashboard).
         ...(subscription.status === "trialing" && !team.trialUsedAt
@@ -254,9 +278,11 @@ export async function reconcileTeamFromSubscription({
 interface TeamSubscriptionView {
   planId: TeamPlanId;
   plan: TeamPlan;
-  status: string | null;
+  status: Stripe.Subscription.Status | null;
   // Billing interval of the current subscription; null when free or unknown (legacy rows).
   interval: BillingInterval | null;
+  // Active add-on units per add-on id (empty when free or none configured).
+  addons: TeamAddonQuantities;
   planExpiresAt: Date | null;
   stripeSubscriptionId: string | null;
   cancelAtPeriodEnd: boolean;
@@ -276,9 +302,8 @@ export const getTeamSubscription = cache(async (teamId: string): Promise<TeamSub
     planId: plan.id as TeamPlanId,
     plan,
     status: team?.subscriptionStatus ?? null,
-    interval: team?.subscriptionInterval === "month" || team?.subscriptionInterval === "year"
-      ? team.subscriptionInterval
-      : null,
+    interval: team?.subscriptionInterval ?? null,
+    addons: fromStoredAddonQuantities(team?.subscriptionAddonIds),
     planExpiresAt: team?.planExpiresAt ?? null,
     stripeSubscriptionId: team?.stripeSubscriptionId ?? null,
     cancelAtPeriodEnd: Boolean(team?.cancelAtPeriodEnd),

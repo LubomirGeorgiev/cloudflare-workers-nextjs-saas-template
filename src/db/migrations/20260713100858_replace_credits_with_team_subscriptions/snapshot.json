@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "41cdd39a-bca4-47f8-8e04-b576357582ff",
+  "id": "66752c32-e88a-471a-bfcc-96a16b58221e",
   "prevIds": [
     "e844e576-567c-4848-9e6e-f684cd5a7d02"
   ],
@@ -1663,6 +1663,16 @@
       "default": null,
       "generated": null,
       "name": "subscriptionInterval",
+      "entityType": "columns",
+      "table": "team"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "subscriptionAddonIds",
       "entityType": "columns",
       "table": "team"
     },

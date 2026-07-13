@@ -18,8 +18,10 @@ import { join } from "node:path";
 import Stripe from "stripe";
 
 import planCatalog from "../src/constants/plans.json" with { type: "json" };
+import addonCatalog from "../src/constants/addons.json" with { type: "json" };
 
 const plans = planCatalog.plans;
+const addons = addonCatalog.addons;
 // When set (0-99), every monthly paid plan also gets a yearly price at this % off.
 const yearlyDiscountPercent = planCatalog.yearlyDiscountPercent ?? null;
 
@@ -125,12 +127,62 @@ function envVarForPlan(plan, variant) {
   return variant.interval === plan.interval ? base : `${base}_${variant.interval.toUpperCase()}`;
 }
 
+// Add-ons bill monthly at their catalog amount, plus a derived yearly variant when
+// yearly billing is enabled (they ride on the subscription, whose items must all share
+// one interval — a yearly plan can only carry yearly add-on prices).
+function priceVariantsForAddon(addon) {
+  const variants = [{ interval: "month", amount: addon.amount }];
+  if (yearlyDiscountPercent !== null) {
+    variants.push({ interval: "year", amount: yearlyAmount(addon) });
+  }
+  return variants;
+}
+
+function priceLookupKeyForAddon(addon, variant) {
+  return `addon_${addon.id}_${variant.interval}`;
+}
+
+// Must match addonPriceEnvVar in src/utils/plan-prices.ts.
+function envVarForAddon(addon, variant) {
+  const base = `STRIPE_PRICE_ADDON_${addon.id.toUpperCase().replaceAll("-", "_")}`;
+  return variant.interval === "month" ? base : `${base}_YEAR`;
+}
+
 async function findProductByPlanId(stripe, planId) {
   // Products don't support metadata search on all accounts; page through active products.
   for await (const product of stripe.products.list({ active: true, limit: 100 })) {
     if (product.metadata?.template_plan_id === planId) return product;
   }
   return null;
+}
+
+async function findProductByAddonId(stripe, addonId) {
+  for await (const product of stripe.products.list({ active: true, limit: 100 })) {
+    if (product.metadata?.template_addon_id === addonId) return product;
+  }
+  return null;
+}
+
+async function ensureAddonProduct(stripe, addon, { dryRun }) {
+  const existing = await findProductByAddonId(stripe, addon.id);
+
+  if (existing) {
+    if (!dryRun) {
+      await stripe.products.update(existing.id, {
+        name: addon.name,
+        metadata: { template_addon_id: addon.id },
+      });
+    }
+    return existing;
+  }
+
+  console.log(`  + create product "${addon.name}"`);
+  if (dryRun) return { id: `(dry-run:addon-${addon.id})` };
+
+  return stripe.products.create({
+    name: addon.name,
+    metadata: { template_addon_id: addon.id },
+  });
 }
 
 async function ensureProduct(stripe, plan, { dryRun }) {
@@ -155,30 +207,29 @@ async function ensureProduct(stripe, plan, { dryRun }) {
   });
 }
 
-async function ensurePrice(stripe, plan, variant, product, { dryRun }) {
-  const lookupKey = priceLookupKey(plan, variant);
+async function ensurePrice(stripe, { lookupKey, amount, currency, interval }, product, { dryRun }) {
   const found = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
   const existing = found.data[0];
 
   const matches =
     existing &&
-    existing.unit_amount === variant.amount &&
-    existing.currency === plan.currency &&
-    existing.recurring?.interval === variant.interval;
+    existing.unit_amount === amount &&
+    existing.currency === currency &&
+    existing.recurring?.interval === interval;
 
   if (matches) {
     return existing;
   }
 
-  console.log(`  + create price ${lookupKey} (${variant.amount} ${plan.currency}/${variant.interval})`);
+  console.log(`  + create price ${lookupKey} (${amount} ${currency}/${interval})`);
   if (dryRun) return { id: `(dry-run:${lookupKey})` };
 
   // Prices are immutable — create a new one and transfer the lookup key off the old one.
   const price = await stripe.prices.create({
     product: product.id,
-    unit_amount: variant.amount,
-    currency: plan.currency,
-    recurring: { interval: variant.interval },
+    unit_amount: amount,
+    currency,
+    recurring: { interval },
     lookup_key: lookupKey,
     transfer_lookup_key: Boolean(existing),
   });
@@ -275,8 +326,27 @@ async function main() {
     console.log(`Plan: ${plan.name}`);
     const product = await ensureProduct(stripe, plan, args);
     for (const variant of priceVariantsForPlan(plan)) {
-      const price = await ensurePrice(stripe, plan, variant, product, args);
+      const price = await ensurePrice(
+        stripe,
+        { lookupKey: priceLookupKey(plan, variant), amount: variant.amount, currency: plan.currency, interval: variant.interval },
+        product,
+        args,
+      );
       envEntries.push([envVarForPlan(plan, variant), price.id]);
+    }
+  }
+
+  for (const addon of Object.values(addons)) {
+    console.log(`Add-on: ${addon.name}`);
+    const product = await ensureAddonProduct(stripe, addon, args);
+    for (const variant of priceVariantsForAddon(addon)) {
+      const price = await ensurePrice(
+        stripe,
+        { lookupKey: priceLookupKeyForAddon(addon, variant), amount: variant.amount, currency: addon.currency, interval: variant.interval },
+        product,
+        args,
+      );
+      envEntries.push([envVarForAddon(addon, variant), price.id]);
     }
   }
 

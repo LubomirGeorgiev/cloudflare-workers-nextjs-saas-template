@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
   type TeamPlanId,
 } from "@/constants/plans";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
+import { formatPrice } from "@/utils/format-price";
 import { useIntervalWhen } from "@/hooks/use-interval-when";
 import {
   createSubscriptionAction,
@@ -57,23 +58,19 @@ interface PlanCardsProps {
   // Billing interval of the team's current subscription; null when free/unknown.
   currentInterval: BillingInterval | null;
   status: string | null;
+  planExpiresAt: Date | null;
   cancelAtPeriodEnd: boolean;
   needsPaymentAction: boolean;
   canManage: boolean;
   isTrialEligible: boolean;
 }
 
-function formatPrice(amount: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: amount % 100 === 0 ? 0 : 2,
-  }).format(amount / 100);
-}
-
 interface PaymentDialogState {
   clientSecret: string;
   planId: TeamPlanId;
+  // Interval captured when the dialog opened; completing a trial must submit exactly
+  // what the SetupIntent was created with, not the live toggle state.
+  interval: BillingInterval;
   planName: string;
   priceLabel: string;
   trialDays?: number;
@@ -90,12 +87,14 @@ export function PlanCards({
   currentPlanId,
   currentInterval,
   status,
+  planExpiresAt,
   cancelAtPeriodEnd,
   needsPaymentAction,
   canManage,
   isTrialEligible,
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
+  const format = useFormatter();
   const router = useRouter();
   const [paymentDialog, setPaymentDialog] = useState<PaymentDialogState | null>(null);
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(currentInterval ?? "month");
@@ -106,6 +105,22 @@ export function PlanCards({
   const hasActiveSubscription =
     currentPlanId !== "free"
     && Boolean(getStripeSubscriptionTransitionPolicy(status)?.grantsPaidAccess);
+  const currentPlanPeriodLabel = planExpiresAt && (status === "active" || status === "trialing")
+    ? t(
+        status === "trialing"
+          ? "trialEndsOn"
+          : cancelAtPeriodEnd
+            ? "endsOn"
+            : "renewsOn",
+        {
+          date: format.dateTime(planExpiresAt, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          }),
+        },
+      )
+    : null;
 
   const { execute: executeChange, isExecuting: isChanging } = useAction(changePlanAction, {
     onSuccess: () => {
@@ -193,8 +208,9 @@ export function PlanCards({
     setPaymentDialog({
       clientSecret,
       planId,
+      interval,
       planName: plan.name,
-      priceLabel: `${formatPrice(amount, plan.currency)}${t(interval === "year" ? "perYear" : "perMonth")}`,
+      priceLabel: `${formatPrice({ amount, currency: plan.currency })}${t(interval === "year" ? "perYear" : "perMonth")}`,
       ...options,
     });
   }
@@ -234,7 +250,7 @@ export function PlanCards({
       const result = await completeTrialAsync({
         teamId,
         planId: paymentDialog.planId,
-        interval: billingInterval,
+        interval: paymentDialog.interval,
         setupIntentId: confirmedSetupIntentId,
       });
       if (result?.serverError || !result?.data?.success) {
@@ -296,7 +312,7 @@ export function PlanCards({
           const isCurrent = planId === currentPlanId;
           const isFree = plan.amount === 0;
           const amount = getPlanAmount({ plan, interval: billingInterval });
-          const priceLabel = isFree ? t("freePrice") : formatPrice(amount, plan.currency);
+          const priceLabel = isFree ? t("freePrice") : formatPrice({ amount, currency: plan.currency });
           // Whether the toggle matches the interval the team already pays on; legacy rows
           // without a recorded interval are treated as matching so no switch is offered.
           const matchesCurrentInterval = currentInterval === null || billingInterval === currentInterval;
@@ -336,8 +352,13 @@ export function PlanCards({
                 {!isFree && billingInterval === "year" && (
                   <p className="text-xs text-muted-foreground">
                     {t("yearlyEquivalentNote", {
-                      price: formatPrice(Math.round(amount / 12), plan.currency),
+                      price: formatPrice({ amount: Math.round(amount / 12), currency: plan.currency }),
                     })}
+                  </p>
+                )}
+                {isCurrent && currentPlanPeriodLabel && (
+                  <p className="text-sm font-medium text-foreground">
+                    {currentPlanPeriodLabel}
                   </p>
                 )}
               </CardHeader>

@@ -1,0 +1,12 @@
+{
+  "addons": {
+    "extra-seats": {
+      "id": "extra-seats",
+      "name": "Extra seat",
+      "amount": 500,
+      "currency": "usd",
+      "maxQuantity": 20,
+      "limits": { "seats": 1 }
+    }
+  }
+}

@@ -11,7 +11,9 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getStripe } from "@/lib/stripe";
 import { isBillingEnabled } from "@/flags";
 import { getPlan } from "@/constants/plans";
-import { getPlanPriceId } from "@/utils/plan-prices";
+import { getAddonPriceId, getPlanPriceId } from "@/utils/plan-prices";
+import { classifySubscriptionItems, resolvePlanItem } from "@/utils/subscription-items";
+import { getAddon, getAddonMaxQuantity } from "@/constants/addons";
 import {
   ensureStripeCustomer,
   claimTeamSubscription,
@@ -27,6 +29,7 @@ import {
   completeTrialSchema,
   cancelSubscriptionSchema,
   teamBillingSchema,
+  updateAddonQuantitySchema,
 } from "@/schemas/billing.schema";
 import { getLocale, getTranslations } from "next-intl/server";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
@@ -316,6 +319,17 @@ export const completeTrialAction = actionClient
           throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
         }
 
+        // ...and only for the exact team/plan/interval it was stamped with in
+        // startTrialSetupAction, so a stale dialog can't start a mismatched subscription.
+        const setupMetadata = setupIntent.metadata ?? {};
+        if (
+          setupMetadata.teamId !== teamId ||
+          setupMetadata.planId !== planId ||
+          setupMetadata.interval !== interval
+        ) {
+          throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
+        }
+
         const subscription = await stripe.subscriptions.create({
           customer: customerId,
           items: [{ price: getPlanPriceId({ planId, interval }) }],
@@ -366,10 +380,34 @@ export const changePlanAction = actionClient
 
       try {
         const current = await stripe.subscriptions.retrieve(subscriptionId);
-        const currentItemId = current.items.data[0]?.id;
+
+        // A past_due/incomplete/unpaid subscription must settle its open payment first;
+        // otherwise the price swap piles prorations onto a team that is still locked out.
+        if (!getStripeSubscriptionTransitionPolicy(current.status)?.grantsPaidAccess) {
+          throw new ActionError("PRECONDITION_FAILED", t("errorPlanChangeRequiresPaidAccess"));
+        }
+
+        // Swap only the PLAN item; add-on items ride along untouched — except on a
+        // month<->year switch, where every item must move to its matching-interval
+        // price (Stripe rejects mixed intervals on one subscription).
+        const classified = classifySubscriptionItems(current);
+        const planItem = resolvePlanItem(classified);
+
+        const items: Stripe.SubscriptionUpdateParams.Item[] = [
+          { id: planItem?.id, price: getPlanPriceId({ planId, interval }) },
+        ];
+        for (const { item, addonId } of classified.addonItems) {
+          if (item.price?.recurring?.interval !== interval) {
+            items.push({
+              id: item.id,
+              price: getAddonPriceId({ addonId, interval }),
+              quantity: item.quantity ?? 1,
+            });
+          }
+        }
 
         const updated = await stripe.subscriptions.update(subscriptionId, {
-          items: [{ id: currentItemId, price: getPlanPriceId({ planId, interval }) }],
+          items,
           proration_behavior: "create_prorations",
         });
 
@@ -380,6 +418,70 @@ export const changePlanAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("changePlanAction failed", error);
+        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+      }
+    }, RATE_LIMITS.BILLING);
+  });
+
+// Sets the ABSOLUTE quantity of one add-on on the team's subscription: adds the item on
+// first purchase, updates its quantity, or deletes it at 0. Prorations land on the next
+// invoice, so no payment confirmation step is needed here.
+export const updateAddonQuantityAction = actionClient
+  .inputSchema(updateAddonQuantitySchema)
+  .action(async ({ parsedInput: { teamId, addonId, quantity } }) => {
+    return withRateLimit(async () => {
+      const { t, stripe, subscriptionId } = await requireExistingSubscription(teamId);
+
+      const addon = getAddon(addonId);
+      if (!addon) {
+        throw new ActionError("PRECONDITION_FAILED", t("errorAddonUnavailable"));
+      }
+      if (quantity > getAddonMaxQuantity(addon)) {
+        throw new ActionError("PRECONDITION_FAILED", t("errorAddonMaxQuantity", { max: getAddonMaxQuantity(addon) }));
+      }
+
+      try {
+        const current = await stripe.subscriptions.retrieve(subscriptionId);
+
+        // Add-ons ride on a subscription that grants paid access; a past_due/unpaid/
+        // paused subscription must settle its plan payment first.
+        if (!getStripeSubscriptionTransitionPolicy(current.status)?.grantsPaidAccess) {
+          throw new ActionError("PRECONDITION_FAILED", t("addonsRequirePaidPlan"));
+        }
+
+        const classified = classifySubscriptionItems(current);
+        // Defensive: operate on the first matching item and drop any duplicates (Stripe
+        // rejects same-price duplicates, but items added in the dashboard are untrusted).
+        const [primary, ...duplicates] = classified.addonItems.filter((entry) => entry.addonId === addonId);
+
+        if (!primary && quantity === 0) {
+          return { success: true };
+        }
+
+        const items: Stripe.SubscriptionUpdateParams.Item[] = primary
+          ? [quantity === 0 ? { id: primary.item.id, deleted: true } : { id: primary.item.id, quantity }]
+          : [{
+            // New item: match the subscription's billing interval (all items share one).
+            price: getAddonPriceId({
+              addonId,
+              interval: resolvePlanItem(classified)?.price?.recurring?.interval === "year" ? "year" : "month",
+            }),
+            quantity,
+          }];
+        items.push(...duplicates.map(({ item }) => ({ id: item.id, deleted: true })));
+
+        const updated = await stripe.subscriptions.update(subscriptionId, {
+          items,
+          proration_behavior: "create_prorations",
+        });
+
+        // Optimistically reconcile so the UI updates without waiting for the webhook.
+        await reconcileTeamFromSubscription({ subscription: updated });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ActionError) throw error;
+        console.error("updateAddonQuantityAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
       }
     }, RATE_LIMITS.BILLING);

@@ -7,7 +7,7 @@
       "amount": 0,
       "currency": "usd",
       "interval": "month",
-      "limits": { "seats": 2, "projects": 1 }
+      "limits": { "seats": 1, "projects": 1 }
     },
     "pro": {
       "id": "pro",
@@ -16,7 +16,7 @@
       "currency": "usd",
       "interval": "month",
       "trialDays": 7,
-      "limits": { "seats": 10, "projects": 20 }
+      "limits": { "seats": 3, "projects": 20 }
     },
     "enterprise": {
       "id": "enterprise",
@@ -25,7 +25,7 @@
       "currency": "usd",
       "interval": "month",
       "trialDays": 7,
-      "limits": { "seats": 100, "projects": 500 }
+      "limits": { "seats": 10, "projects": 500 }
     }
   }
 }

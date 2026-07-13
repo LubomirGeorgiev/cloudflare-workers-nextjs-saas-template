@@ -13,6 +13,7 @@ import { sendTeamInvitationEmail } from "@/utils/email";
 import { getTranslations } from "next-intl/server";
 import { getUserLocale } from "@/i18n/locale";
 import { getTeamEntitlements } from "@/utils/entitlements";
+import { fromStoredAddonQuantities } from "@/constants/addons";
 
 const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
 
@@ -267,6 +268,7 @@ export async function inviteUserToTeam({
     planId: team.subscriptionPlanId,
     subscriptionStatus: team.subscriptionStatus,
     planExpiresAt: team.planExpiresAt,
+    addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
   });
 
   const [memberCountResult, pendingInvitesResult] = await Promise.all([

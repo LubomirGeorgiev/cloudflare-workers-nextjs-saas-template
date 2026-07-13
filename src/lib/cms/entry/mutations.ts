@@ -191,7 +191,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     throw new Error(`Collection "${existingEntry.collection}" not found in CMS config`);
   }
 
-  let validatedFields: unknown = undefined;
+  let validatedFields: Record<string, unknown> | undefined = undefined;
   if (fields !== undefined) {
     validatedFields = validateEntryFields(fields, collection);
   }

@@ -84,6 +84,23 @@ describe("Stripe webhook route", () => {
     expect(handleStripeEvent).not.toHaveBeenCalled();
   });
 
+  test("rejects with 400 when Stripe is partially configured (webhook secret missing)", async () => {
+    disableBilling();
+    // Checkout keys present but no STRIPE_WEBHOOK_SECRET: a 200 here would make Stripe
+    // mark deliveries successful and silently drop lifecycle events.
+    process.env.STRIPE_SECRET_KEY = "sk_test_integration";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_integration";
+
+    const response = await POST(new Request("https://example.com/api/stripe/webhook", {
+      method: "POST",
+      body: eventPayload("customer.subscription.updated", { object: "subscription", id: "sub_x" }),
+      headers: { "stripe-signature": "t=1,v1=irrelevant" },
+    }));
+
+    expect(response.status).toBe(400);
+    expect(handleStripeEvent).not.toHaveBeenCalled();
+  });
+
   test("rejects a request without a signature header", async () => {
     const response = await POST(new Request("https://example.com/api/stripe/webhook", {
       method: "POST",

@@ -2,14 +2,20 @@ import "server-only";
 
 import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
-import { isBillingEnabled } from "@/flags";
 import { handleStripeEvent } from "@/utils/stripe-webhook-handler";
 
 // Stripe webhook endpoint. Unauthenticated (Stripe calls it directly) — do NOT wrap in
 // auth/CSRF/rate-limit middleware. Signature verification is the auth boundary.
 export async function POST(request: Request): Promise<Response> {
-  // When billing isn't configured, no-op so unconfigured downstream templates don't error.
-  if (!isBillingEnabled()) {
+  // Only a template with NO Stripe config may no-op. A partial config (keys set but
+  // webhook secret missing) must fall through to the 400 below so Stripe reports
+  // failed deliveries instead of silently dropping lifecycle events.
+  const hasAnyStripeConfig = Boolean(
+    process.env.STRIPE_SECRET_KEY ||
+    process.env.STRIPE_WEBHOOK_SECRET ||
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  );
+  if (!hasAnyStripeConfig) {
     return new Response(null, { status: 200 });
   }
 

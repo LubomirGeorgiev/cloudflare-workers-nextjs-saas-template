@@ -9,7 +9,7 @@ import { teamTable, teamMembershipTable, userTable, SYSTEM_ROLES_ENUM } from "@/
 import { handleStripeEvent, type StripeSubscriptionFetcher } from "@/utils/stripe-webhook-handler";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
 import { claimTeamSubscription, isTrialEligible, markUserTrialUsed } from "@/utils/team-subscription";
-import { DEFAULT_PLAN_ID, PAID_PLAN_IDS } from "@/constants/plans";
+import { DEFAULT_PLAN_ID, PAID_PLAN_IDS, type TeamPlanId } from "@/constants/plans";
 import { runScheduledJob } from "@/lib/scheduler/job-handlers";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 
@@ -36,7 +36,7 @@ async function clearRows(): Promise<void> {
   await Promise.all(keys.keys.map((key) => env.NEXT_INC_CACHE_KV.delete(key.name)));
 }
 
-async function seedTeam({ id, planId = DEFAULT_PLAN_ID }: { id: string; planId?: string }): Promise<void> {
+async function seedTeam({ id, planId = DEFAULT_PLAN_ID }: { id: string; planId?: TeamPlanId }): Promise<void> {
   await db.insert(teamTable).values({ id, name: "Acme", slug: id, subscriptionPlanId: planId });
 }
 

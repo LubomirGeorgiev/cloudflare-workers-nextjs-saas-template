@@ -605,9 +605,30 @@
         "errorTrialUnavailable": "La prueba gratuita no está disponible para este equipo.",
         "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
         "errorNoClientSecret": "No se pudo iniciar la suscripción. Inténtalo de nuevo.",
+        "errorPlanChangeRequiresPaidAccess": "Completa el pago pendiente antes de cambiar de plan.",
         "manageBilling": "Gestionar facturación",
         "manageBillingDescription": "Actualiza tu método de pago, consulta tus facturas y edita los datos de facturación en el portal de clientes de Stripe.",
-        "errorBillingPortal": "No se pudo abrir el portal de facturación. Inténtalo de nuevo."
+        "errorBillingPortal": "No se pudo abrir el portal de facturación. Inténtalo de nuevo.",
+        "addonsTitle": "Complementos",
+        "addonsSubtitle": "Amplía tu plan con extras opcionales.",
+        "addonsRequirePaidPlan": "Los complementos requieren una suscripción de pago activa.",
+        "addonContent": {
+          "extra-seats": {
+            "description": "Asientos adicionales para tu equipo más allá del límite incluido en tu plan."
+          }
+        },
+        "addonEach": "cada uno",
+        "addonActiveBadge": "{quantity} activos",
+        "addonSeatsGrant": "{seats, plural, one {+# asiento} other {+# asientos}}",
+        "addonProjectsGrant": "{projects, plural, one {+# proyecto} other {+# proyectos}}",
+        "addonDecrease": "Reducir cantidad",
+        "addonIncrease": "Aumentar cantidad",
+        "addonAdd": "Añadir a la suscripción",
+        "addonUpdate": "Actualizar cantidad",
+        "addonRemove": "Quitar de la suscripción",
+        "addonUpdated": "Complementos actualizados.",
+        "errorAddonUnavailable": "Este complemento no está disponible.",
+        "errorAddonMaxQuantity": "Puedes tener como máximo {max} de este complemento."
       }
     },
     "Settings": {

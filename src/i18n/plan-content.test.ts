@@ -3,6 +3,7 @@ import { createTranslator } from "next-intl";
 
 import { DEFAULT_LOCALE } from "./config";
 import { TEAM_PLAN_IDS } from "@/constants/plans";
+import { TEAM_ADDON_IDS } from "@/constants/addons";
 
 // Cross-catalog parity between locales is covered by messages.test.ts; this checks the
 // plan catalog against the DEFAULT locale copy, exercising the same t.has()/t.raw()
@@ -36,5 +37,21 @@ describe("plan marketing copy", () => {
     expect(t("seatsFeature", { seats: 1 })).not.toContain("{");
     expect(t("seatsFeature", { seats: 10 })).not.toBe(t("seatsFeature", { seats: 1 }));
     expect(t("projectsFeature", { projects: 20 })).not.toContain("{");
+  });
+});
+
+describe("add-on marketing copy", () => {
+  // Descriptions are optional for add-ons (the card renders without one), but every
+  // add-on the template ships should have copy in the default locale.
+  test.each(TEAM_ADDON_IDS)("add-on %s has a description", (addonId) => {
+    const key = `addonContent.${addonId}.description` as Parameters<typeof t.has>[0];
+    expect(t.has(key)).toBe(true);
+    expect(t(key).trim().length).toBeGreaterThan(0);
+  });
+
+  test("grant lines are localized with plural-aware placeholders", () => {
+    expect(t("addonSeatsGrant", { seats: 1 })).not.toContain("{");
+    expect(t("addonSeatsGrant", { seats: 5 })).not.toBe(t("addonSeatsGrant", { seats: 1 }));
+    expect(t("addonProjectsGrant", { projects: 10 })).not.toContain("{");
   });
 });

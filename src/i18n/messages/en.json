@@ -605,9 +605,30 @@
         "errorTrialUnavailable": "A free trial is not available for this team.",
         "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
         "errorNoClientSecret": "Could not start the subscription. Please try again.",
+        "errorPlanChangeRequiresPaidAccess": "Complete the pending payment before changing plans.",
         "manageBilling": "Manage billing",
         "manageBillingDescription": "Update your payment method, view invoices, and edit billing details in the Stripe customer portal.",
-        "errorBillingPortal": "Could not open the billing portal. Please try again."
+        "errorBillingPortal": "Could not open the billing portal. Please try again.",
+        "addonsTitle": "Add-ons",
+        "addonsSubtitle": "Extend your plan with optional extras.",
+        "addonsRequirePaidPlan": "Add-ons require an active paid subscription.",
+        "addonContent": {
+          "extra-seats": {
+            "description": "Extra seats for your team beyond your plan's included limit."
+          }
+        },
+        "addonEach": "each",
+        "addonActiveBadge": "{quantity} active",
+        "addonSeatsGrant": "{seats, plural, one {+# seat} other {+# seats}}",
+        "addonProjectsGrant": "{projects, plural, one {+# project} other {+# projects}}",
+        "addonDecrease": "Decrease quantity",
+        "addonIncrease": "Increase quantity",
+        "addonAdd": "Add to subscription",
+        "addonUpdate": "Update quantity",
+        "addonRemove": "Remove from subscription",
+        "addonUpdated": "Add-ons updated.",
+        "errorAddonUnavailable": "This add-on is not available.",
+        "errorAddonMaxQuantity": "You can have at most {max} of this add-on."
       }
     },
     "Settings": {
