@@ -82,7 +82,7 @@ describe("scheduler admin queue preview", () => {
           {
             id: "message-1",
             attempts: 2,
-            body: encodeBase64(JSON.stringify({ type: "credits.refresh-user" })),
+            body: encodeBase64(JSON.stringify({ type: "cms.publish-entry" })),
             metadata: { "CF-Content-Type": "json" },
             timestamp_ms: Date.parse("2026-05-29T10:00:00.000Z"),
           },
@@ -104,8 +104,8 @@ describe("scheduler admin queue preview", () => {
         {
           id: "message-1",
           attempts: 2,
-          body: { type: "credits.refresh-user" },
-          bodyText: "{\n  \"type\": \"credits.refresh-user\"\n}",
+          body: { type: "cms.publish-entry" },
+          bodyText: "{\n  \"type\": \"cms.publish-entry\"\n}",
           metadata: { "CF-Content-Type": "json" },
           publishedAt: new Date("2026-05-29T10:00:00.000Z"),
         },

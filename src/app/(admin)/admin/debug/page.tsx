@@ -4,6 +4,9 @@ import type { Metadata } from "next"
 import { PageHeader } from "@/components/page-header"
 import { isTestMode } from "@/utils/is-test-mode"
 
+import { EnvDump } from "./_components/env-dump"
+import { PurgeVinextCacheButton } from "./_components/purge-vinext-cache-button"
+
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
@@ -76,15 +79,16 @@ export default function AdminDebugPage() {
         ]}
       />
       <main className="flex flex-col gap-6 p-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Environment Debug</h1>
-          <p className="mt-2 text-muted-foreground">
-            Runtime Worker env bindings and process environment variables.
-          </p>
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Environment Debug</h1>
+            <p className="mt-2 text-muted-foreground">
+              Runtime Worker env bindings and process environment variables.
+            </p>
+          </div>
+          <PurgeVinextCacheButton />
         </div>
-        <pre className="max-h-[calc(100vh-14rem)] overflow-auto rounded-lg border bg-muted/40 p-4 text-xs leading-relaxed">
-          {JSON.stringify(envDump, null, 2)}
-        </pre>
+        <EnvDump value={envDump} />
       </main>
     </>
   )

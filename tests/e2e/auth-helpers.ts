@@ -48,9 +48,7 @@ export async function createVerifiedUserInLocalD1({
         emailVerified,
         signUpIpAddress,
         googleAccountId,
-        avatar,
-        currentCredits,
-        lastCreditRefreshAt
+        avatar
       )
       values (
         ${sqlStringLiteral(userId)},
@@ -65,9 +63,7 @@ export async function createVerifiedUserInLocalD1({
         ${now},
         '127.0.0.1',
         null,
-        null,
-        0,
-        ${now}
+        null
       );
     `,
   });

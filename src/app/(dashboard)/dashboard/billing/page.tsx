@@ -1,50 +1,22 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
-import { TransactionHistory } from "./_components/transaction-history";
-import { CreditPackages } from "./_components/credit-packages";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
-import { CreditSystemDisabled } from "@/components/credit-system-disabled";
-import { getTranslations } from "next-intl/server";
+import { getSessionFromCookie } from "@/utils/auth";
 
-export default async function BillingPage() {
+// Team billing lives at /dashboard/teams/[teamSlug]/billing. This thin redirect points
+// the generic nav "Billing" item at the session's selected team so nav stays team-agnostic.
+export default async function BillingRedirectPage() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    redirect("/sign-in");
+    redirect("/sign-in?redirect=/dashboard/billing");
   }
 
-  const t = await getTranslations("Client.Dashboard.Billing");
+  const teams = session.teams ?? [];
+  const selectedTeam = teams.find((team) => team.id === session.selectedTeam) ?? teams[0];
 
-  return (
-    <>
-      <PageHeader
-        items={[
-          {
-            href: "/dashboard",
-            label: t("breadcrumbDashboard")
-          },
-          {
-            href: "/dashboard/billing",
-            label: t("breadcrumbBilling")
-          }
-        ]}
-      />
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        {DISABLE_CREDIT_BILLING_SYSTEM ? (
-          <CreditSystemDisabled />
-        ) : (
-          <>
-            <CreditPackages />
-            <div className="mt-4">
-              <NuqsAdapter>
-                <TransactionHistory />
-              </NuqsAdapter>
-            </div>
-          </>
-        )}
-      </div>
-    </>
-  );
+  if (!selectedTeam) {
+    redirect("/dashboard/teams");
+  }
+
+  redirect(`/dashboard/teams/${selectedTeam.slug}/billing` as Route);
 }

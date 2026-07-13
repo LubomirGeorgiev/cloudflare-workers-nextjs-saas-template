@@ -36,7 +36,7 @@ async function invalidateCmsTagMutationCaches({
   entryRefs?: CmsEntryRef[];
 }) {
   const refs = entryRefs ?? (tagSlug ? await getCmsTagGroupEntryRefs({ tagSlug }) : []);
-  invalidateCmsTagGroupCaches({ entryRefs: refs });
+  await invalidateCmsTagGroupCaches({ entryRefs: refs });
 }
 
 async function assertCanonicalTagSlugAvailable(slug: string) {

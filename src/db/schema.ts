@@ -60,11 +60,9 @@ export const userTable = sqliteTable("user", {
   // User's explicit UI language (BCP-47 short code, e.g. "en"/"es"). Null = not set;
   // negotiate from cookie/Accept-Language instead. Validated against LOCALES in app code.
   preferredLocale: text({ length: 10 }),
-  // Credit system fields
-  currentCredits: integer().default(0).notNull(),
-  lastCreditRefreshAt: integer({
-    mode: "timestamp",
-  }),
+  // Set when this user starts a free trial on any team, so trials can't be farmed by
+  // creating fresh teams. Checked together with team.trialUsedAt for eligibility.
+  trialUsedAt: integer({ mode: "timestamp" }),
 }, (table) => ([
   index('email_idx').on(table.email),
   index('google_account_id_idx').on(table.googleAccountId),
@@ -103,76 +101,6 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   index('user_id_idx').on(table.userId),
   index('credential_id_idx').on(table.credentialId),
   uniqueIndex('passkey_credential_credentialId_unique').on(table.credentialId),
-]));
-
-// Credit transaction types
-export const CREDIT_TRANSACTION_TYPE = {
-  PURCHASE: 'PURCHASE',
-  USAGE: 'USAGE',
-  MONTHLY_REFRESH: 'MONTHLY_REFRESH',
-} as const;
-
-export const creditTransactionTypeTuple = Object.values(CREDIT_TRANSACTION_TYPE) as [string, ...string[]];
-
-export const creditTransactionTable = sqliteTable("credit_transaction", {
-  ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `ctxn_${createId()}`).notNull(),
-  userId: text().notNull().references(() => userTable.id),
-  amount: integer().notNull(),
-  // Track how many credits are still available from this transaction
-  remainingAmount: integer().default(0).notNull(),
-  type: text({
-    enum: creditTransactionTypeTuple,
-  }).notNull(),
-  description: text({
-    length: 255,
-  }).notNull(),
-  expirationDate: integer({
-    mode: "timestamp",
-  }),
-  expirationDateProcessedAt: integer({
-    mode: "timestamp",
-  }),
-  dedupeKey: text({
-    length: 255,
-  }),
-  paymentIntentId: text({
-    length: 255,
-  }),
-}, (table) => ([
-  index('credit_transaction_user_id_idx').on(table.userId),
-  index('credit_transaction_type_idx').on(table.type),
-  index('credit_transaction_created_at_idx').on(table.createdAt),
-  index('credit_transaction_expiration_date_idx').on(table.expirationDate),
-  uniqueIndex('credit_transaction_dedupe_key_unique').on(table.dedupeKey),
-  index('credit_transaction_payment_intent_id_idx').on(table.paymentIntentId),
-]));
-
-// Define item types that can be purchased
-export const PURCHASABLE_ITEM_TYPE = {
-  COMPONENT: 'COMPONENT',
-} as const;
-
-export const purchasableItemTypeTuple = Object.values(PURCHASABLE_ITEM_TYPE) as [string, ...string[]];
-
-export const purchasedItemsTable = sqliteTable("purchased_item", {
-  ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `pitem_${createId()}`).notNull(),
-  userId: text().notNull().references(() => userTable.id),
-  // The type of item (e.g., COMPONENT, TEMPLATE, etc.)
-  itemType: text({
-    enum: purchasableItemTypeTuple,
-  }).notNull(),
-  // The ID of the item within its type (e.g., componentId)
-  itemId: text().notNull(),
-  purchasedAt: integer({
-    mode: "timestamp",
-  }).$defaultFn(() => new Date()).notNull(),
-}, (table) => ([
-  index('purchased_item_user_id_idx').on(table.userId),
-  index('purchased_item_type_idx').on(table.itemType),
-  // Composite index for checking if a user owns a specific item of a specific type
-  index('purchased_item_user_item_idx').on(table.userId, table.itemType, table.itemId),
 ]));
 
 // System-defined roles - these are always available
@@ -222,13 +150,34 @@ export const teamTable = sqliteTable("team", {
   description: text({ length: 1000 }),
   avatarUrl: text({ length: 600 }),
   settings: text({ length: 10000 }),
+  // Stripe customer email; falls back to the acting user's email in ensureStripeCustomer.
   billingEmail: text({ length: 255 }),
-  planId: text({ length: 100 }),
+  // Our TeamPlanId ("free" | "pro" | ...). Renamed from the old unused `planId` column so the
+  // migration treats it as a NEW column: `ALTER TABLE ADD COLUMN ... DEFAULT 'free'` is a valid
+  // SQLite primitive (unlike changing an existing column's default, which would force a full
+  // table rebuild). getPlan()/entitlements still coalesce null -> "free" defensively.
+  subscriptionPlanId: text({ length: 100 }).default("free"),
+  // Subscription current period end (item-level current_period_end from Stripe).
   planExpiresAt: integer({ mode: "timestamp" }),
-  creditBalance: integer().default(0).notNull(),
+  stripeCustomerId: text({ length: 255 }),
+  // Doubles as the team's single checkout slot: createSubscriptionAction claims it
+  // atomically (WHERE NULL) so concurrent subscribes converge on one subscription.
+  stripeSubscriptionId: text({ length: 255 }),
+  // Stripe subscription status (active, trialing, past_due, canceled, incomplete,
+  // incomplete_expired, unpaid, paused) or null.
+  subscriptionStatus: text({ length: 50 }),
+  // Billing interval of the current subscription ("month" | "year"), mirrored from the
+  // Stripe price so the billing UI can tell yearly from monthly without a Stripe call.
+  subscriptionInterval: text({ length: 10 }),
+  // Mirrors Stripe's cancel_at_period_end (0/1) so billing reads stay DB-only.
+  cancelAtPeriodEnd: integer().default(0).notNull(),
+  // Set the first time a subscription reaches `trialing`; a team gets one free trial ever.
+  trialUsedAt: integer({ mode: "timestamp" }),
 }, (table) => ([
   index('team_slug_idx').on(table.slug),
   uniqueIndex('team_slug_unique').on(table.slug),
+  uniqueIndex('team_stripe_customer_id_unique').on(table.stripeCustomerId),
+  uniqueIndex('team_stripe_subscription_id_unique').on(table.stripeSubscriptionId),
 ]));
 
 // Team membership table
@@ -496,9 +445,7 @@ const relationSchema = {
   cmsEntryVersionTable,
   cmsMediaTable,
   cmsTagTable,
-  creditTransactionTable,
   passKeyCredentialTable,
-  purchasedItemsTable,
   scheduledJobTable,
   teamInvitationTable,
   teamMembershipTable,
@@ -646,32 +593,10 @@ export const relations = defineRelations(relationSchema, (r) => ({
       to: r.userTable.id,
     }),
   },
-  creditTransactionTable: {
-    user: r.one.userTable({
-      from: r.creditTransactionTable.userId,
-      to: r.userTable.id,
-      optional: false,
-    }),
-  },
-  purchasedItemsTable: {
-    user: r.one.userTable({
-      from: r.purchasedItemsTable.userId,
-      to: r.userTable.id,
-      optional: false,
-    }),
-  },
   userTable: {
     passkeys: r.many.passKeyCredentialTable({
       from: r.userTable.id,
       to: r.passKeyCredentialTable.userId,
-    }),
-    creditTransactions: r.many.creditTransactionTable({
-      from: r.userTable.id,
-      to: r.creditTransactionTable.userId,
-    }),
-    purchasedItems: r.many.purchasedItemsTable({
-      from: r.userTable.id,
-      to: r.purchasedItemsTable.userId,
     }),
     teamMemberships: r.many.teamMembershipTable({
       from: r.userTable.id,
@@ -703,10 +628,6 @@ export const relations = defineRelations(relationSchema, (r) => ({
 export type User = InferSelectModel<typeof userTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type PassKeyCredential = InferSelectModel<typeof passKeyCredentialTable>;
-// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
-export type CreditTransaction = InferSelectModel<typeof creditTransactionTable>;
-// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
-export type PurchasedItem = InferSelectModel<typeof purchasedItemsTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type Team = InferSelectModel<typeof teamTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.

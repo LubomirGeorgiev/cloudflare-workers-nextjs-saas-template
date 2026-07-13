@@ -18,7 +18,6 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +42,6 @@ import useSignOut from "@/hooks/useSignOut"
 import { useRouter } from "next/navigation"
 import { useSessionStore } from "@/state/session"
 import { useTheme } from "next-themes"
-import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants"
 import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config"
@@ -113,14 +111,6 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
               <div className="grid flex-1 gap-0.5 text-left text-sm leading-tight">
                 <span className="font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
                 <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                {!DISABLE_CREDIT_BILLING_SYSTEM && (
-                  <Badge variant="secondary" className="w-fit text-[10px]" onClick={() => {
-                    setOpenMobile(false)
-                    router.push('/dashboard/billing')
-                  }}>
-                    {t("credits", { count: user.currentCredits })}
-                  </Badge>
-                )}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
           </DropdownMenuTrigger>
@@ -139,11 +129,6 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                 <div className="grid flex-1 gap-0.5 text-left text-sm leading-tight">
                   <span className="font-semibold">{displayName}</span>
                   <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                  {!DISABLE_CREDIT_BILLING_SYSTEM && (
-                    <Badge variant="secondary" className="w-fit text-[10px]">
-                      {t("credits", { count: user.currentCredits })}
-                    </Badge>
-                  )}
                 </div>
               </div>
             </DropdownMenuLabel>

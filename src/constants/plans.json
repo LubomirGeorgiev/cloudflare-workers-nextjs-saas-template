@@ -1,0 +1,31 @@
+{
+  "yearlyDiscountPercent": 20,
+  "plans": {
+    "free": {
+      "id": "free",
+      "name": "Free",
+      "amount": 0,
+      "currency": "usd",
+      "interval": "month",
+      "limits": { "seats": 2, "projects": 1 }
+    },
+    "pro": {
+      "id": "pro",
+      "name": "Pro",
+      "amount": 2000,
+      "currency": "usd",
+      "interval": "month",
+      "trialDays": 7,
+      "limits": { "seats": 10, "projects": 20 }
+    },
+    "enterprise": {
+      "id": "enterprise",
+      "name": "Enterprise",
+      "amount": 9900,
+      "currency": "usd",
+      "interval": "month",
+      "trialDays": 7,
+      "limits": { "seats": 100, "projects": 500 }
+    }
+  }
+}

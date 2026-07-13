@@ -272,7 +272,7 @@
         },
         "billing": {
           "name": "Billing built in",
-          "description": "Stripe checkout and a credit system are wired up, so you can charge customers without starting from scratch."
+          "description": "Per-team Stripe subscriptions with an embedded Payment Element are wired up, so you can charge customers without starting from scratch."
         },
         "ui": {
           "name": "A real design system",
@@ -430,7 +430,6 @@
       "nav": {
         "dashboard": "Dashboard",
         "teams": "Teams",
-        "marketplace": "Marketplace",
         "billing": "Billing",
         "settings": "Settings",
         "profile": "Profile",
@@ -457,8 +456,7 @@
         "themeLight": "Light",
         "themeDark": "Dark",
         "changeLanguage": "Change language",
-        "logOut": "Log out",
-        "credits": "{count} credits"
+        "logOut": "Log out"
       }
     },
     "Dashboard": {
@@ -492,7 +490,7 @@
         "accessDeniedDescription": "You don't have permission to access team \"{name}\". Please contact the team owner to request access.",
         "returnToTeams": "Return to Teams",
         "inviteMembers": "Invite Members",
-        "teamCredits": "Team Credits",
+        "seatLimitReached": "This team has reached its plan limit of {seats} seats. Upgrade the plan to add more members.",
         "yourRoleLabel": "Your Role",
         "memberRole": "Member",
         "created": "Created",
@@ -520,51 +518,96 @@
       "Billing": {
         "breadcrumbDashboard": "Dashboard",
         "breadcrumbBilling": "Billing",
-        "creditsTitle": "Credits",
-        "currentCredits": "{count, number} credits",
-        "freeMonthlyCredits": "You get {count, number} free credits every month.",
-        "topUpTitle": "Top up your credits",
-        "topUpDescription": "Purchase additional credits to use our services. The more credits you buy, the better the value.",
-        "creditsLabel": "credits",
-        "oneTimePayment": "one-time payment",
-        "savePercent": "Save {percent}%",
-        "purchaseNow": "Purchase Now",
-        "purchaseCreditsDialogTitle": "Purchase Credits",
-        "errorCreatePaymentIntent": "Failed to create payment intent",
-        "errorStartCheckout": "Failed to start checkout",
-        "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
-        "creditsCount": "{count, number} credits",
+        "title": "Billing",
+        "subtitle": "Manage your team's subscription and plan.",
+        "currentPlanTitle": "Current plan",
+        "planLabel": "Plan",
+        "statusLabel": "Status",
+        "renewsOn": "Renews on {date}",
+        "endsOn": "Access ends on {date}",
+        "trialEndsOn": "Free trial ends on {date}",
+        "statusActive": "Active",
+        "statusTrialing": "Trial",
+        "statusPastDue": "Past due",
+        "statusCanceled": "Canceled",
+        "statusIncomplete": "Incomplete",
+        "statusUnpaid": "Unpaid",
+        "statusPaused": "Paused",
+        "statusUnknown": "Unknown",
+        "cancelScheduled": "Your subscription will end at the end of the current billing period.",
+        "plansTitle": "Plans",
+        "plansSubtitle": "Choose the plan that fits your team.",
+        "seatsFeature": "{seats, plural, one {# seat} other {# seats}}",
+        "projectsFeature": "{projects, plural, one {# project} other {# projects}}",
+        "planContent": {
+          "free": {
+            "description": "The basics to try things out",
+            "features": [
+              "Community support",
+              "Core dashboard features"
+            ]
+          },
+          "pro": {
+            "description": "For growing teams that need more",
+            "features": [
+              "Priority email support",
+              "Advanced analytics",
+              "Custom domains"
+            ]
+          },
+          "enterprise": {
+            "description": "For organizations running at scale",
+            "features": [
+              "Dedicated support",
+              "SSO & audit-ready access",
+              "Custom integrations"
+            ]
+          }
+        },
+        "perMonth": "/mo",
+        "perYear": "/yr",
+        "billingIntervalMonthly": "Monthly",
+        "billingIntervalYearly": "Yearly",
+        "yearlySaveBadge": "Save {percent}%",
+        "yearlyEquivalentNote": "{price}/mo, billed yearly",
+        "switchToYearly": "Switch to yearly billing",
+        "switchToMonthly": "Switch to monthly billing",
+        "billedYearly": "Billed yearly",
+        "billedMonthly": "Billed monthly",
+        "freePrice": "Free",
+        "currentPlanBadge": "Current plan",
+        "trialBadge": "{days}-day free trial",
+        "subscribe": "Subscribe",
+        "startFreeTrial": "Start {days}-day free trial",
+        "changeToPlan": "Switch to {plan}",
+        "cancelSubscription": "Cancel subscription",
+        "resumeSubscription": "Resume subscription",
+        "readOnlyNotice": "Only team admins can manage billing.",
+        "billingDisabledNotice": "Billing is not configured for this deployment.",
+        "paymentDialogTitle": "Subscribe to {plan}",
         "securePaymentInfo": "Your payment is secure and encrypted. We use Stripe, a trusted global payment provider, to process your payment.",
         "paymentDetailsInfo": "For your security, your payment details are handled directly by Stripe and never touch our servers.",
-        "creditsValidityInfo": "Credits will be added to your account immediately after successful payment and will be valid for {years} years from the purchase date.",
         "cancel": "Cancel",
         "processing": "Processing...",
         "payNow": "Pay Now",
+        "startTrialAction": "Start free trial",
+        "trialPaymentNote": "You won't be charged today — your card is only verified. Your {days}-day free trial starts once it's confirmed, and the first payment is taken when the trial ends. Cancel anytime before then.",
         "paymentFailed": "Payment failed",
-        "paymentSuccessful": "Payment successful!",
-        "errorNoPaymentIntent": "No payment intent found",
-        "transactionHistoryTitle": "Transaction History",
-        "columnDate": "Date",
-        "columnType": "Type",
-        "columnAmount": "Amount",
-        "columnDescription": "Description",
-        "expiredLabel": "Expired: ",
-        "expiresLabel": "Expires: ",
-        "noTransactions": "No transactions found",
-        "pageOf": "Page {page} of {total}"
-      },
-      "Marketplace": {
-        "breadcrumbMarketplace": "Marketplace",
-        "title": "Component Marketplace",
-        "subtitle": "Purchase and use our premium components using your credits",
-        "demoAlertTitle": "Demo Template Feature",
-        "demoAlertDescription": "This marketplace page demonstrates how to implement a credit-based billing system in your SaaS application. Feel free to use this as a starting point and customize it for your specific needs.",
-        "purchaseTransactionDescription": "Purchased {itemType}: {itemName}",
-        "errorBillingDisabled": "Marketplace is not available when credit billing is disabled",
-        "errorNotLoggedIn": "You must be logged in to make purchases",
-        "errorItemNotFound": "Item not found",
-        "errorAlreadyOwned": "You already own this item",
-        "errorInsufficientCredits": "You don't have enough credits to purchase this item"
+        "activating": "Activating your subscription…",
+        "subscriptionActive": "Your subscription is active.",
+        "completePaymentTitle": "Complete your payment",
+        "completePaymentDescription": "Your last payment needs confirmation to keep your subscription active.",
+        "completePayment": "Complete payment",
+        "confirmCancelTitle": "Cancel subscription?",
+        "confirmCancelDescription": "Your team keeps access until the end of the current billing period, then reverts to the Free plan.",
+        "confirmCancelAction": "Yes, cancel",
+        "errorStartCheckout": "Failed to start checkout",
+        "errorTrialUnavailable": "A free trial is not available for this team.",
+        "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
+        "errorNoClientSecret": "Could not start the subscription. Please try again.",
+        "manageBilling": "Manage billing",
+        "manageBillingDescription": "Update your payment method, view invoices, and edit billing details in the Stripe customer portal.",
+        "errorBillingPortal": "Could not open the billing portal. Please try again."
       }
     },
     "Settings": {
@@ -710,11 +753,11 @@
         "heading": "3. Disclaimer",
         "body": "The materials on our website are provided on an 'as is' basis. We make no warranties, expressed or implied, and hereby disclaim and negate all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights."
       },
-      "creditSystem": {
-        "heading": "4. Credit System and Payments",
-        "body1": "Our service operates on a credit-based system. Credits purchased through our platform are valid for {years} years from the date of purchase. All payments are processed securely through Stripe, our payment processing partner.",
-        "body2": "Once a payment is successfully processed, credits will be immediately added to your account. We do not offer refunds for purchased credits. The price and availability of credit packages may change without prior notice.",
-        "body3": "Free credits may be provided as part of promotional offers or monthly allocations. These credits are subject to different terms and expiration periods, which will be clearly communicated at the time they are issued."
+      "subscriptions": {
+        "heading": "4. Subscriptions and Payments",
+        "body1": "Paid plans are billed as recurring subscriptions per team. All payments are processed securely through Stripe, our payment processing partner, and renew automatically each billing period until canceled.",
+        "body2": "You can change or cancel your plan at any time from your team's billing settings. When you cancel, your team retains access until the end of the current billing period and is then moved to the Free plan. Prices and plan availability may change with prior notice.",
+        "body3": "Optional trial periods, where offered, are subject to the terms communicated at sign-up. Applicable taxes may be added at checkout depending on your location."
       },
       "limitations": {
         "heading": "5. Limitations",

@@ -3,6 +3,7 @@ import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { headers } from "next/headers";
 
+import { getDB } from "@/db";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { getIP } from "./get-IP";
 import { MAX_SESSIONS_PER_USER } from "@/constants";
@@ -39,6 +40,8 @@ export interface KVSession {
       isSystemRole: boolean;
     };
     permissions: string[];
+    planId: string | null;
+    subscriptionStatus: string | null;
   }[];
   selectedTeam?: string;
   // Increment CURRENT_SESSION_VERSION when changing persisted session shape.
@@ -46,7 +49,7 @@ export interface KVSession {
 }
 
 // Bump when KVSession changes so stored KV sessions are refreshed.
-export const CURRENT_SESSION_VERSION = 5;
+export const CURRENT_SESSION_VERSION = 6;
 
 async function getKV() {
   const { env } = await getCloudflareContext();
@@ -151,10 +154,6 @@ export async function getKVSession(sessionId: string, userId: string): Promise<K
 
   if (session?.user?.updatedAt) {
     session.user.updatedAt = new Date(session.user.updatedAt);
-  }
-
-  if (session?.user?.lastCreditRefreshAt) {
-    session.user.lastCreditRefreshAt = new Date(session.user.lastCreditRefreshAt);
   }
 
   if (session?.user?.emailVerified) {
@@ -281,14 +280,38 @@ export async function updateAllSessionsOfUser(userId: string) {
 
   const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
 
-  for (const sessionObj of sessions) {
+  await Promise.all(sessions.map(async (sessionObj) => {
     // Extract sessionId from key (format: "session:userId:sessionId")
     const sessionId = sessionObj.key.split(':')[2];
-    if (!sessionId) continue;
+    if (!sessionId) return;
 
     // Only update non-expired sessions
     if (sessionObj.absoluteExpiration && sessionObj.absoluteExpiration.getTime() > Date.now()) {
       await updateKVSession(sessionId, userId, sessionObj.absoluteExpiration, newUserData, teamsWithPermissions);
     }
+  }));
+}
+
+// Refreshing a member runs several D1 reads and D1 allows only ~6 concurrent
+// queries per invocation, so large teams are processed in small batches.
+const TEAM_SESSION_REFRESH_BATCH_SIZE = 5;
+
+// Re-fetch every member of a team (no request context needed) and refresh their KV
+// sessions so cached team plan/permissions reflect the new subscription state.
+// Fans out to many D1/KV operations — run it from the scheduler queue, not inline
+// in webhooks or actions.
+export async function refreshTeamMemberSessions(teamId: string): Promise<void> {
+  const db = getDB();
+  const memberships = await db.query.teamMembershipTable.findMany({
+    where: { teamId },
+    columns: { userId: true },
+  });
+
+  for (let i = 0; i < memberships.length; i += TEAM_SESSION_REFRESH_BATCH_SIZE) {
+    await Promise.all(
+      memberships
+        .slice(i, i + TEAM_SESSION_REFRESH_BATCH_SIZE)
+        .map((membership) => updateAllSessionsOfUser(membership.userId)),
+    );
   }
 }

@@ -15,6 +15,8 @@ describe("public config state", () => {
       isGoogleSSOEnabled: true,
       isTurnstileEnabled: true,
       turnstileSiteKey: "site-key",
+      isBillingEnabled: false,
+      stripePublishableKey: null,
     })).toEqual({
       isLoaded: true,
       isGoogleSSOEnabled: true,

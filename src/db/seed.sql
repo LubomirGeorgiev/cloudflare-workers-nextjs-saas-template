@@ -16,9 +16,7 @@ INSERT OR REPLACE INTO user (
   emailVerified,
   signUpIpAddress,
   googleAccountId,
-  avatar,
-  currentCredits,
-  lastCreditRefreshAt
+  avatar
 )
 VALUES
   -- Admin user
@@ -36,9 +34,7 @@ VALUES
     1767305213,
     '::1',
     NULL,
-    NULL,
-    0,
-    1767305206
+    NULL
   ),
   -- Regular user 1: Sarah Chen
   (
@@ -55,9 +51,7 @@ VALUES
     1765305213,
     '::1',
     NULL,
-    NULL,
-    0,
-    1765305206
+    NULL
   ),
   -- Regular user 2: Michael Rodriguez
   (
@@ -74,9 +68,7 @@ VALUES
     1764305213,
     '::1',
     NULL,
-    NULL,
-    0,
-    1764305206
+    NULL
   );
 
 -- Insert 20 blog posts for testing pagination (distributed across 3 authors with varying dates)
@@ -235,7 +227,7 @@ VALUES
     'cms_ent_docs001',
     'docs',
     'Introduction',
-    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Introduction"}]},{"type":"paragraph","content":[{"type":"text","text":"Learn how this template is structured and how to ship your first feature quickly."}]},{"type":"alertBlock","attrs":{"title":"Important","body":"This docs block now renders as a reusable alert so editors can highlight key guidance without relying on experimental client-side UI.","variant":"info"}},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"What You Get"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Authentication and team management"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Credit-based billing with Stripe"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Cloudflare Workers edge deployment"}]}]}]}]}',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Introduction"}]},{"type":"paragraph","content":[{"type":"text","text":"Learn how this template is structured and how to ship your first feature quickly."}]},{"type":"alertBlock","attrs":{"title":"Important","body":"This docs block now renders as a reusable alert so editors can highlight key guidance without relying on experimental client-side UI.","variant":"info"}},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"What You Get"}]},{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Authentication and team management"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Team subscription billing with Stripe"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"Cloudflare Workers edge deployment"}]}]}]}]}',
     '{}',
     'introduction',
     'Start here to understand the architecture and core modules.',
@@ -264,11 +256,11 @@ VALUES
   (
     'cms_ent_docs003',
     'docs',
-    'Billing and Credits',
-    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Billing and Credits"}]},{"type":"paragraph","content":[{"type":"text","text":"Understand how credits are purchased, consumed, and refreshed each month."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Credit Lifecycle"}]},{"type":"paragraph","content":[{"type":"text","text":"Credits are added after successful payment, then decremented by usage-based actions."}]}]}',
+    'Billing and Subscriptions',
+    '{"type":"doc","content":[{"type":"heading","attrs":{"level":1},"content":[{"type":"text","text":"Billing and Subscriptions"}]},{"type":"paragraph","content":[{"type":"text","text":"Each team owns a single Stripe subscription that unlocks its plan across all members."}]},{"type":"heading","attrs":{"level":2},"content":[{"type":"text","text":"Subscription Lifecycle"}]},{"type":"paragraph","content":[{"type":"text","text":"Teams subscribe with the embedded Payment Element; Stripe webhooks keep the team plan and status in sync as invoices are paid, renewed, or canceled."}]}]}',
     '{}',
-    'billing-and-credits',
-    'Understand credit packages, usage tracking, and monthly refresh behavior.',
+    'billing-and-subscriptions',
+    'Learn how team subscriptions, plans, and Stripe webhooks work.',
     'published',
     1736640000,
     'usr_lyo1up6a9q75dmpv3o5x9irj',
@@ -312,7 +304,7 @@ VALUES
   ('cms_nav_docs002', 'docs', 'cms_nav_docs001', 'page', 'Introduction', 'cms_ent_docs001', 'introduction', '/docs/getting-started/introduction', 0, 1736636400, 1736636400, 0),
   ('cms_nav_docs003', 'docs', 'cms_nav_docs001', 'page', 'Authentication Setup', 'cms_ent_docs002', 'authentication', '/docs/getting-started/authentication', 1, 1736638200, 1736638200, 0),
   ('cms_nav_docs004', 'docs', NULL, 'group', 'Core Concepts', NULL, 'core-concepts', NULL, 1, 1736640000, 1736640000, 0),
-  ('cms_nav_docs005', 'docs', 'cms_nav_docs004', 'page', 'Billing and Credits', 'cms_ent_docs003', 'billing-and-credits', '/docs/core-concepts/billing-and-credits', 0, 1736640000, 1736640000, 0),
+  ('cms_nav_docs005', 'docs', 'cms_nav_docs004', 'page', 'Billing and Subscriptions', 'cms_ent_docs003', 'billing-and-subscriptions', '/docs/core-concepts/billing-and-subscriptions', 0, 1736640000, 1736640000, 0),
   ('cms_nav_docs006', 'docs', NULL, 'page', 'CLI Reference', 'cms_ent_docs004', 'cli-reference', '/docs/cli-reference', 2, 1736641800, 1736641800, 0);
 
 -- Insert docs redirect sample for canonical URL migration behavior

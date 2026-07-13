@@ -19,15 +19,17 @@ import type { SessionValidationResult } from "@/types"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   serverSession?: SessionValidationResult;
+  billingEnabled?: boolean;
 }
 
 export function AppSidebar({
   serverSession,
+  billingEnabled,
   ...props
 }: AppSidebarProps) {
   const clientSession = useSessionStore((store) => store.session);
   const session = clientSession ?? serverSession ?? null;
-  const data = getAppSidebarData({ session });
+  const data = getAppSidebarData({ session, billingEnabled });
 
   return (
     <Sidebar collapsible="icon" {...props}>

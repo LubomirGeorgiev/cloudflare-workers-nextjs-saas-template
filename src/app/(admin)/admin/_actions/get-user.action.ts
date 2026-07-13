@@ -25,12 +25,6 @@ export const getUserData = actionClient
       throw new ActionError("NOT_FOUND", "User not found")
     }
 
-    const transactions = await db.query.creditTransactionTable.findMany({
-      where: { userId: input.userId },
-      orderBy: { createdAt: "desc" },
-      limit: 10,
-    })
-
     const passkeys = await db.query.passKeyCredentialTable.findMany({
       where: { userId: input.userId },
       orderBy: { createdAt: "desc" },
@@ -38,7 +32,6 @@ export const getUserData = actionClient
 
     return {
       user,
-      transactions,
       passkeys,
     }
   })

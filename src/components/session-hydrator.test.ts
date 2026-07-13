@@ -19,7 +19,6 @@ interface CreateSessionOptions {
   role?: string;
   emailVerified?: Date | null;
   updatedAt?: Date;
-  currentCredits?: number;
 }
 
 const initialState = useSessionStore.getInitialState();
@@ -70,7 +69,6 @@ describe("SessionHydrator", () => {
     expect(getSessionHydrationKey(createSession({
       updatedAt: new Date("2026-06-09T12:02:00.000Z"),
     }))).not.toBe(baseKey);
-    expect(getSessionHydrationKey(createSession({ currentCredits: 10 }))).not.toBe(baseKey);
   });
 
   test("includes future session fields without hydrator-specific mapping", () => {
@@ -88,7 +86,6 @@ function createSession({
   role = "user",
   emailVerified = null,
   updatedAt,
-  currentCredits = 0,
 }: CreateSessionOptions = {}) {
   const now = new Date("2026-06-09T12:00:00.000Z");
 
@@ -106,8 +103,6 @@ function createSession({
       emailVerified,
       avatar: null,
       preferredLocale: null,
-      currentCredits,
-      lastCreditRefreshAt: null,
       createdAt: now,
       updatedAt: updatedAt ?? now,
     },

@@ -3,9 +3,8 @@ import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 
 export const SCHEDULED_JOB_TYPES = {
   CMS_PUBLISH_ENTRY: "cms.publish-entry",
-  CREDIT_EXPIRE_TRANSACTION: "credits.expire-transaction",
-  CREDIT_REFRESH_USER: "credits.refresh-user",
   EMAIL_SEND: "email.send",
+  TEAM_SESSIONS_REFRESH: "team.sessions-refresh",
 } as const;
 
 export type ScheduledJobType = typeof SCHEDULED_JOB_TYPES[keyof typeof SCHEDULED_JOB_TYPES];
@@ -28,15 +27,10 @@ export const cmsPublishEntryJobPayloadSchema = v.object({
 });
 type CmsPublishEntryJobPayload = v.InferOutput<typeof cmsPublishEntryJobPayloadSchema>;
 
-export const creditExpireTransactionJobPayloadSchema = v.object({
-  transactionId: nonEmptyString,
+export const teamSessionsRefreshJobPayloadSchema = v.object({
+  teamId: nonEmptyString,
 });
-type CreditExpireTransactionJobPayload = v.InferOutput<typeof creditExpireTransactionJobPayloadSchema>;
-
-export const creditRefreshUserJobPayloadSchema = v.object({
-  userId: nonEmptyString,
-});
-type CreditRefreshUserJobPayload = v.InferOutput<typeof creditRefreshUserJobPayloadSchema>;
+type TeamSessionsRefreshJobPayload = v.InferOutput<typeof teamSessionsRefreshJobPayloadSchema>;
 
 const passwordResetEmailJobPayloadSchema = v.object({
   to: nonEmptyString,
@@ -79,9 +73,8 @@ export type EmailSendJobPayload = v.InferOutput<typeof emailSendJobPayloadSchema
 
 interface ScheduledJobPayloadByType {
   [SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY]: CmsPublishEntryJobPayload;
-  [SCHEDULED_JOB_TYPES.CREDIT_EXPIRE_TRANSACTION]: CreditExpireTransactionJobPayload;
-  [SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER]: CreditRefreshUserJobPayload;
   [SCHEDULED_JOB_TYPES.EMAIL_SEND]: EmailSendJobPayload;
+  [SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH]: TeamSessionsRefreshJobPayload;
 }
 
 export type ScheduledJobPayload<T extends ScheduledJobType = ScheduledJobType> =

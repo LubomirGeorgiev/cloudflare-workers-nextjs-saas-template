@@ -36,6 +36,20 @@ describe("getPublicConfig", () => {
       isGoogleSSOEnabled: true,
       isTurnstileEnabled: true,
       turnstileSiteKey: "turnstile-site-key",
+      isBillingEnabled: false,
+      stripePublishableKey: null,
     });
+  });
+
+  test("reports billing enabled and exposes the publishable key when Stripe is configured", async () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_123";
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_123";
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_123";
+
+    const flags = await import("./flags");
+
+    const config = await flags.getPublicConfig();
+    expect(config.isBillingEnabled).toBe(true);
+    expect(config.stripePublishableKey).toBe("pk_test_123");
   });
 });

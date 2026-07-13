@@ -3,13 +3,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { SCHEDULED_JOB_TYPES, type ScheduledQueueMessage } from "@/lib/scheduler/jobs";
 
 const {
-  dispatchDueCreditExpirationJobsMock,
-  dispatchDueCreditRefreshJobsMock,
   dispatchScheduledJobsToQueueMock,
   runScheduledJobMock,
 } = vi.hoisted(() => ({
-  dispatchDueCreditExpirationJobsMock: vi.fn(),
-  dispatchDueCreditRefreshJobsMock: vi.fn(),
   dispatchScheduledJobsToQueueMock: vi.fn(),
   runScheduledJobMock: vi.fn(),
 }));
@@ -21,11 +17,6 @@ vi.mock("@/lib/scheduler/scheduler", () => ({
 
 vi.mock("@/lib/scheduler/job-handlers", () => ({
   runScheduledJob: runScheduledJobMock,
-}));
-
-vi.mock("@/utils/credit-scheduler", () => ({
-  dispatchDueCreditExpirationJobs: dispatchDueCreditExpirationJobsMock,
-  dispatchDueCreditRefreshJobs: dispatchDueCreditRefreshJobsMock,
 }));
 
 const { handleSchedulerCron, handleSchedulerQueue } = await import("@/lib/scheduler/worker");
@@ -41,9 +32,9 @@ function createMessage({
     id: "message-1",
     attempts,
     body: {
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
       payload: {
-        userId: "user-1",
+        entryId: "entry-1",
       },
       runAt: runAt.toISOString(),
     } satisfies ScheduledQueueMessage,
@@ -58,23 +49,19 @@ describe("scheduler worker", () => {
     vi.clearAllMocks();
   });
 
-  test("cron dispatches persisted jobs and due credit jobs at the scheduled time", async () => {
+  test("cron dispatches persisted jobs at the scheduled time", async () => {
     const queue = { send: vi.fn() };
     const now = new Date("2026-05-29T10:00:00.000Z");
     dispatchScheduledJobsToQueueMock.mockResolvedValue(2);
-    dispatchDueCreditExpirationJobsMock.mockResolvedValue(3);
-    dispatchDueCreditRefreshJobsMock.mockResolvedValue(5);
 
     await expect(handleSchedulerCron({
       env: {
         SCHEDULER_QUEUE: queue,
       } as unknown as Env,
       now,
-    })).resolves.toBe(10);
+    })).resolves.toBe(2);
 
     expect(dispatchScheduledJobsToQueueMock).toHaveBeenCalledWith({ queue, now });
-    expect(dispatchDueCreditExpirationJobsMock).toHaveBeenCalledWith({ queue, now });
-    expect(dispatchDueCreditRefreshJobsMock).toHaveBeenCalledWith({ queue, now });
   });
 
   test("queue retries a message scheduled for the future", async () => {
@@ -128,7 +115,7 @@ describe("scheduler worker", () => {
     expect(consoleError).toHaveBeenCalledWith("Scheduled job failed", expect.objectContaining({
       attempts: 3,
       messageId: "message-1",
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
     }));
     consoleError.mockRestore();
   });
