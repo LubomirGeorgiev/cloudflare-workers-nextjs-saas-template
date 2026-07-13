@@ -9,6 +9,7 @@ import { getClientMessages } from "@/i18n/client-messages";
 
 import { ThemeProvider } from "@/components/providers";
 import { NavigationTopLoader } from "@/components/navigation-top-loader";
+import { StreamedMetadataHoister } from "@/components/streamed-metadata-hoister";
 import { AskiChatStickyBanner } from "@/components/aski-chat-sticky-banner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -73,6 +74,7 @@ export default async function BaseLayout({
       <body className="font-sans antialiased">
         <NextIntlClientProvider locale={locale} messages={messages}>
           <PublicConfigRootHydrator />
+          <StreamedMetadataHoister />
           <NavigationTopLoader />
           <ThemeProvider
             attribute="class"
