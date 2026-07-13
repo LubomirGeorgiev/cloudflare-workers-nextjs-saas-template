@@ -21,9 +21,9 @@ export function setCacheScope({ ttl, tags }: CacheScopeOptions): void {
   });
 }
 
-export function revalidateCacheTag(tag: string): void {
+export async function revalidateCacheTag(tag: string): Promise<void> {
   try {
-    revalidateTag(tag, "max");
+    await revalidateTag(tag, "max");
   } catch (error) {
     if (error instanceof Error && error.message.includes("static generation store missing")) {
       return;

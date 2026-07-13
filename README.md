@@ -75,15 +75,14 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - ✨ Beautiful Email Templates
   - 👤 Profile Settings Page
   - 🎯 Form Validation States
-- 💳 Credit Billing System
-  - 💰 Credit-based Pricing Model
-  - 🔄 Monthly Credit Refresh
-  - 📊 Credit Usage Tracking
-  - 💳 Stripe Payment Integration
-  - 📜 Transaction History
-  - 📦 Credit Package Management
-  - 💸 Pay-as-you-go Model
-  - 📈 Usage Analytics
+- 💳 Team Subscription Billing
+  - 🧩 Per-team plans (Free / Pro / Enterprise) defined in code
+  - 💳 Embedded Stripe Elements (Payment Element) for checkout — no redirect to hosted pages
+  - 🔔 Webhook-driven subscription lifecycle (Stripe is the source of truth)
+  - 🔁 In-app plan changes and cancellation
+  - 🧾 Stripe Customer Portal for payment methods, invoices, and billing details
+  - 🔒 Plan-based entitlements and feature gating (e.g. seat limits)
+  - 🛠️ One-command Stripe setup (`pnpm stripe:setup`)
 - 👑 Admin Dashboard
   - 👥 User Management
 - 📝 Content Management System
@@ -183,6 +182,29 @@ augmentation in `src/i18n/next-intl.d.ts`.
 6. `pnpm dev` - Starts the Vinext development server
 7. Go to http://localhost:3000/sign-in and login with the test user credentials: test@test.com / password
 8. Go to http://localhost:3000/admin to manage users and the CMS.
+
+## Billing setup (team subscriptions)
+
+Billing is per-team: each team owns a single Stripe subscription to a plan (Free / Pro / Enterprise). Plans are defined in code in [`src/constants/plans.json`](src/constants/plans.json) and consumed by both the app and the setup script, so Stripe and code never drift. Payment collection uses embedded Stripe Elements (the Payment Element), and plan changes/cancellation are handled by in-app server actions. The hosted [Stripe Customer Portal](https://docs.stripe.com/customer-management) complements this for self-service payment method updates, invoice history, and billing details — the billing page shows a "Manage billing" button once the team has a Stripe customer.
+
+The subscription lifecycle is **webhook-driven**: Stripe is the source of truth and the DB is a cache updated from webhook events. The app never mutates subscription state from the client's `confirmPayment` result alone.
+
+Billing is enabled only when `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` are all set (see `isBillingEnabled()` in [`src/flags.ts`](src/flags.ts)); otherwise the billing UI is hidden and the webhook route no-ops.
+
+Happy path:
+
+1. Create a Stripe account and copy `sk_test_...` / `pk_test_...` into `.env` (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`).
+2. Run `pnpm stripe:setup` — this idempotently creates the products + recurring prices for the paid plans and, by default, upserts the resolved `STRIPE_PRICE_PRO` / `STRIPE_PRICE_ENTERPRISE` values into `.env` (replacing existing keys in place, never duplicating). When yearly billing is enabled (see below) it also creates the yearly prices and writes `STRIPE_PRICE_PRO_YEAR` / `STRIPE_PRICE_ENTERPRISE_YEAR`. It refuses to run against a live key unless you pass `--live`. Use `--dry-run` to preview without changing anything, or `--no-write` to create the Stripe resources but only print the values instead of touching `.env`.
+3. Local webhooks: `stripe listen --forward-to localhost:3000/api/stripe/webhook`, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`.
+4. Production: `pnpm stripe:setup --with-webhook https://<domain>/api/stripe/webhook`, then set the secrets via `wrangler secret put STRIPE_SECRET_KEY` and `wrangler secret put STRIPE_WEBHOOK_SECRET`.
+5. Manual Dashboard alternative: create the Products + recurring Prices yourself, add a webhook endpoint for the subscription/invoice events to `/api/stripe/webhook`, and copy the price IDs + signing secret into your env.
+6. Customer Portal: `pnpm stripe:setup` also provisions a portal configuration (written to `.env` as `STRIPE_PORTAL_CONFIG_ID`) that enables payment method updates, invoice history, and billing-details editing — including business name, address, and VAT/tax IDs, which Stripe prints on invoices automatically. Plan changes and cancellation are deliberately disabled in the portal because they're handled by in-app server actions; keeping a single code path avoids conflicting subscription state. If `STRIPE_PORTAL_CONFIG_ID` is unset, sessions fall back to the account's default portal configuration ([Settings → Billing → Customer portal](https://dashboard.stripe.com/settings/billing/portal)).
+
+The billing page lives at `/dashboard/teams/[teamSlug]/billing` (the generic `/dashboard/billing` nav item redirects there for the selected team).
+
+**Yearly billing:** set `yearlyDiscountPercent` in [`src/constants/plans.json`](src/constants/plans.json) (e.g. `20`) to offer every monthly paid plan as a yearly subscription at that percentage off — the yearly amount is derived as `monthly × 12 × (100 − discount) / 100`, the billing page gains a Monthly/Yearly toggle with a "Save X%" badge, and existing subscribers can switch interval in place (prorated by Stripe). Re-run `pnpm stripe:setup` after changing it so the yearly prices exist. Remove the key to keep billing monthly-only.
+
+**Entitlements & downgrades:** feature access is derived from the team's plan via `getTeamEntitlements` ([`src/utils/entitlements.ts`](src/utils/entitlements.ts)). Plan limits (e.g. seats) are enforced only at *grow* points such as inviting members — a team that drops to a lower plan keeps its existing members and is never auto-evicted.
 
 ## End-to-end tests
 

@@ -37,17 +37,17 @@ export default defineConfig({
         },
         d1Databases: {
           NEXT_TAG_CACHE_D1: {
-            id: "credit-billing-integration-db",
+            id: "billing-integration-db",
           },
         },
         kvNamespaces: {
           NEXT_INC_CACHE_KV: {
-            id: "credit-billing-integration-kv",
+            id: "billing-integration-kv",
           },
         },
         queueProducers: {
           SCHEDULER_QUEUE: {
-            queueName: "credit-billing-integration-scheduler",
+            queueName: "billing-integration-scheduler",
           },
         },
       },

@@ -1,6 +1,4 @@
 import type { Route } from "next";
-import { cache } from "react";
-import { getDB } from "@/db";
 import { notFound, redirect } from "next/navigation";
 import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/db/schema";
@@ -10,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { getSessionFromCookie } from "@/utils/auth";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { getTeamMembers } from "@/lib/teams/team-members";
+import { getTeamBySlug } from "@/lib/teams/teams";
 import {
   Table,
   TableBody,
@@ -31,18 +30,10 @@ interface TeamPageProps {
   }>;
 }
 
-const getCachedTeamBySlug = cache(async (teamSlug: string) => {
-  const db = getDB();
-
-  return db.query.teamTable.findFirst({
-    where: { slug: teamSlug },
-  });
-});
-
 // TODO Test the removal process
 export async function generateMetadata({ params }: TeamPageProps) {
   const { teamSlug } = await params;
-  const team = await getCachedTeamBySlug(teamSlug);
+  const team = await getTeamBySlug(teamSlug);
   const t = await getTranslations("Client.Dashboard.Teams");
 
   if (!team) {
@@ -66,7 +57,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
     return redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`) as Route);
   }
 
-  const team = await getCachedTeamBySlug(teamSlug);
+  const team = await getTeamBySlug(teamSlug);
 
   if (!team) {
     notFound();
@@ -156,12 +147,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Quick stats */}
-          <div className="col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-6 border rounded-lg bg-card flex flex-col">
-              <span className="text-sm font-medium text-muted-foreground">{t("teamCredits")}</span>
-              <span className="text-2xl font-bold">{team.creditBalance || 0}</span>
-            </div>
-
+          <div className="col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-6 border rounded-lg bg-card flex flex-col">
               <span className="text-sm font-medium text-muted-foreground">{t("yourRoleLabel")}</span>
               <span className="text-2xl font-bold capitalize">

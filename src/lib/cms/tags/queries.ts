@@ -161,7 +161,7 @@ export async function getCmsTagLocaleSiblings(
 
   return rows.map((row) => ({
     id: row.id,
-    locale: row.locale as Locale,
+    locale: row.locale,
     name: row.name,
   }));
 }
@@ -180,7 +180,7 @@ export async function getCmsTagLocaleCoverage(): Promise<Map<string, Set<Locale>
   const coverage = new Map<string, Set<Locale>>();
   for (const row of rows) {
     const set = coverage.get(row.slug) ?? new Set<Locale>();
-    set.add(row.locale as Locale);
+    set.add(row.locale);
     coverage.set(row.slug, set);
   }
   return coverage;

@@ -5,12 +5,15 @@ import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershi
 import { canSignUp, getSessionFromCookie } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, gt, isNull } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
+import { getTranslations } from "next-intl/server";
 import { getUserLocale } from "@/i18n/locale";
+import { getTeamEntitlements } from "@/utils/entitlements";
+import { fromStoredAddonQuantities } from "@/constants/addons";
 
 const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
 
@@ -256,6 +259,37 @@ export async function inviteUserToTeam({
 
   if (!team) {
     throw new ActionError("NOT_FOUND", "Team not found");
+  }
+
+  // Seat-cap gate: enforce the team plan's seat limit at this grow point. Counts current
+  // members plus outstanding invitations. Limits are enforced only when growing — a team
+  // already over a lowered cap keeps its members (never auto-evicted).
+  const { limits } = getTeamEntitlements({
+    planId: team.subscriptionPlanId,
+    subscriptionStatus: team.subscriptionStatus,
+    planExpiresAt: team.planExpiresAt,
+    addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
+  });
+
+  const [memberCountResult, pendingInvitesResult] = await Promise.all([
+    db.select({ value: count() })
+      .from(teamMembershipTable)
+      .where(eq(teamMembershipTable.teamId, teamId)),
+    db.select({ value: count() })
+      .from(teamInvitationTable)
+      .where(and(
+        eq(teamInvitationTable.teamId, teamId),
+        isNull(teamInvitationTable.acceptedAt),
+        // Expired invites must not consume seats (mirrors getPendingInvitationsForCurrentUser).
+        gt(teamInvitationTable.expiresAt, new Date()),
+      )),
+  ]);
+
+  const seatsInUse = (memberCountResult[0]?.value || 0) + (pendingInvitesResult[0]?.value || 0);
+
+  if (seatsInUse >= limits.seats) {
+    const t = await getTranslations("Client.Dashboard.Teams");
+    throw new ActionError("FORBIDDEN", t("seatLimitReached", { seats: limits.seats }));
   }
 
   const teamName = team.name as string || "Team";

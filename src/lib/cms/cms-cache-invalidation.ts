@@ -24,8 +24,8 @@ export interface CmsIncludeRelations {
   tags?: boolean;
 }
 
-function invalidateCacheTags(tags: string[]): void {
-  Array.from(new Set(tags)).forEach((tag) => revalidateCacheTag(tag));
+async function invalidateCacheTags(tags: string[]): Promise<void> {
+  await Promise.all(Array.from(new Set(tags)).map((tag) => revalidateCacheTag(tag)));
 }
 
 async function getAllCmsEntryCacheTags(): Promise<string[]> {
@@ -66,7 +66,7 @@ export async function invalidateCmsEntryCache({
   collectionSlug: CollectionsUnion;
   slug: string;
 }): Promise<void> {
-  invalidateCacheTags([
+  await invalidateCacheTags([
     CACHE_TAGS.cmsEntry({ collectionSlug, slug }),
   ]);
 }
@@ -76,7 +76,7 @@ export async function invalidateCmsCollectionCache({
 }: {
   collectionSlug: CollectionsUnion;
 }): Promise<void> {
-  invalidateCacheTags([
+  await invalidateCacheTags([
     CACHE_TAGS.cmsCollection(collectionSlug),
   ]);
 }
@@ -87,7 +87,7 @@ export async function invalidateCmsCollectionCountCache({
 }: {
   collectionSlug: CollectionsUnion;
 }): Promise<void> {
-  invalidateCacheTags([
+  await invalidateCacheTags([
     CACHE_TAGS.cmsCollectionCount(collectionSlug),
   ]);
 }
@@ -103,7 +103,7 @@ export async function invalidateCmsNavigationCachesForCollection({
     return;
   }
 
-  invalidateCacheTags([
+  await invalidateCacheTags([
     CACHE_TAGS.cmsNavigation(navigationKey),
     CACHE_TAGS.cmsRedirect(navigationKey),
   ]);
@@ -114,11 +114,11 @@ export async function invalidateCmsNavigationCachesForCollection({
 }
 
 export async function invalidateSitemapCache(): Promise<void> {
-  revalidateCacheTag(CACHE_TAGS.SITEMAP);
+  await revalidateCacheTag(CACHE_TAGS.SITEMAP);
 }
 
 export async function invalidateCmsTagsCache(): Promise<void> {
-  revalidateCacheTag(CACHE_TAGS.CMS_TAGS);
+  await revalidateCacheTag(CACHE_TAGS.CMS_TAGS);
 }
 
 export interface CmsEntryRef {
@@ -156,11 +156,11 @@ export async function getCmsTagGroupEntryRefs({
 // Scoped invalidation for a tag write: only the entries that render this tag (and their collection list
 // pages) plus the tags catalog and sitemap. A tag edit can't change collection counts or navigation, so
 // those tags are deliberately left alone — the previous behavior flushed the entire CMS cache (all entries/collections/ counts/nav) after an unfiltered full-table scan on every tag mutation.
-export function invalidateCmsTagGroupCaches({
+export async function invalidateCmsTagGroupCaches({
   entryRefs,
 }: {
   entryRefs: CmsEntryRef[];
-}): void {
+}): Promise<void> {
   const tags = new Set<string>([CACHE_TAGS.CMS_TAGS, CACHE_TAGS.SITEMAP]);
 
   for (const ref of entryRefs) {
@@ -168,7 +168,7 @@ export function invalidateCmsTagGroupCaches({
     tags.add(CACHE_TAGS.cmsCollection(ref.collection));
   }
 
-  invalidateCacheTags(Array.from(tags));
+  await invalidateCacheTags(Array.from(tags));
 }
 
 export async function invalidateEntryAndCollection({
@@ -197,7 +197,7 @@ export async function invalidateEntryAndCollection({
 export async function invalidateAllCmsCollectionCaches(): Promise<void> {
   const entryTags = await getAllCmsEntryCacheTags();
 
-  invalidateCacheTags([
+  await invalidateCacheTags([
     ...getAllCmsCollectionCacheTags(),
     ...getAllCmsNavigationCacheTags(),
     ...entryTags,

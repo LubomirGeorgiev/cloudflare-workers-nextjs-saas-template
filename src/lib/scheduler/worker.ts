@@ -1,10 +1,6 @@
 import { dispatchScheduledJobsToQueue, getSchedulerQueueDelayLimitSeconds } from "@/lib/scheduler/scheduler";
 import { runScheduledJob } from "@/lib/scheduler/job-handlers";
 import type { ScheduledQueueMessage } from "@/lib/scheduler/jobs";
-import {
-  dispatchDueCreditExpirationJobs,
-  dispatchDueCreditRefreshJobs,
-} from "@/utils/credit-scheduler";
 
 function getRetryDelaySeconds(attempts: number): number {
   const baseDelaySeconds = 30;
@@ -24,19 +20,9 @@ export async function handleSchedulerCron({
   now?: Date;
 }): Promise<number> {
   const queue = env.SCHEDULER_QUEUE;
-  const [
-    scheduledJobsCount,
-    creditExpirationJobsCount,
-    creditRefreshJobsCount,
-  ] = await Promise.all([
-    dispatchScheduledJobsToQueue({ queue, now }),
-    dispatchDueCreditExpirationJobs({ queue, now }),
-    dispatchDueCreditRefreshJobs({ queue, now }),
-  ]);
+  const scheduledJobsCount = await dispatchScheduledJobsToQueue({ queue, now });
 
-  return scheduledJobsCount
-    + creditExpirationJobsCount
-    + creditRefreshJobsCount;
+  return scheduledJobsCount;
 }
 
 export async function handleSchedulerQueue(batch: MessageBatch<ScheduledQueueMessage>): Promise<void> {

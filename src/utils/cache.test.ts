@@ -46,10 +46,17 @@ describe("cache utilities", () => {
     });
   });
 
-  test("revalidates a cache tag with stale-while-revalidate semantics", () => {
-    revalidateCacheTag("cms-collection-docs");
+  test("revalidates a cache tag with stale-while-revalidate semantics", async () => {
+    await revalidateCacheTag("cms-collection-docs");
 
     expect(revalidateTagMock).toHaveBeenCalledWith("cms-collection-docs", "max");
+  });
+
+  test("waits for asynchronous cache tag invalidation", async () => {
+    const invalidationError = new Error("KV write failed");
+    revalidateTagMock.mockRejectedValueOnce(invalidationError);
+
+    await expect(revalidateCacheTag("cms-collection-docs")).rejects.toBe(invalidationError);
   });
 
   test("uses Cloudflare KV data-adapter safe tag strings", () => {

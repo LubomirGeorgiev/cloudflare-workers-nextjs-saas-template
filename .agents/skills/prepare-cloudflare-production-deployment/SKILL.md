@@ -204,11 +204,11 @@ pnpm wrangler secret put TURNSTILE_SECRET_KEY
 
 7. If a new widget was created or an existing widget secret was rotated, remind the user that any old `TURNSTILE_SECRET_KEY` stops working for that widget once rotation takes effect.
 
-`STRIPE_SECRET_KEY` and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`:
+`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, and the plan price IDs:
 
-1. Ask the user whether credit billing is enabled before requiring Stripe values.
-2. If enabled, set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as a GitHub repository variable so the production build receives it.
-3. Set `STRIPE_SECRET_KEY` as a Worker runtime secret with `pnpm wrangler secret put STRIPE_SECRET_KEY`. Do not add Stripe secret keys to GitHub Actions secrets unless the workflow is explicitly changed to sync them into Worker secrets.
+1. Ask the user whether team subscription billing is enabled before requiring Stripe values. Billing is active only when `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` are all set (see `isBillingEnabled()` in `src/flags.ts`).
+2. If enabled, set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` and the plan price IDs (`STRIPE_PRICE_PRO`, `STRIPE_PRICE_ENTERPRISE`) as GitHub repository variables so the production build receives them. If the price IDs do not exist yet, **ask the user** whether the agent should run `pnpm stripe:setup` on their behalf or whether they prefer to run it themselves; do not run it without confirmation because it creates products and prices in their Stripe account. If they choose the manual route, give them the exact command and flags: `pnpm stripe:setup` needs `STRIPE_SECRET_KEY` in `.env`, refuses live keys unless `--live` is passed (required for production), and supports `--dry-run` to preview.
+3. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as Worker runtime secrets with `pnpm wrangler secret put STRIPE_SECRET_KEY` and `pnpm wrangler secret put STRIPE_WEBHOOK_SECRET`. The webhook secret comes from the Stripe webhook endpoint for `/api/stripe/webhook`. Do not add Stripe secret keys to GitHub Actions secrets unless the workflow is explicitly changed to sync them into Worker secrets.
 
 ### Email Sending
 

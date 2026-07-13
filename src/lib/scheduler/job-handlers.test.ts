@@ -6,34 +6,28 @@ import {
 } from "@/lib/scheduler/jobs";
 
 const {
-  processExpiredCreditTransactionIfDueMock,
   publishScheduledCmsEntryIfDueMock,
-  refreshScheduledUserCreditsIfDueMock,
   renderTransactionalEmailMock,
   sendTransactionalEmailNowMock,
+  refreshTeamMemberSessionsMock,
 } = vi.hoisted(() => ({
-  processExpiredCreditTransactionIfDueMock: vi.fn(),
   publishScheduledCmsEntryIfDueMock: vi.fn(),
-  refreshScheduledUserCreditsIfDueMock: vi.fn(),
   renderTransactionalEmailMock: vi.fn(),
   sendTransactionalEmailNowMock: vi.fn(),
+  refreshTeamMemberSessionsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/cms/cms-scheduled-publishing", () => ({
   publishScheduledCmsEntryIfDue: publishScheduledCmsEntryIfDueMock,
 }));
 
-vi.mock("@/utils/credit-scheduler", () => ({
-  processExpiredCreditTransactionIfDue: processExpiredCreditTransactionIfDueMock,
-}));
-
-vi.mock("@/utils/credit-refresh-job", () => ({
-  refreshScheduledUserCreditsIfDue: refreshScheduledUserCreditsIfDueMock,
-}));
-
 vi.mock("@/utils/email", () => ({
   renderTransactionalEmail: renderTransactionalEmailMock,
   sendTransactionalEmailNow: sendTransactionalEmailNowMock,
+}));
+
+vi.mock("@/utils/kv-session", () => ({
+  refreshTeamMemberSessions: refreshTeamMemberSessionsMock,
 }));
 
 const { runScheduledJob } = await import("@/lib/scheduler/job-handlers");
@@ -51,28 +45,6 @@ describe("scheduled job handlers", () => {
     });
 
     expect(publishScheduledCmsEntryIfDueMock).toHaveBeenCalledWith({ entryId: "entry-1" });
-  });
-
-  test("routes credit expiration jobs to the credit processor", async () => {
-    await runScheduledJob({
-      type: SCHEDULED_JOB_TYPES.CREDIT_EXPIRE_TRANSACTION,
-      payload: { transactionId: "transaction-1" },
-      runAt: "2026-05-29T10:00:00.000Z",
-    });
-
-    expect(processExpiredCreditTransactionIfDueMock).toHaveBeenCalledWith({
-      transactionId: "transaction-1",
-    });
-  });
-
-  test("routes credit refresh jobs to the refresh processor", async () => {
-    await runScheduledJob({
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      payload: { userId: "user-1" },
-      runAt: "2026-05-29T10:00:00.000Z",
-    });
-
-    expect(refreshScheduledUserCreditsIfDueMock).toHaveBeenCalledWith({ userId: "user-1" });
   });
 
   test("renders and sends transactional email jobs", async () => {
@@ -111,13 +83,23 @@ describe("scheduled job handlers", () => {
     expect(sendTransactionalEmailNowMock).toHaveBeenCalledWith(renderedEmail);
   });
 
+  test("routes team sessions-refresh jobs to the session refresher", async () => {
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH,
+      payload: { teamId: "team-1" },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(refreshTeamMemberSessionsMock).toHaveBeenCalledWith("team-1");
+  });
+
   test("rejects invalid payloads before running downstream handlers", async () => {
     await expect(runScheduledJob({
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      payload: { userId: "" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      payload: { entryId: "" },
       runAt: "2026-05-29T10:00:00.000Z",
     })).rejects.toThrow();
 
-    expect(refreshScheduledUserCreditsIfDueMock).not.toHaveBeenCalled();
+    expect(publishScheduledCmsEntryIfDueMock).not.toHaveBeenCalled();
   });
 });

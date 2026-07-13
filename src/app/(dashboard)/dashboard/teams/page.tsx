@@ -30,7 +30,6 @@ interface TeamItem {
   slug: string;
   description: string | null;
   avatarUrl: string | null;
-  creditBalance: number;
   role?: TeamRole;
 }
 

@@ -4,7 +4,6 @@ import { encodeHexLowerCase } from "@oslojs/encoding"
 import ms from "ms"
 import { cookies } from "next/headers";
 import isProd from "@/utils/is-prod";
-import { refreshUserCreditsAfterAuthentication } from "@/utils/credits";
 import {
   createKVSession,
   deleteKVSession,
@@ -67,8 +66,6 @@ async function createSession({
 }: CreateSessionParams): Promise<KVSession> {
   const sessionId = await generateSessionId(token);
   const expiresAt = new Date(Date.now() + getSessionLength());
-
-  await refreshUserCreditsAfterAuthentication({ userId });
 
   const user = await getUserFromDB(userId);
 

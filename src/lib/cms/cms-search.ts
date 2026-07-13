@@ -121,7 +121,9 @@ export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion
       .filter(([, collection]) => "enableSearch" in collection && collection.enableSearch)
       .map(([slug]) => slug as CollectionsUnion);
 
-  collectionSlugs.forEach((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)));
+  await Promise.all(
+    collectionSlugs.map((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)))
+  );
 }
 
 async function getSearchDatabase(): Promise<D1Database> {

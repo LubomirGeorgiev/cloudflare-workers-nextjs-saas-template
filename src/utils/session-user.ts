@@ -21,8 +21,6 @@ export async function getUserFromDB(userId: string) {
       preferredLocale: true,
       createdAt: true,
       updatedAt: true,
-      currentCredits: true,
-      lastCreditRefreshAt: true,
     },
   });
 }
@@ -81,6 +79,9 @@ export async function getUserTeamsWithPermissions(userId: string) {
           isSystemRole: !!membership.isSystemRole,
         },
         permissions,
+        // Carried in the session so entitlements/gating can read the team plan without a DB hit.
+        planId: membership.team.subscriptionPlanId ?? null,
+        subscriptionStatus: membership.team.subscriptionStatus ?? null,
       };
     })
   );

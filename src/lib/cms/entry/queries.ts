@@ -91,23 +91,23 @@ async function selectEntryGroupRows<TColumns extends SelectedFields>({
     ));
 }
 
-async function getCachedCmsCollection(
-  collectionSlug: string,
-  status: CmsStatusFilter,
-  includeRelationsKey: string,
-  locale: string,
-  allLocales: boolean,
-  limit?: number,
-  offset?: number,
-): Promise<CmsCollectionListItem[]> {
-  "use cache: remote";
-  setCacheScope({
-    tags: [
-      CACHE_TAGS.cmsCollection(collectionSlug),
-    ],
-    ttl: "8 hours",
-  });
-
+async function queryCmsCollection({
+  collectionSlug,
+  status,
+  includeRelationsKey,
+  locale,
+  allLocales,
+  limit,
+  offset,
+}: {
+  collectionSlug: string;
+  status: CmsStatusFilter;
+  includeRelationsKey: string;
+  locale: Locale;
+  allLocales: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<CmsCollectionListItem[]> {
   const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
   const db = getDB();
 
@@ -143,6 +143,32 @@ async function getCachedCmsCollection(
   return entries.map((entry) => withFeaturedImageUrl(entry as CmsCollectionListItem));
 }
 
+async function getCachedCmsCollection(
+  collectionSlug: string,
+  status: CmsStatusFilter,
+  includeRelationsKey: string,
+  locale: Locale,
+  allLocales: boolean,
+  limit?: number,
+  offset?: number,
+): Promise<CmsCollectionListItem[]> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [CACHE_TAGS.cmsCollection(collectionSlug)],
+    ttl: "8 hours",
+  });
+
+  return queryCmsCollection({
+    collectionSlug,
+    status,
+    includeRelationsKey,
+    locale,
+    allLocales,
+    limit,
+    offset,
+  });
+}
+
 export function getCmsCollection<T extends CollectionsUnion>(
   params: GetCmsCollectionParams<T>
 ): Promise<CmsCollectionListItem[]> {
@@ -159,24 +185,37 @@ export function getCmsCollection<T extends CollectionsUnion>(
   );
 }
 
-async function getCachedCmsCollectionCount(
-  collectionSlug: string,
-  status: CmsStatusFilter,
-  locale: string,
-  allLocales: boolean,
-): Promise<number> {
-  "use cache: remote";
+export function getFreshCmsCollection<T extends CollectionsUnion>(
+  params: GetCmsCollectionParams<T>
+): Promise<CmsCollectionListItem[]> {
+  const validated = v.parse(getCmsCollectionParamsSchema, params);
+
+  return queryCmsCollection({
+    collectionSlug: validated.collectionSlug,
+    status: validated.status,
+    includeRelationsKey: serializeCmsIncludeRelations(validated.includeRelations),
+    locale: validated.locale,
+    allLocales: validated.allLocales,
+    limit: validated.limit,
+    offset: validated.offset,
+  });
+}
+
+async function queryCmsCollectionCount({
+  collectionSlug,
+  status,
+  locale,
+  allLocales,
+}: {
+  collectionSlug: string;
+  status: CmsStatusFilter;
+  locale: Locale;
+  allLocales: boolean;
+}): Promise<number> {
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
-
-  setCacheScope({
-    tags: [
-      CACHE_TAGS.cmsCollectionCount(collection.slug),
-    ],
-    ttl: "8 hours",
-  });
 
   const db = getDB();
   const whereConditions = [
@@ -204,6 +243,21 @@ async function getCachedCmsCollectionCount(
   return result[0]?.count ?? 0;
 }
 
+async function getCachedCmsCollectionCount(
+  collectionSlug: string,
+  status: CmsStatusFilter,
+  locale: Locale,
+  allLocales: boolean,
+): Promise<number> {
+  "use cache: remote";
+  setCacheScope({
+    tags: [CACHE_TAGS.cmsCollectionCount(collectionSlug)],
+    ttl: "8 hours",
+  });
+
+  return queryCmsCollectionCount({ collectionSlug, status, locale, allLocales });
+}
+
 export function getCmsCollectionCount<T extends CollectionsUnion>(
   params: GetCmsCollectionCountParams<T>
 ): Promise<number> {
@@ -215,6 +269,19 @@ export function getCmsCollectionCount<T extends CollectionsUnion>(
     validated.locale,
     validated.allLocales,
   );
+}
+
+export function getFreshCmsCollectionCount<T extends CollectionsUnion>(
+  params: GetCmsCollectionCountParams<T>
+): Promise<number> {
+  const validated = v.parse(getCmsCollectionCountParamsSchema, params);
+
+  return queryCmsCollectionCount({
+    collectionSlug: validated.collectionSlug,
+    status: validated.status,
+    locale: validated.locale,
+    allLocales: validated.allLocales,
+  });
 }
 
 // Request-scoped dedup only (React cache), not the remote persistent cache its
@@ -253,7 +320,7 @@ async function getCachedCmsEntryBySlug(
   slug: string,
   status: CmsStatusFilter,
   includeRelationsKey: string,
-  locale: string,
+  locale: Locale,
 ): Promise<GetCmsEntryBySlugResult | null> {
   "use cache: remote";
   const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);

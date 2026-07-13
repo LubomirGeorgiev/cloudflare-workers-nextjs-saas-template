@@ -54,15 +54,15 @@ describe("scheduler persistence", () => {
 
     await expect(scheduleJob({
       queue: queue as never,
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      dedupeKey: "credit-refresh:user-1",
-      payload: { userId: "user-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      dedupeKey: "cms-publish:entry-1",
+      payload: { entryId: "entry-1" },
       runAt,
     })).resolves.toBe("queued");
 
     expect(queue.send).toHaveBeenCalledWith({
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      payload: { userId: "user-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      payload: { entryId: "entry-1" },
       runAt: "2026-05-29T10:00:30.000Z",
     }, {
       delaySeconds: 30,
@@ -84,18 +84,18 @@ describe("scheduler persistence", () => {
 
     await expect(scheduleJob({
       queue: queue as never,
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      dedupeKey: "credit-refresh:user-1",
-      payload: { userId: "user-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      dedupeKey: "cms-publish:entry-1",
+      payload: { entryId: "entry-1" },
       runAt,
     })).resolves.toBe("persisted");
 
     expect(queue.send).not.toHaveBeenCalled();
     expect(db.insert).toHaveBeenCalledOnce();
     expect(insertChain.values).toHaveBeenCalledWith({
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      dedupeKey: "credit-refresh:user-1",
-      payload: { userId: "user-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      dedupeKey: "cms-publish:entry-1",
+      payload: { entryId: "entry-1" },
       runAt,
     });
   });
@@ -112,14 +112,14 @@ describe("scheduler persistence", () => {
           findMany: vi.fn(async () => [
             {
               id: "job-1",
-              type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-              payload: { userId: "user-1" },
+              type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+              payload: { entryId: "entry-1" },
               runAt: firstRunAt,
             },
             {
               id: "job-2",
-              type: SCHEDULED_JOB_TYPES.CREDIT_EXPIRE_TRANSACTION,
-              payload: { transactionId: "transaction-1" },
+              type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+              payload: { entryId: "entry-2" },
               runAt: secondRunAt,
             },
           ]),
@@ -139,15 +139,15 @@ describe("scheduler persistence", () => {
       limit: 2,
     }));
     expect(queue.send).toHaveBeenNthCalledWith(1, {
-      type: SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER,
-      payload: { userId: "user-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      payload: { entryId: "entry-1" },
       runAt: "2026-05-29T09:59:00.000Z",
     }, {
       delaySeconds: 0,
     });
     expect(queue.send).toHaveBeenNthCalledWith(2, {
-      type: SCHEDULED_JOB_TYPES.CREDIT_EXPIRE_TRANSACTION,
-      payload: { transactionId: "transaction-1" },
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      payload: { entryId: "entry-2" },
       runAt: "2026-05-29T10:00:45.000Z",
     }, {
       delaySeconds: 45,

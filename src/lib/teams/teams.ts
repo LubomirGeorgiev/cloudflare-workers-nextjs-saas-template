@@ -10,6 +10,13 @@ import { eq, and, count } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { MAX_TEAMS_CREATED_PER_USER, MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 
+// Request-scoped cached lookup shared by team pages (generateMetadata + page render
+// hit it in the same RSC pass).
+export const getTeamBySlug = cache(async (teamSlug: string) => {
+  const db = getDB();
+  return db.query.teamTable.findFirst({ where: { slug: teamSlug } });
+});
+
 export async function createTeam({
   name,
   description,
@@ -72,7 +79,7 @@ export async function createTeam({
     slug,
     description,
     avatarUrl,
-    creditBalance: 0,
+    subscriptionPlanId: "free",
   }).returning();
 
   const team = newTeam?.[0];

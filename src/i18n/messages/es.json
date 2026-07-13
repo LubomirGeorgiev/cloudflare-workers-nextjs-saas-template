@@ -272,7 +272,7 @@
         },
         "billing": {
           "name": "Facturación incluida",
-          "description": "El checkout de Stripe y un sistema de créditos ya están integrados, para que puedas cobrar a tus clientes sin empezar de cero."
+          "description": "Las suscripciones de Stripe por equipo con un Payment Element integrado ya están listas, para que puedas cobrar a tus clientes sin empezar de cero."
         },
         "ui": {
           "name": "Un sistema de diseño real",
@@ -430,7 +430,6 @@
       "nav": {
         "dashboard": "Panel",
         "teams": "Equipos",
-        "marketplace": "Mercado",
         "billing": "Facturación",
         "settings": "Ajustes",
         "profile": "Perfil",
@@ -457,8 +456,7 @@
         "themeLight": "Claro",
         "themeDark": "Oscuro",
         "changeLanguage": "Cambiar idioma",
-        "logOut": "Cerrar sesión",
-        "credits": "{count} créditos"
+        "logOut": "Cerrar sesión"
       }
     },
     "Dashboard": {
@@ -492,7 +490,7 @@
         "accessDeniedDescription": "No tienes permiso para acceder al equipo \"{name}\". Ponte en contacto con el propietario del equipo para solicitar acceso.",
         "returnToTeams": "Volver a los equipos",
         "inviteMembers": "Invitar miembros",
-        "teamCredits": "Créditos del equipo",
+        "seatLimitReached": "Este equipo ha alcanzado el límite de {seats} asientos de su plan. Mejora el plan para añadir más miembros.",
         "yourRoleLabel": "Tu rol",
         "memberRole": "Miembro",
         "created": "Creado",
@@ -520,51 +518,117 @@
       "Billing": {
         "breadcrumbDashboard": "Panel",
         "breadcrumbBilling": "Facturación",
-        "creditsTitle": "Créditos",
-        "currentCredits": "{count, number} créditos",
-        "freeMonthlyCredits": "Recibes {count, number} créditos gratis cada mes.",
-        "topUpTitle": "Recarga tus créditos",
-        "topUpDescription": "Compra créditos adicionales para usar nuestros servicios. Cuantos más créditos compres, mejor será el precio.",
-        "creditsLabel": "créditos",
-        "oneTimePayment": "pago único",
-        "savePercent": "Ahorra {percent}%",
-        "purchaseNow": "Comprar ahora",
-        "purchaseCreditsDialogTitle": "Comprar créditos",
-        "errorCreatePaymentIntent": "No se pudo crear la intención de pago",
-        "errorStartCheckout": "No se pudo iniciar el pago",
-        "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
-        "creditsCount": "{count, number} créditos",
+        "title": "Facturación",
+        "subtitle": "Gestiona la suscripción y el plan de tu equipo.",
+        "currentPlanTitle": "Plan actual",
+        "planLabel": "Plan",
+        "statusLabel": "Estado",
+        "renewsOn": "Se renueva el {date}",
+        "endsOn": "El acceso termina el {date}",
+        "trialEndsOn": "La prueba gratuita termina el {date}",
+        "statusActive": "Activo",
+        "statusTrialing": "Prueba",
+        "statusPastDue": "Pago pendiente",
+        "statusCanceled": "Cancelado",
+        "statusIncomplete": "Incompleto",
+        "statusUnpaid": "Impagada",
+        "statusPaused": "En pausa",
+        "statusUnknown": "Desconocido",
+        "cancelScheduled": "Tu suscripción finalizará al terminar el período de facturación actual.",
+        "plansTitle": "Planes",
+        "plansSubtitle": "Elige el plan que se adapte a tu equipo.",
+        "seatsFeature": "{seats, plural, one {# puesto} other {# puestos}}",
+        "projectsFeature": "{projects, plural, one {# proyecto} other {# proyectos}}",
+        "planContent": {
+          "free": {
+            "description": "Lo básico para empezar",
+            "features": [
+              "Soporte de la comunidad",
+              "Funciones principales del panel"
+            ]
+          },
+          "pro": {
+            "description": "Para equipos en crecimiento que necesitan más",
+            "features": [
+              "Soporte prioritario por correo",
+              "Analíticas avanzadas",
+              "Dominios personalizados"
+            ]
+          },
+          "enterprise": {
+            "description": "Para organizaciones a gran escala",
+            "features": [
+              "Soporte dedicado",
+              "SSO y acceso listo para auditorías",
+              "Integraciones personalizadas"
+            ]
+          }
+        },
+        "perMonth": "/mes",
+        "perYear": "/año",
+        "billingIntervalMonthly": "Mensual",
+        "billingIntervalYearly": "Anual",
+        "yearlySaveBadge": "Ahorra {percent}%",
+        "yearlyEquivalentNote": "{price}/mes, con facturación anual",
+        "switchToYearly": "Cambiar a facturación anual",
+        "switchToMonthly": "Cambiar a facturación mensual",
+        "billedYearly": "Facturación anual",
+        "billedMonthly": "Facturación mensual",
+        "freePrice": "Gratis",
+        "currentPlanBadge": "Plan actual",
+        "trialBadge": "{days} días de prueba gratis",
+        "subscribe": "Suscribirse",
+        "startFreeTrial": "Comenzar prueba gratis de {days} días",
+        "changeToPlan": "Cambiar a {plan}",
+        "cancelSubscription": "Cancelar suscripción",
+        "resumeSubscription": "Reanudar suscripción",
+        "readOnlyNotice": "Solo los administradores del equipo pueden gestionar la facturación.",
+        "billingDisabledNotice": "La facturación no está configurada para este despliegue.",
+        "paymentDialogTitle": "Suscribirse a {plan}",
         "securePaymentInfo": "Tu pago es seguro y está cifrado. Usamos Stripe, un proveedor de pagos global de confianza, para procesar tu pago.",
         "paymentDetailsInfo": "Por tu seguridad, los datos de tu pago los gestiona directamente Stripe y nunca pasan por nuestros servidores.",
-        "creditsValidityInfo": "Los créditos se añadirán a tu cuenta inmediatamente después de un pago correcto y serán válidos durante {years} años desde la fecha de compra.",
         "cancel": "Cancelar",
         "processing": "Procesando...",
         "payNow": "Pagar ahora",
+        "startTrialAction": "Comenzar prueba gratis",
+        "trialPaymentNote": "Hoy no se te cobrará nada: solo verificamos tu tarjeta. Tu prueba gratis de {days} días empieza en cuanto se confirme, y el primer pago se realiza cuando termine la prueba. Puedes cancelar en cualquier momento antes de esa fecha.",
         "paymentFailed": "El pago falló",
-        "paymentSuccessful": "¡Pago realizado con éxito!",
-        "errorNoPaymentIntent": "No se encontró ninguna intención de pago",
-        "transactionHistoryTitle": "Historial de transacciones",
-        "columnDate": "Fecha",
-        "columnType": "Tipo",
-        "columnAmount": "Cantidad",
-        "columnDescription": "Descripción",
-        "expiredLabel": "Caducó: ",
-        "expiresLabel": "Caduca: ",
-        "noTransactions": "No se encontraron transacciones",
-        "pageOf": "Página {page} de {total}"
-      },
-      "Marketplace": {
-        "breadcrumbMarketplace": "Marketplace",
-        "title": "Marketplace de componentes",
-        "subtitle": "Compra y usa nuestros componentes premium con tus créditos",
-        "demoAlertTitle": "Función de demostración de la plantilla",
-        "demoAlertDescription": "Esta página del marketplace muestra cómo implementar un sistema de facturación basado en créditos en tu aplicación SaaS. Úsala como punto de partida y personalízala según tus necesidades.",
-        "purchaseTransactionDescription": "Compraste {itemType}: {itemName}",
-        "errorBillingDisabled": "El marketplace no está disponible cuando la facturación por créditos está desactivada",
-        "errorNotLoggedIn": "Debes iniciar sesión para realizar compras",
-        "errorItemNotFound": "Elemento no encontrado",
-        "errorAlreadyOwned": "Ya tienes este elemento",
-        "errorInsufficientCredits": "No tienes suficientes créditos para comprar este elemento"
+        "activating": "Activando tu suscripción…",
+        "subscriptionActive": "Tu suscripción está activa.",
+        "completePaymentTitle": "Completa tu pago",
+        "completePaymentDescription": "Tu último pago necesita confirmación para mantener tu suscripción activa.",
+        "completePayment": "Completar pago",
+        "confirmCancelTitle": "¿Cancelar suscripción?",
+        "confirmCancelDescription": "Tu equipo conserva el acceso hasta el final del período de facturación actual y luego pasa al plan Gratis.",
+        "confirmCancelAction": "Sí, cancelar",
+        "errorStartCheckout": "No se pudo iniciar el pago",
+        "errorTrialUnavailable": "La prueba gratuita no está disponible para este equipo.",
+        "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
+        "errorNoClientSecret": "No se pudo iniciar la suscripción. Inténtalo de nuevo.",
+        "errorPlanChangeRequiresPaidAccess": "Completa el pago pendiente antes de cambiar de plan.",
+        "manageBilling": "Gestionar facturación",
+        "manageBillingDescription": "Actualiza tu método de pago, consulta tus facturas y edita los datos de facturación en el portal de clientes de Stripe.",
+        "errorBillingPortal": "No se pudo abrir el portal de facturación. Inténtalo de nuevo.",
+        "addonsTitle": "Complementos",
+        "addonsSubtitle": "Amplía tu plan con extras opcionales.",
+        "addonsRequirePaidPlan": "Los complementos requieren una suscripción de pago activa.",
+        "addonContent": {
+          "extra-seats": {
+            "description": "Asientos adicionales para tu equipo más allá del límite incluido en tu plan."
+          }
+        },
+        "addonEach": "cada uno",
+        "addonActiveBadge": "{quantity} activos",
+        "addonSeatsGrant": "{seats, plural, one {+# asiento} other {+# asientos}}",
+        "addonProjectsGrant": "{projects, plural, one {+# proyecto} other {+# proyectos}}",
+        "addonDecrease": "Reducir cantidad",
+        "addonIncrease": "Aumentar cantidad",
+        "addonAdd": "Añadir a la suscripción",
+        "addonUpdate": "Actualizar cantidad",
+        "addonRemove": "Quitar de la suscripción",
+        "addonUpdated": "Complementos actualizados.",
+        "errorAddonUnavailable": "Este complemento no está disponible.",
+        "errorAddonMaxQuantity": "Puedes tener como máximo {max} de este complemento."
       }
     },
     "Settings": {
@@ -710,11 +774,11 @@
         "heading": "3. Aviso legal",
         "body": "Los materiales de nuestro sitio web se proporcionan \"tal cual\". No ofrecemos garantías, expresas ni implícitas, y por la presente renunciamos y negamos cualquier otra garantía, incluyendo, sin limitación, las garantías implícitas o condiciones de comerciabilidad, idoneidad para un fin particular, o no vulneración de la propiedad intelectual u otra violación de derechos."
       },
-      "creditSystem": {
-        "heading": "4. Sistema de créditos y pagos",
-        "body1": "Nuestro servicio funciona con un sistema basado en créditos. Los créditos comprados a través de nuestra plataforma son válidos durante {years} años a partir de la fecha de compra. Todos los pagos se procesan de forma segura a través de Stripe, nuestro socio de procesamiento de pagos.",
-        "body2": "Una vez que un pago se procesa correctamente, los créditos se añaden de inmediato a tu cuenta. No ofrecemos reembolsos por los créditos comprados. El precio y la disponibilidad de los paquetes de créditos pueden cambiar sin previo aviso.",
-        "body3": "Es posible que se ofrezcan créditos gratuitos como parte de promociones o asignaciones mensuales. Estos créditos están sujetos a términos y plazos de caducidad diferentes, que se comunicarán claramente en el momento en que se otorguen."
+      "subscriptions": {
+        "heading": "4. Suscripciones y pagos",
+        "body1": "Los planes de pago se facturan como suscripciones recurrentes por equipo. Todos los pagos se procesan de forma segura a través de Stripe, nuestro socio de procesamiento de pagos, y se renuevan automáticamente en cada período de facturación hasta que se cancelen.",
+        "body2": "Puedes cambiar o cancelar tu plan en cualquier momento desde los ajustes de facturación de tu equipo. Al cancelar, tu equipo conserva el acceso hasta el final del período de facturación actual y luego pasa al plan Gratis. Los precios y la disponibilidad de los planes pueden cambiar con previo aviso.",
+        "body3": "Los períodos de prueba opcionales, cuando se ofrezcan, están sujetos a los términos comunicados en el registro. Según tu ubicación, pueden añadirse los impuestos correspondientes en el pago."
       },
       "limitations": {
         "heading": "5. Limitaciones",

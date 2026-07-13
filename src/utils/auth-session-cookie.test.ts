@@ -20,10 +20,6 @@ vi.mock("react", () => ({
   cache: (callback: unknown) => callback,
 }));
 
-vi.mock("@/utils/credits", () => ({
-  refreshUserCreditsAfterAuthentication: vi.fn(),
-}));
-
 vi.mock("@/utils/session-user", () => ({
   getUserFromDB: vi.fn(),
   getUserTeamsWithPermissions: vi.fn(),

@@ -6,8 +6,8 @@ import { requireAdmin } from "@/utils/auth";
 import { collectionSchema, type CollectionsUnion } from "@/../cms.config";
 import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
 import {
-  getCmsCollection,
-  getCmsCollectionCount,
+  getFreshCmsCollection,
+  getFreshCmsCollectionCount,
   createCmsEntry,
   updateCmsEntry,
   deleteCmsEntry,
@@ -50,7 +50,7 @@ export const listCmsEntriesAction = actionClient
     // translation otherwise has no row to edit/publish, since getCmsCollection /
     // getCmsCollectionCount default to locale-filtered (DEFAULT_LOCALE) for public callers.
     const [entries, totalCount] = await Promise.all([
-      getCmsCollection({
+      getFreshCmsCollection({
         collectionSlug: input.collection,
         status: input.status,
         limit: input.limit,
@@ -61,7 +61,7 @@ export const listCmsEntriesAction = actionClient
           tags: true,
         },
       }),
-      getCmsCollectionCount({
+      getFreshCmsCollectionCount({
         collectionSlug: input.collection,
         status: input.status,
         allLocales: true,

@@ -73,9 +73,11 @@ function getNavigationCollectionSlug(navigationKey: CmsNavigationKey) {
 }
 
 async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
-  revalidateCacheTag(CACHE_TAGS.cmsNavigation(navigationKey));
-  revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey));
-  revalidateCacheTag(CACHE_TAGS.SITEMAP);
+  await Promise.all([
+    revalidateCacheTag(CACHE_TAGS.cmsNavigation(navigationKey)),
+    revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey)),
+    revalidateCacheTag(CACHE_TAGS.SITEMAP),
+  ]);
 
   if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
     await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));

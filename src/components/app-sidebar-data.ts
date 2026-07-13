@@ -8,13 +8,11 @@ import {
   PieChart,
   Settings2,
   Shield,
-  ShoppingCart,
   SquareTerminal,
   Users,
 } from "lucide-react";
 
 import { ROLES_ENUM } from "@/app/enums";
-import { DISABLE_CREDIT_BILLING_SYSTEM } from "@/constants";
 import type { SessionValidationResult } from "@/types";
 import type messages from "@/i18n/messages/en.json";
 
@@ -54,8 +52,12 @@ type AppSidebarData = {
 
 export function getAppSidebarData({
   session,
+  billingEnabled = true,
 }: {
   session: SessionValidationResult | null;
+  // Server-evaluated isBillingEnabled(); when false the Billing nav item is hidden
+  // (the flag hides billing UI entirely, not just the destination page).
+  billingEnabled?: boolean;
 }): AppSidebarData {
   return {
     user: {
@@ -83,18 +85,14 @@ export function getAppSidebarData({
         url: "/dashboard/teams" as Route,
         icon: Users,
       },
-      ...(!DISABLE_CREDIT_BILLING_SYSTEM ? [{
-        title: "Marketplace",
-        titleKey: "marketplace",
-        url: "/dashboard/marketplace" as Route,
-        icon: ShoppingCart,
-      } as NavMainItem] : []),
-      {
-        title: "Billing",
-        titleKey: "billing",
-        url: "/dashboard/billing",
-        icon: CreditCard,
-      },
+      ...(billingEnabled ? [
+        {
+          title: "Billing",
+          titleKey: "billing",
+          url: "/dashboard/billing",
+          icon: CreditCard,
+        } as NavMainItem,
+      ] : []),
       {
         title: "Settings",
         titleKey: "settings",

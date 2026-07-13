@@ -36,7 +36,7 @@ async function invalidateCmsTagMutationCaches({
   entryRefs?: CmsEntryRef[];
 }) {
   const refs = entryRefs ?? (tagSlug ? await getCmsTagGroupEntryRefs({ tagSlug }) : []);
-  invalidateCmsTagGroupCaches({ entryRefs: refs });
+  await invalidateCmsTagGroupCaches({ entryRefs: refs });
 }
 
 async function assertCanonicalTagSlugAvailable(slug: string) {
@@ -70,7 +70,7 @@ async function assertTagNameAvailable({
 }: {
   id: string;
   name: string | undefined;
-  locale: string;
+  locale: Locale;
 }) {
   if (!name) {
     return;
@@ -168,7 +168,7 @@ async function getSourceTagOrThrow({
   sourceLocale,
 }: {
   slug: string;
-  sourceLocale: string;
+  sourceLocale: Locale;
 }) {
   const db = getDB();
   const sourceTag = await db.query.cmsTagTable.findFirst({
@@ -187,7 +187,7 @@ async function assertTagTranslationMissing({
   targetLocale,
 }: {
   slug: string;
-  targetLocale: string;
+  targetLocale: Locale;
 }) {
   const db = getDB();
   const existingTranslation = await db.query.cmsTagTable.findFirst({
@@ -231,7 +231,7 @@ async function assertTranslatedTagNameAvailable({
   targetLocale,
 }: {
   name: string;
-  targetLocale: string;
+  targetLocale: Locale;
 }) {
   const db = getDB();
   const conflictingName = await db.query.cmsTagTable.findFirst({

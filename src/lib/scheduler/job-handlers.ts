@@ -1,17 +1,13 @@
 import {
   SCHEDULED_JOB_TYPES,
   cmsPublishEntryJobPayloadSchema,
-  creditExpireTransactionJobPayloadSchema,
-  creditRefreshUserJobPayloadSchema,
   emailSendJobPayloadSchema,
+  teamSessionsRefreshJobPayloadSchema,
   type ScheduledQueueMessage,
 } from "@/lib/scheduler/jobs";
 import { publishScheduledCmsEntryIfDue } from "@/lib/cms/cms-scheduled-publishing";
-import {
-  processExpiredCreditTransactionIfDue,
-} from "@/utils/credit-scheduler";
-import { refreshScheduledUserCreditsIfDue } from "@/utils/credit-refresh-job";
 import { renderTransactionalEmail, sendTransactionalEmailNow } from "@/utils/email";
+import { refreshTeamMemberSessions } from "@/utils/kv-session";
 import { v } from "@/lib/validation";
 
 export async function runScheduledJob(message: ScheduledQueueMessage): Promise<void> {
@@ -24,26 +20,16 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
       });
       return;
     }
-    case SCHEDULED_JOB_TYPES.CREDIT_EXPIRE_TRANSACTION: {
-      const payload = v.parse(creditExpireTransactionJobPayloadSchema, message.payload);
-
-      await processExpiredCreditTransactionIfDue({
-        transactionId: payload.transactionId,
-      });
-      return;
-    }
-    case SCHEDULED_JOB_TYPES.CREDIT_REFRESH_USER: {
-      const payload = v.parse(creditRefreshUserJobPayloadSchema, message.payload);
-
-      await refreshScheduledUserCreditsIfDue({
-        userId: payload.userId,
-      });
-      return;
-    }
     case SCHEDULED_JOB_TYPES.EMAIL_SEND: {
       const payload = v.parse(emailSendJobPayloadSchema, message.payload);
 
       await sendTransactionalEmailNow(await renderTransactionalEmail(payload));
+      return;
+    }
+    case SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH: {
+      const payload = v.parse(teamSessionsRefreshJobPayloadSchema, message.payload);
+
+      await refreshTeamMemberSessions(payload.teamId);
       return;
     }
   }

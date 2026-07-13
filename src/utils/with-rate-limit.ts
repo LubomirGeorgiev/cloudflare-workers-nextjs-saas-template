@@ -127,8 +127,8 @@ export const RATE_LIMITS = {
     limit: 15,
     windowInSeconds: Math.floor(ms("5 minutes") / 1000),
   },
-  PURCHASE: {
-    identifier: "purchase",
+  BILLING: {
+    identifier: "billing",
     limit: 25,
     windowInSeconds: Math.floor(ms("5 minutes") / 1000),
   },

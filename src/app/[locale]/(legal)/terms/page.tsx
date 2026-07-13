@@ -3,7 +3,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import { CREDITS_EXPIRATION_YEARS } from "@/constants";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
 
@@ -55,15 +54,15 @@ export default function TermsPage() {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-2xl font-semibold text-foreground mb-4">{t("creditSystem.heading")}</h2>
+        <h2 className="text-2xl font-semibold text-foreground mb-4">{t("subscriptions.heading")}</h2>
         <p className="text-muted-foreground mb-4">
-          {t("creditSystem.body1", { years: CREDITS_EXPIRATION_YEARS })}
+          {t("subscriptions.body1")}
         </p>
         <p className="text-muted-foreground mb-4">
-          {t("creditSystem.body2")}
+          {t("subscriptions.body2")}
         </p>
         <p className="text-muted-foreground">
-          {t("creditSystem.body3")}
+          {t("subscriptions.body3")}
         </p>
       </section>
 

@@ -4,11 +4,11 @@ import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import { VINEXT_CACHE_PREFIX } from "./src/constants/vinext-cache";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
 import { getSchedulerQueueName } from "./tools/wrangler-config";
 
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
-const VINEXT_CACHE_PREFIX = "vinext-cache";
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
 
 export default defineConfig({

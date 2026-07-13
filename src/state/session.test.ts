@@ -81,8 +81,6 @@ function createSession({ now }: { now: Date }) {
       emailVerified: null,
       avatar: null,
       preferredLocale: null,
-      currentCredits: 0,
-      lastCreditRefreshAt: null,
       createdAt: now,
       updatedAt: now,
     },

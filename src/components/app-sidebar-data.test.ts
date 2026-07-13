@@ -19,6 +19,31 @@ describe("getAppSidebarData", () => {
     );
   });
 
+  test("hides the billing nav item when billing is disabled", () => {
+    const data = getAppSidebarData({
+      session: createSession({ role: "user" }),
+      billingEnabled: false,
+    });
+
+    expect(data.navMain).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "/dashboard/billing" }),
+      ]),
+    );
+  });
+
+  test("includes the billing nav item by default", () => {
+    const data = getAppSidebarData({
+      session: createSession({ role: "user" }),
+    });
+
+    expect(data.navMain).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "/dashboard/billing" }),
+      ]),
+    );
+  });
+
   test("does not include the admin panel link for a non-admin session", () => {
     const data = getAppSidebarData({
       session: createSession({ role: "user" }),
@@ -52,8 +77,6 @@ function createSession({ role }: { role: "admin" | "user" }) {
       emailVerified: null,
       avatar: null,
       preferredLocale: null,
-      currentCredits: 0,
-      lastCreditRefreshAt: null,
       createdAt: now,
       updatedAt: now,
     },
