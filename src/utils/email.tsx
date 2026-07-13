@@ -37,8 +37,13 @@ async function getEmailTranslator(locale: string) {
   };
 }
 
-type EmailSendOptions = Parameters<Cloudflare.Env["EMAIL"]["send"]>[0];
-type TransactionalEmailOptions = Pick<EmailSendOptions, "html" | "subject" | "text" | "to"> & {
+// Avoid Pick<> from SendEmail.send() params: EmailDestinations is a to|cc|bcc
+// union, so Pick makes `to` optional and breaks EmailMessageBuilder assignment.
+type TransactionalEmailOptions = {
+  to: string;
+  subject: string;
+  html?: string;
+  text?: string;
   type: EmailSendJobPayload["template"];
 };
 
@@ -75,7 +80,7 @@ export async function sendTransactionalEmailNow({
     throw new Error("EMAIL_FROM is not configured.");
   }
 
-  await env.EMAIL.send({
+  const message: EmailMessageBuilder = {
     to,
     from: emailFromName
       ? {
@@ -86,11 +91,16 @@ export async function sendTransactionalEmailNow({
     subject,
     html,
     text,
-    ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
     headers: {
       "X-Transactional-Email-Type": type,
     },
-  });
+  };
+
+  if (emailReplyTo) {
+    message.replyTo = emailReplyTo;
+  }
+
+  await env.EMAIL.send(message);
 }
 
 async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {

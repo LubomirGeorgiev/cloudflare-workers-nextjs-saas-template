@@ -12,30 +12,10 @@ import {
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("vinext/cloudflare", () => ({
-  KVCacheHandler: class KVCacheHandler {
-    constructor(
-      readonly kv: unknown,
-      readonly options: unknown,
-    ) {}
-  },
-}));
-
-vi.mock("vinext/server/app-router-entry", () => ({
+vi.mock("vinext/server/fetch-handler", () => ({
   default: {
     fetch: innerFetchMock,
   },
-}));
-
-vi.mock("vinext/server/image-optimization", () => ({
-  DEFAULT_DEVICE_SIZES: [640],
-  DEFAULT_IMAGE_SIZES: [128],
-  IMAGE_OPTIMIZATION_PATH: "/_vinext/image",
-  handleImageOptimization: vi.fn(),
-}));
-
-vi.mock("vinext/shims/cache", () => ({
-  setCacheHandler: vi.fn(),
 }));
 
 const { default: worker } = await import("../../worker-entrypoint");

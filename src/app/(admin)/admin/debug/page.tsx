@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/page-header"
 import { isTestMode } from "@/utils/is-test-mode"
 
 import { EnvDump } from "./_components/env-dump"
-import { PurgeVinextCacheButton } from "./_components/purge-vinext-cache-button"
 
 export const dynamic = "force-dynamic"
 
@@ -79,14 +78,12 @@ export default function AdminDebugPage() {
         ]}
       />
       <main className="flex flex-col gap-6 p-6">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Environment Debug</h1>
-            <p className="mt-2 text-muted-foreground">
-              Runtime Worker env bindings and process environment variables.
-            </p>
-          </div>
-          <PurgeVinextCacheButton />
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Environment Debug</h1>
+          <p className="mt-2 text-muted-foreground">
+            Runtime Worker env bindings and process environment variables. Cache purge tools live
+            under CMS System Actions.
+          </p>
         </div>
         <EnvDump value={envDump} />
       </main>

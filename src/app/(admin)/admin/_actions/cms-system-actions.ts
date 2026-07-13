@@ -1,15 +1,18 @@
 "use server";
 
+import { cache as workersCache, env as workerEnv } from "cloudflare:workers";
 import { revalidatePath } from "next/cache";
+
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
+import { VINEXT_CACHE_PREFIX } from "@/constants/vinext-cache";
 import { ActionError } from "@/lib/action-error";
-import { actionClient } from "@/lib/safe-action";
+import { invalidateAllCmsCaches } from "@/lib/cms/cms-cache-invalidation";
 import {
   invalidateCmsSearchCache,
   isCollectionSearchEnabled,
   rebuildCmsSearchIndex,
 } from "@/lib/cms/cms-search";
-import { invalidateAllCmsCaches } from "@/lib/cms/cms-cache-invalidation";
+import { actionClient } from "@/lib/safe-action";
 import { cmsSystemActionSchema } from "@/schemas/cms-system.schema";
 import { requireAdmin } from "@/utils/auth";
 
@@ -17,6 +20,57 @@ function getSearchableCollections(): CollectionsUnion[] {
   return Object.entries(cmsConfig.collections)
     .filter(([, collection]) => "enableSearch" in collection && collection.enableSearch)
     .map(([slug]) => slug as CollectionsUnion);
+}
+
+function getVinextCache(): KVNamespace {
+  const cache = workerEnv.NEXT_INC_CACHE_KV;
+
+  if (!cache) {
+    throw new ActionError("INTERNAL_SERVER_ERROR", "Vinext cache KV binding is unavailable");
+  }
+
+  return cache;
+}
+
+function formatDeletedKeyMessage(deletedKeyCount: number): string {
+  const keyLabel = deletedKeyCount === 1 ? "key" : "keys";
+  return `Deleted ${deletedKeyCount} Vinext cache ${keyLabel}`;
+}
+
+async function purgeVinextKvCache(): Promise<{ deletedKeyCount: number; message: string }> {
+  const cache = getVinextCache();
+
+  let cursor: string | undefined;
+  let deletedKeyCount = 0;
+
+  do {
+    const page = await cache.list({
+      cursor,
+      prefix: VINEXT_CACHE_PREFIX,
+    });
+
+    await Promise.all(page.keys.map(({ name }) => cache.delete(name)));
+    deletedKeyCount += page.keys.length;
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return {
+    deletedKeyCount,
+    message: formatDeletedKeyMessage(deletedKeyCount),
+  };
+}
+
+async function purgeWorkersCdnCache(): Promise<{ message: string }> {
+  const result = await workersCache.purge({ purgeEverything: true });
+
+  if (!result.success) {
+    const details = result.errors.map((error) => error.message).join("; ") || "Unknown purge error";
+    throw new ActionError("INTERNAL_SERVER_ERROR", `Failed to purge Workers CDN cache: ${details}`);
+  }
+
+  return {
+    message: "Purged Workers CDN cache",
+  };
 }
 
 export const runCmsSystemAction = actionClient
@@ -45,10 +99,9 @@ export const runCmsSystemAction = actionClient
 
         return {
           success: true,
-          message:
-            input.collection
-              ? `Rebuilt search index for ${input.collection}`
-              : "Rebuilt search indexes for all searchable collections",
+          message: input.collection
+            ? `Rebuilt search index for ${input.collection}`
+            : "Rebuilt search indexes for all searchable collections",
         };
       }
 
@@ -62,10 +115,9 @@ export const runCmsSystemAction = actionClient
 
         return {
           success: true,
-          message:
-            input.collection
-              ? `Cleared search cache for ${input.collection}`
-              : "Cleared search cache for all collections",
+          message: input.collection
+            ? `Cleared search cache for ${input.collection}`
+            : "Cleared search cache for all collections",
         };
       }
 
@@ -76,6 +128,22 @@ export const runCmsSystemAction = actionClient
         return {
           success: true,
           message: "Cleared CMS cache",
+        };
+      }
+
+      case "purge-vinext-kv-cache": {
+        const result = await purgeVinextKvCache();
+        return {
+          success: true,
+          message: result.message,
+        };
+      }
+
+      case "purge-workers-cdn-cache": {
+        const result = await purgeWorkersCdnCache();
+        return {
+          success: true,
+          message: result.message,
         };
       }
 

@@ -20,6 +20,9 @@
     "images": {
       "binding": "IMAGES"
     },
+    "cache": {
+      "enabled": true,
+    },
     "observability": {
       "enabled": true,
       "logs": {

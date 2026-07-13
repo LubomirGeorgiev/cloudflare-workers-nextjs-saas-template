@@ -1,9 +1,11 @@
+import vinext from "vinext";
+import { defineConfig } from "vite";
+
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
-import vinext from "vinext";
-import { defineConfig } from "vite";
+import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
 import { VINEXT_CACHE_PREFIX } from "./src/constants/vinext-cache";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
 import { getSchedulerQueueName } from "./tools/wrangler-config";
@@ -71,6 +73,7 @@ export default defineConfig({
   plugins: [
     vinext({
       cache: {
+        cdn: cdnAdapter(),
         data: kvDataAdapter({
           binding: VINEXT_CACHE_KV_BINDING,
           appPrefix: VINEXT_CACHE_PREFIX,
@@ -78,7 +81,7 @@ export default defineConfig({
         }),
       },
       // Backs `/_next/image` with the Cloudflare Images binding (env.IMAGES).
-      // Handled inside vinext/server/app-router-entry, which worker-entrypoint.ts wraps.
+      // Handled inside vinext/server/fetch-handler, which worker-entrypoint.ts wraps.
       images: {
         optimizer: imagesOptimizer(),
       },

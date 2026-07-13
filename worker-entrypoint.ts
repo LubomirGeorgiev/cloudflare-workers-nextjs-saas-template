@@ -1,5 +1,5 @@
 // Worker entry for edge-only behavior before vinext's App Router handles the request.
-import handler from "vinext/server/app-router-entry";
+import handler from "vinext/server/fetch-handler";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import {
   handleSchedulerCron,
@@ -30,7 +30,7 @@ const worker = {
     const early = await handleCustomEdge(request, env, ctx);
     if (early) return early;
 
-    // `/_next/image` optimization is handled inside the wrapped app-router-entry
+    // `/_next/image` optimization is handled inside the wrapped fetch-handler
     // via the Cloudflare Images adapter configured in vite.config.ts (vinext({ images })).
     return handler.fetch(withForwardedCfHeaders(request), env, ctx);
   },

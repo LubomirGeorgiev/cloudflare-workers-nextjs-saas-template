@@ -6,6 +6,8 @@ export const cmsSystemActionTypeSchema = v.picklist([
   "rebuild-search-index",
   "clear-search-cache",
   "clear-cms-cache",
+  "purge-vinext-kv-cache",
+  "purge-workers-cdn-cache",
 ]);
 
 export const cmsSystemActionSchema = v.object({
