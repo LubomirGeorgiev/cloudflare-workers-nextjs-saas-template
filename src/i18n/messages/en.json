@@ -817,7 +817,6 @@
     },
     "Post": {
       "backToBlog": "← Back to Blog",
-      "author": "Author",
       "updated": "Updated: {date}",
       "onThisPage": "On This Page"
     },

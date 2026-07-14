@@ -1,5 +1,4 @@
 import "server-only"
-import { Link } from "@/i18n/navigation"
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
@@ -7,7 +6,8 @@ import { getCmsCollection } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { getCmsTags } from "@/lib/cms/tags"
 import { BlogCard } from "@/components/blog-card"
-import { CmsEntryTags } from "@/components/cms-entry-tags"
+import { BlogBackLink } from "@/components/blog-back-link"
+import { BlogEmptyState } from "@/components/blog-empty-state"
 import type { CollectionPage, WithContext } from "schema-dts"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { LOCALES, type Locale } from "@/i18n/config"
@@ -122,43 +122,42 @@ export default async function TagPage({ params }: TagPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto py-12">
-      <div className="mb-12">
-        <Link
-          href="/blog/tags"
-          className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-        >
-          {t("backToTags")}
-        </Link>
-        <h1 className="text-4xl font-bold mb-4">{tag.name}</h1>
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
-          <CmsEntryTags
-            tags={[{ tag }]}
-            maxTags={1}
-          />
-          <span className="text-sm text-muted-foreground">
-            {t("postCount", { count: blogEntries.length })}
-          </span>
+      <div className="mx-auto max-w-7xl py-12 sm:py-16">
+        <div className="mb-12">
+          <BlogBackLink href="/blog/tags" label={t("backToTags")} />
+          <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <h1 className="flex items-center gap-3 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+              {/* The dot carries the tag's CMS-assigned color; the ring keeps it visible on matching backgrounds. */}
+              {tag.color && (
+                <span
+                  aria-hidden
+                  className="size-3.5 shrink-0 rounded-full ring-1 ring-inset ring-foreground/20"
+                  style={{ backgroundColor: tag.color }}
+                />
+              )}
+              {tag.name}
+            </h1>
+            <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+              {t("postCount", { count: blogEntries.length })}
+            </span>
+          </div>
+          {tag.description && (
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted-foreground">
+              {tag.description}
+            </p>
+          )}
         </div>
-        {tag.description && (
-          <p className="text-xl text-muted-foreground">
-            {tag.description}
-          </p>
+
+        {blogEntries.length === 0 ? (
+          <BlogEmptyState message={t("empty")} />
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {blogEntries.map((entry) => (
+              <BlogCard key={entry.id} entry={entry} showTags={false} />
+            ))}
+          </div>
         )}
       </div>
-
-      {blogEntries.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">{t("empty")}</p>
-        </div>
-      ) : (
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {blogEntries.map((entry) => (
-            <BlogCard key={entry.id} entry={entry} showTags={false} />
-          ))}
-        </div>
-      )}
-    </div>
     </>
   )
 }

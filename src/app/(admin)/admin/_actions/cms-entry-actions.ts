@@ -22,7 +22,7 @@ import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { revalidateCmsEntryPaths } from "@/app/(admin)/admin/_actions/cms-entry-revalidation";
 import { cmsStatusFilterTuple } from "@/types/cms";
 import { requiredString, v } from "@/lib/validation";
-import { ENABLED_LOCALES, LOCALES, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, isLocale, type Locale } from "@/i18n/config";
 
 const listStatusEnum = v.picklist(cmsStatusFilterTuple);
 
@@ -255,6 +255,7 @@ export const generateSeoDescriptionAction = actionClient
       title: entry.title,
       content: entry.content,
       collectionSlug: entry.collection,
+      locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
     });
 
     if (!description) {

@@ -1,5 +1,4 @@
 import "server-only"
-import { Link } from "@/i18n/navigation"
 import { cache } from "react"
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
@@ -9,6 +8,7 @@ import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { BlogCard } from "@/components/blog-card"
+import { BlogBackLink } from "@/components/blog-back-link"
 import { SITE_NAME, SITE_URL } from "@/constants"
 import {
   getAuthorDisplayName,
@@ -155,36 +155,33 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto py-12">
-      <div className="mb-12">
-        <Link
-          href="/blog/authors"
-          className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-        >
-          {t("backToAuthors")}
-        </Link>
-        <div className="flex items-center gap-4 mb-4">
-          <Avatar className="h-16 w-16">
-            {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
-            <AvatarFallback className="text-lg">
-              {getInitials(authorName)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-4xl font-bold">{authorName}</h1>
-            <p className="text-muted-foreground">
-              {t("postCount", { count: authorEntries.length })}
-            </p>
+      <div className="mx-auto max-w-7xl py-12 sm:py-16">
+        <div className="mb-12">
+          <BlogBackLink href="/blog/authors" label={t("backToAuthors")} />
+          <div className="mt-6 flex items-center gap-5">
+            <Avatar className="h-16 w-16 ring-1 ring-border sm:h-20 sm:w-20">
+              {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
+              <AvatarFallback className="text-lg">
+                {getInitials(authorName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                {authorName}
+              </h1>
+              <p className="mt-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                {t("postCount", { count: authorEntries.length })}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {authorEntries.map((entry) => (
-          <BlogCard key={entry.id} entry={entry} showAuthor={false} />
-        ))}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {authorEntries.map((entry) => (
+            <BlogCard key={entry.id} entry={entry} showAuthor={false} />
+          ))}
+        </div>
       </div>
-    </div>
     </>
   )
 }

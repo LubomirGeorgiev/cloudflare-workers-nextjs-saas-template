@@ -4,8 +4,10 @@ import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import type { Blog, WithContext } from "schema-dts"
 import { getTranslations } from "next-intl/server"
+import { Tag, Users } from "lucide-react"
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/entry"
 import { BlogCard } from "@/components/blog-card"
+import { BlogEmptyState } from "@/components/blog-empty-state"
 import { BlogPaginationServer } from "@/components/blog-pagination-server"
 import { BLOG_POSTS_PER_PAGE } from "@/constants"
 import { getBlogPagePath } from "@/lib/blog-routing"
@@ -121,44 +123,55 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto py-12">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold mb-4">{t("title")}</h1>
-          <p className="text-xl text-muted-foreground mb-6">
+      {/* Negative margins cancel the blog layout's horizontal padding so the
+          grid backdrop bleeds full width and meets the nav with no gap. */}
+      <header className="relative isolate -mx-4 overflow-hidden md:-mx-6 lg:-mx-8">
+        {/* Grid lines derive from the foreground color so they read clearly in both themes. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-grid [--border:color-mix(in_oklab,var(--foreground)_13%,transparent)] mask-[radial-gradient(ellipse_80%_110%_at_30%_0%,black,transparent_90%)]"
+        />
+        <div className="mx-auto max-w-7xl px-4 pb-12 pt-12 md:px-6 sm:pb-14 sm:pt-16 lg:px-8">
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+            {t("title")}
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-muted-foreground">
             {t("description")}
           </p>
 
           {/* Navigation links */}
-          <div className="flex gap-4">
+          <div className="mt-7 flex flex-wrap gap-3">
             <Link
               href="/blog/tags"
-              className="text-sm text-muted-foreground hover:text-primary transition-all underline"
+              className="inline-flex items-center gap-2 rounded-full border bg-background/60 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-edge/60 hover:text-edge"
             >
+              <Tag className="size-3.5" strokeWidth={1.75} aria-hidden />
               {t("browseByTags")}
             </Link>
-            <span className="text-muted-foreground">•</span>
             <Link
               href="/blog/authors"
-              className="text-sm text-muted-foreground hover:text-primary transition-all underline"
+              className="inline-flex items-center gap-2 rounded-full border bg-background/60 px-4 py-1.5 text-sm text-muted-foreground backdrop-blur-sm transition-colors hover:border-edge/60 hover:text-edge"
             >
+              <Users className="size-3.5" strokeWidth={1.75} aria-hidden />
               {t("browseByAuthors")}
             </Link>
           </div>
         </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl pb-12 sm:pb-16">
 
         {blogEntries.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">{t("empty")}</p>
-          </div>
+          <BlogEmptyState message={t("empty")} />
         ) : (
           <>
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {blogEntries.map((entry) => (
                 <BlogCard key={entry.id} entry={entry} />
               ))}
             </div>
 
-            <div className="mt-12">
+            <div className="mt-14">
               <BlogPaginationServer
                 currentPage={page}
                 totalPages={totalPages}

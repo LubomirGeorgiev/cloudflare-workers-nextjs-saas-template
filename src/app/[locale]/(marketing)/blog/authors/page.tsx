@@ -8,6 +8,9 @@ import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getInitials } from "@/utils/name-initials"
+import { BlogBackLink } from "@/components/blog-back-link"
+import { BlogEmptyState } from "@/components/blog-empty-state"
+import { HairlineGrid } from "@/components/hairline-grid"
 import type { CollectionPage, WithContext } from "schema-dts"
 import { LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
@@ -125,55 +128,52 @@ export default async function BlogAuthorsPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto py-12">
-      <div className="mb-12">
-        <Link
-          href="/blog"
-          className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-        >
-          {t("backToBlog")}
-        </Link>
-        <h1 className="text-4xl font-bold mb-4">{t("title")}</h1>
-        <p className="text-xl text-muted-foreground">
-          {t("description")}
-        </p>
-      </div>
-
-      {authors.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">{t("empty")}</p>
+      <div className="mx-auto max-w-7xl py-12 sm:py-16">
+        <div className="mb-12">
+          <BlogBackLink href="/blog" label={t("backToBlog")} />
+          <h1 className="mt-5 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            {t("title")}
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-muted-foreground">
+            {t("description")}
+          </p>
         </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {authors.map((author) => (
-            <Link
-              key={author.id}
-              href={`/blog/authors/${getAuthorRouteParam(author)}`}
-              className="group block"
-            >
-              <div className="h-full border rounded-lg p-6 transition-all hover:shadow-lg hover:border-primary">
-                <div className="flex items-center gap-4 mb-3">
-                  <Avatar className="h-12 w-12">
+
+        {authors.length === 0 ? (
+          <BlogEmptyState message={t("empty")} />
+        ) : (
+          <HairlineGrid count={authors.length}>
+            {authors.map((author) => (
+              <Link
+                key={author.id}
+                href={`/blog/authors/${getAuthorRouteParam(author)}`}
+                className="group relative block bg-card p-6 transition-colors hover:bg-accent/40"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-0 h-px scale-x-0 bg-edge transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+                />
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-12 w-12 ring-1 ring-border">
                     {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorDisplayName(author)} />}
                     <AvatarFallback>
                       {getInitials(getAuthorDisplayName(author))}
                     </AvatarFallback>
                   </Avatar>
-                  <div>
-                    <h2 className="text-xl font-semibold group-hover:text-primary transition-all">
+                  <div className="min-w-0">
+                    <h2 className="truncate font-display text-lg font-semibold text-foreground transition-colors group-hover:text-edge">
                       {getAuthorDisplayName(author)}
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                       {t("postCount", { count: author.postCount })}
                     </p>
                   </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+              </Link>
+            ))}
+          </HairlineGrid>
+        )}
+      </div>
     </>
   )
 }

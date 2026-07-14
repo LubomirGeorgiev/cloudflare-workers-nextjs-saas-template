@@ -4,7 +4,9 @@ import { redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { getCmsTags } from "@/lib/cms/tags"
-import { CmsEntryTags } from "@/components/cms-entry-tags"
+import { BlogBackLink } from "@/components/blog-back-link"
+import { BlogEmptyState } from "@/components/blog-empty-state"
+import { HairlineGrid } from "@/components/hairline-grid"
 import type { CollectionPage, WithContext } from "schema-dts"
 import { LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
@@ -48,8 +50,10 @@ export default async function BlogTagsPage({
   const { locale } = await params
   const tags = await getCmsTags({ locale })
 
-  // Only show tags that have entries
-  const tagsWithEntries = tags.filter(tag => tag.entryCount > 0)
+  // Only show tags that have entries, most-published topics first
+  const tagsWithEntries = tags
+    .filter(tag => tag.entryCount > 0)
+    .sort((a, b) => b.entryCount - a.entryCount || a.name.localeCompare(b.name))
 
   if (tagsWithEntries.length === 0) {
     redirect("/")
@@ -84,50 +88,60 @@ export default async function BlogTagsPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="container mx-auto py-12">
-      <div className="mb-12">
-        <Link
-          href="/blog"
-          className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-        >
-          {t("backToBlog")}
-        </Link>
-        <h1 className="text-4xl font-bold mb-4">{t("title")}</h1>
-        <p className="text-xl text-muted-foreground">
-          {t("description")}
-        </p>
-      </div>
-
-      {tagsWithEntries.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">{t("empty")}</p>
+      <div className="mx-auto max-w-7xl py-12 sm:py-16">
+        <div className="mb-12">
+          <BlogBackLink href="/blog" label={t("backToBlog")} />
+          <h1 className="mt-5 font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            {t("title")}
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-muted-foreground">
+            {t("description")}
+          </p>
         </div>
-      ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {tagsWithEntries.map((tag) => (
-            <Link
-              key={tag.id}
-              href={`/blog/tags/${tag.slug}`}
-              className="group block"
-            >
-              <div className="h-full border rounded-lg p-6 transition-all hover:shadow-lg hover:border-primary">
-                <div className="flex items-center justify-between mb-3">
-                  <CmsEntryTags tags={[{ tag }]} maxTags={1} />
-                  <span className="text-sm text-muted-foreground">
+
+        {tagsWithEntries.length === 0 ? (
+          <BlogEmptyState message={t("empty")} />
+        ) : (
+          <HairlineGrid count={tagsWithEntries.length}>
+            {tagsWithEntries.map((tag) => (
+              <Link
+                key={tag.id}
+                href={`/blog/tags/${tag.slug}`}
+                className="group relative block bg-card p-6 transition-colors hover:bg-accent/40"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-0 h-px scale-x-0 bg-edge transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+                />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    {/* The dot carries each tag's CMS-assigned color, matching its badges elsewhere. */}
+                    {/* The ring keeps dots whose CMS color matches the card background visible. */}
+                    {tag.color && (
+                      <span
+                        aria-hidden
+                        className="size-2.5 shrink-0 rounded-full ring-1 ring-inset ring-foreground/20"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                    )}
+                    <span className="truncate font-display text-lg font-semibold text-foreground transition-colors group-hover:text-edge">
+                      {tag.name}
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
                     {t("postCount", { count: tag.entryCount })}
                   </span>
                 </div>
                 {tag.description && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mt-2.5 line-clamp-2 text-sm leading-6 text-muted-foreground">
                     {tag.description}
                   </p>
                 )}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+              </Link>
+            ))}
+          </HairlineGrid>
+        )}
+      </div>
     </>
   )
 }

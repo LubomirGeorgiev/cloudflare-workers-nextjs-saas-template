@@ -34,6 +34,7 @@ Report the Cloudflare account id/name/email from MCP and the GitHub account/repo
    - `src/components/footer.tsx` has project links and details.
    - `src/app/globals.css` color palette has been reviewed.
    - `src/app/layout.tsx` metadata has project details.
+   - The `meta` titles and descriptions in every locale catalog under `src/i18n/messages/*.json` (for example `Client.Landing.meta`, plus the auth, legal, and blog `meta` blocks) still default to template copy. Explicitly ask the user for the production titles and descriptions, and help them update these values in all locale catalogs, not only `en.json`.
    - `cms.config.ts` has been reviewed and updated if needed.
 
 4. Collect required inputs:
@@ -50,6 +51,7 @@ Report the Cloudflare account id/name/email from MCP and the GitHub account/repo
 | --- | --- | --- |
 | Confirm production customization checklist | File reads and user confirmation | Required before deployment. Remind the user about any unchecked items and update files when they provide project details. |
 | Customize `src/constants.ts`, `package.json`, `AGENTS.md`, footer, palette, metadata, `cms.config.ts` | File edits | Automatable after project details are known. |
+| Update `meta` titles/descriptions in `src/i18n/messages/*.json` | File edits | Ask the user for production titles/descriptions, then update every locale catalog. |
 | Create D1, KV, R2, or Queue resources | Cloudflare MCP | Use MCP patterns below: list by final production name, reuse exact matches, create only when approved, and write returned ids/names to `wrangler.jsonc`. Queue names must use the final project name. |
 | Enable or verify Cloudflare Images | Cloudflare MCP | Verify both the account-level Images API and the production `SITE_URL` zone/domain. Billing acceptance may still require dashboard interaction. |
 | Verify/onboard Email Sending and update sender config | Cloudflare MCP and file edits | Follow `Email Sending`. Verify the production-zone subdomain before file edits, and edit sender values only after user confirmation. |

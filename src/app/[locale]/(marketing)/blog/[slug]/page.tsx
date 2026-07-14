@@ -18,6 +18,8 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config"
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
+import { BlogBackLink } from "@/components/blog-back-link"
+import { cn } from "@/lib/utils"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
 import { localizeEntryTags } from "@/lib/cms/tags"
 import type { BlogPosting, BreadcrumbList, WithContext } from "schema-dts"
@@ -328,27 +330,23 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <div className="container mx-auto py-12">
+      <div className="mx-auto max-w-6xl py-12 sm:py-16">
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
-          <article className="min-w-0 max-w-3xl xl:max-w-none">
-            <header className="mb-8">
-              <Link
-                href="/blog"
-                className="text-sm text-muted-foreground hover:text-primary transition-all mb-4 inline-block"
-              >
-                {t("backToBlog")}
-              </Link>
-              <h1 className="text-4xl font-bold mb-6">{entry.title}</h1>
+          <article className="min-w-0 max-w-3xl">
+            <header className="mb-10">
+              <BlogBackLink href="/blog" label={t("backToBlog")} />
+
+              <h1 className="mt-5 text-balance font-display text-4xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-5xl">
+                {entry.title}
+              </h1>
 
               {/* Metadata section */}
-              <div className="flex flex-col gap-4">
-                {/* Author and Date row */}
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  {/* Author info */}
+              <div className="mt-7 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
                   {author && (
                     <Link
                       href={`/blog/authors/${getAuthorRouteParam(author)}`}
-                      className="flex items-center gap-3 hover:opacity-80 transition-all"
+                      className="group flex items-center gap-3"
                     >
                       <Avatar className="h-10 w-10">
                         {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
@@ -356,30 +354,30 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                           {getInitials(authorName)}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{authorName}</p>
-                        <p className="text-xs text-muted-foreground">{t("author")}</p>
-                      </div>
+                      <span className="text-sm font-medium transition-colors group-hover:text-edge">
+                        {authorName}
+                      </span>
                     </Link>
                   )}
 
-                  {/* Date info */}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div
+                    className={cn(
+                      "flex flex-col font-mono text-xs uppercase tracking-wide text-muted-foreground sm:flex-row sm:items-center sm:gap-2",
+                      author && "border-l pl-3",
+                    )}
+                  >
                     <time dateTime={publishedDate.toISOString()}>
                       {formatDate(publishedDate)}
                     </time>
                     {modifiedDate.getTime() !== publishedDate.getTime() && (
-                      <>
-                        <span>•</span>
-                        <span>{t("updated", { date: formatDate(modifiedDate) })}</span>
-                      </>
+                      <span>{t("updated", { date: formatDate(modifiedDate) })}</span>
                     )}
                   </div>
                 </div>
 
                 {/* Tags row */}
                 {localizedTags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-3 border-t">
+                  <div className="flex flex-wrap gap-2 border-t pt-4">
                     <CmsEntryTags
                       tags={localizedTags}
                       maxTags={Infinity}
@@ -392,7 +390,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
             </header>
 
             {entry.featuredImageUrl && (
-              <div className="relative w-full aspect-video mb-8 rounded-lg overflow-hidden">
+              <div className="relative mb-10 aspect-video w-full overflow-hidden rounded-xl border">
                 <Image
                   src={entry.featuredImageUrl}
                   alt={entry.featuredImage?.alt || entry.title}
@@ -414,7 +412,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           {tableOfContents.length > 0 && (
             <aside className="hidden xl:block">
               <div className="sticky top-10">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-edge">
                   {t("onThisPage")}
                 </p>
                 <ContentTableOfContentsNav nodes={tableOfContentsTree} />

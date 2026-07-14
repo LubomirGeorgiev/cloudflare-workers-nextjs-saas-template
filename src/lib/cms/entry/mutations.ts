@@ -212,6 +212,8 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
       title: finalTitle,
       content: finalContent as JSONContent,
       collectionSlug: existingEntry.collection,
+      // `locale` is a raw text column; fall back to the default if it left the catalog.
+      locale: isLocale(existingEntry.locale) ? existingEntry.locale : DEFAULT_LOCALE,
     });
     if (generatedDescription) {
       finalSeoDescription = generatedDescription;

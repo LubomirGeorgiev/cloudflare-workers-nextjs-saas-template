@@ -27,61 +27,62 @@ export function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCard
       href={`/blog/${entry.slug}`}
       className="group block h-full"
     >
-      <article className="h-full border rounded-lg bg-muted/30 overflow-hidden transition-all hover:shadow-lg hover:border-primary flex flex-col">
+      <article className="relative flex h-full flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-edge/50">
+        <span
+          aria-hidden
+          className="absolute inset-x-0 top-0 z-10 h-px scale-x-0 bg-edge transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
+        />
         {entry.featuredImageUrl && (
           <div className="relative aspect-video w-full overflow-hidden border-b">
             <Image
               src={entry.featuredImageUrl}
               alt={entry.featuredImage?.alt || entry.title}
               fill
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03] motion-reduce:transform-none"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
         )}
 
-        <div className="p-6 flex h-full flex-col">
-          <h2 className="text-2xl font-semibold mb-4 line-clamp-2 min-h-[4.5rem] group-hover:text-primary transition-all">
+        <div className="flex flex-1 flex-col p-6">
+          <time
+            dateTime={displayDate.toISOString()}
+            className="font-mono text-xs uppercase tracking-wide text-muted-foreground"
+          >
+            {formatDate(displayDate)}
+          </time>
+
+          <h2 className="mt-3 line-clamp-2 font-display text-xl font-semibold leading-snug text-foreground transition-colors group-hover:text-edge">
             {entry.title}
           </h2>
 
           {description && (
-            <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[3.5rem]">
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
               {description}
             </p>
           )}
 
-          {/* Tags */}
           {showTags && entry.tags && entry.tags.length > 0 && (
-            <div className="mb-4 min-h-10 max-h-24 overflow-hidden flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <CmsEntryTags tags={entry.tags} variant="outline" />
             </div>
           )}
 
-          {/* Footer with author and date */}
-          <div className="mt-auto pt-4 flex items-center justify-between gap-4 border-t">
-            {/* Author info */}
-            {showAuthor && author && (
-              <div className="flex items-center gap-2 min-w-0">
-                <Avatar className="h-8 w-8 flex-shrink-0">
+          {showAuthor && author && (
+            <div className="mt-auto pt-5">
+              <div className="flex items-center gap-2.5 border-t pt-4">
+                <Avatar className="h-7 w-7 flex-shrink-0">
                   {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
                   <AvatarFallback className="text-xs">
                     {getInitials(authorName)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm text-muted-foreground truncate">
+                <span className="truncate text-sm text-muted-foreground">
                   {authorName}
                 </span>
               </div>
-            )}
-
-            <time
-              dateTime={displayDate.toISOString()}
-              className="text-sm text-muted-foreground whitespace-nowrap flex-shrink-0"
-            >
-              {formatDate(displayDate)}
-            </time>
-          </div>
+            </div>
+          )}
         </div>
       </article>
     </Link>
