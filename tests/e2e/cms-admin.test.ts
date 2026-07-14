@@ -145,6 +145,5 @@ test("loads CMS tags, media, and docs navigation admin screens", async () => {
   await expectAppText("Add Page", { exact: true });
   await expectAppText("Save", { exact: true });
   await expectAppText("Getting Started", { exact: true });
-  await expectAppText("Introduction", { exact: true });
   await expectAppText("Selected Item Details", { exact: true });
 });

@@ -200,6 +200,7 @@ export async function expectAppText(
 ): Promise<void> {
   await getAppPage()
     .getByText(text, { exact: options?.exact })
+    .filter({ visible: true })
     .first()
     .waitFor({ state: "visible", timeout: expectationTimeoutMs });
 }
