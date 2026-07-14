@@ -184,9 +184,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   })
 
-  // Static + blog-listing routes are translated and indexable in every locale, so they advertise full
-  // hreflang via `localizedSitemapAlternates`. Individual blog posts and docs pages instead scope their
-  // alternates to the locales they are actually translated in (`entryAlternates`), because untranslated `/es/*` renders fall back to English and are `noindex`.
+  // Static/listing routes advertise every locale. CMS routes advertise only real
+  // translations because fallback renders use default-locale content and are `noindex`.
   const staticRoutes = [
     {
       url: SITE_URL,

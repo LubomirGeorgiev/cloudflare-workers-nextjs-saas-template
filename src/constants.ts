@@ -15,7 +15,7 @@ export const AUTH_SESSION_PRESENT_COOKIE_NAME = "auth_session_present";
 export const GOOGLE_OAUTH_STATE_COOKIE_NAME = "google-oauth-state";
 export const GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME = "google-oauth-code-verifier";
 
-// Master switch for internationalization. When false, the app serves only the default locale (English): the
+// Master switch for internationalization. When false, the app serves only DEFAULT_LOCALE: the
 // `/<locale>` prefixed routes, language switcher, hreflang/alternate meta tags, per-locale sitemap entries,
 // and Accept-Language locale detection are all disabled. The next-intl translation layer still powers UI strings from the default catalog, so single-language sites keep working.
 export const I18N_ENABLED = true;

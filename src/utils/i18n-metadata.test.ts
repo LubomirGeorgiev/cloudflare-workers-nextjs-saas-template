@@ -1,17 +1,23 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { I18N_ENABLED, SITE_URL } from "@/constants";
-import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
 
 // `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which pull in `next/navigation`
 // client hooks that don't resolve in a plain Node/vitest module graph (no Vinext/Vite shim present).
 // `getPathname` itself is pure path-building logic, so fake it directly against the `routing` config instead of exercising next-intl/next's internals here.
-vi.mock("@/i18n/navigation", () => ({
-  getPathname: ({ href, locale }: { href: string; locale: string }) =>
-    locale === "en" ? href : `/${locale}${href}`,
-}));
+vi.mock("@/i18n/navigation", async () => {
+  const { DEFAULT_LOCALE } = await import("@/i18n/config");
+
+  return {
+    getPathname: ({ href, locale }: { href: string; locale: string }) =>
+      locale === DEFAULT_LOCALE ? href : `/${locale}${href}`,
+  };
+});
+
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 const { buildAlternates, noindexNonDefaultLocale } = await import("./i18n-metadata");
 
@@ -19,11 +25,11 @@ describe("buildAlternates", () => {
   test("canonical is the active locale's own URL", () => {
     const alternates = buildAlternates({
       pathname: "/privacy",
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
       availableLocales: LOCALES,
     });
 
-    expect(alternates!.canonical).toBe(`${SITE_URL}/es/privacy`);
+    expect(alternates!.canonical).toBe(`${SITE_URL}/${NON_DEFAULT_LOCALE}/privacy`);
   });
 
   test("canonical for the default locale has no locale prefix", () => {
@@ -41,7 +47,7 @@ describe("buildAlternates", () => {
   test.skipIf(!I18N_ENABLED)("languages has one hreflang entry per available locale plus x-default", () => {
     const alternates = buildAlternates({
       pathname: "/privacy",
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
       availableLocales: LOCALES,
     });
 
@@ -56,20 +62,20 @@ describe("buildAlternates", () => {
   test.skipIf(!I18N_ENABLED)("hreflang URLs derive from SITE_URL and locale-specific pathnames", () => {
     const alternates = buildAlternates({
       pathname: "/privacy",
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
       availableLocales: LOCALES,
     });
 
     const languages = alternates!.languages as Record<string, string>;
 
-    expect(languages.en).toBe(`${SITE_URL}/privacy`);
-    expect(languages.es).toBe(`${SITE_URL}/es/privacy`);
+    expect(languages[DEFAULT_LOCALE]).toBe(`${SITE_URL}/privacy`);
+    expect(languages[NON_DEFAULT_LOCALE]).toBe(`${SITE_URL}/${NON_DEFAULT_LOCALE}/privacy`);
   });
 
   test.skipIf(!I18N_ENABLED)("x-default points at the default-locale URL", () => {
     const alternates = buildAlternates({
       pathname: "/privacy",
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
       availableLocales: LOCALES,
     });
 
@@ -96,28 +102,34 @@ describe("buildAlternates", () => {
       I18N_ENABLED: true,
       SITE_URL: "https://example.com/app",
     }));
-    vi.doMock("@/i18n/navigation", () => ({
-      getPathname: ({ href, locale }: { href: string; locale: string }) =>
-        locale === "en" ? href : `/${locale}${href}`,
-    }));
+    vi.doMock("@/i18n/navigation", async () => {
+      const { DEFAULT_LOCALE } = await import("@/i18n/config");
+
+      return {
+        getPathname: ({ href, locale }: { href: string; locale: string }) =>
+          locale === DEFAULT_LOCALE ? href : `/${locale}${href}`,
+      };
+    });
 
     const { buildAlternates } = await import("./i18n-metadata");
     const alternates = buildAlternates({
       pathname: "/privacy",
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
       availableLocales: LOCALES,
     });
     const languages = alternates!.languages as Record<string, string>;
 
-    expect(alternates!.canonical).toBe("https://example.com/app/es/privacy");
-    expect(languages.en).toBe("https://example.com/app/privacy");
-    expect(languages.es).toBe("https://example.com/app/es/privacy");
+    expect(alternates!.canonical).toBe(`https://example.com/app/${NON_DEFAULT_LOCALE}/privacy`);
+    expect(languages[DEFAULT_LOCALE]).toBe("https://example.com/app/privacy");
+    expect(languages[NON_DEFAULT_LOCALE]).toBe(
+      `https://example.com/app/${NON_DEFAULT_LOCALE}/privacy`,
+    );
   });
 });
 
 describe("noindexNonDefaultLocale", () => {
   test("returns a noindex robots directive for a non-default locale", () => {
-    expect(noindexNonDefaultLocale("es")).toEqual({
+    expect(noindexNonDefaultLocale(NON_DEFAULT_LOCALE)).toEqual({
       robots: { index: false, follow: true },
     });
   });
@@ -132,32 +144,32 @@ describe("noindexNonDefaultLocale", () => {
 // resolve-localized-entry.ts and resolve-docs-page.ts). This documents/locks the exact contract those pages depend on: noindex the untranslated page and canonicalize it at the real default-locale URL, while still advertising only genuine translations via hreflang. Getting this wrong (e.g. self-canonicalizing) would resurrect the mixed-language/duplicate-content risk the redirect was originally (incorrectly) trying to solve.
 describe("fallback-render metadata composition (blog/docs untranslated pages)", () => {
   test("noindexes the untranslated locale render", () => {
-    const fallbackMetadata = noindexNonDefaultLocale("es");
+    const fallbackMetadata = noindexNonDefaultLocale(NON_DEFAULT_LOCALE);
     expect(fallbackMetadata).toEqual({ robots: { index: false, follow: true } });
   });
 
   test("canonicalizes at the default-locale URL, not the active (untranslated) locale's URL", () => {
     const alternates = buildAlternates({
-      pathname: "/blog/only-in-english",
+      pathname: "/blog/only-in-default-locale",
       locale: DEFAULT_LOCALE,
-      availableLocales: ["en"],
+      availableLocales: [DEFAULT_LOCALE],
     });
 
-    expect(alternates!.canonical).toBe(`${SITE_URL}/blog/only-in-english`);
-    expect(alternates!.canonical).not.toContain("/es/");
+    expect(alternates!.canonical).toBe(`${SITE_URL}/blog/only-in-default-locale`);
+    expect(alternates!.canonical).not.toContain(`/${NON_DEFAULT_LOCALE}/`);
   });
 
   test.skipIf(!I18N_ENABLED)("hreflang only advertises locales that actually have a translation row", () => {
-    // Only 'en' has a real row; hreflang must not claim 'es' is a translation
-    // just because the page happens to render (as a fallback) under /es/*.
+    // Only the default locale has a real row; hreflang must not claim the active
+    // locale is a translation just because the page renders there as a fallback.
     const alternates = buildAlternates({
-      pathname: "/blog/only-in-english",
+      pathname: "/blog/only-in-default-locale",
       locale: DEFAULT_LOCALE,
-      availableLocales: ["en"],
+      availableLocales: [DEFAULT_LOCALE],
     });
 
     const languages = alternates!.languages as Record<string, string>;
-    expect(languages.en).toBeDefined();
-    expect(languages.es).toBeUndefined();
+    expect(languages[DEFAULT_LOCALE]).toBeDefined();
+    expect(languages[NON_DEFAULT_LOCALE]).toBeUndefined();
   });
 });

@@ -19,8 +19,7 @@ interface BlogPaginationServerProps {
 
 export function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
   // `PaginationLink` renders a plain `<a href>`, so the href must already carry
-  // the active locale prefix — otherwise `/es/blog` paginates to the unprefixed
-  // (default-locale) page and drops the visitor's locale.
+  // any active locale prefix or pagination can drop the visitor's locale.
   const pageHref = (page: number) => getPathname({ href: getBlogPagePath({ page }), locale })
   const pageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];

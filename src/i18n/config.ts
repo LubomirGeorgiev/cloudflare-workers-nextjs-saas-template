@@ -15,6 +15,8 @@ export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }
 
+// Canonical locale for routing, fallbacks, CMS rows, emails, and SEO URLs.
+// Changing it also changes Drizzle defaults, so generate and apply a migration.
 export const DEFAULT_LOCALE: Locale = "en";
 
 // The locales actually served. `LOCALES` still types the full catalog, but routing, static params, the

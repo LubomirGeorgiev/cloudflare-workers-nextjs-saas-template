@@ -20,7 +20,7 @@ export function DocsLlmsTxtLink({
 
   // Plain <a>, not the i18n Link: llms.txt is a machine endpoint (a text/plain
   // route handler) served at a single non-localized URL like robots.txt, so it
-  // must not gain an `/es` prefix for non-default locales.
+  // must not gain a locale prefix for non-default locales.
   return (
     <a
       href={DOCS_LLMS_TXT_PATH}

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, userTable } from "@/db/schema";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/entry";
 
 // `getCmsCollection`/`getCmsCollectionCount` are wrapped in `"use cache: remote"` functions that call
@@ -19,11 +20,12 @@ vi.mock("next/cache", () => ({
 
 const db = getDB();
 
-// Admin CMS listing must surface every locale's rows (Phase 3 review fix): a
-// newly created 'es' DRAFT translation must be visible/editable from the admin
-// table, not hidden behind the public read path's default-to-'en' filtering.
+// Admin CMS listing must surface every locale's rows: a newly created non-default
+// DRAFT translation must be visible/editable instead of hidden behind the public
+// read path's default-locale filtering.
 const COLLECTION_SLUG = "blog";
 const SHARED_SLUG = "admin-all-locales-test-post";
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 async function clearCmsLocaleRows(): Promise<void> {
   await env.NEXT_TAG_CACHE_D1.batch([
@@ -55,45 +57,45 @@ describe("admin CMS listing surfaces every locale", () => {
     await db.insert(cmsEntryTable).values([
       {
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Default entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       {
         collection: COLLECTION_SLUG,
-        title: "Hola (draft)",
+        title: "Translated draft",
         content: {},
         slug: SHARED_SLUG,
-        locale: "es",
+        locale: NON_DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.DRAFT,
         createdBy,
       },
       // oxlint-disable-next-line typescript/no-explicit-any
     ] as any);
 
-    // Default (locale-scoped) behavior is unchanged: only 'en' rows.
+    // Default locale-scoped behavior still returns only the canonical row.
     const defaultLocaleOnly = await getCmsCollection({
       collectionSlug: COLLECTION_SLUG,
       status: "all",
     });
     expect(defaultLocaleOnly).toHaveLength(1);
-    expect(defaultLocaleOnly[0]?.locale).toBe("en");
+    expect(defaultLocaleOnly[0]?.locale).toBe(DEFAULT_LOCALE);
 
-    // All-locales mode (admin listing) must include the 'es' draft too.
+    // All-locales mode (admin listing) must include the translated draft too.
     const allLocales = await getCmsCollection({
       collectionSlug: COLLECTION_SLUG,
       status: "all",
       allLocales: true,
     });
     const locales = allLocales.map((entry) => entry.locale).sort();
-    expect(locales).toEqual(["en", "es"]);
+    expect(locales).toEqual([DEFAULT_LOCALE, NON_DEFAULT_LOCALE].sort());
 
-    const esEntry = allLocales.find((entry) => entry.locale === "es");
-    expect(esEntry?.title).toBe("Hola (draft)");
-    expect(esEntry?.status).toBe(CMS_ENTRY_STATUS.DRAFT);
+    const translatedEntry = allLocales.find((entry) => entry.locale === NON_DEFAULT_LOCALE);
+    expect(translatedEntry?.title).toBe("Translated draft");
+    expect(translatedEntry?.status).toBe(CMS_ENTRY_STATUS.DRAFT);
   });
 
   it("getCmsCollectionCount with allLocales:true counts rows across every locale", async () => {
@@ -102,19 +104,19 @@ describe("admin CMS listing surfaces every locale", () => {
     await db.insert(cmsEntryTable).values([
       {
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Default entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       {
         collection: COLLECTION_SLUG,
-        title: "Hola (draft)",
+        title: "Translated draft",
         content: {},
         slug: SHARED_SLUG,
-        locale: "es",
+        locale: NON_DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.DRAFT,
         createdBy,
       },

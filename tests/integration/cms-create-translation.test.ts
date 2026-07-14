@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, cmsEntryTagTable, cmsTagTable, userTable } from "@/db/schema";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { createCmsEntryTranslation } from "@/lib/cms/entry/mutations";
 
 // `createCmsEntryTranslation` invalidates CMS caches via `revalidateCacheTag`, which
@@ -24,6 +25,7 @@ const db = getDB();
 // rows differ only by locale.
 const COLLECTION_SLUG = "blog";
 const SHARED_SLUG = "create-translation-test-post";
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 async function clearCmsLocaleRows(): Promise<void> {
   await env.NEXT_TAG_CACHE_D1.batch([
@@ -64,13 +66,13 @@ describe("createCmsEntryTranslation", () => {
       .insert(cmsEntryTable)
       .values({
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Source entry",
         content: { type: "doc", content: [{ type: "paragraph" }] },
         fields: { subtitle: "Greeting" },
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
-        seoDescription: "An English greeting post.",
+        seoDescription: "A source-locale post.",
         createdBy: authorId,
         // oxlint-disable-next-line typescript/no-explicit-any
       } as any)
@@ -86,8 +88,8 @@ describe("createCmsEntryTranslation", () => {
     const translation = await createCmsEntryTranslation({
       collectionSlug: COLLECTION_SLUG,
       slug: SHARED_SLUG,
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: NON_DEFAULT_LOCALE,
       createdBy: translatorId,
       autoTranslate: false,
     });
@@ -95,9 +97,9 @@ describe("createCmsEntryTranslation", () => {
     expect(translation.id).not.toBe(sourceEntry.id);
     expect(translation.collection).toBe(COLLECTION_SLUG);
     expect(translation.slug).toBe(SHARED_SLUG);
-    expect(translation.locale).toBe("es");
+    expect(translation.locale).toBe(NON_DEFAULT_LOCALE);
     expect(translation.status).toBe(CMS_ENTRY_STATUS.DRAFT);
-    expect(translation.title).toBe("Hello");
+    expect(translation.title).toBe("Source entry");
     expect(translation.content).toEqual(sourceEntry.content);
     expect(translation.fields).toEqual(sourceEntry.fields);
     expect(translation.seoDescription).toBe(sourceEntry.seoDescription);
@@ -109,8 +111,8 @@ describe("createCmsEntryTranslation", () => {
       where: { id: sourceEntry.id },
     });
     expect(reloadedSource?.status).toBe(CMS_ENTRY_STATUS.PUBLISHED);
-    expect(reloadedSource?.locale).toBe("en");
-    expect(reloadedSource?.title).toBe("Hello");
+    expect(reloadedSource?.locale).toBe(DEFAULT_LOCALE);
+    expect(reloadedSource?.title).toBe("Source entry");
 
     // Tag associations copied to the new row.
     const copiedTags = await db.query.cmsEntryTagTable.findMany({
@@ -123,8 +125,8 @@ describe("createCmsEntryTranslation", () => {
       createCmsEntryTranslation({
         collectionSlug: COLLECTION_SLUG,
         slug: SHARED_SLUG,
-        sourceLocale: "en",
-        targetLocale: "es",
+        sourceLocale: DEFAULT_LOCALE,
+        targetLocale: NON_DEFAULT_LOCALE,
         createdBy: translatorId,
         autoTranslate: false,
       })
@@ -139,13 +141,13 @@ describe("createCmsEntryTranslation", () => {
       .insert(cmsEntryTable)
       .values({
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Source entry",
         content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }] },
         fields: { subtitle: "Greeting" },
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
-        seoDescription: "An English greeting post.",
+        seoDescription: "A source-locale post.",
         createdBy: authorId,
         // oxlint-disable-next-line typescript/no-explicit-any
       } as any)
@@ -157,12 +159,12 @@ describe("createCmsEntryTranslation", () => {
     const translation = await createCmsEntryTranslation({
       collectionSlug: COLLECTION_SLUG,
       slug: SHARED_SLUG,
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: NON_DEFAULT_LOCALE,
       createdBy: translatorId,
     });
 
-    expect(translation.locale).toBe("es");
+    expect(translation.locale).toBe(NON_DEFAULT_LOCALE);
     expect(translation.slug).toBe(SHARED_SLUG);
     expect(translation.status).toBe(CMS_ENTRY_STATUS.DRAFT);
     expect(typeof translation.title).toBe("string");
@@ -174,7 +176,7 @@ describe("createCmsEntryTranslation", () => {
       where: { id: sourceEntry.id },
     });
     expect(reloadedSource?.status).toBe(CMS_ENTRY_STATUS.PUBLISHED);
-    expect(reloadedSource?.title).toBe("Hello");
+    expect(reloadedSource?.title).toBe("Source entry");
   });
 
   it("throws when the source locale row does not exist", async () => {
@@ -182,10 +184,10 @@ describe("createCmsEntryTranslation", () => {
 
     await db.insert(cmsEntryTable).values({
       collection: COLLECTION_SLUG,
-      title: "Hello",
+      title: "Source entry",
       content: {},
       slug: SHARED_SLUG,
-      locale: "en",
+      locale: DEFAULT_LOCALE,
       status: CMS_ENTRY_STATUS.PUBLISHED,
       createdBy: authorId,
       // oxlint-disable-next-line typescript/no-explicit-any
@@ -195,9 +197,9 @@ describe("createCmsEntryTranslation", () => {
       createCmsEntryTranslation({
         collectionSlug: COLLECTION_SLUG,
         slug: SHARED_SLUG,
-        // No 'es' row was seeded, so the source lookup fails before anything else.
-        sourceLocale: "es",
-        targetLocale: "en",
+        // No non-default row was seeded, so the source lookup fails first.
+        sourceLocale: NON_DEFAULT_LOCALE,
+        targetLocale: DEFAULT_LOCALE,
         createdBy: authorId,
       })
     ).rejects.toThrow();

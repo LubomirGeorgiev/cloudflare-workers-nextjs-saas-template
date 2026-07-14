@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, userTable } from "@/db/schema";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { getCmsEntryBySlug, getEntryLocales } from "@/lib/cms/entry";
 
 // `getCmsEntryBySlug` is wrapped in a `"use cache: remote"` function that calls `cacheTag`/`cacheLife`.
@@ -19,11 +20,12 @@ vi.mock("next/cache", () => ({
 
 const db = getDB();
 
-// Same (collection, slug) shared by an 'en' row and its 'es' translation, per the
-// Phase 3 translation-group model: rows differ only by locale.
+// Same (collection, slug) shared by default and translated rows; rows differ only
+// by locale.
 const COLLECTION_SLUG = "blog";
 const SHARED_SLUG = "locale-query-test-post";
-const EN_ONLY_SLUG = "locale-query-test-en-only";
+const DEFAULT_ONLY_SLUG = "locale-query-test-default-only";
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 async function clearCmsLocaleRows(): Promise<void> {
   await env.NEXT_TAG_CACHE_D1.batch([
@@ -49,67 +51,67 @@ describe("CMS entry read layer locale filtering", () => {
     await clearCmsLocaleRows();
   });
 
-  it("returns the row matching the requested locale, defaults to 'en', and returns undefined for missing translations", async () => {
+  it("returns the requested locale, defaults to DEFAULT_LOCALE, and leaves missing translations undefined", async () => {
     const createdBy = await seedUser();
 
     await db.insert(cmsEntryTable).values([
       {
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Default entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       {
         collection: COLLECTION_SLUG,
-        title: "Hola",
+        title: "Translated entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "es",
+        locale: NON_DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       {
         collection: COLLECTION_SLUG,
-        title: "English only",
+        title: "Default only",
         content: {},
-        slug: EN_ONLY_SLUG,
-        locale: "en",
+        slug: DEFAULT_ONLY_SLUG,
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       // oxlint-disable-next-line typescript/no-explicit-any
     ] as any);
 
-    const esEntry = await getCmsEntryBySlug({
+    const translatedEntry = await getCmsEntryBySlug({
       collectionSlug: COLLECTION_SLUG,
       slug: SHARED_SLUG,
-      locale: "es",
+      locale: NON_DEFAULT_LOCALE,
     });
-    expect(esEntry?.title).toBe("Hola");
-    expect(esEntry?.locale).toBe("es");
+    expect(translatedEntry?.title).toBe("Translated entry");
+    expect(translatedEntry?.locale).toBe(NON_DEFAULT_LOCALE);
 
-    const enEntry = await getCmsEntryBySlug({
+    const defaultLocaleEntry = await getCmsEntryBySlug({
       collectionSlug: COLLECTION_SLUG,
       slug: SHARED_SLUG,
-      locale: "en",
+      locale: DEFAULT_LOCALE,
     });
-    expect(enEntry?.title).toBe("Hello");
-    expect(enEntry?.locale).toBe("en");
+    expect(defaultLocaleEntry?.title).toBe("Default entry");
+    expect(defaultLocaleEntry?.locale).toBe(DEFAULT_LOCALE);
 
     const defaultEntry = await getCmsEntryBySlug({
       collectionSlug: COLLECTION_SLUG,
       slug: SHARED_SLUG,
     });
-    expect(defaultEntry?.title).toBe("Hello");
-    expect(defaultEntry?.locale).toBe("en");
+    expect(defaultEntry?.title).toBe("Default entry");
+    expect(defaultEntry?.locale).toBe(DEFAULT_LOCALE);
 
     const missingTranslation = await getCmsEntryBySlug({
       collectionSlug: COLLECTION_SLUG,
-      slug: EN_ONLY_SLUG,
-      locale: "es",
+      slug: DEFAULT_ONLY_SLUG,
+      locale: NON_DEFAULT_LOCALE,
     });
     expect(missingTranslation).toBeFalsy();
   });
@@ -120,19 +122,19 @@ describe("CMS entry read layer locale filtering", () => {
     await db.insert(cmsEntryTable).values([
       {
         collection: COLLECTION_SLUG,
-        title: "Hello",
+        title: "Default entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
       {
         collection: COLLECTION_SLUG,
-        title: "Hola",
+        title: "Translated entry",
         content: {},
         slug: SHARED_SLUG,
-        locale: "es",
+        locale: NON_DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
         createdBy,
       },
@@ -144,6 +146,6 @@ describe("CMS entry read layer locale filtering", () => {
       slug: SHARED_SLUG,
     });
 
-    expect([...locales].sort()).toEqual(["en", "es"]);
+    expect([...locales].sort()).toEqual([DEFAULT_LOCALE, NON_DEFAULT_LOCALE].sort());
   });
 });

@@ -257,7 +257,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: entry.title,
-    // A fallback render serves the default-locale (English) body under a
+    // A fallback render serves the default-locale body under a
     // non-default prefix, so advertise the body's real language, not the URL's.
     inLanguage: isFallback ? DEFAULT_LOCALE : locale,
     description: entry.seoDescription || generateMetaDescription(entry.content as JSONContent),

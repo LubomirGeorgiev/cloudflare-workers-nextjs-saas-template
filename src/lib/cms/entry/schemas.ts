@@ -11,7 +11,7 @@ import { requiredString, v } from "@/lib/validation";
 const cmsEntryStatusOrAllSchema = v.picklist(cmsStatusFilterTuple);
 
 // Translations of an entry share (collection, slug) and differ by locale. Defaulting to DEFAULT_LOCALE
-// keeps every existing caller returning the 'en' row unchanged. Validate against LOCALES (not
+// keeps existing callers on the canonical row. Validate against LOCALES (not
 // ENABLED_LOCALES) so a valid catalog locale isn't rejected when i18n is off, while still rejecting garbage strings.
 const cmsEntryLocaleSchema = v.optional(v.picklist(LOCALES), DEFAULT_LOCALE);
 
@@ -33,7 +33,7 @@ const cmsIncludeRelationsSchema = v.optional(v.object({
 }));
 
 // `allLocales: true` drops the locale `where` clause so the admin listing sees
-// every locale's rows (e.g. a new 'es' DRAFT); public callers of `getCmsCollection`/
+// every locale's rows (e.g. a new translated DRAFT); public callers of `getCmsCollection`/
 // `getCmsCollectionCount` omit it and stay locale-filtered by default.
 const cmsAllLocalesSchema = v.optional(v.boolean(), false);
 

@@ -178,7 +178,7 @@ function buildTree({
 }: {
   items: CmsNavigationItem[];
   entryById: Map<string, CmsCollectionListItem>;
-  // `entryId` is a fixed FK to the default-locale (English) row; translations are
+  // `entryId` is a fixed FK to the default-locale row; translations are
   // separate rows sharing (collection, slug) with a different `id`. This optional
   // `${collection}::${slug}`-keyed map supplies the locale row for `node.entry`.
   localizedEntryByTranslationKey?: Map<string, CmsCollectionListItem>;

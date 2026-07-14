@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+
 // Type-only import: erased at runtime, so it does not pull in
 // cms-navigation-repository.ts's top-level `getDB`/drizzle import (which would
 // fail outside the Workers runtime this unit-test suite runs in).
@@ -10,6 +12,7 @@ vi.mock("server-only", () => ({}));
 const { resolveDocsPage } = await import("./resolve-docs-page");
 
 const DOCS_BASE_PATH = "/docs";
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 function findNodeByResolvedPath({
   path,
@@ -34,10 +37,12 @@ function findNodeByResolvedPath({
 // and its `getNavigationNodeDisplayTitle`-adjacent tests actually read.
 function makeEntryStub({
   id,
+  locale = DEFAULT_LOCALE,
   slug,
   title,
 }: {
   id: string;
+  locale?: Locale;
   slug: string;
   title: string;
 }): CmsNavigationTreeNode["entry"] {
@@ -46,7 +51,7 @@ function makeEntryStub({
     collection: "docs",
     slug,
     title,
-    locale: "en",
+    locale,
     content: {},
     seoDescription: null,
     status: "published",
@@ -90,18 +95,24 @@ function makePageNode({
 
 describe("resolveDocsPage", () => {
   test("returns a 'page' result (not a redirect) when the active locale has a translated entry", async () => {
-    const esNode = makePageNode({
+    const translatedNode = makePageNode({
       id: "n1",
       resolvedPath: "/docs/foo",
-      entry: makeEntryStub({ id: "e1", slug: "foo", title: "Foo (ES)" }),
+      entry: makeEntryStub({
+        id: "e1",
+        locale: NON_DEFAULT_LOCALE,
+        slug: "foo",
+        title: "Translated Foo",
+      }),
     });
 
     const result = await resolveDocsPage({
       slugParts: ["foo"],
-      locale: "es",
-      defaultLocale: "en",
+      locale: NON_DEFAULT_LOCALE,
+      defaultLocale: DEFAULT_LOCALE,
       docsBasePath: DOCS_BASE_PATH,
-      getNavigationTree: async ({ locale }) => (locale === "es" ? [esNode] : []),
+      getNavigationTree: async ({ locale }) =>
+        locale === NON_DEFAULT_LOCALE ? [translatedNode] : [],
       getNavigationRedirectByPath: async () => null,
       getNavigationRootPath: async () => null,
       getNodeByResolvedPath: findNodeByResolvedPath,
@@ -110,31 +121,37 @@ describe("resolveDocsPage", () => {
     expect(result.type).toBe("page");
     if (result.type === "page") {
       expect(result.isFallback).toBe(false);
-      expect(result.node.entry?.title).toBe("Foo (ES)");
+      expect(result.node.entry?.title).toBe("Translated Foo");
     }
   });
 
   test("falls back to the default-locale entry (isFallback=true) instead of redirecting when untranslated", async () => {
-    const enNode = makePageNode({
+    const defaultNode = makePageNode({
       id: "n1",
       resolvedPath: "/docs/foo",
-      entry: makeEntryStub({ id: "e1", slug: "foo", title: "Foo (EN)" }),
+      entry: makeEntryStub({ id: "e1", slug: "foo", title: "Default Foo" }),
     });
-    // The es-scoped tree prunes the untranslated node itself, but keeps an
+    // The non-default tree prunes the untranslated node itself, but keeps an
     // unrelated translated sibling — an entirely empty tree is a different
     // code path (whole-navigation-missing), not "this one doc is untranslated".
-    const esOtherNode = makePageNode({
+    const translatedOtherNode = makePageNode({
       id: "other",
       resolvedPath: "/docs/other",
-      entry: makeEntryStub({ id: "e2", slug: "other", title: "Other (ES)" }),
+      entry: makeEntryStub({
+        id: "e2",
+        locale: NON_DEFAULT_LOCALE,
+        slug: "other",
+        title: "Translated Other",
+      }),
     });
 
     const result = await resolveDocsPage({
       slugParts: ["foo"],
-      locale: "es",
-      defaultLocale: "en",
+      locale: NON_DEFAULT_LOCALE,
+      defaultLocale: DEFAULT_LOCALE,
       docsBasePath: DOCS_BASE_PATH,
-      getNavigationTree: async ({ locale }) => (locale === "en" ? [enNode] : [esOtherNode]),
+      getNavigationTree: async ({ locale }) =>
+        locale === DEFAULT_LOCALE ? [defaultNode] : [translatedOtherNode],
       getNavigationRedirectByPath: async () => null,
       getNavigationRootPath: async () => null,
       getNodeByResolvedPath: findNodeByResolvedPath,
@@ -143,7 +160,7 @@ describe("resolveDocsPage", () => {
     expect(result.type).toBe("page");
     if (result.type === "page") {
       expect(result.isFallback).toBe(true);
-      expect(result.node.entry?.title).toBe("Foo (EN)");
+      expect(result.node.entry?.title).toBe("Default Foo");
     }
   });
 
@@ -159,8 +176,8 @@ describe("resolveDocsPage", () => {
 
     const result = await resolveDocsPage({
       slugParts: ["missing"],
-      locale: "es",
-      defaultLocale: "en",
+      locale: NON_DEFAULT_LOCALE,
+      defaultLocale: DEFAULT_LOCALE,
       docsBasePath: DOCS_BASE_PATH,
       getNavigationTree: async () => [otherNode],
       getNavigationRedirectByPath: async () => null,
@@ -180,8 +197,8 @@ describe("resolveDocsPage", () => {
 
     const result = await resolveDocsPage({
       slugParts: ["old-page"],
-      locale: "es",
-      defaultLocale: "en",
+      locale: NON_DEFAULT_LOCALE,
+      defaultLocale: DEFAULT_LOCALE,
       docsBasePath: DOCS_BASE_PATH,
       getNavigationTree: async () => [otherNode],
       getNavigationRedirectByPath: async () => ({ toPath: "/docs/new-page", statusCode: 301 }),
@@ -195,8 +212,8 @@ describe("resolveDocsPage", () => {
   test("docs root (no slug parts) still redirects to the first navigable page (within-locale, not a loop)", async () => {
     const result = await resolveDocsPage({
       slugParts: undefined,
-      locale: "es",
-      defaultLocale: "en",
+      locale: NON_DEFAULT_LOCALE,
+      defaultLocale: DEFAULT_LOCALE,
       docsBasePath: DOCS_BASE_PATH,
       getNavigationTree: async () => [],
       getNavigationRedirectByPath: async () => null,

@@ -11,9 +11,8 @@ export function localizedSitemapAlternates(pathname: string): Record<string, str
   return entryAlternates(pathname, LOCALES);
 }
 
-// Like `localizedSitemapAlternates`, but scoped to the locales a CMS entry actually has a translated row
-// for (`getEntryLocales`) — advertising an `/es/*` URL that 404s or falls back to English would be
-// dishonest hreflang. Mirrors the page-level `buildAlternates` output (including `x-default`) so the sitemap and on-page `<link rel="alternate">` tags agree.
+// Scopes CMS alternates to real translation rows so hreflang never advertises a
+// 404 or default-locale fallback. Mirrors the page-level `buildAlternates` output.
 export function entryAlternates(
   pathname: string,
   locales: readonly string[],

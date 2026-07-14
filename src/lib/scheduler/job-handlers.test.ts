@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { DEFAULT_LOCALE } from "@/i18n/config";
 import {
   EMAIL_TEMPLATE_TYPES,
   SCHEDULED_JOB_TYPES,
@@ -62,7 +63,7 @@ describe("scheduled job handlers", () => {
       payload: {
         to: "user@example.com",
         template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
-        locale: "en",
+        locale: DEFAULT_LOCALE,
         data: {
           verificationToken: "token-1",
           username: "Ada",
@@ -74,7 +75,7 @@ describe("scheduled job handlers", () => {
     expect(renderTransactionalEmailMock).toHaveBeenCalledWith({
       to: "user@example.com",
       template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
-      locale: "en",
+      locale: DEFAULT_LOCALE,
       data: {
         verificationToken: "token-1",
         username: "Ada",

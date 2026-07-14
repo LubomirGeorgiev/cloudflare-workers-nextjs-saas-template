@@ -286,7 +286,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
     enum: cmsEntryStatusTuple,
   }).default(CMS_ENTRY_STATUS.DRAFT).$type<CmsEntryStatus>().notNull(), // Override status to add default
   // Language of this entry. Translations of one logical entry share (collection, slug)
-  // and differ by locale. Default 'en' keeps existing rows valid and inert.
+  // and differ by locale. The shared default keeps existing rows valid and inert.
   locale: text().$type<Locale>().notNull().default(DEFAULT_LOCALE),
   // Snapshot of the canonical (default-locale) source's per-field content hashes, captured when this
   // translation was created or last refreshed. Compared against the source's live hashes to flag stale
@@ -419,7 +419,7 @@ export const cmsTagTable = sqliteTable("cms_tag", {
   description: text(),
   color: text(),
   // Language of this tag. Translations of one logical tag share `slug` and differ
-  // by locale (mirrors cmsEntryTable). Default 'en' keeps existing rows valid.
+  // by locale (mirrors cmsEntryTable). The shared default keeps existing rows valid.
   locale: text().$type<Locale>().notNull().default(DEFAULT_LOCALE),
   createdBy: text().notNull().references(() => userTable.id),
 }, (table) => ([

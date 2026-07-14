@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { LOCALES } from "@/i18n/config";
+import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { EMAIL_TEMPLATE_TYPES } from "@/lib/scheduler/jobs";
 
@@ -69,7 +69,7 @@ describe("transactional email", () => {
     expect(renderedEmail.html).not.toContain("Reset your");
   });
 
-  test("renders the password reset email in English by default", async () => {
+  test("renders the password reset email in English when the payload locale is en", async () => {
     const renderedEmail = await renderTransactionalEmail({
       to: "user@example.com",
       template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
@@ -87,6 +87,15 @@ describe("transactional email", () => {
   });
 
   test("falls back to the default locale for an unknown payload locale", async () => {
+    const defaultLocaleEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+      locale: DEFAULT_LOCALE,
+      data: {
+        resetToken: "reset-token",
+        username: "Ana",
+      },
+    });
     const renderedEmail = await renderTransactionalEmail({
       to: "user@example.com",
       template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
@@ -98,8 +107,7 @@ describe("transactional email", () => {
       },
     });
 
-    expect(renderedEmail.html).toContain('<html lang="en">');
-    expect(renderedEmail.html).toContain("Reset your");
+    expect(renderedEmail).toEqual(defaultLocaleEmail);
   });
 
   test("sends transactional emails with configured sender metadata", async () => {

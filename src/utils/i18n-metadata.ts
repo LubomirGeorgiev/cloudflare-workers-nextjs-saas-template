@@ -45,7 +45,7 @@ export function buildAlternates({
 }
 
 // Fallback for an entry that exists only in the default locale: it serves the
-// English body under a non-default prefix (mixed-language), so the caller marks
+// default-locale body under a non-default prefix (mixed-language), so the caller marks
 // that render `noindex` and canonicalizes to the real default-locale URL.
 export function noindexNonDefaultLocale(locale: Locale): Partial<Pick<Metadata, "robots">> {
   return locale !== DEFAULT_LOCALE ? { robots: { index: false, follow: true } } : {};

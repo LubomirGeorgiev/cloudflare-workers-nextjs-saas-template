@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+
 const {
   getDBMock,
   workerEnvMock,
@@ -28,6 +30,7 @@ vi.mock("@/utils/cache", () => ({
 }));
 
 const { searchDocs } = await import("@/lib/cms/cms-search");
+const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 describe("CMS search", () => {
   afterEach(() => {
@@ -35,7 +38,7 @@ describe("CMS search", () => {
   });
 
   test("returns no results for empty search terms without opening a cache scope", async () => {
-    await expect(searchDocs({ query: "!!!", limit: 8, locale: "en" })).resolves.toEqual([]);
+    await expect(searchDocs({ query: "!!!", limit: 8, locale: DEFAULT_LOCALE })).resolves.toEqual([]);
 
     expect(setCacheScopeMock).not.toHaveBeenCalled();
   });
@@ -94,7 +97,11 @@ describe("CMS search", () => {
         },
       },
     });
-    await expect(searchDocs({ query: "authentication", limit: 3, locale: "es" })).resolves.toEqual([
+    await expect(searchDocs({
+      query: "authentication",
+      limit: 3,
+      locale: NON_DEFAULT_LOCALE,
+    })).resolves.toEqual([
       {
         entryId: "cms_ent_docs002",
         title: "Authentication Setup",
@@ -125,6 +132,14 @@ describe("CMS search", () => {
       statement.sql.includes("cms_entry_search MATCH ?")
     );
     expect(searchStatement?.sql).toContain("AND entry.locale = ?");
-    expect(searchStatement?.binds).toEqual(["en", "docs", "authentication*", "docs", "es", "published", 3]);
+    expect(searchStatement?.binds).toEqual([
+      DEFAULT_LOCALE,
+      "docs",
+      "authentication*",
+      "docs",
+      NON_DEFAULT_LOCALE,
+      "published",
+      3,
+    ]);
   });
 });
