@@ -1,5 +1,5 @@
 import { getSessionFromCookie } from "@/utils/auth";
-import { redirect } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { CreateTeamForm } from "@/components/teams/create-team-form";
 import { PageHeader } from "@/components/page-header";
 import { getTranslations } from "next-intl/server";
@@ -19,7 +19,7 @@ export default async function CreateTeamPage() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    redirect("/sign-in?redirect=/dashboard/teams/create");
+    return redirectToSignIn("/dashboard/teams/create");
   }
 
   return (

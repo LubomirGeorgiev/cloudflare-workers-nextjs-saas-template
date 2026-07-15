@@ -31,7 +31,7 @@ import {
   teamBillingSchema,
   updateAddonQuantitySchema,
 } from "@/schemas/billing.schema";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale } from "next-intl/server";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 import { SITE_URL } from "@/constants";
 
@@ -44,8 +44,7 @@ function readClientSecret(subscription: Stripe.Subscription): string | null {
 
 async function assertBillingEnabled() {
   if (!isBillingEnabled()) {
-    const t = await getTranslations("Client.Dashboard.Billing");
-    throw new ActionError("PRECONDITION_FAILED", t("billingDisabledNotice"));
+    throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.billingDisabledNotice" });
   }
 }
 
@@ -53,7 +52,6 @@ async function assertBillingEnabled() {
 // resume): asserts billing is enabled, requires the ACCESS_BILLING permission, and loads
 // the team's active subscription id (throwing if there is none).
 async function requireExistingSubscription(teamId: string) {
-  const t = await getTranslations("Client.Dashboard.Billing");
   await assertBillingEnabled();
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
 
@@ -61,10 +59,10 @@ async function requireExistingSubscription(teamId: string) {
   const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
 
   if (!team?.stripeSubscriptionId) {
-    throw new ActionError("PRECONDITION_FAILED", t("errorStartCheckout"));
+    throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 
-  return { t, stripe, subscriptionId: team.stripeSubscriptionId };
+  return { stripe, subscriptionId: team.stripeSubscriptionId };
 }
 
 // Settles whatever subscription the team currently records so a new checkout can claim
@@ -77,7 +75,6 @@ async function settleRecordedSubscription({
   teamId: string;
   recordedSubscriptionId: string;
 }) {
-  const t = await getTranslations("Client.Dashboard.Billing");
   const stripe = getStripe();
 
   const existing = await stripe.subscriptions
@@ -97,7 +94,7 @@ async function settleRecordedSubscription({
   const policy = getStripeSubscriptionTransitionPolicy(existing.status);
 
   if (!policy || policy.subscribe === "block") {
-    throw new ActionError("CONFLICT", t("errorStartCheckout"));
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 
   // Do not create a replacement unless Stripe confirms the old subscription is
@@ -118,7 +115,6 @@ async function convergeOnWinningCheckout({
   teamId: string;
   losingSubscriptionId: string;
 }) {
-  const t = await getTranslations("Client.Dashboard.Billing");
   const stripe = getStripe();
 
   await stripe.subscriptions.cancel(losingSubscriptionId).catch((error: unknown) => {
@@ -136,7 +132,7 @@ async function convergeOnWinningCheckout({
   const clientSecret = winnerSubscription ? readClientSecret(winnerSubscription) : null;
 
   if (!winnerSubscription || !clientSecret) {
-    throw new ActionError("CONFLICT", t("errorStartCheckout"));
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 
   return { success: true, clientSecret, subscriptionId: winnerSubscription.id };
@@ -146,7 +142,6 @@ export const createSubscriptionAction = actionClient
   .inputSchema(createSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Dashboard.Billing");
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
@@ -193,7 +188,7 @@ export const createSubscriptionAction = actionClient
         const clientSecret = readClientSecret(subscription);
 
         if (!clientSecret) {
-          throw new ActionError("INTERNAL_SERVER_ERROR", t("errorNoClientSecret"));
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorNoClientSecret" });
         }
 
         return {
@@ -204,7 +199,7 @@ export const createSubscriptionAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("createSubscriptionAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -232,7 +227,6 @@ export const startTrialSetupAction = actionClient
   .inputSchema(createSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Dashboard.Billing");
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
@@ -240,7 +234,7 @@ export const startTrialSetupAction = actionClient
 
       const trialDays = await resolveTrialDays({ teamId, planId, userId: session.user.id });
       if (trialDays <= 0) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
       }
 
       const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
@@ -262,14 +256,14 @@ export const startTrialSetupAction = actionClient
         });
 
         if (!setupIntent.client_secret) {
-          throw new ActionError("INTERNAL_SERVER_ERROR", t("errorNoClientSecret"));
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorNoClientSecret" });
         }
 
         return { success: true, clientSecret: setupIntent.client_secret };
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("startTrialSetupAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -282,7 +276,6 @@ export const completeTrialAction = actionClient
   .inputSchema(completeTrialSchema)
   .action(async ({ parsedInput: { teamId, planId, interval, setupIntentId } }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Dashboard.Billing");
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
@@ -290,7 +283,7 @@ export const completeTrialAction = actionClient
 
       const trialDays = await resolveTrialDays({ teamId, planId, userId: session.user.id });
       if (trialDays <= 0) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
       }
 
       const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
@@ -316,7 +309,7 @@ export const completeTrialAction = actionClient
         // The SetupIntent id arrives from the client: only one that succeeded for THIS
         // team's customer may start the trial.
         if (setupCustomerId !== customerId || setupIntent.status !== "succeeded" || !paymentMethodId) {
-          throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
         }
 
         // ...and only for the exact team/plan/interval it was stamped with in
@@ -327,7 +320,7 @@ export const completeTrialAction = actionClient
           setupMetadata.planId !== planId ||
           setupMetadata.interval !== interval
         ) {
-          throw new ActionError("PRECONDITION_FAILED", t("errorTrialUnavailable"));
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
         }
 
         const subscription = await stripe.subscriptions.create({
@@ -356,7 +349,7 @@ export const completeTrialAction = actionClient
           await stripe.subscriptions.cancel(subscription.id).catch((error: unknown) => {
             console.error("completeTrialAction: losing-subscription cleanup failed", error);
           });
-          throw new ActionError("CONFLICT", t("errorStartCheckout"));
+          throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
         }
 
         // Reconciling the trialing snapshot stamps the team; stamp the acting user too.
@@ -367,7 +360,7 @@ export const completeTrialAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("completeTrialAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -376,7 +369,7 @@ export const changePlanAction = actionClient
   .inputSchema(changePlanSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
-      const { t, stripe, subscriptionId } = await requireExistingSubscription(teamId);
+      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       try {
         const current = await stripe.subscriptions.retrieve(subscriptionId);
@@ -384,7 +377,7 @@ export const changePlanAction = actionClient
         // A past_due/incomplete/unpaid subscription must settle its open payment first;
         // otherwise the price swap piles prorations onto a team that is still locked out.
         if (!getStripeSubscriptionTransitionPolicy(current.status)?.grantsPaidAccess) {
-          throw new ActionError("PRECONDITION_FAILED", t("errorPlanChangeRequiresPaidAccess"));
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorPlanChangeRequiresPaidAccess" });
         }
 
         // Swap only the PLAN item; add-on items ride along untouched — except on a
@@ -418,7 +411,7 @@ export const changePlanAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("changePlanAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -430,14 +423,14 @@ export const updateAddonQuantityAction = actionClient
   .inputSchema(updateAddonQuantitySchema)
   .action(async ({ parsedInput: { teamId, addonId, quantity } }) => {
     return withRateLimit(async () => {
-      const { t, stripe, subscriptionId } = await requireExistingSubscription(teamId);
+      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       const addon = getAddon(addonId);
       if (!addon) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorAddonUnavailable"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorAddonUnavailable" });
       }
       if (quantity > getAddonMaxQuantity(addon)) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorAddonMaxQuantity", { max: getAddonMaxQuantity(addon) }));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorAddonMaxQuantity", params: { max: getAddonMaxQuantity(addon) } });
       }
 
       try {
@@ -446,7 +439,7 @@ export const updateAddonQuantityAction = actionClient
         // Add-ons ride on a subscription that grants paid access; a past_due/unpaid/
         // paused subscription must settle its plan payment first.
         if (!getStripeSubscriptionTransitionPolicy(current.status)?.grantsPaidAccess) {
-          throw new ActionError("PRECONDITION_FAILED", t("addonsRequirePaidPlan"));
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.addonsRequirePaidPlan" });
         }
 
         const classified = classifySubscriptionItems(current);
@@ -482,7 +475,7 @@ export const updateAddonQuantityAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("updateAddonQuantityAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -491,7 +484,7 @@ export const cancelSubscriptionAction = actionClient
   .inputSchema(cancelSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, atPeriodEnd } }) => {
     return withRateLimit(async () => {
-      const { t, stripe, subscriptionId } = await requireExistingSubscription(teamId);
+      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       try {
         const updated = atPeriodEnd
@@ -505,7 +498,7 @@ export const cancelSubscriptionAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("cancelSubscriptionAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });
@@ -516,7 +509,7 @@ export const resumePaymentAction = actionClient
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
     return withRateLimit(async () => {
-      const { t, stripe, subscriptionId } = await requireExistingSubscription(teamId);
+      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
         expand: ["latest_invoice.confirmation_secret"],
@@ -525,7 +518,7 @@ export const resumePaymentAction = actionClient
       const clientSecret = readClientSecret(subscription);
 
       if (!clientSecret) {
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorNoClientSecret"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorNoClientSecret" });
       }
 
       return { success: true, clientSecret };
@@ -539,7 +532,6 @@ export const createBillingPortalSessionAction = actionClient
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Dashboard.Billing");
       await assertBillingEnabled();
       await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
 
@@ -548,7 +540,7 @@ export const createBillingPortalSessionAction = actionClient
       // The portal has nothing to show until the team has a Stripe customer (created on
       // first checkout); the UI hides the button until then.
       if (!team?.stripeCustomerId) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorBillingPortal"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorBillingPortal" });
       }
 
       try {
@@ -571,7 +563,7 @@ export const createBillingPortalSessionAction = actionClient
       } catch (error) {
         if (error instanceof ActionError) throw error;
         console.error("createBillingPortalSessionAction failed", error);
-        throw new ActionError("INTERNAL_SERVER_ERROR", t("errorPaymentProvider"));
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);
   });

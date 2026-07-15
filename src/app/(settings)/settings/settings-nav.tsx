@@ -2,6 +2,7 @@
 
 import type { Route } from 'next'
 import Link from "next/link";
+import { Link as LocaleLink } from "@/i18n/navigation";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -37,6 +38,9 @@ interface SettingsNavItem {
   titleKey: SettingsNavKey;
   href: Route;
   icon: React.ComponentType<{ className?: string }>;
+  // True for destinations under `app/[locale]` (e.g. /forgot-password), which
+  // need the locale-prefixing Link; /settings/* routes are unprefixed.
+  isLocalizedRoute?: boolean;
 }
 
 const settingsNavItems: SettingsNavItem[] = [
@@ -59,6 +63,7 @@ const settingsNavItems: SettingsNavItem[] = [
     titleKey: "changePassword",
     href: "/forgot-password",
     icon: Lock,
+    isLocalizedRoute: true,
   },
 ];
 
@@ -77,7 +82,11 @@ export function SettingsNav() {
             key={item.href}
             value={item.href}
             nativeButton={false}
-            render={<Link href={item.href} className="flex items-center gap-2" />}
+            render={
+              item.isLocalizedRoute
+                ? <LocaleLink href={item.href} className="flex items-center gap-2" />
+                : <Link href={item.href} className="flex items-center gap-2" />
+            }
           >
               <item.icon className="h-4 w-4" />
               {t(item.titleKey)}

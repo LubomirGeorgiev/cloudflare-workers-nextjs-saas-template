@@ -9,7 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { resetPasswordAction } from "./reset-password.action";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";

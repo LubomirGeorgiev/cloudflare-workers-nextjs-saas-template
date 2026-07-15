@@ -1,7 +1,6 @@
 import { Metadata } from "next";
 import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
@@ -23,14 +22,19 @@ export async function generateMetadata({
 
 const lastUpdated = new Date('2025-01-15T20:10:16.287Z')
 
-export default function TermsPage() {
-  const t = useTranslations("Legal.Terms");
+export default async function TermsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslations("Legal.Terms");
 
   return (
     <>
       <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
 
-      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString() })}</p>
+      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString(locale) })}</p>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">{t("acceptanceOfTerms.heading")}</h2>

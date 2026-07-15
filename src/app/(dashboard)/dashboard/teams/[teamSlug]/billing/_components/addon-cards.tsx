@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Minus, Plus } from "lucide-react";
 
@@ -98,6 +98,7 @@ interface AddonCardProps {
 
 function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }: AddonCardProps) {
   const t = useTranslations("Client.Dashboard.Billing");
+  const locale = useLocale();
   const [quantity, setQuantity] = useState(active);
 
   const addon = TEAM_ADDONS[addonId];
@@ -118,7 +119,7 @@ function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }
   const summary = [
     grantedSeats > 0 ? t("addonSeatsGrant", { seats: grantedSeats }) : null,
     grantedProjects > 0 ? t("addonProjectsGrant", { projects: grantedProjects }) : null,
-    `${formatPrice({ amount: unitAmount * quantity, currency: addon.currency })}${intervalSuffix}`,
+    `${formatPrice({ amount: unitAmount * quantity, currency: addon.currency, locale })}${intervalSuffix}`,
   ].filter(Boolean).join(" · ");
 
   return (
@@ -132,7 +133,7 @@ function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }
         </div>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
         <div className="text-3xl font-bold">
-          {formatPrice({ amount: unitAmount, currency: addon.currency })}
+          {formatPrice({ amount: unitAmount, currency: addon.currency, locale })}
           <span className="text-base font-normal text-muted-foreground">
             {intervalSuffix} {t("addonEach")}
           </span>

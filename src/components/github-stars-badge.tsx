@@ -1,5 +1,6 @@
 import { SiGithub as GithubIcon } from "@icons-pack/react-simple-icons";
 import { ArrowRight, Star } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 import { GITHUB_REPO_URL } from "@/constants";
 import { getGithubStars } from "@/utils/stats";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ const SIZES = {
     chip: "gap-2 px-3 py-1.5",
     chipIcon: "size-4",
     chipText: "text-[11px]",
+    chipSkeleton: "h-3 w-20",
     star: "size-5",
     count: "text-2xl",
     label: "text-[11px]",
@@ -28,6 +30,7 @@ const SIZES = {
     chip: "gap-1.5 px-2.5 py-1",
     chipIcon: "size-3.5",
     chipText: "text-[10px]",
+    chipSkeleton: "h-2.5 w-16",
     star: "size-4",
     count: "text-lg",
     label: "text-[10px]",
@@ -40,7 +43,11 @@ const PILL_BASE =
   "group inline-flex items-center rounded-full border border-edge/40 bg-edge/10 shadow-lg shadow-edge/10 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-edge/70 hover:bg-edge/20 hover:shadow-xl hover:shadow-edge/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBadgeProps) {
-  const stars = await getGithubStars();
+  const [stars, t, locale] = await Promise.all([
+    getGithubStars(),
+    getTranslations("Client.GithubStars"),
+    getLocale(),
+  ]);
   const s = SIZES[size];
 
   return (
@@ -48,7 +55,7 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
       href={GITHUB_REPO_URL}
       target="_blank"
       rel="noreferrer"
-      aria-label={stars ? `Star the repo on GitHub — ${stars} stars` : "Star the repo on GitHub"}
+      aria-label={stars ? t("starAriaWithCount", { count: stars }) : t("starAria")}
       className={cn(PILL_BASE, s.pill, className)}
     >
       <span className={cn("inline-flex items-center rounded-full bg-background/70", s.chip)}>
@@ -59,7 +66,7 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
             s.chipText,
           )}
         >
-          star the repo
+          {t("starTheRepo")}
         </span>
       </span>
       <span className="flex items-center gap-2">
@@ -75,7 +82,7 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
             s.count,
           )}
         >
-          {stars ? stars.toLocaleString() : "GitHub"}
+          {stars ? stars.toLocaleString(locale) : t("github")}
         </span>
         {stars ? (
           <span
@@ -84,7 +91,7 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
               s.label,
             )}
           >
-            stars
+            {t("stars")}
           </span>
         ) : null}
       </span>
@@ -98,24 +105,16 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
   );
 }
 
-export function GithubStarsBadgeFallback({
-  size = "lg",
-  className,
-}: GithubStarsBadgeProps) {
+// Skeletons only — no copy — so the Suspense fallback never flashes English
+// text on non-default locales (same rationale as DocsNavigationChromeFallback).
+export function GithubStarsBadgeFallback({ size = "lg", className }: GithubStarsBadgeProps) {
   const s = SIZES[size];
 
   return (
     <div className={cn(PILL_BASE, s.pill, "pointer-events-none", className)}>
       <span className={cn("inline-flex items-center rounded-full bg-background/70", s.chip)}>
         <GithubIcon className={cn("text-foreground", s.chipIcon)} />
-        <span
-          className={cn(
-            "font-mono font-medium uppercase tracking-wide text-muted-foreground",
-            s.chipText,
-          )}
-        >
-          star the repo
-        </span>
+        <span className={cn("animate-pulse rounded bg-foreground/10", s.chipSkeleton)} />
       </span>
       <span className="flex items-center gap-2">
         <Star className={cn("fill-edge text-edge", s.star)} />

@@ -1,6 +1,7 @@
 import "server-only"
 import { cache } from "react"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
+import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { getCmsCollection } from "@/lib/cms/entry"
@@ -16,8 +17,9 @@ import {
   parseAuthorIdFromRouteParam,
 } from "@/utils/blog-author-url"
 import type { Person, WithContext } from "schema-dts"
-import { LOCALES, type Locale } from "@/i18n/config"
+import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 type AuthorPageProps = {
   params: Promise<{
@@ -39,6 +41,7 @@ export async function generateMetadata({
 }: AuthorPageProps): Promise<Metadata> {
   const { locale, authorId: authorRouteParam } = await params
   const t = await getTranslations({ locale, namespace: "Blog.AuthorDetail.meta" })
+  const tDetail = await getTranslations({ locale, namespace: "Blog.AuthorDetail" })
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
 
   if (!parsedAuthorId) {
@@ -60,7 +63,7 @@ export async function generateMetadata({
   }
 
   const author = authorEntries[0].createdByUser!
-  const authorName = getAuthorDisplayName(author)
+  const authorName = getAuthorDisplayName(author, tDetail("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
 
   const avatarUrl = author.avatar ? `${SITE_URL}${author.avatar}` : undefined
@@ -79,10 +82,11 @@ export async function generateMetadata({
       availableLocales: LOCALES,
     }),
     openGraph: {
+      ...getOpenGraphLocales(locale),
       title,
       description,
       type: "profile",
-      url: `/blog/authors/${canonicalAuthorParam}`,
+      url: absoluteLocalizedUrl({ pathname: `/blog/authors/${canonicalAuthorParam}`, locale }),
       ...(avatarUrl && {
         images: [avatarUrl],
       }),
@@ -112,7 +116,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   // Empty only in this locale falls through to the per-author notFound below;
   // redirect home only when the blog has no published posts at all.
   if (blogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
-    redirect("/")
+    redirect({ href: "/", locale })
   }
 
   const authorEntries = blogEntries.filter(
@@ -124,11 +128,11 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
   }
 
   const author = authorEntries[0].createdByUser!
-  const authorName = getAuthorDisplayName(author)
+  const authorName = getAuthorDisplayName(author, t("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
 
   if (authorRouteParam !== canonicalAuthorParam) {
-    redirect(`/blog/authors/${canonicalAuthorParam}`)
+    redirect({ href: `/blog/authors/${canonicalAuthorParam}`, locale })
   }
 
   // JSON-LD structured data for Person
@@ -136,7 +140,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     "@context": "https://schema.org",
     "@type": "Person",
     name: authorName,
-    url: `${SITE_URL}/blog/authors/${canonicalAuthorParam}`,
+    url: absoluteLocalizedUrl({ pathname: `/blog/authors/${canonicalAuthorParam}`, locale }),
     ...(author.avatar && {
       image: `${SITE_URL}${author.avatar}`,
     }),

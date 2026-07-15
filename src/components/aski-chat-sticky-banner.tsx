@@ -5,6 +5,7 @@ import { ChevronLeft, X } from "lucide-react";
 import { AskiChatLogo } from "@/components/aski-chat-logo";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "./ui/button";
+import { useTranslations } from "next-intl";
 
 const STORAGE_KEY = "aski-chat-banner-collapsed";
 const ASKI_CHAT_BANNER_URL = "https://aski.chat?utm_source=saas-template-sticky-banner";
@@ -123,6 +124,8 @@ function CollapseButton({ onCollapse }: CollapseButtonProps) {
 }
 
 function BannerContent() {
+  const t = useTranslations("Client.AskiChatBanner");
+
   return (
     <div className="flex items-center flex-col py-3 px-3">
       <a
@@ -132,14 +135,13 @@ function BannerContent() {
         className="flex flex-col items-center font-medium text-sm hover:text-foreground transition-colors"
       >
         <div className="flex items-center">
-          <span className="whitespace-nowrap">Built by</span>
+          <span className="whitespace-nowrap">{t("builtBy")}</span>
           <AskiChatLogo className="h-7 w-7 mx-1.5" />
-          <span className="whitespace-nowrap">Aski.Chat</span>
+          <span className="whitespace-nowrap">{t("brand")}</span>
         </div>
 
         <div className="text-tiny text-muted-foreground mt-3">
-          AI customer support agents that answer visitors, capture leads, and
-          surface customer intelligence from every conversation.
+          {t("description")}
         </div>
       </a>
       <a
@@ -148,7 +150,7 @@ function BannerContent() {
         rel="noreferrer"
         className={buttonVariants({ size: "sm", className: "mt-4" })}
       >
-        Start with Aski.Chat
+        {t("cta")}
       </a>
     </div>
   );

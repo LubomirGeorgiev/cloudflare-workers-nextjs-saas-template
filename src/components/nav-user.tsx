@@ -44,7 +44,7 @@ import { useSessionStore } from "@/state/session"
 import { useTheme } from "next-themes"
 import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
-import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config"
+import { ENABLED_LOCALES, LOCALE_LABELS } from "@/i18n/config"
 import { LocaleFlag } from "@/components/locale-flag"
 import { useChangeLocale } from "@/hooks/useChangeLocale"
 import type { SessionValidationResult } from "@/types"
@@ -60,7 +60,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
   const { isMobile, setOpenMobile } = useSidebar()
   const router = useRouter()
   const { setTheme } = useTheme()
-  const activeLocale = useLocale() as Locale
+  const activeLocale = useLocale()
   const { changeLocale } = useChangeLocale()
   const t = useTranslations("Client.Sidebar.user")
 

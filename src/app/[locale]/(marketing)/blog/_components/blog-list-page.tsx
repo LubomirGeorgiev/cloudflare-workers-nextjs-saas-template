@@ -1,6 +1,6 @@
 import "server-only"
-import { Link } from "@/i18n/navigation"
-import { notFound, redirect } from "next/navigation"
+import { Link, redirect } from "@/i18n/navigation"
+import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import type { Blog, WithContext } from "schema-dts"
 import { getTranslations } from "next-intl/server"
@@ -13,8 +13,9 @@ import { BLOG_POSTS_PER_PAGE } from "@/constants"
 import { getBlogPagePath } from "@/lib/blog-routing"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
-import { LOCALES, type Locale } from "@/i18n/config"
+import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 interface BlogListPageProps {
   page: number;
@@ -35,10 +36,11 @@ export async function getBlogListPageMetadata({ page, locale }: { page: number; 
     // locale-filtered posts), so every locale gets an hreflang entry.
     alternates: buildAlternates({ pathname: pagePath, locale, availableLocales: LOCALES }),
     openGraph: {
+      ...getOpenGraphLocales(locale),
       title,
       description,
       type: "website",
-      url: pagePath,
+      url: absoluteLocalizedUrl({ pathname: pagePath, locale }),
     },
     twitter: {
       card: "summary",
@@ -72,7 +74,7 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
   // Only bounce home when the blog has no published posts at all; a locale with
   // no translated posts still renders its localized empty state below.
   if (totalCount === 0 && page === 1 && !(await hasPublishedBlogPosts())) {
-    redirect("/")
+    redirect({ href: "/", locale })
   }
 
   if (page < 1 || (page > 1 && (totalCount === 0 || page > totalPages))) {

@@ -10,12 +10,17 @@ export interface AuthorUrlIdentity {
   email?: string | null
 }
 
-export function getAuthorDisplayName(author: AuthorUrlIdentity): string {
+// `unknownLabel` is required so callers must pass localized copy — no silent
+// English fallback.
+export function getAuthorDisplayName(
+  author: AuthorUrlIdentity,
+  unknownLabel: string,
+): string {
   const fullName = [author.firstName, author.lastName].filter(Boolean).join(" ")
 
   if (fullName) return fullName
 
-  return author.email || "Unknown Author"
+  return author.email || unknownLabel
 }
 
 function getAuthorSlugBase(author: AuthorUrlIdentity): string {

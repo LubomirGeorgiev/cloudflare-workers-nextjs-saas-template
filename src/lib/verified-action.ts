@@ -1,11 +1,11 @@
 import "server-only";
 
-import { ActionError } from "@/lib/action-error";
+import { ActionError, type ActionErrorMessageKey } from "@/lib/action-error";
 import { requireVerifiedEmail } from "@/utils/auth";
 
 interface RunVerifiedActionParams<T> {
   actionName: string;
-  failureMessage: string;
+  failureMessageKey: ActionErrorMessageKey;
   handler: () => Promise<T>;
 }
 
@@ -15,13 +15,13 @@ type VerifiedActionResult<T> = T extends void
 
 export async function runVerifiedAction<T>({
   actionName,
-  failureMessage,
+  failureMessageKey,
   handler,
 }: RunVerifiedActionParams<T>): Promise<VerifiedActionResult<T>> {
   const session = await requireVerifiedEmail();
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   try {
@@ -39,6 +39,6 @@ export async function runVerifiedAction<T>({
       throw error;
     }
 
-    throw new ActionError("INTERNAL_SERVER_ERROR", failureMessage);
+    throw new ActionError("INTERNAL_SERVER_ERROR", { key: failureMessageKey });
   }
 }

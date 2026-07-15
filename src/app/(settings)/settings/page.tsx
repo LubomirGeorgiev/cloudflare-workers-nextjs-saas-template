@@ -1,5 +1,5 @@
 import { getSessionFromCookie } from "@/utils/auth";
-import { redirect } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { SettingsForm } from "./settings-form";
 import { LanguageForm } from "./language-form";
 import { Suspense } from "react";
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    return redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   return (

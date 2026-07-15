@@ -15,6 +15,7 @@ import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
 import { MediaTableActions } from "./media-table-actions";
 import { formatRelativeDateTime } from "@/utils/format-date";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 
 interface MediaListTableProps {
   page: number;
@@ -125,7 +126,7 @@ export async function MediaListTable({ page }: MediaListTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {formatRelativeDateTime(item.createdAt)}
+                  {formatRelativeDateTime(item.createdAt, DEFAULT_LOCALE)}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">

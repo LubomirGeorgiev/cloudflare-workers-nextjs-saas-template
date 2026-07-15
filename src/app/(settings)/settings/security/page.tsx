@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getSessionFromCookie } from "@/utils/auth";
-import { redirect } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { getDB } from "@/db";
 import { passKeyCredentialTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -19,7 +19,7 @@ export default async function SecurityPage() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    return redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   const db = getDB();

@@ -1,6 +1,7 @@
 import { getSessionFromCookie } from "@/utils/auth";
 import { getUserTeamsAction } from "@/actions/team-actions";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +40,7 @@ export default async function TeamsIndexPage() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    redirect("/sign-in?redirect=/dashboard/teams");
+    return redirectToSignIn("/dashboard/teams");
   }
 
   const { data: result, serverError } = await getUserTeamsAction();

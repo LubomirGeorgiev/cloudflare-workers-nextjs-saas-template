@@ -18,13 +18,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config";
+import { ENABLED_LOCALES, LOCALE_LABELS } from "@/i18n/config";
 import { LocaleFlag } from "@/components/locale-flag";
 import { useChangeLocale } from "@/hooks/useChangeLocale";
 
 export function LanguageForm() {
   const t = useTranslations("Client.Settings.Language");
-  const activeLocale = useLocale() as Locale;
+  const activeLocale = useLocale();
   const { changeLocale, isPending } = useChangeLocale();
 
   // Nothing to switch between when i18n is disabled (single active locale).

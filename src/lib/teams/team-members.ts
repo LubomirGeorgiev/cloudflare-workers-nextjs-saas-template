@@ -42,7 +42,7 @@ function getSystemRolePermissions(roleId: string): string[] {
     ];
   }
 
-  throw new ActionError("BAD_REQUEST", "Invalid team role");
+  throw new ActionError("BAD_REQUEST", { key: "Client.Dashboard.Teams.errorInvalidRole" });
 }
 
 async function resolveInvitationRole({
@@ -58,7 +58,7 @@ async function resolveInvitationRole({
 }): Promise<ResolvedInvitationRole> {
   if (isSystemRole) {
     if (roleId === SYSTEM_ROLES_ENUM.OWNER) {
-      throw new ActionError("FORBIDDEN", "Team owners cannot be assigned through invitations");
+      throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorOwnerViaInvite" });
     }
 
     return {
@@ -76,7 +76,7 @@ async function resolveInvitationRole({
   });
 
   if (!role) {
-    throw new ActionError("NOT_FOUND", "Team role not found");
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorRoleNotFound" });
   }
 
   return {
@@ -105,13 +105,13 @@ function requirePermissionToAssignRole({
     || permissions.has(TEAM_PERMISSIONS.CHANGE_MEMBER_ROLES);
 
   if (!canAssignRoles) {
-    throw new ActionError("FORBIDDEN", "You don't have permission to assign this role");
+    throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorNoPermissionAssignRole" });
   }
 
   const canGrantRolePermissions = role.permissions.every((permission) => permissions.has(permission));
 
   if (!canGrantRolePermissions) {
-    throw new ActionError("FORBIDDEN", "You cannot assign a role with permissions you do not have");
+    throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorCannotAssignPermissions" });
   }
 }
 
@@ -143,16 +143,9 @@ export const getTeamMembers = cache(async (teamId: string) => {
   const roleMap = new Map(teamRoles.map(role => [role.id, role.name]));
 
   return Promise.all(members.map(async member => {
-    let roleName = "Unknown";
-
-    // For system roles, use the roleId directly as the name
-    if (member.isSystemRole) {
-      // Capitalize the first letter for display
-      roleName = member.roleId.charAt(0).toUpperCase() + member.roleId.slice(1);
-    } else {
-      // For custom roles, look up the name in our roleMap
-      roleName = roleMap.get(member.roleId) || "Custom Role";
-    }
+    // Custom roles carry their user-defined name; system roles return null and
+    // get a localized label at the render site from `roleId` + `isSystemRole`.
+    const roleName = member.isSystemRole ? null : (roleMap.get(member.roleId) ?? null);
 
     return {
       id: member.id,
@@ -192,12 +185,12 @@ export async function removeTeamMember({
   });
 
   if (!membership) {
-    throw new ActionError("NOT_FOUND", "Team membership not found");
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorMembershipNotFound" });
   }
 
   // Don't allow removing an owner
   if (membership.roleId === SYSTEM_ROLES_ENUM.OWNER && membership.isSystemRole) {
-    throw new ActionError("FORBIDDEN", "Cannot remove the team owner");
+    throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorCannotRemoveOwner" });
   }
 
   await db.delete(teamMembershipTable)
@@ -227,7 +220,7 @@ export async function inviteUserToTeam({
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.INVITE_MEMBERS);
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   try {
@@ -236,7 +229,7 @@ export async function inviteUserToTeam({
     if (error instanceof ActionError) {
       throw error;
     }
-    throw new ActionError("ERROR", "Invalid or disposable email address");
+    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorInvalidEmail" });
   }
 
   const db = getDB();
@@ -258,7 +251,7 @@ export async function inviteUserToTeam({
   });
 
   if (!team) {
-    throw new ActionError("NOT_FOUND", "Team not found");
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFound" });
   }
 
   // Seat-cap gate: enforce the team plan's seat limit at this grow point. Counts current
@@ -288,11 +281,15 @@ export async function inviteUserToTeam({
   const seatsInUse = (memberCountResult[0]?.value || 0) + (pendingInvitesResult[0]?.value || 0);
 
   if (seatsInUse >= limits.seats) {
-    const t = await getTranslations("Client.Dashboard.Teams");
-    throw new ActionError("FORBIDDEN", t("seatLimitReached", { seats: limits.seats }));
+    throw new ActionError("FORBIDDEN", {
+      key: "Client.Dashboard.Teams.seatLimitReached",
+      params: { seats: limits.seats },
+    });
   }
 
-  const teamName = team.name as string || "Team";
+  // Email content (not an error): translated here, in the inviter's request locale.
+  const t = await getTranslations("Client.Dashboard.Teams");
+  const teamName = team.name as string || t("teamFallbackName");
 
   const inviter = {
     firstName: session.user.firstName || "",
@@ -318,7 +315,7 @@ export async function inviteUserToTeam({
     });
 
     if (existingMembership) {
-      throw new ActionError("CONFLICT", "User is already a member of this team");
+      throw new ActionError("CONFLICT", { key: "Client.Dashboard.Teams.errorAlreadyMember" });
     }
 
     const teamsCountResult = await db.select({ value: count() })
@@ -328,7 +325,10 @@ export async function inviteUserToTeam({
     const teamsJoined = teamsCountResult[0]?.value || 0;
 
     if (teamsJoined >= MAX_TEAMS_JOINED_PER_USER) {
-      throw new ActionError("FORBIDDEN", `This user has reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams they can join.`);
+      throw new ActionError("FORBIDDEN", {
+        key: "Client.Dashboard.Teams.errorUserJoinLimit",
+        params: { max: MAX_TEAMS_JOINED_PER_USER },
+      });
     }
 
     // User exists but is not a member, add them directly
@@ -383,7 +383,7 @@ export async function inviteUserToTeam({
       email,
       invitationToken: token,
       teamName,
-      inviterName: inviter.fullName || "Team Owner",
+      inviterName: inviter.fullName || t("teamOwnerFallback"),
       locale: inviterLocale,
     });
 
@@ -407,7 +407,7 @@ export async function inviteUserToTeam({
   const invitation = newInvitation?.[0];
 
   if (!invitation) {
-    throw new ActionError("ERROR", "Could not create invitation");
+    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorCouldNotCreateInvitation" });
   }
 
   // Send invitation email
@@ -415,7 +415,7 @@ export async function inviteUserToTeam({
     email,
     invitationToken: token,
     teamName,
-    inviterName: inviter.fullName || "Team Owner",
+    inviterName: inviter.fullName || t("teamOwnerFallback"),
     locale: inviterLocale,
   });
 
@@ -430,7 +430,7 @@ export async function acceptTeamInvitation(token: string) {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   const db = getDB();
@@ -441,19 +441,19 @@ export async function acceptTeamInvitation(token: string) {
   });
 
   if (!invitation) {
-    throw new ActionError("NOT_FOUND", "Invitation not found");
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorInvitationNotFound" });
   }
 
   if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
-    throw new ActionError("ERROR", "Invitation has expired");
+    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorInvitationExpired" });
   }
 
   if (invitation.acceptedAt) {
-    throw new ActionError("CONFLICT", "Invitation has already been accepted");
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Teams.errorInvitationAlreadyAccepted" });
   }
 
   if (session.user.email !== invitation.email) {
-    throw new ActionError("FORBIDDEN", "This invitation is for a different email address");
+    throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorInvitationWrongEmail" });
   }
 
   const existingMembership = await db.query.teamMembershipTable.findFirst({
@@ -473,7 +473,7 @@ export async function acceptTeamInvitation(token: string) {
       })
       .where(eq(teamInvitationTable.id, invitation.id));
 
-    throw new ActionError("CONFLICT", "You are already a member of this team");
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Teams.errorAlreadyOnTeam" });
   }
 
   const teamsCountResult = await db.select({ value: count() })
@@ -483,7 +483,10 @@ export async function acceptTeamInvitation(token: string) {
   const teamsJoined = teamsCountResult[0]?.value || 0;
 
   if (teamsJoined >= MAX_TEAMS_JOINED_PER_USER) {
-    throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_JOINED_PER_USER} teams you can join.`);
+    throw new ActionError("FORBIDDEN", {
+      key: "Client.Dashboard.Teams.errorJoinLimit",
+      params: { max: MAX_TEAMS_JOINED_PER_USER },
+    });
   }
 
   const invitationRole = await resolveInvitationRole({
@@ -525,7 +528,7 @@ export async function getPendingInvitationsForCurrentUser() {
   const session = await getSessionFromCookie();
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   const db = getDB();

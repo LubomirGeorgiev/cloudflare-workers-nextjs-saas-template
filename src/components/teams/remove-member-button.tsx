@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAction } from "next-safe-action/hooks";
+import { useTranslations } from "next-intl";
 
 interface RemoveMemberButtonProps {
   teamId: string;
@@ -37,18 +38,20 @@ export function RemoveMemberButton({
   userId,
   memberName,
   isDisabled = false,
-  tooltipText = "You cannot remove this member"
+  tooltipText,
 }: RemoveMemberButtonProps) {
+  const t = useTranslations("Client.Dashboard.Teams");
+  const resolvedTooltipText = tooltipText ?? t("cannotRemoveTooltip");
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
   const { execute: removeMember, isExecuting } = useAction(removeTeamMemberAction, {
     onError: ({ error }) => {
-      toast.error(error.serverError?.message || "Failed to remove team member");
+      toast.error(error.serverError?.message || t("toastRemoveError"));
       dialogCloseRef.current?.click();
     },
     onSuccess: () => {
-      toast.success("Team member removed successfully");
+      toast.success(t("toastRemoveSuccess"));
       router.refresh();
       dialogCloseRef.current?.click();
     }
@@ -73,11 +76,11 @@ export function RemoveMemberButton({
                 disabled
             >
               <TrashIcon className="h-4 w-4" />
-              <span className="sr-only">Cannot remove member</span>
+              <span className="sr-only">{t("cannotRemoveMember")}</span>
               </Button>
           </TooltipTrigger>
           <TooltipContent side="left" sideOffset={5} className="text-sm font-medium">
-            {tooltipText}
+            {resolvedTooltipText}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -96,13 +99,13 @@ export function RemoveMemberButton({
         }
       >
           <TrashIcon className="h-4 w-4" />
-          <span className="sr-only">Remove member</span>
+          <span className="sr-only">{t("removeMember")}</span>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Remove team member</DialogTitle>
+          <DialogTitle>{t("removeMemberTitle")}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove {memberName} from this team? This action cannot be undone.
+            {t("removeMemberDescription", { name: memberName })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4 flex flex-col gap-4 sm:flex-row">
@@ -110,7 +113,7 @@ export function RemoveMemberButton({
             ref={dialogCloseRef}
             render={<Button variant="outline" className="sm:w-auto w-full" />}
           >
-            Cancel
+            {t("cancel")}
           </DialogClose>
           <Button
             variant="destructive"
@@ -118,7 +121,7 @@ export function RemoveMemberButton({
             disabled={isExecuting}
             className="sm:w-auto w-full"
           >
-            {isExecuting ? "Removing..." : "Remove member"}
+            {isExecuting ? t("removing") : t("removeMember")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "server-only";
 
-import { NextIntlClientProvider } from "next-intl";
+import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { getClientMessages } from "@/i18n/client-messages";
+import { DEFAULT_LOCALE } from "@/i18n/config";
+import { routing } from "@/i18n/routing";
 
 import { ThemeProvider } from "@/components/providers";
 import { NavigationTopLoader } from "@/components/navigation-top-loader";
@@ -16,12 +18,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE_NAME, SITE_URL } from "@/constants";
 import { getPublicConfig } from "@/flags";
 import { PublicConfigHydrator } from "@/components/public-config-hydrator";
+import { buildSiteOpenGraph } from "@/utils/i18n-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
   // The site-wide default description lives in the locale catalogs
   // (Client.Landing.meta) so it stays in sync with the localized landing page.
   const t = await getTranslations("Client.Landing.meta");
   const description = t("description");
+  const locale = await getLocale();
+  const resolved = hasLocale(routing.locales, locale) ? locale : DEFAULT_LOCALE;
 
   return {
     title: {
@@ -32,14 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase: new URL(SITE_URL),
     authors: [{ name: "Lubomir Georgiev" }],
     creator: "Lubomir Georgiev",
-    openGraph: {
-      type: "website",
-      locale: "en_US",
-      url: SITE_URL,
-      title: SITE_NAME,
-      description,
-      siteName: SITE_NAME,
-    },
+    openGraph: await buildSiteOpenGraph(resolved),
     twitter: {
       card: "summary_large_image",
       title: SITE_NAME,

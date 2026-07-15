@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { createTeamAction } from "@/actions/team-actions";
 import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
+import { useTranslations } from "next-intl";
 
 const formSchema = v.object({
   name: v.pipe(
@@ -42,17 +43,18 @@ function getCreatedTeamSlug(payload: CreateTeamPayload | undefined): string | un
 }
 
 export function CreateTeamForm() {
-  const { execute: createTeam } = useAction(createTeamAction, {
+  const t = useTranslations("Client.Dashboard.Teams");
+  const { execute: submitCreateTeam } = useAction(createTeamAction, {
     onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to create team");
+      toast.error(error.serverError?.message || t("toastCreateError"));
     },
     onExecute: () => {
-      toast.loading("Creating team...");
+      toast.loading(t("toastCreating"));
     },
     onSuccess: ({ data }) => {
       toast.dismiss();
-      toast.success("Team created successfully");
+      toast.success(t("toastCreateSuccess"));
 
       const teamSlug = getCreatedTeamSlug(data);
       const teamPath = teamSlug ? `/dashboard/teams/${teamSlug}` : "/dashboard/teams";
@@ -77,7 +79,7 @@ export function CreateTeamForm() {
       avatarUrl: data.avatarUrl || undefined
     };
 
-    createTeam(formData);
+    submitCreateTeam(formData);
   }
 
   return (
@@ -88,12 +90,12 @@ export function CreateTeamForm() {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Team Name</FormLabel>
+              <FormLabel>{t("formNameLabel")}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter team name" {...field} />
+                <Input placeholder={t("formNamePlaceholder")} {...field} />
               </FormControl>
               <FormDescription>
-                A unique name for your team
+                {t("formNameDescription")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -105,16 +107,16 @@ export function CreateTeamForm() {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>{t("formDescriptionLabel")}</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Enter a brief description of your team"
+                  placeholder={t("formDescriptionPlaceholder")}
                   {...field}
                   value={field.value || ""}
                 />
               </FormControl>
               <FormDescription>
-                Optional description of your team&apos;s purpose
+                {t("formDescriptionHelp")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -122,7 +124,7 @@ export function CreateTeamForm() {
         />
 
         <Button type="submit" className="w-full">
-          Create Team
+          {t("createTeam")}
         </Button>
       </form>
     </Form>

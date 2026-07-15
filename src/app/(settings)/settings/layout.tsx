@@ -1,6 +1,6 @@
 import { getSessionFromCookie } from "@/utils/auth";
 import { isBillingEnabled } from "@/flags";
-import { redirect } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SessionHydrator } from "@/components/session-hydrator";
 import { Separator } from "@/components/ui/separator";
@@ -20,7 +20,7 @@ export default async function SettingsLayout({
   const session = await getSessionFromCookie();
 
   if (!session) {
-    return redirect("/sign-in");
+    return redirectToSignIn();
   }
 
   return (

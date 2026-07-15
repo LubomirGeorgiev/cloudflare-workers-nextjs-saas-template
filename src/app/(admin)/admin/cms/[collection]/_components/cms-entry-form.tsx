@@ -10,6 +10,7 @@ import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag
 import { getCmsEntryVersionCountAction } from "../../_actions/version-actions";
 import { cmsEntryFormSchema, type CmsEntryFormData, type CmsEntryFormInput } from "@/schemas/cms-entry.schema";
 import { formatRelativeDateTime } from "@/utils/format-date";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -870,19 +871,19 @@ export function CmsEntryForm({
                   <div>
                     <span className="text-muted-foreground">Created:</span>
                     <p className="font-medium">
-                      {formatRelativeDateTime(entry.createdAt)}
+                      {formatRelativeDateTime(entry.createdAt, DEFAULT_LOCALE)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDateTime(entry.createdAt)}
+                      {formatDateTime(entry.createdAt, DEFAULT_LOCALE)}
                     </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Last Updated:</span>
                     <p className="font-medium">
-                      {formatRelativeDateTime(entry.updatedAt)}
+                      {formatRelativeDateTime(entry.updatedAt, DEFAULT_LOCALE)}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDateTime(entry.updatedAt)}
+                      {formatDateTime(entry.updatedAt, DEFAULT_LOCALE)}
                     </p>
                   </div>
                   {entry.publishedAt && (
@@ -891,10 +892,10 @@ export function CmsEntryForm({
                         {entry.status === CMS_ENTRY_STATUS.SCHEDULED ? "Scheduled for:" : "Published:"}
                       </span>
                       <p className="font-medium">
-                        {formatRelativeDateTime(entry.publishedAt)}
+                        {formatRelativeDateTime(entry.publishedAt, DEFAULT_LOCALE)}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatDateTime(entry.publishedAt)}
+                        {formatDateTime(entry.publishedAt, DEFAULT_LOCALE)}
                       </p>
                     </div>
                   )}

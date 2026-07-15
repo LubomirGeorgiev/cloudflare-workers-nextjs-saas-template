@@ -1,7 +1,6 @@
 "use server";
 
 import "server-only";
-import { getTranslations } from "next-intl/server";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
@@ -18,14 +17,12 @@ export const verifyEmailAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const t = await getTranslations("Client.Auth.VerifyEmail");
-        const tErrors = await getTranslations("Client.Errors");
         const verificationToken = await getValidExpiringToken({
           token: input.token,
           key: getVerificationTokenKey,
           notFoundError: {
             code: "NOT_FOUND",
-            message: t("errorTokenNotFound"),
+            message: { key: "Client.Auth.VerifyEmail.errorTokenNotFound" },
           },
         });
 
@@ -37,10 +34,7 @@ export const verifyEmailAction = actionClient
         });
 
         if (!user) {
-          throw new ActionError(
-            "NOT_FOUND",
-            tErrors("userNotFound")
-          );
+          throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
         }
 
         try {
@@ -60,10 +54,7 @@ export const verifyEmailAction = actionClient
         } catch (error) {
           console.error(error);
 
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            tErrors("unexpected")
-          );
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Errors.unexpected" });
         }
       },
       RATE_LIMITS.EMAIL

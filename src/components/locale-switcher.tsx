@@ -23,7 +23,7 @@ interface LocaleSwitcherProps {
 
 export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
   const t = useTranslations("Client.LocaleSwitcher")
-  const activeLocale = useLocale() as Locale
+  const activeLocale = useLocale()
   const pathname = usePathname()
   const [isPending, startTransition] = React.useTransition()
 
@@ -38,7 +38,11 @@ export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
       // The NextIntlClientProvider sits in the root layout (above [locale]) and is
       // shared across locales, so a soft navigation won't re-render it — useLocale()
       // and translations stay stale. Hard-navigate so it re-reads the new locale.
-      window.location.href = getPathname({ href: pathname, locale })
+      // usePathname() strips the query/hash, so re-append them (e.g. ?redirect= on sign-in).
+      window.location.href =
+        getPathname({ href: pathname, locale }) +
+        window.location.search +
+        window.location.hash
     })
   }
 

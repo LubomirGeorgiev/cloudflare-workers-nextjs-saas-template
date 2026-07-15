@@ -4,10 +4,20 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ButtonProps, buttonVariants } from "@/components/ui/button"
 
-const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
+// Labels are required (no English defaults) so callers must supply localized
+// copy; see BlogPaginationServer for the translated usage.
+type PaginationProps = React.ComponentProps<"nav"> & {
+  ariaLabel: string
+}
+
+const Pagination = ({
+  className,
+  ariaLabel,
+  ...props
+}: PaginationProps) => (
   <nav
     role="navigation"
-    aria-label="pagination"
+    aria-label={ariaLabel}
     className={cn("mx-auto flex w-full justify-center", className)}
     {...props}
   />
@@ -59,49 +69,62 @@ const PaginationLink = ({
 )
 PaginationLink.displayName = "PaginationLink"
 
+type PaginationNavButtonProps = React.ComponentProps<typeof PaginationLink> & {
+  label: string
+  ariaLabel: string
+}
+
 const PaginationPrevious = ({
   className,
+  label,
+  ariaLabel,
   ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
+}: PaginationNavButtonProps) => (
   <PaginationLink
-    aria-label="Go to previous page"
+    aria-label={ariaLabel}
     size="default"
     className={cn("gap-1 pl-2.5", className)}
     {...props}
   >
     <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
+    <span>{label}</span>
   </PaginationLink>
 )
 PaginationPrevious.displayName = "PaginationPrevious"
 
 const PaginationNext = ({
   className,
+  label,
+  ariaLabel,
   ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
+}: PaginationNavButtonProps) => (
   <PaginationLink
-    aria-label="Go to next page"
+    aria-label={ariaLabel}
     size="default"
     className={cn("gap-1 pr-2.5", className)}
     {...props}
   >
-    <span>Next</span>
+    <span>{label}</span>
     <ChevronRight className="h-4 w-4" />
   </PaginationLink>
 )
 PaginationNext.displayName = "PaginationNext"
 
+type PaginationEllipsisProps = React.ComponentProps<"span"> & {
+  label: string
+}
+
 const PaginationEllipsis = ({
   className,
+  label,
   ...props
-}: React.ComponentProps<"span">) => (
+}: PaginationEllipsisProps) => (
   <span
-    aria-hidden
     className={cn("flex h-9 w-9 items-center justify-center", className)}
     {...props}
   >
-    <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More pages</span>
+    <MoreHorizontal aria-hidden className="h-4 w-4" />
+    <span className="sr-only">{label}</span>
   </span>
 )
 PaginationEllipsis.displayName = "PaginationEllipsis"

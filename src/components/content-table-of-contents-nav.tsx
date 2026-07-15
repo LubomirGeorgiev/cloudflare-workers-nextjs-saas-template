@@ -93,10 +93,12 @@ function TableOfContentsBranch({
 
 interface ContentTableOfContentsNavProps {
   nodes: TableOfContentsNode[];
+  ariaLabel: string;
 }
 
 export function ContentTableOfContentsNav({
   nodes,
+  ariaLabel,
 }: ContentTableOfContentsNavProps) {
   const orderedIds = useMemo(() => flattenTableOfContentsIds(nodes), [nodes]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -174,7 +176,7 @@ export function ContentTableOfContentsNav({
     <nav
       ref={navRef}
       className="mt-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3"
-      aria-label="On this page"
+      aria-label={ariaLabel}
     >
       <TableOfContentsBranch
         nodes={nodes}

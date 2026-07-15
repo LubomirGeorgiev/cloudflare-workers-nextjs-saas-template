@@ -26,14 +26,33 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { SessionWithMeta } from "@/types";
-import { capitalize } from 'remeda'
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
+function getAuthMethodLabel({
+  authenticationType,
+  t,
+}: {
+  authenticationType: NonNullable<SessionWithMeta["authenticationType"]>;
+  t: ReturnType<typeof useTranslations<"Client.Settings.Sessions">>;
+}): string {
+  switch (authenticationType) {
+    case "password":
+      return t("authMethodPassword");
+    case "passkey":
+      return t("authMethodPasskey");
+    case "google-oauth":
+      return t("authMethodGoogleOauth");
+  }
+}
 
-const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
 export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
   const router = useRouter();
+  const locale = useLocale();
+  const regionNames = React.useMemo(
+    () => new Intl.DisplayNames([locale], { type: "region" }),
+    [locale],
+  );
   const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Sessions");
   const { execute: deleteSession } = useAction(deleteSessionAction, {
@@ -63,11 +82,16 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                   </CardTitle>
                   {session?.authenticationType && (
                     <Badge variant='outline'>
-                      {t("authenticatedWith", { method: capitalize(session?.authenticationType ?? "password")?.replace("-", " ") })}
+                      {t("authenticatedWith", {
+                        method: getAuthMethodLabel({
+                          authenticationType: session.authenticationType,
+                          t,
+                        }),
+                      })}
                     </Badge>
                   )}
                   <div className="text-sm text-muted-foreground whitespace-nowrap">
-                    &nbsp;· &nbsp;{formatRelativeDateTime(session.createdAt)}
+                    &nbsp;· &nbsp;{formatRelativeDateTime(session.createdAt, locale)}
                   </div>
                 </div>
                 <CardDescription className="text-sm">

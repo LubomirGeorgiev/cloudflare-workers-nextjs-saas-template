@@ -204,7 +204,7 @@ const getRequiredVerifiedEmail = cache(async (doNotThrowError = false) => {
   }
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   if (!session?.user?.emailVerified) {
@@ -212,7 +212,7 @@ const getRequiredVerifiedEmail = cache(async (doNotThrowError = false) => {
       return null;
     }
 
-    throw new ActionError("FORBIDDEN", "Please verify your email first");
+    throw new ActionError("FORBIDDEN", { key: "Client.Errors.emailVerificationRequired" });
   }
 
   return session;
@@ -232,7 +232,7 @@ const getRequiredAdmin = cache(async (doNotThrowError = false) => {
   }
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   if (session.user.role !== ROLES_ENUM.ADMIN) {
@@ -240,7 +240,7 @@ const getRequiredAdmin = cache(async (doNotThrowError = false) => {
       return null;
     }
 
-    throw new ActionError("FORBIDDEN", "Not authorized");
+    throw new ActionError("FORBIDDEN", { key: "Client.Errors.notAuthorized" });
   }
 
   return session;

@@ -1,12 +1,11 @@
 import "server-only";
 
-import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
-import type { Locale } from "@/i18n/config";
+import { redirect } from "@/i18n/navigation";
 
 import { DocsLlmsTxtLink } from "./docs-llms-txt-link";
 import { DocsSearch } from "./docs-search";
@@ -15,7 +14,7 @@ import { MobileDocsNav } from "./mobile-docs-nav";
 
 export async function DocsNavigationChrome() {
   const t = await getTranslations("Client.Docs.Navigation");
-  const locale = (await getLocale()) as Locale;
+  const locale = await getLocale();
   // Locale-scoped tree: PAGE nodes untranslated in the active locale are
   // pruned out by `getCmsNavigationTree` (see cms-navigation-repository.ts),
   // so the sidebar naturally shows only translated entries for that locale.
@@ -25,7 +24,7 @@ export async function DocsNavigationChrome() {
   });
 
   if (sidebarTree.length === 0) {
-    redirect("/");
+    redirect({ href: "/", locale });
   }
 
   return (
@@ -63,13 +62,13 @@ export async function DocsNavigationChrome() {
 export function DocsNavigationChromeFallback() {
   // Kept synchronous (no getTranslations) because this is used directly as a
   // <Suspense fallback> element, which must resolve without awaiting a promise.
+  // Omit the heading text — skeletons only — so we don't flash English copy
+  // on non-default locales.
   return (
     <>
       <aside className="hidden border-r bg-muted/20 py-10 lg:block">
         <div className="sticky top-10 flex max-h-[calc(100vh-5rem)] flex-col">
-          <p className="mb-4 px-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Documentation
-          </p>
+          <Skeleton className="mb-4 ml-6 h-3 w-28" />
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
             <div className="space-y-3 px-3">
               <Skeleton className="h-10 w-full" />
@@ -87,9 +86,7 @@ export function DocsNavigationChromeFallback() {
 
       <div className="border-b px-4 py-4 lg:hidden">
         <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Documentation
-          </p>
+          <Skeleton className="h-3 w-28" />
           <div className="flex items-center gap-3">
             <Skeleton className="h-11 flex-1" />
             <Skeleton className="h-11 w-32" />

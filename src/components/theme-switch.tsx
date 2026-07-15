@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useTranslations } from "next-intl"
 
 interface ThemeSwitchProps {
   children?: React.ReactNode
@@ -19,6 +20,7 @@ interface ThemeSwitchProps {
 
 export default function ThemeSwitch({ children, className }: ThemeSwitchProps) {
   const { setTheme } = useTheme()
+  const t = useTranslations("Client.ThemeSwitch")
 
   return (
     <DropdownMenu>
@@ -36,17 +38,17 @@ export default function ThemeSwitch({ children, className }: ThemeSwitchProps) {
             <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           </div>
           {children && <span className="ml-2">{children}</span>}
-          <span className="sr-only">Toggle theme</span>
+          <span className="sr-only">{t("toggle")}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => setTheme("system")}>
-          System default
+          {t("system")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("light")}>
-          Light
+          {t("light")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme("dark")}>
-          Dark
+          {t("dark")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

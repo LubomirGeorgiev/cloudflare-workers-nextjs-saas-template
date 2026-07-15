@@ -1,4 +1,5 @@
 import Image from "next/image"
+import { getLocale, getTranslations } from "next-intl/server"
 import { Link } from "@/i18n/navigation"
 import { formatDate } from "@/utils/format-date"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -6,6 +7,7 @@ import { getInitials } from "@/utils/name-initials"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
 import type { CmsCollectionListItem } from "@/lib/cms/entry"
 import { getValidDateOrNow } from "@/utils/cms-entry-dates"
+import { getAuthorDisplayName } from "@/utils/blog-author-url"
 
 type BlogCardProps = {
   entry: CmsCollectionListItem
@@ -13,11 +15,13 @@ type BlogCardProps = {
   showAuthor?: boolean
 }
 
-export function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCardProps) {
+export async function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCardProps) {
+  const locale = await getLocale()
+  const t = await getTranslations("Blog.AuthorDetail")
   const author = entry.createdByUser
   const authorName = author
-    ? [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email || 'Unknown'
-    : 'Unknown'
+    ? getAuthorDisplayName(author, t("unknownAuthor"))
+    : t("unknownAuthor")
   const description = entry.seoDescription?.trim()
 
   const displayDate = getValidDateOrNow({ value: entry.createdAt })
@@ -49,7 +53,7 @@ export function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCard
             dateTime={displayDate.toISOString()}
             className="font-mono text-xs uppercase tracking-wide text-muted-foreground"
           >
-            {formatDate(displayDate)}
+            {formatDate(displayDate, locale)}
           </time>
 
           <h2 className="mt-3 line-clamp-2 font-display text-xl font-semibold leading-snug text-foreground transition-colors group-hover:text-edge">

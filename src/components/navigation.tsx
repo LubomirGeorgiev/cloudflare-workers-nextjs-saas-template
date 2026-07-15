@@ -2,7 +2,6 @@
 
 import NextLink from "next/link"
 import type { Route } from 'next'
-import { usePathname } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { ComponentIcon, Menu } from 'lucide-react'
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -14,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SITE_NAME } from "@/constants"
 import { DOCS_BASE_PATH } from "@/lib/cms/docs-config"
 import { ROLES_ENUM } from "@/app/enums"
-import { Link } from "@/i18n/navigation"
+import { Link, usePathname } from "@/i18n/navigation"
 import LocaleSwitcher from "@/components/locale-switcher"
 
 type NavItem = {

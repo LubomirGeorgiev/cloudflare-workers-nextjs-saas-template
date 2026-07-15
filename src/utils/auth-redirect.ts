@@ -2,9 +2,11 @@ import "server-only";
 
 import type { Route } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect as nextRedirect } from "next/navigation";
+import { getLocale } from "next-intl/server";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL } from "@/constants";
+import { redirect } from "@/i18n/navigation";
 import { getSessionFromCookie } from "@/utils/auth";
 import type { SessionValidationResult } from "@/types";
 
@@ -40,6 +42,17 @@ export function getSafeRedirectPath({
   }
 }
 
+// Authed sections (`/dashboard`, `/settings`) live outside `[locale]`, so plain
+// `redirect("/sign-in")` drops the active locale prefix. Builds the `redirect`
+// query param itself — the sign-in page only honors `?redirect=`.
+export async function redirectToSignIn(returnTo?: string): Promise<never> {
+  const locale = await getLocale();
+  const href = returnTo
+    ? `/sign-in?redirect=${encodeURIComponent(returnTo)}`
+    : "/sign-in";
+  return redirect({ href, locale });
+}
+
 export async function redirectAuthenticatedUser({
   redirectPath,
   shouldRedirect,
@@ -54,7 +67,8 @@ export async function redirectAuthenticatedUser({
   const isServerActionRequest = requestHeaders.has("next-action") || isRscRequest;
 
   if (session && !isServerActionRequest && (!shouldRedirect || shouldRedirect(session))) {
-    return redirect(redirectPath);
+    // Destination is typically `/dashboard` (outside `[locale]`); keep unprefixed.
+    return nextRedirect(redirectPath);
   }
 
   return session;

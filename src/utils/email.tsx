@@ -5,11 +5,11 @@ import { createTranslator } from "next-intl";
 import {
   EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
   SITE_DOMAIN,
-  SITE_URL,
 } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import {
   createScheduledQueueMessage,
   EMAIL_TEMPLATE_TYPES,
@@ -200,7 +200,7 @@ export async function renderTransactionalEmail(
 
   switch (payload.template) {
     case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET: {
-      const resetUrl = `${SITE_URL}/reset-password?token=${payload.data.resetToken}`;
+      const resetUrl = `${absoluteLocalizedUrl({ pathname: "/reset-password", locale })}?token=${payload.data.resetToken}`;
       const emailTemplate = buildEmailTemplate({
         locale,
         title: t("PasswordReset.title", { siteDomain: SITE_DOMAIN }),
@@ -222,7 +222,7 @@ export async function renderTransactionalEmail(
       };
     }
     case EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION: {
-      const verificationUrl = `${SITE_URL}/verify-email?token=${payload.data.verificationToken}`;
+      const verificationUrl = `${absoluteLocalizedUrl({ pathname: "/verify-email", locale })}?token=${payload.data.verificationToken}`;
       const expirationHours = EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60 / 60;
       const emailTemplate = buildEmailTemplate({
         locale,
@@ -245,7 +245,7 @@ export async function renderTransactionalEmail(
       };
     }
     case EMAIL_TEMPLATE_TYPES.TEAM_INVITATION: {
-      const inviteUrl = `${SITE_URL}/team-invite?token=${payload.data.invitationToken}`;
+      const inviteUrl = `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${payload.data.invitationToken}`;
       const emailTemplate = buildEmailTemplate({
         locale,
         title: t("TeamInvitation.title", { siteDomain: SITE_DOMAIN }),
@@ -286,7 +286,7 @@ export async function sendPasswordResetEmail({
   username: string;
   locale?: Locale;
 }) {
-  const resetUrl = `${SITE_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${absoluteLocalizedUrl({ pathname: "/reset-password", locale })}?token=${resetToken}`;
 
   if (!isProd) {
     console.warn('\n\n\nPassword reset url: ', resetUrl)
@@ -318,7 +318,7 @@ export async function sendVerificationEmail({
   username: string;
   locale?: Locale;
 }) {
-  const verificationUrl = `${SITE_URL}/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${absoluteLocalizedUrl({ pathname: "/verify-email", locale })}?token=${verificationToken}`;
 
   if (!isProd) {
     console.warn('\n\n\nVerification url: ', verificationUrl)
@@ -352,7 +352,7 @@ export async function sendTeamInvitationEmail({
   inviterName: string;
   locale?: Locale;
 }) {
-  const inviteUrl = `${SITE_URL}/team-invite?token=${invitationToken}`;
+  const inviteUrl = `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${invitationToken}`;
 
   if (!isProd) {
     console.warn('\n\n\nTeam invitation url: ', inviteUrl)

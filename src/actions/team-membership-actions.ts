@@ -35,7 +35,7 @@ export const inviteUserAction = actionClient
       async () => {
         return runVerifiedAction({
           actionName: "Failed to invite user",
-          failureMessage: "Failed to invite user",
+          failureMessageKey: "Client.Dashboard.Teams.toastInviteError",
           handler: () => inviteUserToTeam(input),
         });
       },
@@ -48,7 +48,7 @@ export const removeTeamMemberAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return runVerifiedAction({
       actionName: "Failed to remove team member",
-      failureMessage: "Failed to remove team member",
+      failureMessageKey: "Client.Dashboard.Teams.toastRemoveError",
       handler: () => removeTeamMember(input),
     });
   });
@@ -58,7 +58,7 @@ export const acceptInvitationAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return runVerifiedAction({
       actionName: "Failed to accept invitation",
-      failureMessage: "Failed to accept invitation",
+      failureMessageKey: "Client.Dashboard.Teams.errorAcceptInvitation",
       handler: () => acceptTeamInvitation(input.token),
     });
   });
@@ -67,7 +67,7 @@ export const getPendingInvitationsForCurrentUserAction = actionClient
   .action(async () => {
     return runVerifiedAction({
       actionName: "Failed to get pending team invitations",
-      failureMessage: "Failed to get pending team invitations",
+      failureMessageKey: "Client.Dashboard.Teams.errorGetPendingInvitations",
       handler: getPendingInvitationsForCurrentUser,
     });
   });

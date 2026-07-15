@@ -21,6 +21,7 @@ import type {
   ScheduledJobTableRow,
 } from "@/lib/scheduler/admin";
 import { formatDateTime, formatRelativeDateTime } from "@/utils/format-date";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 
 const JOBS_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -101,9 +102,9 @@ const d1JobColumns: ColumnDef<ScheduledJobTableRow>[] = [
     header: "Run At",
     cell: ({ row }) => (
       <div className="whitespace-nowrap">
-        <div>{formatRelativeDateTime(row.original.runAt)}</div>
+        <div>{formatRelativeDateTime(row.original.runAt, DEFAULT_LOCALE)}</div>
         <div className="text-xs text-muted-foreground">
-          {formatDateTime(row.original.runAt)}
+          {formatDateTime(row.original.runAt, DEFAULT_LOCALE)}
         </div>
       </div>
     ),
@@ -138,7 +139,7 @@ const queueMessageColumns: ColumnDef<QueueMessageTableRow>[] = [
     accessorKey: "publishedAt",
     header: "Published",
     cell: ({ row }) => (
-      <span className="whitespace-nowrap">{formatDateTime(row.original.publishedAt)}</span>
+      <span className="whitespace-nowrap">{formatDateTime(row.original.publishedAt, DEFAULT_LOCALE)}</span>
     ),
   },
   {
@@ -207,7 +208,7 @@ function QueueMetrics({ queueMetrics }: { queueMetrics: QueueMetricsTableState }
     {
       label: "Oldest message",
       value: queueMetrics.oldestMessageTimestamp
-        ? formatDateTime(queueMetrics.oldestMessageTimestamp)
+        ? formatDateTime(queueMetrics.oldestMessageTimestamp, DEFAULT_LOCALE)
         : "None",
     },
   ];

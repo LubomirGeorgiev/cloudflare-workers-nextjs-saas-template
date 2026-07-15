@@ -1,11 +1,11 @@
-import type { Route } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
-import { TEAM_PERMISSIONS } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getSessionFromCookie } from "@/utils/auth";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { getTeamMembers } from "@/lib/teams/team-members";
 import { getTeamBySlug } from "@/lib/teams/teams";
@@ -22,12 +22,37 @@ import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 interface TeamPageProps {
   params: Promise<{
     teamSlug: string;
   }>;
+}
+
+function getMemberRoleLabel({
+  member,
+  t,
+}: {
+  member: { roleId: string; isSystemRole: boolean; roleName: string | null };
+  t: Awaited<ReturnType<typeof getTranslations<"Client.Dashboard.Teams">>>;
+}): string {
+  if (!member.isSystemRole) {
+    return member.roleName ?? t("roleCustom");
+  }
+
+  switch (member.roleId) {
+    case SYSTEM_ROLES_ENUM.OWNER:
+      return t("roleOwner");
+    case SYSTEM_ROLES_ENUM.ADMIN:
+      return t("roleAdmin");
+    case SYSTEM_ROLES_ENUM.MEMBER:
+      return t("roleMember");
+    case SYSTEM_ROLES_ENUM.GUEST:
+      return t("roleGuest");
+    default:
+      return member.roleId;
+  }
 }
 
 // TODO Test the removal process
@@ -51,10 +76,11 @@ export async function generateMetadata({ params }: TeamPageProps) {
 export default async function TeamDashboardPage({ params }: TeamPageProps) {
   const { teamSlug } = await params;
   const t = await getTranslations("Client.Dashboard.Teams");
+  const locale = await getLocale();
 
   const session = await getSessionFromCookie();
   if (!session) {
-    return redirect("/sign-in?returnTo=" + encodeURIComponent(`/dashboard/teams/${teamSlug}`) as Route);
+    return redirectToSignIn(`/dashboard/teams/${teamSlug}`);
   }
 
   const team = await getTeamBySlug(teamSlug);
@@ -158,7 +184,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
             <div className="p-6 border rounded-lg bg-card flex flex-col">
               <span className="text-sm font-medium text-muted-foreground">{t("created")}</span>
               <span className="text-2xl font-bold">
-                {new Date(team.createdAt).toLocaleDateString()}
+                {formatDate(team.createdAt, locale)}
               </span>
             </div>
           </div>
@@ -208,11 +234,11 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                       </TableCell>
                       <TableCell>{member.user.email}</TableCell>
                       <TableCell className="capitalize">
-                        {member.roleName}
+                        {getMemberRoleLabel({ member, t })}
                       </TableCell>
                       <TableCell>
                         {member.joinedAt !== null
-                          ? formatDate(member.joinedAt)
+                          ? formatDate(member.joinedAt, locale)
                           : t("notJoined")}
                       </TableCell>
                       <TableCell>

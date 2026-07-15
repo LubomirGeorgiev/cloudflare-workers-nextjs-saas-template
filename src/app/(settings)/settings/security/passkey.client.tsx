@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { PASSKEY_AUTHENTICATOR_IDS } from "@/utils/passkey-authenticator-ids";
 import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type { ParsedUserAgent } from "@/types";
 
 interface PasskeyRegistrationButtonProps {
@@ -96,6 +96,7 @@ interface PasskeysListProps {
 
 export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysListProps) {
   const router = useRouter();
+  const locale = useLocale();
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Security");
   const { execute: deletePasskey } = useAction(deletePasskeyAction, {
@@ -141,7 +142,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                       {isCurrentPasskey(passkey) && <Badge>{t("currentPasskeyBadge")}</Badge>}
                     </CardTitle>
                     <div className="text-sm text-muted-foreground whitespace-nowrap">
-                      · {formatRelativeDateTime(passkey.createdAt)}
+                      · {formatRelativeDateTime(passkey.createdAt, locale)}
                     </div>
                   </div>
                   {passkey.parsedUserAgent && (

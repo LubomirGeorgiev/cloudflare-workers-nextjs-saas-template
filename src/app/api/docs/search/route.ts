@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
 
 import { SITE_URL } from "@/constants";
 import { searchDocs } from "@/lib/cms/cms-search";
@@ -56,9 +57,18 @@ export async function GET(request: Request) {
     );
   } catch (error) {
     if (error instanceof RateLimitError) {
+      // `RateLimitError.message` is log-only English; translate for the caller
+      // using the validated `locale` query param (defaults to DEFAULT_LOCALE).
+      const t = await getTranslations({
+        locale: parseResult.output.locale,
+        namespace: "Client.Errors",
+      });
+
       return NextResponse.json(
         {
-          error: error.message,
+          error: t("rateLimitExceeded", {
+            minutes: Math.ceil(error.retryAfterSeconds / 60),
+          }),
         },
         {
           status: 429,

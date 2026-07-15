@@ -4,6 +4,7 @@ import { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal } from "lucide-react"
 import { format } from "date-fns"
 import { formatRelativeDateTime } from "@/utils/format-date"
+import { DEFAULT_LOCALE } from "@/i18n/config"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -71,7 +72,7 @@ export const columns: ColumnDef<User>[] = [
       return (
         <Tooltip>
           <TooltipTrigger>
-            {formatRelativeDateTime(date)}
+            {formatRelativeDateTime(date, DEFAULT_LOCALE)}
           </TooltipTrigger>
           <TooltipContent>
             <p>{formattedDate}</p>

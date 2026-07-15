@@ -4,7 +4,8 @@ import { hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 
 import { routing } from "@/i18n/routing";
-import { DEFAULT_LOCALE, LOCALE_OG_MAP } from "@/i18n/config";
+import { DEFAULT_LOCALE } from "@/i18n/config";
+import { buildSiteOpenGraph } from "@/utils/i18n-metadata";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -19,7 +20,7 @@ export async function generateMetadata({
   const resolved = hasLocale(routing.locales, locale) ? locale : DEFAULT_LOCALE;
 
   return {
-    openGraph: { locale: LOCALE_OG_MAP[resolved] },
+    openGraph: await buildSiteOpenGraph(resolved),
   };
 }
 

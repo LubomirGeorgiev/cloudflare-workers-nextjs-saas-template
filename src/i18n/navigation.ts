@@ -4,10 +4,12 @@ import type { Locale } from "./config";
 import { routing } from "./routing";
 
 // Only the consumed helpers are re-exported (the linter rejects unused exports).
-// `redirect`/`permanentRedirect` preserve the active locale prefix on blog/docs and
-// CMS redirects; `Link`/`getPathname` keep it on internal links and hreflang URLs.
+// `redirect`/`permanentRedirect`/`useRouter` preserve the active locale prefix on
+// blog/docs and CMS redirects; `Link`/`getPathname`/`usePathname` keep it on
+// internal links, hreflang URLs, and active-path matching.
 const {
   usePathname,
+  useRouter,
   getPathname,
   Link,
   redirect: intlRedirect,
@@ -30,4 +32,4 @@ function permanentRedirect(args: LocalizedRedirectArgs): never {
   return intlPermanentRedirect(args as never);
 }
 
-export { usePathname, getPathname, Link, redirect, permanentRedirect };
+export { usePathname, useRouter, getPathname, Link, redirect, permanentRedirect };

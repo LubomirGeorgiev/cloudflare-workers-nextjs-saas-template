@@ -18,7 +18,7 @@ export const createTeamAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return runVerifiedAction({
       actionName: "Failed to create team",
-      failureMessage: "Failed to create team",
+      failureMessageKey: "Client.Dashboard.Teams.toastCreateError",
       handler: () => createTeam(input),
     });
   });
@@ -27,7 +27,7 @@ export const getUserTeamsAction = actionClient
   .action(async () => {
     return runVerifiedAction({
       actionName: "Failed to get user teams",
-      failureMessage: "Failed to get user teams",
+      failureMessageKey: "Client.Dashboard.Teams.errorGetTeams",
       handler: getUserTeams,
     });
   });
