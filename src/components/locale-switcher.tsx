@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config"
+import { persistUserLocale } from "@/i18n/locale-cookie.client"
 import { LocaleFlag } from "@/components/locale-flag"
-import { setUserLocale } from "@/i18n/locale-actions"
 
 interface LocaleSwitcherProps {
   className?: string
@@ -34,7 +34,7 @@ export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
 
     startTransition(async () => {
       // Persist preference (cookie) so the app surface honors it too.
-      await setUserLocale(locale)
+      await persistUserLocale(locale)
       // The NextIntlClientProvider sits in the root layout (above [locale]) and is
       // shared across locales, so a soft navigation won't re-render it — useLocale()
       // and translations stay stale. Hard-navigate so it re-reads the new locale.

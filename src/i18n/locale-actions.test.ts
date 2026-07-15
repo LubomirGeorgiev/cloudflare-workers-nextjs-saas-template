@@ -1,19 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "./config";
-
-// Mutable cookie jar the mocked next/headers reads from and writes to, reset per test.
-let cookieSets: Array<{ name: string; value: string; options: unknown }>;
+import { ENABLED_LOCALES } from "./config";
 
 vi.mock("server-only", () => ({}));
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({
-    set: (name: string, value: string, options: unknown) => {
-      cookieSets.push({ name, value, options });
-    },
-  })),
-}));
 
 let sessionUserId: string | null;
 const getSessionFromCookieMock = vi.fn(async () =>
@@ -40,7 +29,6 @@ const supportedLocale = ENABLED_LOCALES[ENABLED_LOCALES.length - 1];
 const unsupportedLocale = "zz";
 
 beforeEach(() => {
-  cookieSets = [];
   sessionUserId = null;
   getSessionFromCookieMock.mockClear();
   updateMock.mockClear();
@@ -55,27 +43,21 @@ describe("setUserLocale", () => {
 
     await setUserLocale(supportedLocale);
 
-    expect(cookieSets).toEqual([
-      expect.objectContaining({ name: LOCALE_COOKIE_NAME, value: supportedLocale }),
-    ]);
     expect(updateMock).toHaveBeenCalledOnce();
     expect(setMock).toHaveBeenCalledWith({ preferredLocale: supportedLocale });
     expect(whereMock).toHaveBeenCalledOnce();
   });
 
-  test("sets the cookie but skips the DB write for an anonymous user", async () => {
+  test("skips the DB write for an anonymous user", async () => {
     sessionUserId = null;
 
     await setUserLocale(supportedLocale);
 
-    expect(cookieSets).toEqual([
-      expect.objectContaining({ name: LOCALE_COOKIE_NAME, value: supportedLocale }),
-    ]);
     expect(getDBMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  test("throws on an unsupported locale before writing the cookie or the DB", async () => {
+  test("throws on an unsupported locale before reading the session or DB", async () => {
     sessionUserId = "user-1";
 
     // @ts-expect-error intentionally invalid locale to exercise the validation guard
@@ -83,7 +65,7 @@ describe("setUserLocale", () => {
       "Unsupported locale",
     );
 
-    expect(cookieSets).toEqual([]);
+    expect(getSessionFromCookieMock).not.toHaveBeenCalled();
     expect(getDBMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
   });

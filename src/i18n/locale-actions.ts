@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
@@ -9,14 +8,12 @@ import { getSessionFromCookie } from "@/utils/auth";
 
 import {
   ENABLED_LOCALES,
-  LOCALE_COOKIE_MAX_AGE,
-  LOCALE_COOKIE_NAME,
   type Locale,
 } from "./config";
 
-// Persist the user's chosen locale in a cookie (read back by the request config).
-// Logged-in users also get it saved to the DB so the preference follows them
-// across devices/sessions, not just this browser.
+// Logged-in users get the locale saved to the DB so the preference follows them
+// across devices. The client owns the non-HttpOnly cookie: mutating it here makes
+// Vinext revalidate the old localized route, whose prefetches restore that locale.
 export async function setUserLocale(locale: Locale): Promise<void> {
   // Validate against the served set: the UI hides the switcher when i18n is off,
   // but this action is the real trust boundary, so reject any locale that isn't
@@ -24,14 +21,6 @@ export async function setUserLocale(locale: Locale): Promise<void> {
   if (!ENABLED_LOCALES.includes(locale)) {
     throw new Error(`Unsupported locale: ${locale}`);
   }
-
-  const cookieStore = await cookies();
-  cookieStore.set(LOCALE_COOKIE_NAME, locale, {
-    path: "/",
-    maxAge: LOCALE_COOKIE_MAX_AGE,
-    sameSite: "lax",
-    httpOnly: false,
-  });
 
   const session = await getSessionFromCookie();
   if (session?.user) {
