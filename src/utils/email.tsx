@@ -204,7 +204,7 @@ export async function renderTransactionalEmail(
       const emailTemplate = buildEmailTemplate({
         locale,
         title: t("PasswordReset.title", { siteDomain: SITE_DOMAIN }),
-        greeting: t("PasswordReset.greeting", { username: payload.data.username }),
+        greeting: t("Common.greeting", { username: payload.data.username }),
         intro: t("PasswordReset.intro", { siteDomain: SITE_DOMAIN }),
         buttonLabel: t("PasswordReset.buttonLabel"),
         buttonUrl: resetUrl,
@@ -227,7 +227,7 @@ export async function renderTransactionalEmail(
       const emailTemplate = buildEmailTemplate({
         locale,
         title: t("EmailVerification.title", { siteDomain: SITE_DOMAIN }),
-        greeting: t("EmailVerification.greeting", { username: payload.data.username }),
+        greeting: t("Common.greeting", { username: payload.data.username }),
         intro: t("EmailVerification.intro", { siteDomain: SITE_DOMAIN }),
         buttonLabel: t("EmailVerification.buttonLabel"),
         buttonUrl: verificationUrl,

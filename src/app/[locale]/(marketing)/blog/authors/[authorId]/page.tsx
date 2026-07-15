@@ -104,6 +104,7 @@ export async function generateMetadata({
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
   const t = await getTranslations("Blog.AuthorDetail")
+  const tCommon = await getTranslations("Blog.Common")
   const { locale, authorId: authorRouteParam } = await params
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
 
@@ -174,7 +175,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
                 {authorName}
               </h1>
               <p className="mt-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-                {t("postCount", { count: authorEntries.length })}
+                {tCommon("postCount", { count: authorEntries.length })}
               </p>
             </div>
           </div>

@@ -73,6 +73,7 @@ export function SettingsNav() {
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const { signOut } = useSignOut();
   const t = useTranslations("Client.Settings.Nav");
+  const tCommon = useTranslations("Client.Common");
 
   const tabs = (
     <Tabs value={pathname}>
@@ -136,7 +137,7 @@ export function SettingsNav() {
               ref={dialogCloseRef}
               render={<Button variant="outline" />}
             >
-              {t("cancel")}
+              {tCommon("cancel")}
             </DialogClose>
             <Button
               variant="destructive"

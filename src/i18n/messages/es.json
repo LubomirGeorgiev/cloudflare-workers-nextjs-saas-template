@@ -1,5 +1,9 @@
 {
   "Client": {
+    "Common": {
+      "cancel": "Cancelar",
+      "copied": "Copiado"
+    },
     "LocaleSwitcher": {
       "label": "Idioma",
       "change": "Cambiar idioma"
@@ -229,7 +233,6 @@
       },
       "MarkdownButton": {
         "copyMarkdown": "Copiar Markdown",
-        "copied": "Copiado",
         "moreOptions": "Más opciones",
         "openAsMarkdown": "Abrir como Markdown",
         "llmsTxt": "llms.txt",
@@ -241,8 +244,6 @@
         "section": "Sección",
         "noChildPages": "Todavía no hay páginas secundarias públicas disponibles en esta sección.",
         "groupListName": "Documentación de {group}",
-        "previous": "Anterior",
-        "next": "Siguiente",
         "onThisPage": "En esta página"
       }
     },
@@ -306,9 +307,7 @@
         "titleLine2": "Tuyo para lanzarlo.",
         "description": "Gratis y de código abierto. Sin cuotas de licencia ni atribución obligatoria. Bifúrcalo, renómbralo y hazlo tuyo.",
         "copy": "Copiar",
-        "copied": "Copiado",
         "copyAriaLabel": "Copiar comando de clonación",
-        "copiedAriaLabel": "Copiado",
         "starOnGithub": "Danos una estrella en GitHub",
         "exploreDemo": "Explora la demo"
       },
@@ -467,9 +466,6 @@
         "billing": "Facturación",
         "notifications": "Notificaciones",
         "changeTheme": "Cambiar tema",
-        "themeSystem": "Predeterminado del sistema",
-        "themeLight": "Claro",
-        "themeDark": "Oscuro",
         "changeLanguage": "Cambiar idioma",
         "logOut": "Cerrar sesión"
       }
@@ -529,7 +525,6 @@
         "invitedBy": "Invitado por {name}",
         "accepting": "Aceptando...",
         "accept": "Aceptar",
-        "cancel": "Cancelar",
         "formNameLabel": "Nombre del equipo",
         "formNamePlaceholder": "Introduce el nombre del equipo",
         "formNameDescription": "Un nombre único para tu equipo",
@@ -667,7 +662,6 @@
         "paymentDialogTitle": "Suscribirse a {plan}",
         "securePaymentInfo": "Tu pago es seguro y está cifrado. Usamos Stripe, un proveedor de pagos global de confianza, para procesar tu pago.",
         "paymentDetailsInfo": "Por tu seguridad, los datos de tu pago los gestiona directamente Stripe y nunca pasan por nuestros servidores.",
-        "cancel": "Cancelar",
         "processing": "Procesando...",
         "payNow": "Pagar ahora",
         "startTrialAction": "Comenzar prueba gratis",
@@ -722,7 +716,6 @@
         "signOut": "Cerrar sesión",
         "signOutConfirmTitle": "¿Cerrar sesión?",
         "signOutConfirmDescription": "¿Seguro que quieres cerrar la sesión de tu cuenta?",
-        "cancel": "Cancelar",
         "toastSigningOut": "Cerrando sesión...",
         "toastSignOutError": "No se pudo cerrar la sesión"
       },
@@ -744,6 +737,15 @@
         "cardTitle": "Idioma",
         "cardDescription": "Elige el idioma de tu panel y de las páginas de tu cuenta."
       },
+      "Device": {
+        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Navegador desconocido",
+        "unknownVersion": "Versión desconocida",
+        "unknownDevice": "Dispositivo desconocido",
+        "unknownModel": "Modelo desconocido",
+        "unknownType": "Tipo desconocido",
+        "unknownOs": "Sistema operativo desconocido"
+      },
       "Security": {
         "passkeysHeading": "Claves de acceso",
         "passkeysSubheading": "Gestiona tus claves de acceso para la autenticación sin contraseña.",
@@ -751,17 +753,9 @@
         "registering": "Registrando...",
         "unknownAuthenticator": "Aplicación de autenticación desconocida",
         "currentPasskeyBadge": "Clave de acceso actual",
-        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
-        "unknownBrowser": "Navegador desconocido",
-        "unknownVersion": "Versión desconocida",
-        "unknownDevice": "Dispositivo desconocido",
-        "unknownModel": "Modelo desconocido",
-        "unknownType": "Tipo desconocido",
-        "unknownOs": "Sistema operativo desconocido",
         "deletePasskey": "Eliminar clave de acceso",
         "deletePasskeyConfirmTitle": "¿Eliminar la clave de acceso?",
         "deletePasskeyConfirmDescription": "Esto eliminará esta clave de acceso de tu cuenta. Esta acción no se puede deshacer.",
-        "cancel": "Cancelar",
         "emptyState": "No se encontraron claves de acceso. Añade una para habilitar la autenticación sin contraseña.",
         "toastRegisterSuccess": "Clave de acceso registrada correctamente",
         "toastRegisterError": "No se pudo registrar la clave de acceso",
@@ -787,17 +781,9 @@
         "authMethodPassword": "Contraseña",
         "authMethodPasskey": "Passkey",
         "authMethodGoogleOauth": "Google",
-        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
-        "unknownBrowser": "Navegador desconocido",
-        "unknownVersion": "Versión desconocida",
-        "unknownDevice": "Dispositivo desconocido",
-        "unknownModel": "Modelo desconocido",
-        "unknownType": "Tipo desconocido",
-        "unknownOs": "Sistema operativo desconocido",
         "deleteSession": "Eliminar sesión",
         "deleteSessionConfirmTitle": "¿Eliminar la sesión?",
         "deleteSessionConfirmDescription": "Esto cerrará la sesión de este dispositivo. Esta acción no se puede deshacer.",
-        "cancel": "Cancelar",
         "toastDeleteSuccess": "Sesión eliminada",
         "toastDeleteError": "No se pudo eliminar la sesión",
         "errorUnauthorized": "No autorizado"
@@ -914,6 +900,9 @@
     "builtBy": "Creado por"
   },
   "Blog": {
+    "Common": {
+      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+    },
     "ListPage": {
       "meta": {
         "title": "Blog",
@@ -944,8 +933,7 @@
       "title": "Autores del blog",
       "description": "Conoce a las personas detrás de nuestro contenido",
       "backToBlog": "← Volver al blog",
-      "empty": "No se encontraron autores.",
-      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+      "empty": "No se encontraron autores."
     },
     "AuthorDetail": {
       "meta": {
@@ -954,8 +942,7 @@
         "notFound": "Autor no encontrado"
       },
       "unknownAuthor": "Autor desconocido",
-      "backToAuthors": "← Volver a todos los autores",
-      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+      "backToAuthors": "← Volver a todos los autores"
     },
     "Tags": {
       "meta": {
@@ -965,8 +952,7 @@
       "title": "Etiquetas del blog",
       "description": "Explora los artículos por tema",
       "backToBlog": "← Volver al blog",
-      "empty": "No se encontraron etiquetas.",
-      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
+      "empty": "No se encontraron etiquetas."
     },
     "TagDetail": {
       "meta": {
@@ -975,7 +961,6 @@
         "notFound": "Etiqueta no encontrada"
       },
       "backToTags": "← Volver a todas las etiquetas",
-      "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}",
       "empty": "No se encontraron entradas del blog con esta etiqueta."
     }
   },
@@ -985,13 +970,13 @@
   },
   "Emails": {
     "Common": {
+      "greeting": "Hola {username},",
       "fallbackText": "Si tienes problemas con el botón de arriba, copia y pega esta URL en tu navegador:",
       "footerText": "Este es un mensaje automático de {siteDomain}. Por favor, no respondas a este correo electrónico."
     },
     "PasswordReset": {
       "subject": "Restablece tu contraseña de {siteDomain}",
       "title": "Restablece tu contraseña de {siteDomain}",
-      "greeting": "Hola {username},",
       "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {siteDomain}. Haz clic en el botón de abajo para elegir una nueva contraseña. Por razones de seguridad, este enlace caducará en 1 hora.",
       "buttonLabel": "Restablecer Contraseña",
       "secondaryText": "Si no solicitaste este restablecimiento de contraseña, puedes ignorar este correo electrónico de forma segura. La contraseña de tu cuenta de {siteDomain} permanecerá sin cambios.",
@@ -1000,7 +985,6 @@
     "EmailVerification": {
       "subject": "Verifica tu correo electrónico de {siteDomain}",
       "title": "Verifica tu correo electrónico de {siteDomain}",
-      "greeting": "Hola {username},",
       "intro": "¡Gracias por registrarte en {siteDomain}! Necesitamos verificar tu dirección de correo electrónico para completar tu registro. Haz clic en el botón de abajo para verificar tu dirección de correo electrónico.",
       "buttonLabel": "Verificar Correo Electrónico",
       "secondaryText": "Este enlace de verificación caducará en {expirationHours, plural, =1 {1 hora} other {# horas}}. Después de eso, deberás solicitar un nuevo correo electrónico de verificación.",

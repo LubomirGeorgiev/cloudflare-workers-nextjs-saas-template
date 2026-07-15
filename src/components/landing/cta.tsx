@@ -13,6 +13,7 @@ const CLONE_COMMAND = "git clone " + GITHUB_REPO_URL + ".git";
 
 export function CallToAction() {
   const t = useTranslations("Client.Landing.Cta");
+  const tCommon = useTranslations("Client.Common");
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -53,14 +54,14 @@ export function CallToAction() {
               type="button"
               onClick={handleCopy}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={copied ? t("copiedAriaLabel") : t("copyAriaLabel")}
+              aria-label={copied ? tCommon("copied") : t("copyAriaLabel")}
             >
               {copied ? (
                 <Check className="size-4 text-edge" />
               ) : (
                 <Copy className="size-4" />
               )}
-              {copied ? t("copied") : t("copy")}
+              {copied ? tCommon("copied") : t("copy")}
             </button>
           </div>
 

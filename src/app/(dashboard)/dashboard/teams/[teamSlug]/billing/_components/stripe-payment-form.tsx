@@ -46,6 +46,7 @@ function PaymentForm({
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const t = useTranslations("Client.Dashboard.Billing");
+  const tCommon = useTranslations("Client.Common");
   const tErrors = useTranslations("Client.Errors");
 
   const isSetupMode = isSetupIntentSecret(clientSecret);
@@ -109,7 +110,7 @@ function PaymentForm({
             onClick={onCancel}
             disabled={isProcessing}
           >
-            {t("cancel")}
+            {tCommon("cancel")}
           </Button>
           <Button
             type="submit"

@@ -11,6 +11,7 @@ import { useAction } from "next-safe-action/hooks";
 import { deleteSessionAction } from "./sessions.actions";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDateTime } from "@/utils/format-date";
+import { formatDeviceDescription } from "@/utils/format-device-description";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,8 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
   );
   const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Sessions");
+  const tCommon = useTranslations("Client.Common");
+  const tDevice = useTranslations("Client.Settings.Device");
   const { execute: deleteSession } = useAction(deleteSessionAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || t("toastDeleteError"));
@@ -95,15 +98,7 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                   </div>
                 </div>
                 <CardDescription className="text-sm">
-                  {t("deviceDescription", {
-                    browserName: session.parsedUserAgent?.browser.name ?? t("unknownBrowser"),
-                    browserVersion: session.parsedUserAgent?.browser.major ?? t("unknownVersion"),
-                    deviceVendor: session.parsedUserAgent?.device.vendor ?? t("unknownDevice"),
-                    deviceModel: session.parsedUserAgent?.device.model ?? t("unknownModel"),
-                    deviceType: session.parsedUserAgent?.device.type ?? t("unknownType"),
-                    osName: session.parsedUserAgent?.os.name ?? t("unknownOs"),
-                    osVersion: session.parsedUserAgent?.os.version ?? t("unknownVersion"),
-                  })}
+                  {formatDeviceDescription({ t: tDevice, parsedUserAgent: session.parsedUserAgent })}
                 </CardDescription>
               </div>
               <div>
@@ -126,7 +121,7 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                           ref={dialogCloseRef}
                           render={<Button variant="outline" />}
                         >
-                          {t("cancel")}
+                          {tCommon("cancel")}
                         </DialogClose>
                         <Button
                           variant="destructive"

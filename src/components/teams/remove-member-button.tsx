@@ -41,6 +41,7 @@ export function RemoveMemberButton({
   tooltipText,
 }: RemoveMemberButtonProps) {
   const t = useTranslations("Client.Dashboard.Teams");
+  const tCommon = useTranslations("Client.Common");
   const resolvedTooltipText = tooltipText ?? t("cannotRemoveTooltip");
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
@@ -113,7 +114,7 @@ export function RemoveMemberButton({
             ref={dialogCloseRef}
             render={<Button variant="outline" className="sm:w-auto w-full" />}
           >
-            {t("cancel")}
+            {tCommon("cancel")}
           </DialogClose>
           <Button
             variant="destructive"

@@ -62,6 +62,7 @@ export async function generateMetadata({
 
 export default async function TagPage({ params }: TagPageProps) {
   const t = await getTranslations("Blog.TagDetail")
+  const tCommon = await getTranslations("Blog.Common")
   const { locale, slug } = await params
 
   const tags = await getCmsTags({ locale })
@@ -141,7 +142,7 @@ export default async function TagPage({ params }: TagPageProps) {
               {tag.name}
             </h1>
             <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-              {t("postCount", { count: blogEntries.length })}
+              {tCommon("postCount", { count: blogEntries.length })}
             </span>
           </div>
           {tag.description && (

@@ -48,6 +48,7 @@ export default async function BlogTagsPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const t = await getTranslations("Blog.Tags")
+  const tCommon = await getTranslations("Blog.Common")
   const { locale } = await params
   const tags = await getCmsTags({ locale })
 
@@ -130,7 +131,7 @@ export default async function BlogTagsPage({
                     </span>
                   </span>
                   <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                    {t("postCount", { count: tag.entryCount })}
+                    {tCommon("postCount", { count: tag.entryCount })}
                   </span>
                 </div>
                 {tag.description && (

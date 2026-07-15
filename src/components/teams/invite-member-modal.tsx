@@ -35,6 +35,7 @@ interface InviteMemberModalProps {
 
 export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMemberModalProps) {
   const t = useTranslations("Client.Dashboard.Teams");
+  const tCommon = useTranslations("Client.Common");
   const [open, setOpen] = useState(false);
 
   // Initialize react-hook-form
@@ -111,7 +112,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
               <DialogClose
                 render={<Button type="button" variant="outline" />}
               >
-                {t("cancel")}
+                {tCommon("cancel")}
               </DialogClose>
 
               <Button type="submit">

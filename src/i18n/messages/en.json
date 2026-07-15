@@ -1,5 +1,9 @@
 {
   "Client": {
+    "Common": {
+      "cancel": "Cancel",
+      "copied": "Copied"
+    },
     "LocaleSwitcher": {
       "label": "Language",
       "change": "Change language"
@@ -229,7 +233,6 @@
       },
       "MarkdownButton": {
         "copyMarkdown": "Copy Markdown",
-        "copied": "Copied",
         "moreOptions": "More options",
         "openAsMarkdown": "Open as Markdown",
         "llmsTxt": "llms.txt",
@@ -241,8 +244,6 @@
         "section": "Section",
         "noChildPages": "No public child pages are available in this section yet.",
         "groupListName": "{group} documentation",
-        "previous": "Previous",
-        "next": "Next",
         "onThisPage": "On This Page"
       }
     },
@@ -306,9 +307,7 @@
         "titleLine2": "Yours to ship.",
         "description": "Free and open source. No license fees, no attribution required. Fork it, rename it, and make it your own.",
         "copy": "Copy",
-        "copied": "Copied",
         "copyAriaLabel": "Copy clone command",
-        "copiedAriaLabel": "Copied",
         "starOnGithub": "Star on GitHub",
         "exploreDemo": "Explore the demo"
       },
@@ -467,9 +466,6 @@
         "billing": "Billing",
         "notifications": "Notifications",
         "changeTheme": "Change theme",
-        "themeSystem": "System default",
-        "themeLight": "Light",
-        "themeDark": "Dark",
         "changeLanguage": "Change language",
         "logOut": "Log out"
       }
@@ -529,7 +525,6 @@
         "invitedBy": "Invited by {name}",
         "accepting": "Accepting...",
         "accept": "Accept",
-        "cancel": "Cancel",
         "formNameLabel": "Team Name",
         "formNamePlaceholder": "Enter team name",
         "formNameDescription": "A unique name for your team",
@@ -667,7 +662,6 @@
         "paymentDialogTitle": "Subscribe to {plan}",
         "securePaymentInfo": "Your payment is secure and encrypted. We use Stripe, a trusted global payment provider, to process your payment.",
         "paymentDetailsInfo": "For your security, your payment details are handled directly by Stripe and never touch our servers.",
-        "cancel": "Cancel",
         "processing": "Processing...",
         "payNow": "Pay Now",
         "startTrialAction": "Start free trial",
@@ -722,7 +716,6 @@
         "signOut": "Sign out",
         "signOutConfirmTitle": "Sign out?",
         "signOutConfirmDescription": "Are you sure you want to sign out of your account?",
-        "cancel": "Cancel",
         "toastSigningOut": "Signing out...",
         "toastSignOutError": "Failed to sign out"
       },
@@ -744,6 +737,15 @@
         "cardTitle": "Language",
         "cardDescription": "Choose the language for your dashboard and account pages."
       },
+      "Device": {
+        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "unknownBrowser": "Unknown browser",
+        "unknownVersion": "Unknown version",
+        "unknownDevice": "Unknown device",
+        "unknownModel": "Unknown model",
+        "unknownType": "Unknown type",
+        "unknownOs": "Unknown OS"
+      },
       "Security": {
         "passkeysHeading": "Passkeys",
         "passkeysSubheading": "Manage your passkeys for passwordless authentication.",
@@ -751,17 +753,9 @@
         "registering": "Registering...",
         "unknownAuthenticator": "Unknown Authenticator App",
         "currentPasskeyBadge": "Current Passkey",
-        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
-        "unknownBrowser": "Unknown browser",
-        "unknownVersion": "Unknown version",
-        "unknownDevice": "Unknown device",
-        "unknownModel": "Unknown model",
-        "unknownType": "Unknown type",
-        "unknownOs": "Unknown OS",
         "deletePasskey": "Delete passkey",
         "deletePasskeyConfirmTitle": "Delete passkey?",
         "deletePasskeyConfirmDescription": "This will remove this passkey from your account. This action cannot be undone.",
-        "cancel": "Cancel",
         "emptyState": "No passkeys found. Add a passkey to enable passwordless authentication.",
         "toastRegisterSuccess": "Passkey registered successfully",
         "toastRegisterError": "Failed to register passkey",
@@ -787,17 +781,9 @@
         "authMethodPassword": "Password",
         "authMethodPasskey": "Passkey",
         "authMethodGoogleOauth": "Google",
-        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
-        "unknownBrowser": "Unknown browser",
-        "unknownVersion": "Unknown version",
-        "unknownDevice": "Unknown device",
-        "unknownModel": "Unknown model",
-        "unknownType": "Unknown type",
-        "unknownOs": "Unknown OS",
         "deleteSession": "Delete session",
         "deleteSessionConfirmTitle": "Delete session?",
         "deleteSessionConfirmDescription": "This will sign out this device. This action cannot be undone.",
-        "cancel": "Cancel",
         "toastDeleteSuccess": "Session deleted",
         "toastDeleteError": "Failed to delete session",
         "errorUnauthorized": "Unauthorized"
@@ -914,6 +900,9 @@
     "builtBy": "Built by"
   },
   "Blog": {
+    "Common": {
+      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+    },
     "ListPage": {
       "meta": {
         "title": "Blog",
@@ -944,8 +933,7 @@
       "title": "Blog Authors",
       "description": "Meet the people behind our content",
       "backToBlog": "← Back to Blog",
-      "empty": "No authors found.",
-      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+      "empty": "No authors found."
     },
     "AuthorDetail": {
       "meta": {
@@ -954,8 +942,7 @@
         "notFound": "Author Not Found"
       },
       "unknownAuthor": "Unknown Author",
-      "backToAuthors": "← Back to all authors",
-      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+      "backToAuthors": "← Back to all authors"
     },
     "Tags": {
       "meta": {
@@ -965,8 +952,7 @@
       "title": "Blog Tags",
       "description": "Browse articles by topic",
       "backToBlog": "← Back to Blog",
-      "empty": "No tags found.",
-      "postCount": "{count, plural, =1 {1 post} other {# posts}}"
+      "empty": "No tags found."
     },
     "TagDetail": {
       "meta": {
@@ -975,7 +961,6 @@
         "notFound": "Tag Not Found"
       },
       "backToTags": "← Back to all tags",
-      "postCount": "{count, plural, =1 {1 post} other {# posts}}",
       "empty": "No blog posts found with this tag."
     }
   },
@@ -985,13 +970,13 @@
   },
   "Emails": {
     "Common": {
+      "greeting": "Hi {username},",
       "fallbackText": "If you're having trouble with the button above, copy and paste this URL into your browser:",
       "footerText": "This is an automated message from {siteDomain}. Please do not reply to this email."
     },
     "PasswordReset": {
       "subject": "Reset your password for {siteDomain}",
       "title": "Reset your {siteDomain} password",
-      "greeting": "Hi {username},",
       "intro": "We received a request to reset your password for your {siteDomain} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.",
       "buttonLabel": "Reset Password",
       "secondaryText": "If you didn't request this password reset, you can safely ignore this email. Your {siteDomain} account password will remain unchanged.",
@@ -1000,7 +985,6 @@
     "EmailVerification": {
       "subject": "Verify your email for {siteDomain}",
       "title": "Verify your {siteDomain} email",
-      "greeting": "Hi {username},",
       "intro": "Thanks for signing up for {siteDomain}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.",
       "buttonLabel": "Verify Email Address",
       "secondaryText": "This verification link will expire in {expirationHours, plural, =1 {1 hour} other {# hours}}. After that, you'll need to request a new verification email.",

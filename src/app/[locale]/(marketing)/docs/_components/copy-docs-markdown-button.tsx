@@ -27,6 +27,7 @@ export function CopyDocsMarkdownButton({
   downloadUrl,
 }: CopyDocsMarkdownButtonProps) {
   const t = useTranslations("Client.Docs.MarkdownButton");
+  const tCommon = useTranslations("Client.Common");
   const [copied, setCopied] = useState(false);
 
   return (
@@ -42,7 +43,7 @@ export function CopyDocsMarkdownButton({
         }}
       >
         {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-        {copied ? t("copied") : t("copyMarkdown")}
+        {copied ? tCommon("copied") : t("copyMarkdown")}
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger

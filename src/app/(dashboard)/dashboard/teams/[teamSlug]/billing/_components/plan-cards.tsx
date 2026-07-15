@@ -94,6 +94,7 @@ export function PlanCards({
   isTrialEligible,
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
+  const tCommon = useTranslations("Client.Common");
   const locale = useLocale();
   const format = useFormatter();
   const router = useRouter();
@@ -409,7 +410,7 @@ export function PlanCards({
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                              <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
                               <AlertDialogAction onClick={() => executeCancel({ teamId, atPeriodEnd: true })}>
                                 {t("confirmCancelAction")}
                               </AlertDialogAction>

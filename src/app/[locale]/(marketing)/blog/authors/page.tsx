@@ -53,6 +53,7 @@ export default async function BlogAuthorsPage({
 }) {
   const t = await getTranslations("Blog.Authors")
   const tAuthor = await getTranslations("Blog.AuthorDetail")
+  const tCommon = await getTranslations("Blog.Common")
   const unknownAuthor = tAuthor("unknownAuthor")
   const { locale } = await params
 
@@ -168,7 +169,7 @@ export default async function BlogAuthorsPage({
                       {getAuthorDisplayName(author, unknownAuthor)}
                     </h2>
                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                      {t("postCount", { count: author.postCount })}
+                      {tCommon("postCount", { count: author.postCount })}
                     </p>
                   </div>
                 </div>

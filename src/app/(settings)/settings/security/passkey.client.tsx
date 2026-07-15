@@ -12,6 +12,7 @@ import {
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDateTime } from "@/utils/format-date";
+import { formatDeviceDescription } from "@/utils/format-device-description";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
@@ -99,6 +100,8 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
   const locale = useLocale();
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Security");
+  const tCommon = useTranslations("Client.Common");
+  const tDevice = useTranslations("Client.Settings.Device");
   const { execute: deletePasskey } = useAction(deletePasskeyAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || t("toastDeleteError"));
@@ -147,15 +150,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                   </div>
                   {passkey.parsedUserAgent && (
                     <CardDescription className="text-sm">
-                      {t("deviceDescription", {
-                        browserName: passkey.parsedUserAgent.browser.name ?? t("unknownBrowser"),
-                        browserVersion: passkey.parsedUserAgent.browser.major ?? t("unknownVersion"),
-                        deviceVendor: passkey.parsedUserAgent.device.vendor ?? t("unknownDevice"),
-                        deviceModel: passkey.parsedUserAgent.device.model ?? t("unknownModel"),
-                        deviceType: passkey.parsedUserAgent.device.type ?? t("unknownType"),
-                        osName: passkey.parsedUserAgent.os.name ?? t("unknownOs"),
-                        osVersion: passkey.parsedUserAgent.os.version ?? t("unknownVersion"),
-                      })}
+                      {formatDeviceDescription({ t: tDevice, parsedUserAgent: passkey.parsedUserAgent })}
                     </CardDescription>
                   )}
                 </div>
@@ -179,7 +174,7 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                             ref={dialogCloseRef}
                             render={<Button variant="outline" />}
                           >
-                            {t("cancel")}
+                            {tCommon("cancel")}
                           </DialogClose>
                           <Button
                             variant="destructive"

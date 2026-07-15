@@ -63,6 +63,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
   const activeLocale = useLocale()
   const { changeLocale } = useChangeLocale()
   const t = useTranslations("Client.Sidebar.user")
+  const tTheme = useTranslations("Client.ThemeSwitch")
 
   if (isLoading && !session) {
     return (
@@ -164,15 +165,15 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                 <DropdownMenuSubContent>
                   <DropdownMenuItem onClick={() => setTheme("system")}>
                     <Monitor className="h-4 w-4" />
-                    {t("themeSystem")}
+                    {tTheme("system")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme("light")}>
                     <Sun className="h-4 w-4" />
-                    {t("themeLight")}
+                    {tTheme("light")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme("dark")}>
                     <Moon className="h-4 w-4" />
-                    {t("themeDark")}
+                    {tTheme("dark")}
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
               </DropdownMenuPortal>

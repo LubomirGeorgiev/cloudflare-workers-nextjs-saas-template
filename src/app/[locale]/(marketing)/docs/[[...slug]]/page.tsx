@@ -202,6 +202,7 @@ export async function generateMetadata({
 
 export default async function DocsPage({ params }: DocsPageProps) {
   const t = await getTranslations("Client.Docs.Page");
+  const tPagination = await getTranslations("Client.Pagination");
   const tCrumb = await getTranslations("Breadcrumb");
   const { locale, slug } = await params;
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
@@ -452,7 +453,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {t("previous")}
+                          {tPagination("previous")}
                         </p>
                         <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
                           {getNavigationNodeDisplayTitle(previous)}
@@ -487,7 +488,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {t("next")}
+                          {tPagination("next")}
                         </p>
                         <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
                           {getNavigationNodeDisplayTitle(next)}
