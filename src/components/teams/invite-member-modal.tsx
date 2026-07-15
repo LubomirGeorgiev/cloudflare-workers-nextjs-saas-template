@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { requiredString, v, validationKey } from "@/lib/validation";
+import { useTranslations } from "next-intl";
 
 // Define the form schema with validation
 const formSchema = v.object({
@@ -33,6 +34,7 @@ interface InviteMemberModalProps {
 }
 
 export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMemberModalProps) {
+  const t = useTranslations("Client.Dashboard.Teams");
   const [open, setOpen] = useState(false);
 
   // Initialize react-hook-form
@@ -46,15 +48,15 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
   const { execute } = useAction(inviteUserAction, {
     onError: ({ error }) => {
       toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to invite user");
+      toast.error(error.serverError?.message || t("toastInviteError"));
       console.error("Invite error:", error);
     },
     onExecute: () => {
-      toast.loading("Sending invitation...");
+      toast.loading(t("toastSendingInvite"));
     },
     onSuccess: () => {
       toast.dismiss();
-      toast.success("Invitation sent successfully");
+      toast.success(t("toastInviteSuccess"));
       form.reset();
 
       if (onInviteSuccess) {
@@ -82,7 +84,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
       <DialogTrigger render={trigger} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogTitle>{t("inviteModalTitle")}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -92,11 +94,11 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email Address</FormLabel>
+                  <FormLabel>{t("inviteEmailLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder="colleague@example.com"
+                      placeholder={t("inviteEmailPlaceholder")}
                       {...field}
                     />
                   </FormControl>
@@ -109,11 +111,11 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
               <DialogClose
                 render={<Button type="button" variant="outline" />}
               >
-                Cancel
+                {t("cancel")}
               </DialogClose>
 
               <Button type="submit">
-                Send Invitation
+                {t("sendInvitation")}
               </Button>
             </div>
           </form>

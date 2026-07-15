@@ -19,7 +19,6 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import isProd from "@/utils/is-prod";
 import ms from "ms";
 import { emailString, v, validationKey } from "@/lib/validation";
-import { getTranslations } from "next-intl/server";
 
 const generateRegistrationOptionsSchema = v.object({
   email: emailString(),
@@ -33,8 +32,6 @@ export const generateRegistrationOptionsAction = actionClient
   .inputSchema(generateRegistrationOptionsSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Settings.Security");
-      const tErrors = await getTranslations("Client.Errors");
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -43,12 +40,12 @@ export const generateRegistrationOptionsAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
+        throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ActionError("FORBIDDEN", t("errorRegisterOwnAccount"));
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorRegisterOwnAccount" });
       }
 
       const existingPasskeys = await db
@@ -57,10 +54,7 @@ export const generateRegistrationOptionsAction = actionClient
         .where(eq(passKeyCredentialTable.userId, user.id));
 
       if (existingPasskeys.length >= 5) {
-        throw new ActionError(
-          "FORBIDDEN",
-          t("errorPasskeyLimit", { limit: 5 })
-        );
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorPasskeyLimit", params: { limit: 5 } });
       }
 
       const options = await generatePasskeyRegistrationOptions(user.id, input.email);
@@ -87,8 +81,6 @@ export const verifyRegistrationAction = actionClient
   .inputSchema(verifyRegistrationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Settings.Security");
-      const tErrors = await getTranslations("Client.Errors");
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -97,19 +89,19 @@ export const verifyRegistrationAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
+        throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
       }
 
       // Verify the email matches the logged-in user
       if (user.id !== session?.user?.id) {
-        throw new ActionError("FORBIDDEN", t("errorRegisterOwnAccount"));
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorRegisterOwnAccount" });
       }
 
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME)?.value;
 
       if (!challenge) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorInvalidRegistrationSession"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidRegistrationSession" });
       }
 
       try {
@@ -127,7 +119,7 @@ export const verifyRegistrationAction = actionClient
           throw error;
         }
 
-        throw new ActionError("PRECONDITION_FAILED", t("errorRegisterFailed"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorRegisterFailed" });
       } finally {
         cookieStore.delete(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME);
       }
@@ -142,21 +134,16 @@ export const deletePasskeyAction = actionClient
   .inputSchema(deletePasskeySchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Settings.Security");
-      const tErrors = await getTranslations("Client.Errors");
       const session = await requireVerifiedEmail();
       const userId = session?.user?.id;
 
       if (!userId) {
-        throw new ActionError("NOT_AUTHORIZED", tErrors("notAuthenticated"));
+        throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
       }
 
       // Prevent deletion of the current passkey
       if (session?.passkeyCredentialId === input.credentialId) {
-        throw new ActionError(
-          "FORBIDDEN",
-          t("errorDeleteCurrentPasskey")
-        );
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorDeleteCurrentPasskey" });
       }
 
       const db = getDB();
@@ -169,7 +156,7 @@ export const deletePasskeyAction = actionClient
       });
 
       if (!passkey) {
-        throw new ActionError("NOT_FOUND", t("errorPasskeyNotFound"));
+        throw new ActionError("NOT_FOUND", { key: "Client.Settings.Security.errorPasskeyNotFound" });
       }
 
       const passkeys = await db
@@ -182,14 +169,11 @@ export const deletePasskeyAction = actionClient
       });
 
       if (!user) {
-        throw new ActionError("NOT_FOUND", tErrors("userNotFound"));
+        throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
       }
 
       if (passkeys.length === 1 && !user.passwordHash) {
-        throw new ActionError(
-          "FORBIDDEN",
-          t("errorDeleteLastPasskey")
-        );
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorDeleteLastPasskey" });
       }
 
       await db
@@ -232,12 +216,11 @@ export const verifyAuthenticationAction = actionClient
   .inputSchema(verifyAuthenticationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Settings.Security");
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME)?.value;
 
       if (!challenge) {
-        throw new ActionError("PRECONDITION_FAILED", t("errorInvalidAuthSession"));
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidAuthSession" });
       }
 
       try {
@@ -247,7 +230,7 @@ export const verifyAuthenticationAction = actionClient
         });
 
         if (!verification.verified) {
-          throw new ActionError("FORBIDDEN", t("errorAuthFailed"));
+          throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorAuthFailed" });
         }
 
         await createAndStoreSession(credential.userId, "passkey", input.response.id);
@@ -257,7 +240,7 @@ export const verifyAuthenticationAction = actionClient
           throw error;
         }
 
-        throw new ActionError("FORBIDDEN", t("errorAuthFailed"));
+        throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorAuthFailed" });
       } finally {
         cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
       }

@@ -1,6 +1,5 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
@@ -17,8 +16,6 @@ export const resetPasswordAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const t = await getTranslations("Client.Auth.ResetPassword");
-        const tErrors = await getTranslations("Client.Errors");
         const db = getDB();
 
         try {
@@ -27,11 +24,11 @@ export const resetPasswordAction = actionClient
             key: getResetTokenKey,
             notFoundError: {
               code: "NOT_FOUND",
-              message: t("errorInvalidToken"),
+              message: { key: "Client.Auth.ResetPassword.errorInvalidToken" },
             },
             expiredError: {
               code: "PRECONDITION_FAILED",
-              message: t("errorTokenExpired"),
+              message: { key: "Client.Auth.ResetPassword.errorTokenExpired" },
             },
           });
 
@@ -41,10 +38,7 @@ export const resetPasswordAction = actionClient
           });
 
           if (!user) {
-            throw new ActionError(
-              "NOT_FOUND",
-              tErrors("userNotFound")
-            );
+            throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
           }
 
           const passwordHash = await hashPassword({ password: input.password });
@@ -66,10 +60,7 @@ export const resetPasswordAction = actionClient
             throw error;
           }
 
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            tErrors("unexpected")
-          );
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Errors.unexpected" });
         }
       },
       RATE_LIMITS.RESET_PASSWORD

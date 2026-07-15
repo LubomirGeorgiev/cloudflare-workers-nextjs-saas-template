@@ -146,6 +146,18 @@
         "toastInvalidToken": "Token de verificación no válido",
         "errorTokenNotFound": "Token de verificación no encontrado o expirado"
       },
+      "EmailVerificationDialog": {
+        "title": "Verifica tu correo",
+        "description": "Verifica tu dirección de correo para acceder a todas las funciones. Enviamos un enlace de verificación a {email}. El enlace caducará en {hours, plural, =1 {1 hora} other {# horas}}.",
+        "devModeTitle": "Modo de desarrollo",
+        "devModeDescription": "Puedes encontrar el enlace de verificación en la consola.",
+        "toastSending": "Enviando correo de verificación...",
+        "toastSent": "Correo de verificación enviado",
+        "toastCloseWarning": "Verifica tu correo antes de continuar",
+        "sending": "Enviando...",
+        "cooldown": "Espera 1 minuto antes de volver a enviar",
+        "resend": "Enviar de nuevo el correo de verificación"
+      },
       "TeamInvite": {
         "meta": {
           "title": "Aceptar invitación al equipo",
@@ -204,6 +216,7 @@
       },
       "Navigation": {
         "heading": "Documentación",
+        "navAriaLabel": "Navegación de documentación",
         "searchButton": "Buscar docs",
         "browseDocs": "Explorar documentación",
         "llmsTxt": "llms.txt"
@@ -227,6 +240,7 @@
         "sectionFallbackDescription": "Explora las páginas de esta sección.",
         "section": "Sección",
         "noChildPages": "Todavía no hay páginas secundarias públicas disponibles en esta sección.",
+        "groupListName": "Documentación de {group}",
         "previous": "Anterior",
         "next": "Siguiente",
         "onThisPage": "En esta página"
@@ -423,6 +437,7 @@
       "scheduledRequiresFuturePublishDate": "Se requiere una fecha de publicación futura para las entradas programadas"
     },
     "Sidebar": {
+      "toggle": "Mostrar u ocultar la barra lateral",
       "groups": {
         "platform": "Plataforma",
         "projects": "Proyectos"
@@ -513,7 +528,72 @@
         "pendingInvitationsDescription": "Te han invitado a unirte a los siguientes equipos",
         "invitedBy": "Invitado por {name}",
         "accepting": "Aceptando...",
-        "accept": "Aceptar"
+        "accept": "Aceptar",
+        "cancel": "Cancelar",
+        "formNameLabel": "Nombre del equipo",
+        "formNamePlaceholder": "Introduce el nombre del equipo",
+        "formNameDescription": "Un nombre único para tu equipo",
+        "formDescriptionLabel": "Descripción",
+        "formDescriptionPlaceholder": "Introduce una breve descripción de tu equipo",
+        "formDescriptionHelp": "Descripción opcional del propósito de tu equipo",
+        "toastCreating": "Creando equipo...",
+        "toastCreateSuccess": "Equipo creado correctamente",
+        "toastCreateError": "No se pudo crear el equipo",
+        "inviteModalTitle": "Invitar miembro del equipo",
+        "inviteEmailLabel": "Correo electrónico",
+        "inviteEmailPlaceholder": "colega@ejemplo.com",
+        "sendInvitation": "Enviar invitación",
+        "toastSendingInvite": "Enviando invitación...",
+        "toastInviteSuccess": "Invitación enviada correctamente",
+        "toastInviteError": "No se pudo invitar al usuario",
+        "removeMemberTitle": "Eliminar miembro del equipo",
+        "removeMemberDescription": "¿Seguro que quieres eliminar a {name} de este equipo? Esta acción no se puede deshacer.",
+        "removeMember": "Eliminar miembro",
+        "removing": "Eliminando...",
+        "cannotRemoveMember": "No se puede eliminar al miembro",
+        "cannotRemoveTooltip": "No puedes eliminar a este miembro",
+        "toastRemoveSuccess": "Miembro del equipo eliminado correctamente",
+        "toastRemoveError": "No se pudo eliminar al miembro del equipo",
+        "switcherNoTeam": "Sin equipo",
+        "switcherTeamsLabel": "Equipos",
+        "switcherNoTeams": "No hay equipos disponibles",
+        "switcherAddTeam": "Añadir equipo",
+        "toastUpdateSelectedTeamError": "No se pudo actualizar el equipo seleccionado",
+        "errorCreateLimit": "Has alcanzado el límite de {max} equipos que puedes crear.",
+        "errorSlugGeneration": "No se pudo generar un slug único para el equipo",
+        "errorCouldNotCreate": "No se pudo crear el equipo",
+        "errorGetTeams": "No se pudieron obtener tus equipos",
+        "errorInvalidRole": "Rol de equipo no válido",
+        "errorOwnerViaInvite": "Los propietarios del equipo no se pueden asignar mediante invitaciones",
+        "errorRoleNotFound": "Rol de equipo no encontrado",
+        "errorNoPermissionAssignRole": "No tienes permiso para asignar este rol",
+        "errorTeamPermissionRequired": "No tienes el permiso requerido en este equipo",
+        "errorCannotAssignPermissions": "No puedes asignar un rol con permisos que no tienes",
+        "errorMembershipNotFound": "Membresía del equipo no encontrada",
+        "errorCannotRemoveOwner": "No se puede eliminar al propietario del equipo",
+        "errorInvalidEmail": "Dirección de correo electrónico no válida o desechable",
+        "errorTeamNotFound": "Equipo no encontrado",
+        "errorAlreadyMember": "El usuario ya es miembro de este equipo",
+        "errorUserJoinLimit": "Este usuario ha alcanzado el límite de {max} equipos a los que puede unirse.",
+        "errorCouldNotCreateInvitation": "No se pudo crear la invitación",
+        "errorInvitationNotFound": "Invitación no encontrada",
+        "errorInvitationExpired": "La invitación ha caducado",
+        "errorInvitationAlreadyAccepted": "La invitación ya ha sido aceptada",
+        "errorInvitationWrongEmail": "Esta invitación es para una dirección de correo diferente",
+        "errorAlreadyOnTeam": "Ya eres miembro de este equipo",
+        "errorJoinLimit": "Has alcanzado el límite de {max} equipos a los que puedes unirte.",
+        "errorMustBeLoggedIn": "Debes iniciar sesión para actualizar el equipo seleccionado",
+        "errorTeamNotFoundOrNotMember": "Equipo no encontrado o no eres miembro",
+        "errorUpdateSelectedTeam": "No se pudo actualizar el equipo seleccionado",
+        "errorGetPendingInvitations": "No se pudieron obtener las invitaciones pendientes",
+        "errorAcceptInvitation": "No se pudo aceptar la invitación",
+        "teamFallbackName": "Equipo",
+        "teamOwnerFallback": "Propietario del equipo",
+        "roleOwner": "Propietario",
+        "roleAdmin": "Administrador",
+        "roleMember": "Miembro",
+        "roleGuest": "Invitado",
+        "roleCustom": "Rol personalizado"
       },
       "Billing": {
         "breadcrumbDashboard": "Panel",
@@ -642,7 +722,9 @@
         "signOut": "Cerrar sesión",
         "signOutConfirmTitle": "¿Cerrar sesión?",
         "signOutConfirmDescription": "¿Seguro que quieres cerrar la sesión de tu cuenta?",
-        "cancel": "Cancelar"
+        "cancel": "Cancelar",
+        "toastSigningOut": "Cerrando sesión...",
+        "toastSignOutError": "No se pudo cerrar la sesión"
       },
       "Profile": {
         "cardTitle": "Ajustes del perfil",
@@ -702,6 +784,9 @@
         "unknownLocation": "Ubicación desconocida",
         "currentSessionBadge": "Sesión actual",
         "authenticatedWith": "Autenticado con {method}",
+        "authMethodPassword": "Contraseña",
+        "authMethodPasskey": "Passkey",
+        "authMethodGoogleOauth": "Google",
         "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
         "unknownBrowser": "Navegador desconocido",
         "unknownVersion": "Versión desconocida",
@@ -721,7 +806,38 @@
     "Errors": {
       "unexpected": "Ocurrió un error inesperado",
       "notAuthenticated": "No autenticado",
-      "userNotFound": "Usuario no encontrado"
+      "notAuthorized": "No autorizado",
+      "emailVerificationRequired": "Primero verifica tu correo electrónico",
+      "userNotFound": "Usuario no encontrado",
+      "invalidInput": "Entrada no válida",
+      "rateLimitExceeded": "Se ha superado el límite de solicitudes. Inténtalo de nuevo en {minutes, plural, =1 {1 minuto} other {# minutos}}."
+    },
+    "Pagination": {
+      "navAria": "Paginación",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "previousAria": "Ir a la página anterior",
+      "nextAria": "Ir a la página siguiente",
+      "morePages": "Más páginas"
+    },
+    "ThemeSwitch": {
+      "toggle": "Cambiar tema",
+      "system": "Predeterminado del sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "AskiChatBanner": {
+      "builtBy": "Hecho por",
+      "brand": "Aski.Chat",
+      "description": "Agentes de atención al cliente con IA que responden a los visitantes, capturan leads y obtienen inteligencia de cliente de cada conversación.",
+      "cta": "Empieza con Aski.Chat"
+    },
+    "GithubStars": {
+      "starTheRepo": "dar estrella al repo",
+      "stars": "estrellas",
+      "github": "GitHub",
+      "starAria": "Dar estrella al repositorio en GitHub",
+      "starAriaWithCount": "Dar estrella al repositorio en GitHub — {count} estrellas"
     }
   },
   "Legal": {
@@ -837,6 +953,7 @@
         "description": "Explora las entradas del blog de {name}",
         "notFound": "Autor no encontrado"
       },
+      "unknownAuthor": "Autor desconocido",
       "backToAuthors": "← Volver a todos los autores",
       "postCount": "{count, plural, =1 {1 entrada} other {# entradas}}"
     },

@@ -14,8 +14,9 @@ import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
 import Image from "next/image"
 import { SITE_NAME, SITE_URL } from "@/constants"
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config"
+import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, type Locale } from "@/i18n/config"
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { BlogBackLink } from "@/components/blog-back-link"
@@ -26,7 +27,7 @@ import type { BlogPosting, BreadcrumbList, WithContext } from "schema-dts"
 import { BlogListPage, getBlogListPageMetadata } from "../_components/blog-list-page"
 import { getBlogPagePath } from "@/lib/blog-routing"
 import { getValidPageNumber } from "@/utils/get-valid-page-number"
-import { getAuthorRouteParam } from "@/utils/blog-author-url"
+import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree"
 import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents"
@@ -141,11 +142,9 @@ export async function generateMetadata({
   const validLocales = availableLocales.filter(isLocale)
 
   // A fallback render serves default-locale content under a non-default-locale
-  // prefix (noindexed, mixed-language), so it canonicalizes to the real
+  // prefix (noindexed, mixed-language), so canonical/OG URLs point at the real
   // default-locale URL; hreflang still lists only genuine translations.
-  const alternates = isFallback
-    ? buildAlternates({ pathname: `/blog/${slug}`, locale: DEFAULT_LOCALE, availableLocales: validLocales })
-    : buildAlternates({ pathname: `/blog/${slug}`, locale, availableLocales: validLocales })
+  const alternates = buildAlternates({ pathname: `/blog/${slug}`, locale: displayLocale, availableLocales: validLocales })
 
   return {
     title: entry.title,
@@ -153,10 +152,11 @@ export async function generateMetadata({
     ...(isFallback ? noindexNonDefaultLocale(locale) : {}),
     alternates,
     openGraph: {
+      ...getOpenGraphLocales(displayLocale),
       title: entry.title,
       description: description || entry.title,
       type: 'article',
-      url: `/blog/${slug}`,
+      url: absoluteLocalizedUrl({ pathname: `/blog/${slug}`, locale: displayLocale }),
       publishedTime: publishedDate.toISOString(),
       modifiedTime: modifiedDate.toISOString(),
       ...(authorName && { authors: [authorName] }),
@@ -206,7 +206,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     }
 
     if (!(await hasPublishedBlogPosts())) {
-      redirect("/")
+      redirectLocalized({ href: "/", locale })
     }
 
     notFound()
@@ -226,7 +226,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   if (!resolved) {
     if (!(await hasPublishedBlogPosts())) {
-      redirect("/")
+      redirectLocalized({ href: "/", locale })
     }
 
     notFound()
@@ -235,9 +235,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { entry, isFallback } = resolved
 
   const author = entry.createdByUser
+  const tAuthor = await getTranslations("Blog.AuthorDetail")
   const authorName = author
-    ? [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email || 'Unknown Author'
-    : 'Unknown Author'
+    ? getAuthorDisplayName(author, tAuthor("unknownAuthor"))
+    : tAuthor("unknownAuthor")
 
   // A fallback render serves default-locale content, so localize tags to the
   // body's real language, not the URL's.
@@ -259,9 +260,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     headline: entry.title,
     // A fallback render serves the default-locale body under a
     // non-default prefix, so advertise the body's real language, not the URL's.
-    inLanguage: isFallback ? DEFAULT_LOCALE : locale,
+    inLanguage: displayLocale,
     description: entry.seoDescription || generateMetaDescription(entry.content as JSONContent),
-    url: `${SITE_URL}/blog/${entry.slug}`,
+    url: absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
     datePublished: publishedDate.toISOString(),
     dateModified: modifiedDate.toISOString(),
     ...(entry.featuredImageUrl && {
@@ -271,7 +272,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       author: {
         "@type": "Person",
         name: authorName,
-        url: `${SITE_URL}/blog/authors/${getAuthorRouteParam(author)}`,
+        url: absoluteLocalizedUrl({ pathname: `/blog/authors/${getAuthorRouteParam(author)}`, locale: displayLocale }),
         ...(author.avatar && {
           image: `${SITE_URL}${author.avatar}`,
         }),
@@ -282,7 +283,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     }),
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `${SITE_URL}/blog/${entry.slug}`,
+      "@id": absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
     },
     publisher: {
       "@type": "Organization",
@@ -303,19 +304,19 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         "@type": "ListItem",
         position: 1,
         name: tCrumb("home"),
-        item: SITE_URL,
+        item: absoluteLocalizedUrl({ pathname: "/", locale: displayLocale }),
       },
       {
         "@type": "ListItem",
         position: 2,
         name: tCrumb("blog"),
-        item: `${SITE_URL}/blog`,
+        item: absoluteLocalizedUrl({ pathname: "/blog", locale: displayLocale }),
       },
       {
         "@type": "ListItem",
         position: 3,
         name: entry.title,
-        item: `${SITE_URL}/blog/${entry.slug}`,
+        item: absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
       },
     ],
   }
@@ -367,10 +368,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                     )}
                   >
                     <time dateTime={publishedDate.toISOString()}>
-                      {formatDate(publishedDate)}
+                      {formatDate(publishedDate, displayLocale)}
                     </time>
                     {modifiedDate.getTime() !== publishedDate.getTime() && (
-                      <span>{t("updated", { date: formatDate(modifiedDate) })}</span>
+                      <span>{t("updated", { date: formatDate(modifiedDate, displayLocale) })}</span>
                     )}
                   </div>
                 </div>
@@ -415,7 +416,10 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 <p className="font-mono text-xs uppercase tracking-[0.2em] text-edge">
                   {t("onThisPage")}
                 </p>
-                <ContentTableOfContentsNav nodes={tableOfContentsTree} />
+                <ContentTableOfContentsNav
+                  nodes={tableOfContentsTree}
+                  ariaLabel={t("onThisPage")}
+                />
               </div>
             </aside>
           )}

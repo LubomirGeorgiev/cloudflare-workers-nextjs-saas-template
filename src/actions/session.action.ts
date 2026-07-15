@@ -17,19 +17,17 @@ export const updateSelectedTeamAction = actionClient
       const session = await getSessionFromCookie();
 
       if (!session) {
-        throw new ActionError(
-          "FORBIDDEN",
-          "You must be logged in to update your selected team"
-        );
+        throw new ActionError("FORBIDDEN", {
+          key: "Client.Dashboard.Teams.errorMustBeLoggedIn",
+        });
       }
 
       if (input.selectedTeam && session.teams) {
         const teamExists = session.teams.some(team => team.id === input.selectedTeam);
         if (!teamExists) {
-          throw new ActionError(
-            "FORBIDDEN",
-            "Team not found or you are not a member"
-          );
+          throw new ActionError("FORBIDDEN", {
+            key: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember",
+          });
         }
       }
 
@@ -40,10 +38,9 @@ export const updateSelectedTeamAction = actionClient
       );
 
       if (!updatedSession) {
-        throw new ActionError(
-          "INTERNAL_SERVER_ERROR",
-          "Failed to update selected team"
-        );
+        throw new ActionError("INTERNAL_SERVER_ERROR", {
+          key: "Client.Dashboard.Teams.errorUpdateSelectedTeam",
+        });
       }
 
       return {
@@ -57,9 +54,8 @@ export const updateSelectedTeamAction = actionClient
         throw error;
       }
 
-      throw new ActionError(
-        "INTERNAL_SERVER_ERROR",
-        "Failed to update selected team"
-      );
+      throw new ActionError("INTERNAL_SERVER_ERROR", {
+        key: "Client.Dashboard.Teams.errorUpdateSelectedTeam",
+      });
     }
   });

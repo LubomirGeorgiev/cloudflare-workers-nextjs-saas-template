@@ -1,6 +1,7 @@
 import { getSessionFromCookie } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { redirect } from "next/navigation";
+import { redirect as nextRedirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
 import { generateState, generateCodeVerifier } from "arctic";
 import { getGoogleSSOClient } from "@/lib/sso/google-sso";
 import { cookies } from "next/headers";
@@ -13,6 +14,8 @@ import ms from "ms";
 import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { isGoogleSSOEnabled } from "@/flags";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
+import { getLocale } from "next-intl/server";
+
 const cookieOptions: Partial<ResponseCookie> = {
   path: "/",
   httpOnly: true,
@@ -23,15 +26,18 @@ const cookieOptions: Partial<ResponseCookie> = {
 
 export async function GET() {
   return withRateLimit(async () => {
+    const locale = await getLocale();
+
     if (!(await isGoogleSSOEnabled())) {
       console.error("Google client ID or secret is not set")
-      return redirect('/')
+      return redirect({ href: "/", locale })
     }
 
     const session = await getSessionFromCookie()
 
     if (session) {
-      return redirect(REDIRECT_AFTER_SIGN_IN)
+      // Dashboard lives outside `[locale]`; keep next/navigation redirect.
+      return nextRedirect(REDIRECT_AFTER_SIGN_IN)
     }
 
     let ssoRedirectUrl: null | URL = null
@@ -49,7 +55,7 @@ export async function GET() {
       cookieStore.set(GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME, codeVerifier, cookieOptions)
     } catch (error) {
       console.error('Error generating Google OAuth state and code verifier', error)
-      return redirect('/')
+      return redirect({ href: "/", locale })
     }
 
     return new Response(null, {

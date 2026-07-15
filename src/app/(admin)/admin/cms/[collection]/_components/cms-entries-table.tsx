@@ -138,7 +138,7 @@ export function CmsEntriesTable({
           <CmsEntryStatusBadge status={row.original.status} />
           {(row.original.publishedAt && row.original.status === "scheduled") && (
             <span className="text-xs text-muted-foreground">
-              {formatRelativeDateTime(row.original.publishedAt)}
+              {formatRelativeDateTime(row.original.publishedAt, DEFAULT_LOCALE)}
             </span>
           )}
         </div>
@@ -171,7 +171,7 @@ export function CmsEntriesTable({
       cell: ({ row }) => (
         <span>
           {row.original.updatedAt
-            ? formatRelativeDateTime(row.original.updatedAt)
+            ? formatRelativeDateTime(row.original.updatedAt, DEFAULT_LOCALE)
             : "—"}
         </span>
       ),

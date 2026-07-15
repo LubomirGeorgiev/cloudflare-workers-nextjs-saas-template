@@ -23,7 +23,12 @@ export async function generateMetadata({
 
 const lastUpdated = new Date('2025-01-15T20:10:16.287Z')
 
-export default async function PrivacyPage() {
+export default async function PrivacyPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
   const { env } = await getCloudflareContext();
   const t = await getTranslations("Legal.Privacy");
 
@@ -33,7 +38,7 @@ export default async function PrivacyPage() {
     <>
       <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
 
-      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString() })}</p>
+      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString(locale) })}</p>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">{t("informationWeCollect.heading")}</h2>

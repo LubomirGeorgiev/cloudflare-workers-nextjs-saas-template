@@ -67,6 +67,7 @@ describe("transactional email", () => {
     expect(renderedEmail.html).toContain("Hola Ana,");
     expect(renderedEmail.subject).toContain("Restablece tu contraseña");
     expect(renderedEmail.html).not.toContain("Reset your");
+    expect(renderedEmail.html).toContain("/es/reset-password?token=");
   });
 
   test("renders the password reset email in English when the payload locale is en", async () => {
@@ -84,6 +85,8 @@ describe("transactional email", () => {
     expect(renderedEmail.html).toContain("Reset your");
     expect(renderedEmail.html).toContain("Hi Ana,");
     expect(renderedEmail.subject).toContain("Reset your password");
+    expect(renderedEmail.html).toContain("/reset-password?token=");
+    expect(renderedEmail.html).not.toContain("/en/reset-password?token=");
   });
 
   test("falls back to the default locale for an unknown payload locale", async () => {

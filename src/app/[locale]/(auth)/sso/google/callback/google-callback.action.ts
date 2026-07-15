@@ -1,6 +1,5 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
@@ -42,14 +41,9 @@ export const googleSSOCallbackAction = actionClient
   .inputSchema(googleSSOCallbackSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
-      const t = await getTranslations("Client.Auth.GoogleCallback");
-      const tErrors = await getTranslations("Client.Errors");
 
       if (!(await isGoogleSSOEnabled())) {
-        throw new ActionError(
-          "FORBIDDEN",
-          t("errorNotEnabled")
-        );
+        throw new ActionError("FORBIDDEN", { key: "Client.Auth.GoogleCallback.errorNotEnabled" });
       }
 
       const cookieStore = await cookies();
@@ -57,17 +51,11 @@ export const googleSSOCallbackAction = actionClient
       const cookieCodeVerifier = cookieStore.get(GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME)?.value ?? null;
 
       if (!cookieState || !cookieCodeVerifier) {
-        throw new ActionError(
-          "NOT_AUTHORIZED",
-          t("errorMissingCookies")
-        );
+        throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorMissingCookies" });
       }
 
       if (input.state !== cookieState) {
-        throw new ActionError(
-          "NOT_AUTHORIZED",
-          t("errorInvalidState")
-        );
+        throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorInvalidState" });
       }
 
       let tokens;
@@ -76,10 +64,7 @@ export const googleSSOCallbackAction = actionClient
         tokens = await google.validateAuthorizationCode(input.code, cookieCodeVerifier);
       } catch (error) {
         console.error("Google OAuth callback: Error validating authorization code", error);
-        throw new ActionError(
-          "NOT_AUTHORIZED",
-          t("errorInvalidCode")
-        );
+        throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorInvalidCode" });
       }
 
       const claims = decodeIdToken(tokens.idToken()) as GoogleSSOResponse;
@@ -155,10 +140,7 @@ export const googleSSOCallbackAction = actionClient
           throw error;
         }
 
-        throw new ActionError(
-          "INTERNAL_SERVER_ERROR",
-          tErrors("unexpected")
-        );
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Errors.unexpected" });
       }
     }, RATE_LIMITS.GOOGLE_SSO_CALLBACK);
   });

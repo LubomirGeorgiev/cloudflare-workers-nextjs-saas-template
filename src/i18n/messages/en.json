@@ -146,6 +146,18 @@
         "toastInvalidToken": "Invalid verification token",
         "errorTokenNotFound": "Verification token not found or expired"
       },
+      "EmailVerificationDialog": {
+        "title": "Verify your email",
+        "description": "Please verify your email address to access all features. We sent a verification link to {email}. The verification link will expire in {hours, plural, =1 {1 hour} other {# hours}}.",
+        "devModeTitle": "Development mode",
+        "devModeDescription": "You can find the verification link in the console.",
+        "toastSending": "Sending verification email...",
+        "toastSent": "Verification email sent",
+        "toastCloseWarning": "Please verify your email before you continue",
+        "sending": "Sending...",
+        "cooldown": "Please wait 1 minute before sending again",
+        "resend": "Send verification email again"
+      },
       "TeamInvite": {
         "meta": {
           "title": "Accept Team Invitation",
@@ -204,6 +216,7 @@
       },
       "Navigation": {
         "heading": "Documentation",
+        "navAriaLabel": "Docs navigation",
         "searchButton": "Search docs",
         "browseDocs": "Browse docs",
         "llmsTxt": "llms.txt"
@@ -227,6 +240,7 @@
         "sectionFallbackDescription": "Browse pages in this section.",
         "section": "Section",
         "noChildPages": "No public child pages are available in this section yet.",
+        "groupListName": "{group} documentation",
         "previous": "Previous",
         "next": "Next",
         "onThisPage": "On This Page"
@@ -423,6 +437,7 @@
       "scheduledRequiresFuturePublishDate": "A future publish date is required for scheduled entries"
     },
     "Sidebar": {
+      "toggle": "Toggle Sidebar",
       "groups": {
         "platform": "Platform",
         "projects": "Projects"
@@ -513,7 +528,72 @@
         "pendingInvitationsDescription": "You have been invited to join the following teams",
         "invitedBy": "Invited by {name}",
         "accepting": "Accepting...",
-        "accept": "Accept"
+        "accept": "Accept",
+        "cancel": "Cancel",
+        "formNameLabel": "Team Name",
+        "formNamePlaceholder": "Enter team name",
+        "formNameDescription": "A unique name for your team",
+        "formDescriptionLabel": "Description",
+        "formDescriptionPlaceholder": "Enter a brief description of your team",
+        "formDescriptionHelp": "Optional description of your team's purpose",
+        "toastCreating": "Creating team...",
+        "toastCreateSuccess": "Team created successfully",
+        "toastCreateError": "Failed to create team",
+        "inviteModalTitle": "Invite Team Member",
+        "inviteEmailLabel": "Email Address",
+        "inviteEmailPlaceholder": "colleague@example.com",
+        "sendInvitation": "Send Invitation",
+        "toastSendingInvite": "Sending invitation...",
+        "toastInviteSuccess": "Invitation sent successfully",
+        "toastInviteError": "Failed to invite user",
+        "removeMemberTitle": "Remove team member",
+        "removeMemberDescription": "Are you sure you want to remove {name} from this team? This action cannot be undone.",
+        "removeMember": "Remove member",
+        "removing": "Removing...",
+        "cannotRemoveMember": "Cannot remove member",
+        "cannotRemoveTooltip": "You cannot remove this member",
+        "toastRemoveSuccess": "Team member removed successfully",
+        "toastRemoveError": "Failed to remove team member",
+        "switcherNoTeam": "No Team",
+        "switcherTeamsLabel": "Teams",
+        "switcherNoTeams": "No teams available",
+        "switcherAddTeam": "Add team",
+        "toastUpdateSelectedTeamError": "Failed to update selected team",
+        "errorCreateLimit": "You have reached the limit of {max} teams you can create.",
+        "errorSlugGeneration": "Could not generate a unique slug for the team",
+        "errorCouldNotCreate": "Could not create team",
+        "errorGetTeams": "Failed to get user teams",
+        "errorInvalidRole": "Invalid team role",
+        "errorOwnerViaInvite": "Team owners cannot be assigned through invitations",
+        "errorRoleNotFound": "Team role not found",
+        "errorNoPermissionAssignRole": "You don't have permission to assign this role",
+        "errorTeamPermissionRequired": "You don't have the required permission in this team",
+        "errorCannotAssignPermissions": "You cannot assign a role with permissions you do not have",
+        "errorMembershipNotFound": "Team membership not found",
+        "errorCannotRemoveOwner": "Cannot remove the team owner",
+        "errorInvalidEmail": "Invalid or disposable email address",
+        "errorTeamNotFound": "Team not found",
+        "errorAlreadyMember": "User is already a member of this team",
+        "errorUserJoinLimit": "This user has reached the limit of {max} teams they can join.",
+        "errorCouldNotCreateInvitation": "Could not create invitation",
+        "errorInvitationNotFound": "Invitation not found",
+        "errorInvitationExpired": "Invitation has expired",
+        "errorInvitationAlreadyAccepted": "Invitation has already been accepted",
+        "errorInvitationWrongEmail": "This invitation is for a different email address",
+        "errorAlreadyOnTeam": "You are already a member of this team",
+        "errorJoinLimit": "You have reached the limit of {max} teams you can join.",
+        "errorMustBeLoggedIn": "You must be logged in to update your selected team",
+        "errorTeamNotFoundOrNotMember": "Team not found or you are not a member",
+        "errorUpdateSelectedTeam": "Failed to update selected team",
+        "errorGetPendingInvitations": "Failed to get pending team invitations",
+        "errorAcceptInvitation": "Failed to accept invitation",
+        "teamFallbackName": "Team",
+        "teamOwnerFallback": "Team Owner",
+        "roleOwner": "Owner",
+        "roleAdmin": "Admin",
+        "roleMember": "Member",
+        "roleGuest": "Guest",
+        "roleCustom": "Custom Role"
       },
       "Billing": {
         "breadcrumbDashboard": "Dashboard",
@@ -642,7 +722,9 @@
         "signOut": "Sign out",
         "signOutConfirmTitle": "Sign out?",
         "signOutConfirmDescription": "Are you sure you want to sign out of your account?",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "toastSigningOut": "Signing out...",
+        "toastSignOutError": "Failed to sign out"
       },
       "Profile": {
         "cardTitle": "Profile Settings",
@@ -702,6 +784,9 @@
         "unknownLocation": "Unknown location",
         "currentSessionBadge": "Current Session",
         "authenticatedWith": "Authenticated with {method}",
+        "authMethodPassword": "Password",
+        "authMethodPasskey": "Passkey",
+        "authMethodGoogleOauth": "Google",
         "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
         "unknownBrowser": "Unknown browser",
         "unknownVersion": "Unknown version",
@@ -721,7 +806,38 @@
     "Errors": {
       "unexpected": "An unexpected error occurred",
       "notAuthenticated": "Not authenticated",
-      "userNotFound": "User not found"
+      "notAuthorized": "Not authorized",
+      "emailVerificationRequired": "Please verify your email first",
+      "userNotFound": "User not found",
+      "invalidInput": "Invalid input",
+      "rateLimitExceeded": "Rate limit exceeded. Try again in {minutes, plural, =1 {1 minute} other {# minutes}}."
+    },
+    "Pagination": {
+      "navAria": "Pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "previousAria": "Go to previous page",
+      "nextAria": "Go to next page",
+      "morePages": "More pages"
+    },
+    "ThemeSwitch": {
+      "toggle": "Toggle theme",
+      "system": "System default",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "AskiChatBanner": {
+      "builtBy": "Built by",
+      "brand": "Aski.Chat",
+      "description": "AI customer support agents that answer visitors, capture leads, and surface customer intelligence from every conversation.",
+      "cta": "Start with Aski.Chat"
+    },
+    "GithubStars": {
+      "starTheRepo": "star the repo",
+      "stars": "stars",
+      "github": "GitHub",
+      "starAria": "Star the repo on GitHub",
+      "starAriaWithCount": "Star the repo on GitHub — {count} stars"
     }
   },
   "Legal": {
@@ -837,6 +953,7 @@
         "description": "Browse blog posts by {name}",
         "notFound": "Author Not Found"
       },
+      "unknownAuthor": "Unknown Author",
       "backToAuthors": "← Back to all authors",
       "postCount": "{count, plural, =1 {1 post} other {# posts}}"
     },

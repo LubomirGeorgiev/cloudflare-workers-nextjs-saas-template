@@ -13,6 +13,7 @@ import { Suspense } from "react";
 
 export async function Footer() {
   const t = await getTranslations("Footer");
+  const tGithub = await getTranslations("Client.GithubStars");
 
   return (
     <footer className="border-t dark:bg-muted/30 bg-muted/60 shadow">
@@ -60,7 +61,7 @@ export async function Footer() {
                   className="group text-muted-foreground transition-colors duration-300 ease-out hover:text-foreground"
                 >
                   <GithubIcon className="h-5 w-5 transition-transform duration-300 ease-out group-hover:scale-110 motion-reduce:transform-none" />
-                  <span className="sr-only">GitHub</span>
+                  <span className="sr-only">{tGithub("github")}</span>
                 </a>
                 <a
                   href="https://x.com/LubomirGeorg"

@@ -23,6 +23,7 @@ import type { CmsEntryVersion } from "@/db/schema";
 import { useAction } from "next-safe-action/hooks";
 import { revertCmsEntryVersionAction, getCmsEntryVersionsAction, deleteCmsEntryVersionAction } from "../../_actions/version-actions";
 import { formatRelativeDateTime } from "@/utils/format-date";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 import { toast } from "sonner";
 import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
@@ -757,7 +758,7 @@ export function VersionHistory({
                        </div>
                        <div className="flex items-center text-xs text-muted-foreground gap-1">
                          <Clock className="h-3 w-3" />
-                         {formatRelativeDateTime(version.createdAt)}
+                         {formatRelativeDateTime(version.createdAt, DEFAULT_LOCALE)}
                        </div>
                      </button>
                      {canDelete && (
@@ -783,10 +784,10 @@ export function VersionHistory({
                 <div className="p-4 border-b bg-muted/10 flex justify-between items-center">
                   <div>
                     <h3 className="font-medium">
-                      Comparing Version {selectedVersion.versionNumber} ({formatRelativeDateTime(selectedVersion.createdAt)})
+                      Comparing Version {selectedVersion.versionNumber} ({formatRelativeDateTime(selectedVersion.createdAt, DEFAULT_LOCALE)})
                     </h3>
                     <p className="text-xs text-muted-foreground">
-                      Changes needed to restore this version from the current entry{currentVersion ? ` (${formatRelativeDateTime(currentVersion.createdAt)})` : ''}
+                      Changes needed to restore this version from the current entry{currentVersion ? ` (${formatRelativeDateTime(currentVersion.createdAt, DEFAULT_LOCALE)})` : ''}
                     </p>
                   </div>
                   <div className="flex gap-2">

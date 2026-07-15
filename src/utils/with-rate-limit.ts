@@ -27,13 +27,13 @@ interface RateLimitConfig {
   deferWrite?: boolean;
 }
 
+// `message` is log-only; `actionClient`'s `handleServerError` builds the
+// localized user-facing copy from `retryAfterSeconds`.
 export class RateLimitError extends Error {
   readonly retryAfterSeconds: number;
 
   constructor(retryAfterSeconds: number) {
-    const retryAfterMinutes = Math.ceil(retryAfterSeconds / 60);
-
-    super(`Rate limit exceeded. Try again in ${retryAfterMinutes} minutes.`);
+    super(`Rate limit exceeded. Try again in ${retryAfterSeconds}s.`);
     this.name = "RateLimitError";
     this.retryAfterSeconds = retryAfterSeconds;
   }

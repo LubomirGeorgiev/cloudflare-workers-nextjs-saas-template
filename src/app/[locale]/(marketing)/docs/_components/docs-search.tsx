@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import type { Route } from "next";
 import { useLocale, useTranslations } from "next-intl";
 import { useHotkeys } from "react-hotkeys-hook";

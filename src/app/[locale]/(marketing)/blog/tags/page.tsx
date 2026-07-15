@@ -1,6 +1,5 @@
 import "server-only"
-import { Link } from "@/i18n/navigation"
-import { redirect } from "next/navigation"
+import { Link, redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { getCmsTags } from "@/lib/cms/tags"
@@ -8,8 +7,9 @@ import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
 import { HairlineGrid } from "@/components/hairline-grid"
 import type { CollectionPage, WithContext } from "schema-dts"
-import { LOCALES, type Locale } from "@/i18n/config"
+import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 export async function generateMetadata({
   params,
@@ -28,10 +28,11 @@ export async function generateMetadata({
     // hreflang entry.
     alternates: buildAlternates({ pathname: "/blog/tags", locale, availableLocales: LOCALES }),
     openGraph: {
+      ...getOpenGraphLocales(locale),
       title,
       description,
       type: "website",
-      url: "/blog/tags",
+      url: absoluteLocalizedUrl({ pathname: "/blog/tags", locale }),
     },
     twitter: {
       card: "summary",
@@ -53,10 +54,10 @@ export default async function BlogTagsPage({
   // Only show tags that have entries, most-published topics first
   const tagsWithEntries = tags
     .filter(tag => tag.entryCount > 0)
-    .sort((a, b) => b.entryCount - a.entryCount || a.name.localeCompare(b.name))
+    .sort((a, b) => b.entryCount - a.entryCount || a.name.localeCompare(b.name, locale))
 
   if (tagsWithEntries.length === 0) {
-    redirect("/")
+    redirect({ href: "/", locale })
   }
 
   // JSON-LD structured data for CollectionPage

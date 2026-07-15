@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -94,6 +94,7 @@ export function PlanCards({
   isTrialEligible,
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
+  const locale = useLocale();
   const format = useFormatter();
   const router = useRouter();
   const [paymentDialog, setPaymentDialog] = useState<PaymentDialogState | null>(null);
@@ -210,7 +211,7 @@ export function PlanCards({
       planId,
       interval,
       planName: plan.name,
-      priceLabel: `${formatPrice({ amount, currency: plan.currency })}${t(interval === "year" ? "perYear" : "perMonth")}`,
+      priceLabel: `${formatPrice({ amount, currency: plan.currency, locale })}${t(interval === "year" ? "perYear" : "perMonth")}`,
       ...options,
     });
   }
@@ -312,7 +313,7 @@ export function PlanCards({
           const isCurrent = planId === currentPlanId;
           const isFree = plan.amount === 0;
           const amount = getPlanAmount({ plan, interval: billingInterval });
-          const priceLabel = isFree ? t("freePrice") : formatPrice({ amount, currency: plan.currency });
+          const priceLabel = isFree ? t("freePrice") : formatPrice({ amount, currency: plan.currency, locale });
           // Whether the toggle matches the interval the team already pays on; legacy rows
           // without a recorded interval are treated as matching so no switch is offered.
           const matchesCurrentInterval = currentInterval === null || billingInterval === currentInterval;
@@ -352,7 +353,7 @@ export function PlanCards({
                 {!isFree && billingInterval === "year" && (
                   <p className="text-xs text-muted-foreground">
                     {t("yearlyEquivalentNote", {
-                      price: formatPrice({ amount: Math.round(amount / 12), currency: plan.currency }),
+                      price: formatPrice({ amount: Math.round(amount / 12), currency: plan.currency, locale }),
                     })}
                   </p>
                 )}

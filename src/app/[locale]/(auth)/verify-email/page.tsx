@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
 import VerifyEmailClientComponent from "./verify-email.client";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
@@ -23,10 +23,13 @@ export async function generateMetadata({
 }
 
 export default async function VerifyEmailPage({
+  params,
   searchParams,
 }: {
+  params: Promise<{ locale: Locale }>;
   searchParams: Promise<{ token?: string }>;
 }) {
+  const { locale } = await params;
   const token = (await searchParams).token;
 
   await redirectAuthenticatedUser({
@@ -35,7 +38,7 @@ export default async function VerifyEmailPage({
   });
 
   if (!token) {
-    return redirect('/sign-in');
+    return redirect({ href: "/sign-in", locale });
   }
 
   return <VerifyEmailClientComponent />;

@@ -1,6 +1,5 @@
 import "server-only"
-import { Link } from "@/i18n/navigation"
-import { redirect } from "next/navigation"
+import { Link, redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { getCmsCollection } from "@/lib/cms/entry"
@@ -12,8 +11,9 @@ import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
 import { HairlineGrid } from "@/components/hairline-grid"
 import type { CollectionPage, WithContext } from "schema-dts"
-import { LOCALES, type Locale } from "@/i18n/config"
+import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 export async function generateMetadata({
   params,
@@ -32,10 +32,11 @@ export async function generateMetadata({
     // hreflang entry.
     alternates: buildAlternates({ pathname: "/blog/authors", locale, availableLocales: LOCALES }),
     openGraph: {
+      ...getOpenGraphLocales(locale),
       title,
       description,
       type: "website",
-      url: "/blog/authors",
+      url: absoluteLocalizedUrl({ pathname: "/blog/authors", locale }),
     },
     twitter: {
       card: "summary",
@@ -51,6 +52,8 @@ export default async function BlogAuthorsPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const t = await getTranslations("Blog.Authors")
+  const tAuthor = await getTranslations("Blog.AuthorDetail")
+  const unknownAuthor = tAuthor("unknownAuthor")
   const { locale } = await params
 
   const blogEntries = await getCmsCollection({
@@ -62,7 +65,7 @@ export default async function BlogAuthorsPage({
   // Empty only in this locale still renders the localized empty state; redirect
   // home only when the blog has no published posts at all.
   if (blogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
-    redirect("/")
+    redirect({ href: "/", locale })
   }
 
   // Group entries by author
@@ -112,7 +115,7 @@ export default async function BlogAuthorsPage({
           position: index + 1,
           item: {
             "@type": "Person",
-            name: getAuthorDisplayName(author),
+            name: getAuthorDisplayName(author, unknownAuthor),
             ...(author.email && {
               email: author.email,
             }),
@@ -155,14 +158,14 @@ export default async function BlogAuthorsPage({
                 />
                 <div className="flex items-center gap-4">
                   <Avatar className="h-12 w-12 ring-1 ring-border">
-                    {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorDisplayName(author)} />}
+                    {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorDisplayName(author, unknownAuthor)} />}
                     <AvatarFallback>
-                      {getInitials(getAuthorDisplayName(author))}
+                      {getInitials(getAuthorDisplayName(author, unknownAuthor))}
                     </AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
                     <h2 className="truncate font-display text-lg font-semibold text-foreground transition-colors group-hover:text-edge">
-                      {getAuthorDisplayName(author)}
+                      {getAuthorDisplayName(author, unknownAuthor)}
                     </h2>
                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                       {t("postCount", { count: author.postCount })}

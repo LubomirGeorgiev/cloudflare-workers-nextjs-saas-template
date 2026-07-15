@@ -29,7 +29,7 @@ export async function createTeam({
   // Verify user is authenticated
   const session = await requireVerifiedEmail();
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   const userId = session.userId;
@@ -48,7 +48,10 @@ export async function createTeam({
   const teamsOwned = ownedTeamsCount[0]?.value || 0;
 
   if (teamsOwned >= MAX_TEAMS_CREATED_PER_USER) {
-    throw new ActionError("FORBIDDEN", `You have reached the limit of ${MAX_TEAMS_CREATED_PER_USER} teams you can create.`);
+    throw new ActionError("FORBIDDEN", {
+      key: "Client.Dashboard.Teams.errorCreateLimit",
+      params: { max: MAX_TEAMS_CREATED_PER_USER },
+    });
   }
 
   let slug = generateSlug(name);
@@ -70,7 +73,7 @@ export async function createTeam({
   }
 
   if (!slugIsUnique) {
-    throw new ActionError("ERROR", "Could not generate a unique slug for the team");
+    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorSlugGeneration" });
   }
 
   // Insert the team
@@ -85,7 +88,7 @@ export async function createTeam({
   const team = newTeam?.[0];
 
   if (!team) {
-    throw new ActionError("ERROR", "Could not create team");
+    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorCouldNotCreate" });
   }
 
   const teamId = team.id;
@@ -127,7 +130,7 @@ export const getUserTeams = cache(async () => {
   const session = await requireVerifiedEmail();
 
   if (!session) {
-    throw new ActionError("NOT_AUTHORIZED", "Not authenticated");
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
   const db = getDB();

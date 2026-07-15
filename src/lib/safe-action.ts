@@ -2,30 +2,55 @@ import "server-only";
 
 import { createSafeActionClient } from "next-safe-action";
 import { getTranslations } from "next-intl/server";
-import { ActionError } from "@/lib/action-error";
+import { ActionError, type ActionErrorMessageKey, type ActionErrorMessageParams } from "@/lib/action-error";
 import { translateValidationKey } from "@/lib/validation-messages";
 import { RateLimitError } from "@/utils/with-rate-limit";
 
+interface ActionServerError {
+  code: string;
+  message: string;
+  // Stable catalog key of keyed ActionErrors, so clients can branch on the
+  // error's identity instead of matching localized message text.
+  reason?: ActionErrorMessageKey;
+}
+
+// next-intl can't type-check runtime-built keys; `ActionErrorMessageKey`
+// already guarantees a valid catalog path at the throw site.
+async function translateErrorKey(
+  key: ActionErrorMessageKey,
+  params?: ActionErrorMessageParams,
+): Promise<string> {
+  const t = await getTranslations();
+  return (t as (key: string, params?: ActionErrorMessageParams) => string)(key, params);
+}
+
 const baseActionClient = createSafeActionClient({
-  handleServerError(error) {
+  async handleServerError(error): Promise<ActionServerError> {
     if (error instanceof ActionError) {
       return {
         code: error.code,
-        message: error.message,
+        message: error.messageKey
+          ? await translateErrorKey(error.messageKey, error.messageParams)
+          : error.message,
+        reason: error.messageKey,
       };
     }
 
     if (error instanceof RateLimitError) {
+      const t = await getTranslations("Client.Errors");
       return {
         code: "RATE_LIMITED",
-        message: error.message,
+        message: t("rateLimitExceeded", {
+          minutes: Math.ceil(error.retryAfterSeconds / 60),
+        }),
       };
     }
 
     console.error("Safe action error:", error);
+    const t = await getTranslations("Client.Errors");
     return {
       code: "INTERNAL_SERVER_ERROR",
-      message: "Something went wrong",
+      message: t("unexpected"),
     };
   },
 });
@@ -46,9 +71,10 @@ export const actionClient = baseActionClient.use(async ({ next }) => {
 
 async function getValidationErrorMessage(validationErrors: unknown): Promise<string> {
   const messages = collectValidationMessages(validationErrors);
+  const tErrors = await getTranslations("Client.Errors");
 
   if (messages.length === 0) {
-    return "Invalid input";
+    return tErrors("invalidInput");
   }
 
   // Valibot messages set via src/lib/validation.ts are stable `Validation.*` keys;

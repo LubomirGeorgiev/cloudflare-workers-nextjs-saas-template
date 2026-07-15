@@ -1,6 +1,7 @@
 import { getBlogPagePath } from "@/lib/blog-routing"
 import { getPathname } from "@/i18n/navigation"
 import type { Locale } from "@/i18n/config"
+import { getTranslations } from "next-intl/server"
 import {
   Pagination,
   PaginationContent,
@@ -17,7 +18,8 @@ interface BlogPaginationServerProps {
   locale: Locale;
 }
 
-export function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
+export async function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
+  const t = await getTranslations({ locale, namespace: "Client.Pagination" });
   // `PaginationLink` renders a plain `<a href>`, so the href must already carry
   // any active locale prefix or pagination can drop the visitor's locale.
   const pageHref = (page: number) => getPathname({ href: getBlogPagePath({ page }), locale })
@@ -62,20 +64,28 @@ export function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPa
 
 
   return (
-    <Pagination>
+    <Pagination ariaLabel={t("navAria")}>
       <PaginationContent>
         <PaginationItem>
           {currentPage === 1 ? (
-            <PaginationPrevious className="pointer-events-none opacity-50" />
+            <PaginationPrevious
+              className="pointer-events-none opacity-50"
+              label={t("previous")}
+              ariaLabel={t("previousAria")}
+            />
           ) : (
-            <PaginationPrevious href={pageHref(currentPage - 1)} />
+            <PaginationPrevious
+              href={pageHref(currentPage - 1)}
+              label={t("previous")}
+              ariaLabel={t("previousAria")}
+            />
           )}
         </PaginationItem>
 
         {pageNumbers().map((page, index) => (
           <PaginationItem key={index}>
             {page === 'ellipsis' ? (
-              <PaginationEllipsis />
+              <PaginationEllipsis label={t("morePages")} />
             ) : (
               <PaginationLink href={pageHref(page)} isActive={currentPage === page}>
                 {page}
@@ -86,9 +96,17 @@ export function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPa
 
         <PaginationItem>
           {currentPage === totalPages ? (
-            <PaginationNext className="pointer-events-none opacity-50" />
+            <PaginationNext
+              className="pointer-events-none opacity-50"
+              label={t("next")}
+              ariaLabel={t("nextAria")}
+            />
           ) : (
-            <PaginationNext href={pageHref(currentPage + 1)} />
+            <PaginationNext
+              href={pageHref(currentPage + 1)}
+              label={t("next")}
+              ariaLabel={t("nextAria")}
+            />
           )}
         </PaginationItem>
       </PaginationContent>

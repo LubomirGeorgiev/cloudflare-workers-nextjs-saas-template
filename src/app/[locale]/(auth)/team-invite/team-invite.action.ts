@@ -1,7 +1,6 @@
 "use server";
 
 import "server-only";
-import { getTranslations } from "next-intl/server";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
@@ -14,14 +13,12 @@ export const acceptTeamInviteAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const t = await getTranslations("Client.Auth.TeamInvite");
         const session = await getSessionFromCookie();
 
         if (!session) {
-          throw new ActionError(
-            "NOT_AUTHORIZED",
-            t("errorMustBeLoggedIn")
-          );
+          throw new ActionError("NOT_AUTHORIZED", {
+            key: "Client.Auth.TeamInvite.errorMustBeLoggedIn",
+          });
         }
 
         try {
@@ -34,10 +31,9 @@ export const acceptTeamInviteAction = actionClient
             throw error;
           }
 
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            t("errorUnexpected")
-          );
+          throw new ActionError("INTERNAL_SERVER_ERROR", {
+            key: "Client.Auth.TeamInvite.errorUnexpected",
+          });
         }
       },
       RATE_LIMITS.EMAIL

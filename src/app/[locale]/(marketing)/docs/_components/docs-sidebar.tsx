@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import { FileText, FolderTree } from "lucide-react";
+import { useTranslations } from "next-intl";
 
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
@@ -79,6 +79,7 @@ function DocsSidebarNode({
 export function DocsSidebar({ nodes, className, onNavigate }: DocsSidebarProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement | null>(null);
+  const t = useTranslations("Client.Docs.Navigation");
 
   useEffect(() => {
     const activeItem = navRef.current?.querySelector<HTMLElement>('[data-active="true"]');
@@ -86,7 +87,7 @@ export function DocsSidebar({ nodes, className, onNavigate }: DocsSidebarProps) 
   }, [pathname]);
 
   return (
-    <nav ref={navRef} className={cn("space-y-3 px-3", className)} aria-label="Docs navigation">
+    <nav ref={navRef} className={cn("space-y-3 px-3", className)} aria-label={t("navAriaLabel")}>
       {nodes.map((node) => (
         <DocsSidebarNode
           key={node.id}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ActionError } from "@/lib/action-error";
+import { ActionError, type ActionErrorMessage } from "@/lib/action-error";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -11,7 +11,8 @@ interface ExpiringTokenPayload {
 
 interface TokenActionError {
   code: string;
-  message: string;
+  // Keyed messages are preferred (translated centrally in safe-action).
+  message: ActionErrorMessage;
 }
 
 interface CreateExpiringTokenParams {

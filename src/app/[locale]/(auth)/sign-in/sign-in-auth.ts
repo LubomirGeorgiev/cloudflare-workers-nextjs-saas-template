@@ -1,6 +1,5 @@
 import "server-only";
 
-import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
 import { verifyPassword } from "@/utils/password-hasher";
@@ -18,8 +17,6 @@ export async function signInWithPassword({
 }: SignInWithPasswordParams): Promise<{ success: true }> {
   return withRateLimit(
     async () => {
-      const t = await getTranslations("Client.Auth.SignIn");
-      const tErrors = await getTranslations("Client.Errors");
       const db = getDB();
 
       try {
@@ -28,24 +25,15 @@ export async function signInWithPassword({
         });
 
         if (!user) {
-          throw new ActionError(
-            "NOT_AUTHORIZED",
-            t("errorInvalidCredentials")
-          );
+          throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.SignIn.errorInvalidCredentials" });
         }
 
         if (!user.passwordHash && user.googleAccountId) {
-          throw new ActionError(
-            "FORBIDDEN",
-            t("errorUseGoogle")
-          );
+          throw new ActionError("FORBIDDEN", { key: "Client.Auth.SignIn.errorUseGoogle" });
         }
 
         if (!user.passwordHash) {
-          throw new ActionError(
-            "NOT_AUTHORIZED",
-            t("errorInvalidCredentials")
-          );
+          throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.SignIn.errorInvalidCredentials" });
         }
 
         const isValid = await verifyPassword({
@@ -54,10 +42,7 @@ export async function signInWithPassword({
         });
 
         if (!isValid) {
-          throw new ActionError(
-            "NOT_AUTHORIZED",
-            t("errorInvalidCredentials")
-          );
+          throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.SignIn.errorInvalidCredentials" });
         }
 
         const passkey = await db.query.passKeyCredentialTable.findFirst({
@@ -68,10 +53,7 @@ export async function signInWithPassword({
         });
 
         if (passkey) {
-          throw new ActionError(
-            "FORBIDDEN",
-            t("errorUsePasskey")
-          );
+          throw new ActionError("FORBIDDEN", { key: "Client.Auth.SignIn.errorUsePasskey" });
         }
 
         await createAndStoreSession(user.id, "password");
@@ -84,10 +66,7 @@ export async function signInWithPassword({
           throw error;
         }
 
-        throw new ActionError(
-          "INTERNAL_SERVER_ERROR",
-          tErrors("unexpected")
-        );
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Errors.unexpected" });
       }
     },
     RATE_LIMITS.SIGN_IN

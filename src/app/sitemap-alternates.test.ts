@@ -5,18 +5,6 @@ import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
 
-// `@/i18n/navigation` re-exports next-intl's `createNavigation` helpers, which pull in `next/navigation`
-// client hooks that don't resolve in a plain Node/vitest module graph (no Vinext/Vite shim present).
-// `getPathname` itself is pure path-building logic, so fake it directly against the routing shape instead of exercising next-intl/next's internals here (same resolution quirk documented in `src/utils/i18n-metadata.test.ts`).
-vi.mock("@/i18n/navigation", async () => {
-  const { DEFAULT_LOCALE } = await import("@/i18n/config");
-
-  return {
-    getPathname: ({ href, locale }: { href: string; locale: string }) =>
-      locale === DEFAULT_LOCALE ? href : `/${locale}${href}`,
-  };
-});
-
 const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 const { localizedSitemapAlternates, entryAlternates } = await import("./sitemap-alternates");
@@ -54,19 +42,19 @@ describe.skipIf(!I18N_ENABLED)("localizedSitemapAlternates", () => {
     }
   });
 
-  test("URLs use locale-specific pathnames from getPathname", () => {
+  test("URLs use locale-prefixed pathnames", () => {
     const languages = localizedSitemapAlternates("/privacy");
 
     expect(languages[DEFAULT_LOCALE]).toBe(`${SITE_URL}/privacy`);
     expect(languages[NON_DEFAULT_LOCALE]).toBe(`${SITE_URL}/${NON_DEFAULT_LOCALE}/privacy`);
   });
 
-  test("root path resolves per-locale using the mocked getPathname output", () => {
+  test("root path resolves per-locale", () => {
     const languages = localizedSitemapAlternates("/");
 
     expect(languages[DEFAULT_LOCALE]).toBe(new URL("/", SITE_URL).toString());
     expect(languages[NON_DEFAULT_LOCALE]).toBe(
-      new URL(`/${NON_DEFAULT_LOCALE}/`, SITE_URL).toString(),
+      new URL(`/${NON_DEFAULT_LOCALE}`, SITE_URL).toString(),
     );
   });
 });

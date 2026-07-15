@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { SessionsClient } from "./sessions.client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSessionsAction } from "./sessions.actions";
-import { redirect } from "next/navigation";
+import { redirectToSignIn } from "@/utils/auth-redirect";
 import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata() {
@@ -17,7 +17,7 @@ export default async function SessionsPage() {
   const { data: sessions, serverError } = await getSessionsAction()
 
   if (serverError || !sessions) {
-    return redirect("/sign-in")
+    return redirectToSignIn()
   }
 
   return (

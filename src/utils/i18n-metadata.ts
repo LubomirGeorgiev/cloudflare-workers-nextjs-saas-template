@@ -1,10 +1,30 @@
 import "server-only";
 
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-import { I18N_ENABLED } from "@/constants";
-import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
+import { I18N_ENABLED, SITE_NAME } from "@/constants";
+import { DEFAULT_LOCALE, getOpenGraphLocales, type Locale } from "@/i18n/config";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+
+// Complete site-default OpenGraph object for a locale. Both the root layout and
+// app/[locale]/layout.tsx must emit the FULL object: a child segment's `openGraph`
+// replaces the parent's wholesale, so overriding with locale fields alone drops
+// title/description/siteName. The [locale] layout re-emits it (rather than
+// inheriting) because the root layout cannot see the [locale] param during
+// static generation.
+export async function buildSiteOpenGraph(locale: Locale): Promise<Metadata["openGraph"]> {
+  const t = await getTranslations({ locale, namespace: "Client.Landing.meta" });
+
+  return {
+    type: "website",
+    ...getOpenGraphLocales(locale),
+    url: absoluteLocalizedUrl({ pathname: "/", locale }),
+    title: SITE_NAME,
+    description: t("description"),
+    siteName: SITE_NAME,
+  };
+}
 
 interface BuildAlternatesOptions {
   // Locale-agnostic pathname (e.g. "/privacy"), as accepted by `getPathname`.

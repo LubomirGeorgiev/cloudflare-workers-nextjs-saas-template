@@ -1,6 +1,5 @@
 "use server";
 
-import { getTranslations } from "next-intl/server";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db"
@@ -19,25 +18,17 @@ export const signUpAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const t = await getTranslations("Client.Auth.SignUp");
-        const tCommon = await getTranslations("Client.Auth.Common");
         const db = getDB();
 
         if (await isTurnstileEnabled()) {
           if (!input.captchaToken) {
-            throw new ActionError(
-              "INPUT_PARSE_ERROR",
-              tCommon("errorCaptcha")
-            )
+            throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Auth.Common.errorCaptcha" })
           }
 
           const success = await validateTurnstileToken(input.captchaToken)
 
           if (!success) {
-            throw new ActionError(
-              "INPUT_PARSE_ERROR",
-              tCommon("errorCaptcha")
-            )
+            throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Auth.Common.errorCaptcha" })
           }
         }
 
@@ -48,10 +39,7 @@ export const signUpAction = actionClient
         });
 
         if (existingUser) {
-          throw new ActionError(
-            "CONFLICT",
-            t("errorEmailTaken")
-          );
+          throw new ActionError("CONFLICT", { key: "Client.Auth.SignUp.errorEmailTaken" });
         }
 
         // Hash the password
@@ -69,10 +57,7 @@ export const signUpAction = actionClient
           .returning();
 
         if (!user || !user.email) {
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            tCommon("errorCreateUser")
-          );
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Auth.Common.errorCreateUser" });
         }
 
         try {
@@ -86,10 +71,7 @@ export const signUpAction = actionClient
         } catch (error) {
           console.error(error)
 
-          throw new ActionError(
-            "INTERNAL_SERVER_ERROR",
-            t("errorCreateSession")
-          );
+          throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Auth.SignUp.errorCreateSession" });
         }
 
         return { success: true };

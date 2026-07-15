@@ -23,7 +23,7 @@ interface LocaleSwitcherProps {
 
 export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
   const t = useTranslations("Client.LocaleSwitcher")
-  const activeLocale = useLocale() as Locale
+  const activeLocale = useLocale()
   const pathname = usePathname()
   const [isPending, startTransition] = React.useTransition()
 

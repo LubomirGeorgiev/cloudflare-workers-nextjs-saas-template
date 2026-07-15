@@ -1,5 +1,6 @@
 import "server-only"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
+import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { getCmsCollection } from "@/lib/cms/entry"
@@ -10,8 +11,9 @@ import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
 import type { CollectionPage, WithContext } from "schema-dts"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
-import { LOCALES, type Locale } from "@/i18n/config"
+import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 type TagPageProps = {
   params: Promise<{
@@ -44,10 +46,11 @@ export async function generateMetadata({
     // hreflang entry.
     alternates: buildAlternates({ pathname: `/blog/tags/${slug}`, locale, availableLocales: LOCALES }),
     openGraph: {
+      ...getOpenGraphLocales(locale),
       title,
       description,
       type: "website",
-      url: `/blog/tags/${slug}`,
+      url: absoluteLocalizedUrl({ pathname: `/blog/tags/${slug}`, locale }),
     },
     twitter: {
       card: "summary",
@@ -77,7 +80,7 @@ export default async function TagPage({ params }: TagPageProps) {
   // Empty only in this locale still renders the localized empty state below;
   // redirect home only when the blog has no published posts at all.
   if (allBlogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
-    redirect("/")
+    redirect({ href: "/", locale })
   }
 
   const blogEntries = allBlogEntries.filter(entry =>

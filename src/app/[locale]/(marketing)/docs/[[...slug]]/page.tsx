@@ -30,9 +30,10 @@ import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { resolveDocsPage } from "@/lib/cms/resolve-docs-page";
 import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
-import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } from "@/i18n/config";
 import { Link, permanentRedirect, redirect } from "@/i18n/navigation";
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
 interface DocsPageProps {
   params: Promise<{
@@ -125,9 +126,10 @@ export async function generateMetadata({
       keywords: childTitles,
       alternates: buildAlternates({ pathname: canonicalPath, locale, availableLocales: LOCALES }),
       openGraph: {
+        ...getOpenGraphLocales(locale),
         title: groupTitle,
         description,
-        url: canonicalPath,
+        url: absoluteLocalizedUrl({ pathname: canonicalPath, locale }),
         type: "website",
       },
       twitter: {
@@ -160,10 +162,11 @@ export async function generateMetadata({
   // A fallback render serves default-locale content under a non-default-locale
   // prefix (noindexed, mixed-language), so it canonicalizes to the real
   // default-locale URL; hreflang still lists only genuine translations.
+  const urlLocale = isFallback ? DEFAULT_LOCALE : locale;
   const alternates = buildAlternates({
     pathname: canonicalPath,
-    locale: isFallback ? DEFAULT_LOCALE : locale,
-    availableLocales: availableLocales as Locale[],
+    locale: urlLocale,
+    availableLocales: availableLocales.filter(isLocale),
   });
 
   return {
@@ -172,9 +175,10 @@ export async function generateMetadata({
     ...(isFallback ? noindexNonDefaultLocale(locale) : {}),
     alternates,
     openGraph: {
+      ...getOpenGraphLocales(urlLocale),
       title: entry.title,
       description,
-      url: canonicalPath,
+      url: absoluteLocalizedUrl({ pathname: canonicalPath, locale: urlLocale }),
       type: "article",
       ...(featuredImageUrl
         ? {
@@ -229,6 +233,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
   }
 
   const { node, navigationTree } = result;
+  const urlLocale = result.type === "page" && result.isFallback ? DEFAULT_LOCALE : locale;
   const nodeTitle = getNavigationNodeDisplayTitle(node);
   const breadcrumbs = getCmsNavigationAncestors({
     nodeId: node.id,
@@ -242,25 +247,31 @@ export default async function DocsPage({ params }: DocsPageProps) {
         "@type": "ListItem",
         position: 1,
         name: tCrumb("home"),
-        item: SITE_URL,
+        item: absoluteLocalizedUrl({ pathname: "/", locale: urlLocale }),
       },
       {
         "@type": "ListItem",
         position: 2,
         name: t("docs"),
-        item: `${SITE_URL}${docsBasePath}`,
+        item: absoluteLocalizedUrl({ pathname: docsBasePath, locale: urlLocale }),
       },
       ...breadcrumbs.map((crumb, index) => ({
         "@type": "ListItem",
         position: index + 3,
         name: getNavigationNodeDisplayTitle(crumb),
-        item: `${SITE_URL}${crumb.resolvedPath ?? docsBasePath}`,
+        item: absoluteLocalizedUrl({
+          pathname: crumb.resolvedPath ?? docsBasePath,
+          locale: urlLocale,
+        }),
       })),
       {
         "@type": "ListItem",
         position: breadcrumbs.length + 3,
         name: nodeTitle,
-        item: `${SITE_URL}${node.resolvedPath ?? docsBasePath}`,
+        item: absoluteLocalizedUrl({
+          pathname: node.resolvedPath ?? docsBasePath,
+          locale: urlLocale,
+        }),
       },
     ],
   };
@@ -289,12 +300,12 @@ export default async function DocsPage({ params }: DocsPageProps) {
     const groupItemListJsonLd = {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      name: `${nodeTitle} documentation`,
+      name: t("groupListName", { group: nodeTitle }),
       itemListElement: children.map((child, index) => ({
         "@type": "ListItem",
         position: index + 1,
         name: getNavigationNodeDisplayTitle(child),
-        url: `${SITE_URL}${child.resolvedPath}`,
+        url: absoluteLocalizedUrl({ pathname: child.resolvedPath!, locale: urlLocale }),
         description: getNavigationItemDescription(child) ?? undefined,
       })),
     };
@@ -366,7 +377,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
     slug: entry.slug,
     // Use the resolved entry's own locale (not the URL locale) so the TOC matches
     // the rendered body — including untranslated docs that fall back to DEFAULT_LOCALE.
-    locale: entry.locale as Locale,
+    locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
   });
 
   if (!artifacts) {

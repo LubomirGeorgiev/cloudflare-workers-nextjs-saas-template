@@ -44,3 +44,15 @@ export const LOCALE_OG_MAP: Record<Locale, string> = {
   en: "en_US",
   es: "es_ES",
 };
+
+// Primary + alternate OpenGraph locales for the active app locale. Any page
+// that defines its own `openGraph` must spread this in: Next.js replaces the
+// layout's openGraph object wholesale, dropping the layout-provided locales.
+export function getOpenGraphLocales(locale: Locale) {
+  return {
+    locale: LOCALE_OG_MAP[locale],
+    alternateLocale: ENABLED_LOCALES.filter((l) => l !== locale).map(
+      (l) => LOCALE_OG_MAP[l],
+    ),
+  };
+}

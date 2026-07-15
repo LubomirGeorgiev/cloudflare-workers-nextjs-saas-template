@@ -15,9 +15,10 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import isProd from "@/utils/is-prod";
-import { usePathname } from "next/navigation";
+import { usePathname } from "@/i18n/navigation";
 import { Route } from "next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useTranslations } from "next-intl";
 
 const pagesToBypass: Route[] = [
   "/verify-email",
@@ -33,7 +34,9 @@ const pagesToBypass: Route[] = [
 export function EmailVerificationDialog() {
   const { session } = useSessionStore();
   const [lastVerificationEmailSentAt, setLastVerificationEmailSentAt] = useState<number | null>(null);
+  // Locale-stripped pathname so bypass matches work under `/es/...` prefixes.
   const pathname = usePathname();
+  const t = useTranslations("Client.Auth.EmailVerificationDialog");
 
   const { execute: sendVerification, status } = useAction(sendVerificationAction, {
     onError: ({ error }) => {
@@ -41,11 +44,11 @@ export function EmailVerificationDialog() {
       toast.error(error.serverError?.message);
     },
     onExecute: () => {
-      toast.loading("Sending verification email...");
+      toast.loading(t("toastSending"));
     },
     onSuccess: () => {
       toast.dismiss();
-      toast.success("Verification email sent");
+      toast.success(t("toastSent"));
       setLastVerificationEmailSentAt(Date.now());
     },
   });
@@ -62,25 +65,25 @@ export function EmailVerificationDialog() {
 
   const canSendAgain = !lastVerificationEmailSentAt || Date.now() - lastVerificationEmailSentAt > 60000; // 1 minute cooldown
   const isLoading = status === "executing";
+  const expirationHours = Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600);
 
   return (
     <Dialog open modal onOpenChange={(newState) => {
       if (newState === false) {
-        toast.warning("Please verify your email before you continue");
+        toast.warning(t("toastCloseWarning"));
       }
     }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Verify your email</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            Please verify your email address to access all features. We sent a verification link to {session.user.email}.
-            The verification link will expire in {Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600)} hours.
+            {t("description", { email: session.user.email ?? "", hours: expirationHours })}
 
             {!isProd && (
               <Alert className="mt-4 mb-2">
-                <AlertTitle>Development mode</AlertTitle>
+                <AlertTitle>{t("devModeTitle")}</AlertTitle>
                 <AlertDescription>
-                  You can find the verification link in the console.
+                  {t("devModeDescription")}
                 </AlertDescription>
               </Alert>
             )}
@@ -92,10 +95,10 @@ export function EmailVerificationDialog() {
             disabled={isLoading || !canSendAgain}
           >
             {isLoading
-              ? "Sending..."
+              ? t("sending")
               : !canSendAgain
-                ? "Please wait 1 minute before sending again"
-                : "Send verification email again"}
+                ? t("cooldown")
+                : t("resend")}
           </Button>
         </div>
       </DialogContent>

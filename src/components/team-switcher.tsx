@@ -23,6 +23,8 @@ import { useSessionStore } from "@/state/session"
 import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { useTranslations } from "next-intl"
 
 export function TeamSwitcher({
   teams,
@@ -34,6 +36,7 @@ export function TeamSwitcher({
     role: string
   }[]
 }) {
+  const t = useTranslations("Client.Dashboard.Teams")
   const { isMobile, setOpenMobile } = useSidebar()
   const session = useSessionStore()
   const selectedTeamId = session.selectedTeam()
@@ -44,7 +47,7 @@ export function TeamSwitcher({
       console.error("Failed to update selected team:", error);
       // Revert optimistic update
       setSelectedTeam(selectedTeamId);
-      toast.error(error.serverError?.message || "Failed to update selected team");
+      toast.error(error.serverError?.message || t("toastUpdateSelectedTeamError"));
     },
   })
 
@@ -84,9 +87,11 @@ export function TeamSwitcher({
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {activeTeam?.name || "No Team"}
+                  {activeTeam?.name || t("switcherNoTeam")}
                 </span>
-                <span className="truncate text-xs capitalize">{activeTeam?.role || "Member"}</span>
+                <span className={cn("truncate text-xs", activeTeam?.role && "capitalize")}>
+                  {activeTeam?.role || t("memberRole")}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
           </DropdownMenuTrigger>
@@ -97,7 +102,7 @@ export function TeamSwitcher({
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Teams
+              {t("switcherTeamsLabel")}
             </DropdownMenuLabel>
             {teams.length > 0 ? (
               teams.map((team, index) => (
@@ -119,7 +124,7 @@ export function TeamSwitcher({
                 <div className="flex size-6 items-center justify-center rounded-sm border">
                   <Building2 className="size-4 shrink-0" />
                 </div>
-                No teams available
+                {t("switcherNoTeams")}
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
@@ -136,7 +141,7 @@ export function TeamSwitcher({
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Plus className="size-4" />
                 </div>
-                <div className="font-medium text-muted-foreground">Add team</div>
+                <div className="font-medium text-muted-foreground">{t("switcherAddTeam")}</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
