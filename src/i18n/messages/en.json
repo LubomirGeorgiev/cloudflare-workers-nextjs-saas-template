@@ -23,11 +23,9 @@
       "Common": {
         "emailLabel": "Email",
         "emailPlaceholder": "Email address",
-        "passwordLabel": "Password",
         "passwordPlaceholder": "Password",
         "or": "Or",
         "signIn": "Sign In",
-        "continueWithGoogle": "Continue with Google",
         "signInWithGoogle": "Sign in with Google",
         "signUpWithGoogle": "Sign up with Google",
         "backToSignIn": "Back to sign in",

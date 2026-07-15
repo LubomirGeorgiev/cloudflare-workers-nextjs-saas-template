@@ -23,11 +23,9 @@
       "Common": {
         "emailLabel": "Correo electrónico",
         "emailPlaceholder": "Correo electrónico",
-        "passwordLabel": "Contraseña",
         "passwordPlaceholder": "Contraseña",
         "or": "O",
         "signIn": "Iniciar sesión",
-        "continueWithGoogle": "Continuar con Google",
         "signInWithGoogle": "Iniciar sesión con Google",
         "signUpWithGoogle": "Registrarse con Google",
         "backToSignIn": "Volver a iniciar sesión",
