@@ -16,9 +16,9 @@ import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simp
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import isProd from "@/utils/is-prod";
 import ms from "ms";
 import { emailString, v, validationKey } from "@/lib/validation";
+import { shouldUseSecureCookies } from "@/utils/cookie-security";
 
 const generateRegistrationOptionsSchema = v.object({
   email: emailString(),
@@ -59,10 +59,11 @@ export const generateRegistrationOptionsAction = actionClient
 
       const options = await generatePasskeyRegistrationOptions(user.id, input.email);
       const cookieStore = await cookies();
+      const secure = await shouldUseSecureCookies();
 
       cookieStore.set(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME, options.challenge, {
         httpOnly: true,
-        secure: isProd,
+        secure,
         sameSite: "strict",
         path: "/",
         maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
@@ -193,10 +194,11 @@ export const generateAuthenticationOptionsAction = actionClient
     return withRateLimit(async () => {
       const cookieStore = await cookies();
       const options = await generateDiscoverablePasskeyAuthenticationOptions();
+      const secure = await shouldUseSecureCookies();
 
       cookieStore.set(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME, options.challenge, {
         httpOnly: true,
-        secure: isProd,
+        secure,
         sameSite: "strict",
         path: "/",
         maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,

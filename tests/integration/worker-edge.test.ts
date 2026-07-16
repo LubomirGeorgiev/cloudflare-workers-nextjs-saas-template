@@ -4,11 +4,12 @@ import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { CF_CONTEXT_FIELDS } from "@/utils/cf-context-fields";
+import { __INTERNAL_CF_CONTEXT_FIELDS } from "@/utils/cf-context-fields";
 import {
-  CLIENT_IP_HEADERS_TO_STRIP,
-  TRUSTED_CLIENT_IP_HEADER,
+  __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
+  __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
 } from "@/utils/trusted-client-ip";
+import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
 
@@ -26,10 +27,11 @@ describe("worker edge integration", () => {
     innerFetchMock.mockImplementation(async (request: Request) => {
       const headers = Object.fromEntries(
         [
-          TRUSTED_CLIENT_IP_HEADER,
+          __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
+          __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER,
           "cf-connecting-ip",
           "x-forwarded-for",
-          ...CF_CONTEXT_FIELDS.map(({ header }) => header),
+          ...__INTERNAL_CF_CONTEXT_FIELDS.map(({ header }) => header),
         ].map((header) => [header, request.headers.get(header)])
       );
 
@@ -48,15 +50,25 @@ describe("worker edge integration", () => {
     expect(innerFetchMock).not.toHaveBeenCalled();
   });
 
+  test("all Worker-injected header names use the internal prefix", () => {
+    const injectedHeaders = [
+      __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
+      __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER,
+      ...__INTERNAL_CF_CONTEXT_FIELDS.map(({ header }) => header),
+    ];
+
+    expect(injectedHeaders.every((header) => header.startsWith("__INTERNAL"))).toBe(true);
+  });
+
   test("normal requests strip spoofed client headers and forward trusted Cloudflare context", async () => {
     const request = new Request("https://example.com/dashboard", {
       headers: {
-        [TRUSTED_CLIENT_IP_HEADER]: "192.0.2.10",
+        [__INTERNAL_TRUSTED_CLIENT_IP_HEADER]: "192.0.2.10",
         "cf-connecting-ip": "203.0.113.42",
         "x-forwarded-for": "198.51.100.12",
-        "cf-ipcity": "Spoofed City",
-        "cf-ipcountry": "ZZ",
-        "x-cf-asn": "0",
+        "__INTERNAL_CF_IPCITY": "Spoofed City",
+        "__INTERNAL_CF_IPCOUNTRY": "ZZ",
+        "__INTERNAL_CF_ASN": "0",
       },
     });
 
@@ -80,15 +92,33 @@ describe("worker edge integration", () => {
     };
 
     expect(innerFetchMock).toHaveBeenCalledOnce();
-    expect(body.headers[TRUSTED_CLIENT_IP_HEADER]).toBe("203.0.113.42");
-    expect(body.headers["cf-ipcity"]).toBe("Berlin");
-    expect(body.headers["cf-ipcountry"]).toBe("DE");
-    expect(body.headers["x-cf-asn"]).toBe("64512");
-    expect(body.headers["x-cf-is-eu-country"]).toBe("true");
+    expect(body.headers[__INTERNAL_TRUSTED_CLIENT_IP_HEADER]).toBe("203.0.113.42");
+    expect(body.headers[__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]).toBe("https");
+    expect(body.headers["__INTERNAL_CF_IPCITY"]).toBe("Berlin");
+    expect(body.headers["__INTERNAL_CF_IPCOUNTRY"]).toBe("DE");
+    expect(body.headers["__INTERNAL_CF_ASN"]).toBe("64512");
+    expect(body.headers["__INTERNAL_CF_IS_EU_COUNTRY"]).toBe("true");
 
-    for (const header of CLIENT_IP_HEADERS_TO_STRIP) {
-      if (header === TRUSTED_CLIENT_IP_HEADER) continue;
+    for (const header of __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP) {
+      if (header === __INTERNAL_TRUSTED_CLIENT_IP_HEADER) continue;
       expect(body.headers[header] ?? null).toBeNull();
     }
+  });
+
+  test("forwards HTTP as the trusted request protocol for local previews", async () => {
+    const response = await worker.fetch(
+      new Request("http://localhost:8787/sign-in", {
+        headers: {
+          [__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]: "https",
+        },
+      }),
+      env as Env,
+      createExecutionContext()
+    );
+    const body = await response.json() as {
+      headers: Record<string, string | null>;
+    };
+
+    expect(body.headers[__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]).toBe("http");
   });
 });

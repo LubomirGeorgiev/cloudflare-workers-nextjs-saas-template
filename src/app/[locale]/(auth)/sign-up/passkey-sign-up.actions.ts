@@ -16,6 +16,7 @@ import ms from "ms";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 import { v, validationKey } from "@/lib/validation";
+import { shouldUseSecureCookies } from "@/utils/cookie-security";
 
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
 const PASSKEY_USER_ID_COOKIE_NAME = "passkey_user_id";
@@ -68,11 +69,12 @@ export const startPasskeyRegistrationAction = actionClient
         const options = await generatePasskeyRegistrationOptions(user.id, input.email);
 
         const cookieStore = await cookies();
+        const secure = await shouldUseSecureCookies();
 
         // Store the challenge in a cookie for verification
         cookieStore.set(PASSKEY_CHALLENGE_COOKIE_NAME, options.challenge, {
           httpOnly: true,
-          secure: true,
+          secure,
           sameSite: "strict",
           path: "/",
           maxAge: Math.floor(ms("10 minutes") / 1000),
@@ -81,7 +83,7 @@ export const startPasskeyRegistrationAction = actionClient
         // Store the user ID in a cookie for verification
         cookieStore.set(PASSKEY_USER_ID_COOKIE_NAME, user.id, {
           httpOnly: true,
-          secure: true,
+          secure,
           sameSite: "strict",
           path: "/",
           maxAge: Math.floor(ms("10 minutes") / 1000),

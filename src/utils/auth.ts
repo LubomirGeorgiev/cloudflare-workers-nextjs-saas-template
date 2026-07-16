@@ -24,6 +24,7 @@ import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { createBase64UrlToken } from "@/utils/random-token";
+import { shouldUseSecureCookies } from "./cookie-security";
 
 const getSessionLength = () => {
   return ms("30d");
@@ -150,17 +151,18 @@ interface SetSessionTokenCookieParams {
 
 export async function setSessionTokenCookie({ token, userId, expiresAt }: SetSessionTokenCookieParams): Promise<void> {
   const cookieStore = await cookies();
+  const secure = await shouldUseSecureCookies();
   cookieStore.set(SESSION_COOKIE_NAME, encodeSessionCookie(userId, token), {
     httpOnly: true,
     sameSite: isProd ? "strict" : "lax",
-    secure: isProd,
+    secure,
     expires: expiresAt,
     path: "/",
   });
   cookieStore.set(AUTH_SESSION_PRESENT_COOKIE_NAME, "1", {
     httpOnly: false,
     sameSite: isProd ? "strict" : "lax",
-    secure: isProd,
+    secure,
     expires: expiresAt,
     path: "/",
   });

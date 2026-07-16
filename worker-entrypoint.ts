@@ -5,11 +5,12 @@ import {
   handleSchedulerCron,
   handleSchedulerQueue,
 } from "./src/lib/scheduler/worker";
-import { CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
+import { __INTERNAL_CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
 import {
-  CLIENT_IP_HEADERS_TO_STRIP,
-  TRUSTED_CLIENT_IP_HEADER,
+  __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
+  __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
 } from "./src/utils/trusted-client-ip";
+import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./src/utils/request-protocol";
 
 async function handleCustomEdge(
   request: Request,
@@ -50,23 +51,29 @@ const worker = {
 // Only set here (never trusted from the inbound request) to prevent client spoofing.
 function withForwardedCfHeaders(request: Request): Request {
   const forwarded = new Request(request);
-  for (const header of CLIENT_IP_HEADERS_TO_STRIP) {
+  forwarded.headers.delete(__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER);
+  forwarded.headers.set(
+    __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER,
+    new URL(request.url).protocol.slice(0, -1),
+  );
+
+  for (const header of __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP) {
     forwarded.headers.delete(header);
   }
 
-  for (const { header } of CF_CONTEXT_FIELDS) {
+  for (const { header } of __INTERNAL_CF_CONTEXT_FIELDS) {
     forwarded.headers.delete(header);
   }
 
   const trustedClientIp = request.headers.get("cf-connecting-ip");
   if (trustedClientIp) {
-    forwarded.headers.set(TRUSTED_CLIENT_IP_HEADER, trustedClientIp);
+    forwarded.headers.set(__INTERNAL_TRUSTED_CLIENT_IP_HEADER, trustedClientIp);
   }
 
   const cf = request.cf;
   if (!cf) return forwarded;
 
-  for (const { key, header } of CF_CONTEXT_FIELDS) {
+  for (const { key, header } of __INTERNAL_CF_CONTEXT_FIELDS) {
     const value = cf[key];
     if (value !== undefined && value !== null && value !== "") {
       forwarded.headers.set(header, String(value));
