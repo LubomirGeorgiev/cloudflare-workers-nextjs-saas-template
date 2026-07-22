@@ -583,7 +583,6 @@
         "teamFallbackName": "Equipo",
         "teamOwnerFallback": "Propietario del equipo",
         "roleOwner": "Propietario",
-        "roleAdmin": "Administrador",
         "roleMember": "Miembro",
         "roleGuest": "Invitado",
         "roleCustom": "Rol personalizado"

@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamMembershipTable, teamRoleTable, teamTable } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM, teamMembershipTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { generateSlug } from "@/utils/slugify";
 import { ActionError } from "@/lib/action-error";
@@ -102,19 +102,6 @@ export async function createTeam({
     invitedAt: new Date(),
     joinedAt: new Date(),
     isActive: 1,
-  });
-
-  // Create default custom role for the team
-  await db.insert(teamRoleTable).values({
-    teamId,
-    name: "Editor",
-    description: "Can edit team content",
-    permissions: [
-      TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-      TEAM_PERMISSIONS.CREATE_COMPONENTS,
-      TEAM_PERMISSIONS.EDIT_COMPONENTS,
-    ],
-    isEditable: 1,
   });
 
   await updateAllSessionsOfUser(userId);

@@ -67,9 +67,9 @@ export const userTable = sqliteTable("user", {
   // creating fresh teams. Checked together with team.trialUsedAt for eligibility.
   trialUsedAt: integer({ mode: "timestamp" }),
 }, (table) => ([
-  index('email_idx').on(table.email),
   index('google_account_id_idx').on(table.googleAccountId),
   index('role_idx').on(table.role),
+  index('user_created_at_idx').on(table.createdAt),
   uniqueIndex('user_email_unique').on(table.email),
 ]));
 
@@ -102,14 +102,12 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   }),
 }, (table) => ([
   index('user_id_idx').on(table.userId),
-  index('credential_id_idx').on(table.credentialId),
   uniqueIndex('passkey_credential_credentialId_unique').on(table.credentialId),
 ]));
 
 // System-defined roles - these are always available
 export const SYSTEM_ROLES_ENUM = {
   OWNER: 'owner',
-  ADMIN: 'admin',
   MEMBER: 'member',
   GUEST: 'guest',
 } as const;
@@ -136,13 +134,20 @@ export const TEAM_PERMISSIONS = {
   EDIT_ROLES: 'edit_roles',
   DELETE_ROLES: 'delete_roles',
   ASSIGN_ROLES: 'assign_roles',
-
-  // Content permissions
-  CREATE_COMPONENTS: 'create_components',
-  EDIT_COMPONENTS: 'edit_components',
-  DELETE_COMPONENTS: 'delete_components',
-
 } as const;
+
+export type SystemRole = typeof SYSTEM_ROLES_ENUM[keyof typeof SYSTEM_ROLES_ENUM];
+type TeamPermission = typeof TEAM_PERMISSIONS[keyof typeof TEAM_PERMISSIONS];
+
+export const SYSTEM_ROLE_PERMISSIONS = {
+  [SYSTEM_ROLES_ENUM.OWNER]: Object.values(TEAM_PERMISSIONS),
+  [SYSTEM_ROLES_ENUM.MEMBER]: [
+    TEAM_PERMISSIONS.ACCESS_DASHBOARD,
+  ],
+  [SYSTEM_ROLES_ENUM.GUEST]: [
+    TEAM_PERMISSIONS.ACCESS_DASHBOARD,
+  ],
+} satisfies Record<SystemRole, readonly TeamPermission[]>;
 
 // Team table
 export const teamTable = sqliteTable("team", {
@@ -180,7 +185,6 @@ export const teamTable = sqliteTable("team", {
   // Set the first time a subscription reaches `trialing`; a team gets one free trial ever.
   trialUsedAt: integer({ mode: "timestamp" }),
 }, (table) => ([
-  index('team_slug_idx').on(table.slug),
   uniqueIndex('team_slug_unique').on(table.slug),
   uniqueIndex('team_stripe_customer_id_unique').on(table.stripeCustomerId),
   uniqueIndex('team_stripe_subscription_id_unique').on(table.stripeSubscriptionId),
@@ -200,7 +204,6 @@ export const teamMembershipTable = sqliteTable("team_membership", {
   expiresAt: integer({ mode: "timestamp" }),
   isActive: integer().default(1).notNull(),
 }, (table) => ([
-  index('team_membership_team_id_idx').on(table.teamId),
   index('team_membership_user_id_idx').on(table.userId),
   // Instead of unique() which causes linter errors, we'll create a unique constraint on columns
   index('team_membership_unique_idx').on(table.teamId, table.userId),
@@ -217,7 +220,6 @@ export const teamRoleTable = sqliteTable("team_role", {
   metadata: text({ length: 5000 }),
   isEditable: integer().default(1).notNull(),
 }, (table) => ([
-  index('team_role_team_id_idx').on(table.teamId),
   // Instead of unique() which causes linter errors, we'll create a unique constraint on columns
   index('team_role_name_unique_idx').on(table.teamId, table.name),
 ]));
@@ -236,9 +238,9 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
   acceptedAt: integer({ mode: "timestamp" }),
   acceptedBy: text().references(() => userTable.id),
 }, (table) => ([
-  index('team_invitation_team_id_idx').on(table.teamId),
-  index('team_invitation_email_idx').on(table.email),
-  index('team_invitation_token_idx').on(table.token),
+  index('team_invitation_team_email_idx').on(table.teamId, table.email),
+  index('team_invitation_team_pending_idx').on(table.teamId, table.acceptedAt, table.expiresAt),
+  index('team_invitation_email_pending_idx').on(table.email, table.acceptedAt, table.expiresAt),
   uniqueIndex('team_invitation_token_unique').on(table.token),
 ]));
 
@@ -293,14 +295,8 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   // translations in the editor. Null on the source row itself and on legacy/pre-feature rows (treated as "not stale").
   sourceContentHashes: text({ mode: "json" }).$type<SourceContentHashes | null>(),
 }, (table) => ([
-  // Index for filtering by collection (most common query)
-  index('cms_entry_collection_idx').on(table.collection),
-
   // Index for filtering by status (published vs draft vs archived)
   index('cms_entry_status_idx').on(table.status),
-
-  // Composite index for collection + status (very common: "get all published posts")
-  index('cms_entry_collection_status_idx').on(table.collection, table.status),
 
   // Index for slug lookups (finding specific entries by slug)
   index('cms_entry_slug_idx').on(table.slug),
@@ -309,10 +305,12 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
   uniqueIndex('cms_entry_collection_slug_locale_unique').on(table.collection, table.slug, table.locale),
 
   // Listing queries: published entries for a collection in a locale.
-  index('cms_entry_collection_locale_status_idx').on(table.collection, table.locale, table.status),
-
-  // Index for created by (finding entries by author)
-  index('cms_entry_created_by_idx').on(table.createdBy),
+  index('cms_entry_collection_locale_status_created_at_idx').on(
+    table.collection,
+    table.locale,
+    table.status,
+    table.createdAt,
+  ),
 
   // Composite index for author + status (e.g., "my drafts")
   index('cms_entry_created_by_status_idx').on(table.createdBy, table.status),
@@ -325,6 +323,9 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
 
   // Composite index for collection + created date (optimized listing for admin dashboard)
   index('cms_entry_collection_created_at_idx').on(table.collection, table.createdAt),
+
+  // Locale-scoped listing when the caller intentionally includes every status.
+  index('cms_entry_collection_locale_created_at_idx').on(table.collection, table.locale, table.createdAt),
 
   // Index for featured image lookups
   index('cms_entry_featured_image_idx').on(table.featuredImageId),
@@ -362,7 +363,7 @@ export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
   resolvedPath: text(),
   sortOrder: integer().default(0).notNull(),
 }, (table) => ([
-  index("cms_navigation_item_site_key_idx").on(table.navigationKey),
+  index("cms_navigation_item_site_sort_idx").on(table.navigationKey, table.sortOrder, table.createdAt),
   index("cms_navigation_item_parent_id_idx").on(table.parentId),
   uniqueIndex("cms_navigation_item_site_path_unique").on(table.navigationKey, table.resolvedPath),
   uniqueIndex("cms_navigation_item_site_parent_sort_order_unique").on(table.navigationKey, table.parentId, table.sortOrder),
@@ -379,7 +380,6 @@ export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect",
   toPath: text().notNull(),
   statusCode: integer().default(307).notNull(),
 }, (table) => ([
-  index("cms_navigation_redirect_site_key_idx").on(table.navigationKey),
   uniqueIndex("cms_navigation_redirect_site_from_path_unique").on(table.navigationKey, table.fromPath),
 ]));
 
@@ -390,7 +390,6 @@ export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
   versionNumber: integer().notNull(),
   ...cmsEntryCommonColumns,
 }, (table) => ([
-  index('cms_entry_version_entry_id_idx').on(table.entryId),
   index('cms_entry_version_entry_id_version_idx').on(table.entryId, table.versionNumber),
 ]));
 
@@ -403,10 +402,8 @@ export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   position: integer(),
   caption: text(),
 }, (table) => ([
-  // Index for finding all media in an entry
-  index('cms_entry_media_entry_id_idx').on(table.entryId),
   // Index for finding all entries using a media item
-  index('cms_entry_media_media_id_idx').on(table.mediaId),
+  index('cms_entry_media_media_entry_idx').on(table.mediaId, table.entryId),
   // Unique index to prevent the same media from being attached to the same entry multiple times
   uniqueIndex('cms_entry_media_entry_media_unique').on(table.entryId, table.mediaId),
 ]));
@@ -426,8 +423,7 @@ export const cmsTagTable = sqliteTable("cms_tag", {
   // Was global (name)/(slug); now scoped by locale so each language has its own row.
   uniqueIndex('cms_tag_name_locale_unique').on(table.name, table.locale),
   uniqueIndex('cms_tag_slug_locale_unique').on(table.slug, table.locale),
-  // `slug` groups the translation siblings; index it for group lookups.
-  index('cms_tag_slug_idx').on(table.slug),
+  index('cms_tag_locale_created_at_idx').on(table.locale, table.createdAt),
 ]));
 
 // Junction table for many-to-many relationship between entries and tags
@@ -437,8 +433,7 @@ export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
   entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
   tagId: text().notNull().references(() => cmsTagTable.id, { onDelete: 'cascade' }),
 }, (table) => ([
-  index('cms_entry_tag_entry_id_idx').on(table.entryId),
-  index('cms_entry_tag_tag_id_idx').on(table.tagId),
+  index('cms_entry_tag_tag_entry_idx').on(table.tagId, table.entryId),
   uniqueIndex('cms_entry_tag_unique').on(table.entryId, table.tagId),
 ]));
 

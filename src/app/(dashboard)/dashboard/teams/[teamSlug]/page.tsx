@@ -44,8 +44,6 @@ function getMemberRoleLabel({
   switch (member.roleId) {
     case SYSTEM_ROLES_ENUM.OWNER:
       return t("roleOwner");
-    case SYSTEM_ROLES_ENUM.ADMIN:
-      return t("roleAdmin");
     case SYSTEM_ROLES_ENUM.MEMBER:
       return t("roleMember");
     case SYSTEM_ROLES_ENUM.GUEST:

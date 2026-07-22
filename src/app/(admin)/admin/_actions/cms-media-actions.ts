@@ -5,7 +5,7 @@ import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { getDB } from "@/db";
 import { cmsMediaTable, cmsEntryTable, cmsEntryMediaTable } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import type { JSONContent } from "@tiptap/core";
@@ -26,31 +26,47 @@ export const listCmsMediaAction = actionClient
     const { page, limit } = input;
     const offset = (page - 1) * limit;
 
-    const mediaWithUsage = await db
-      .select({
-        id: cmsMediaTable.id,
-        fileName: cmsMediaTable.fileName,
-        mimeType: cmsMediaTable.mimeType,
-        sizeInBytes: cmsMediaTable.sizeInBytes,
-        bucketKey: cmsMediaTable.bucketKey,
-        width: cmsMediaTable.width,
-        height: cmsMediaTable.height,
-        alt: cmsMediaTable.alt,
-        uploadedBy: cmsMediaTable.uploadedBy,
-        createdAt: cmsMediaTable.createdAt,
-        updatedAt: cmsMediaTable.updatedAt,
-        usageCount: sql<number>`count(distinct ${cmsEntryMediaTable.entryId})`.as('usage_count'),
-      })
-      .from(cmsMediaTable)
-      .leftJoin(cmsEntryMediaTable, eq(cmsMediaTable.id, cmsEntryMediaTable.mediaId))
-      .groupBy(cmsMediaTable.id)
-      .orderBy(desc(cmsMediaTable.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const [media, [{ count }]] = await Promise.all([
+      db
+        .select({
+          id: cmsMediaTable.id,
+          fileName: cmsMediaTable.fileName,
+          mimeType: cmsMediaTable.mimeType,
+          sizeInBytes: cmsMediaTable.sizeInBytes,
+          bucketKey: cmsMediaTable.bucketKey,
+          width: cmsMediaTable.width,
+          height: cmsMediaTable.height,
+          alt: cmsMediaTable.alt,
+          uploadedBy: cmsMediaTable.uploadedBy,
+          createdAt: cmsMediaTable.createdAt,
+          updatedAt: cmsMediaTable.updatedAt,
+        })
+        .from(cmsMediaTable)
+        .orderBy(desc(cmsMediaTable.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(cmsMediaTable),
+    ]);
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(cmsMediaTable);
+    const usageRows = media.length === 0
+      ? []
+      : await db
+        .select({
+          mediaId: cmsEntryMediaTable.mediaId,
+          usageCount: sql<number>`count(distinct ${cmsEntryMediaTable.entryId})`,
+        })
+        .from(cmsEntryMediaTable)
+        .where(inArray(cmsEntryMediaTable.mediaId, media.map((item) => item.id)))
+        .groupBy(cmsEntryMediaTable.mediaId);
+    const usageByMediaId = new Map(
+      usageRows.map((row) => [row.mediaId, Number(row.usageCount)]),
+    );
+    const mediaWithUsage = media.map((item) => ({
+      ...item,
+      usageCount: usageByMediaId.get(item.id) ?? 0,
+    }));
 
     return {
       media: mediaWithUsage,

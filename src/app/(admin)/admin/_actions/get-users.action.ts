@@ -32,26 +32,27 @@ export const getUsersAction = actionClient
       ? { email: { like: `%${emailFilter}%` } }
       : undefined
 
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(userTable)
-      .where(whereClause)
-
-    const users = await db.query.userTable.findMany({
-      columns: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        emailVerified: true,
-        createdAt: true,
-      },
-      where: userWhereClause,
-      orderBy: { createdAt: "desc" },
-      limit: pageSize,
-      offset,
-    })
+    const [[{ count }], users] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(userTable)
+        .where(whereClause),
+      db.query.userTable.findMany({
+        columns: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          emailVerified: true,
+          createdAt: true,
+        },
+        where: userWhereClause,
+        orderBy: { createdAt: "desc" },
+        limit: pageSize,
+        offset,
+      }),
+    ])
 
     // Transform the data to match our table's expected format
     const transformedUsers = users.map(user => ({

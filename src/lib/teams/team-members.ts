@@ -1,7 +1,14 @@
 import "server-only";
 import { cache } from "react";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamInvitationTable, teamMembershipTable } from "@/db/schema";
+import {
+  SYSTEM_ROLES_ENUM,
+  SYSTEM_ROLE_PERMISSIONS,
+  TEAM_PERMISSIONS,
+  teamInvitationTable,
+  teamMembershipTable,
+  type SystemRole,
+} from "@/db/schema";
 import { canSignUp, getSessionFromCookie } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { createId } from "@paralleldrive/cuid2";
@@ -14,6 +21,7 @@ import { getTranslations } from "next-intl/server";
 import { getUserLocale } from "@/i18n/locale";
 import { getTeamEntitlements } from "@/utils/entitlements";
 import { fromStoredAddonQuantities } from "@/constants/addons";
+import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
 
 const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
 
@@ -21,28 +29,6 @@ interface ResolvedInvitationRole {
   roleId: string;
   isSystemRole: boolean;
   permissions: string[];
-}
-
-function getSystemRolePermissions(roleId: string): string[] {
-  if (roleId === SYSTEM_ROLES_ENUM.ADMIN) {
-    return Object.values(TEAM_PERMISSIONS);
-  }
-
-  if (roleId === SYSTEM_ROLES_ENUM.MEMBER) {
-    return [
-      TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-      TEAM_PERMISSIONS.CREATE_COMPONENTS,
-      TEAM_PERMISSIONS.EDIT_COMPONENTS,
-    ];
-  }
-
-  if (roleId === SYSTEM_ROLES_ENUM.GUEST) {
-    return [
-      TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-    ];
-  }
-
-  throw new ActionError("BAD_REQUEST", { key: "Client.Dashboard.Teams.errorInvalidRole" });
 }
 
 async function resolveInvitationRole({
@@ -61,10 +47,18 @@ async function resolveInvitationRole({
       throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorOwnerViaInvite" });
     }
 
+    const permissions = Object.hasOwn(SYSTEM_ROLE_PERMISSIONS, roleId)
+      ? SYSTEM_ROLE_PERMISSIONS[roleId as SystemRole]
+      : undefined;
+
+    if (!permissions) {
+      throw new ActionError("BAD_REQUEST", { key: "Client.Dashboard.Teams.errorInvalidRole" });
+    }
+
     return {
       roleId,
       isSystemRole: true,
-      permissions: getSystemRolePermissions(roleId),
+      permissions: [...permissions],
     };
   }
 
@@ -82,7 +76,7 @@ async function resolveInvitationRole({
   return {
     roleId: role.id,
     isSystemRole: false,
-    permissions: role.permissions,
+    permissions: filterActiveTeamPermissions(role.permissions),
   };
 }
 
@@ -120,29 +114,30 @@ export const getTeamMembers = cache(async (teamId: string) => {
 
   const db = getDB();
 
-  const members = await db.query.teamMembershipTable.findMany({
-    where: { teamId: teamId },
-    with: {
-      user: {
-        columns: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          avatar: true,
+  const [members, teamRoles] = await Promise.all([
+    db.query.teamMembershipTable.findMany({
+      where: { teamId: teamId },
+      with: {
+        user: {
+          columns: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatar: true,
+          }
         }
-      }
-    },
-  });
-
-  const teamRoles = await db.query.teamRoleTable.findMany({
-    where: { teamId: teamId },
-  });
+      },
+    }),
+    db.query.teamRoleTable.findMany({
+      where: { teamId: teamId },
+    }),
+  ]);
 
   // Map roles by ID for easy lookup
   const roleMap = new Map(teamRoles.map(role => [role.id, role.name]));
 
-  return Promise.all(members.map(async member => {
+  return members.map(member => {
     // Custom roles carry their user-defined name; system roles return null and
     // get a localized label at the render site from `roleId` + `isSystemRole`.
     const roleName = member.isSystemRole ? null : (roleMap.get(member.roleId) ?? null);
@@ -163,7 +158,7 @@ export const getTeamMembers = cache(async (teamId: string) => {
         avatar: member.user.avatar,
       }
     };
-  }));
+  });
 });
 
 export async function removeTeamMember({

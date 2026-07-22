@@ -2,9 +2,10 @@ import "server-only";
 
 import { getDB } from "@/db";
 import {
-  SYSTEM_ROLES_ENUM,
-  TEAM_PERMISSIONS,
+  SYSTEM_ROLE_PERMISSIONS,
+  type SystemRole,
 } from "@/db/schema";
+import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
 
 export async function getUserFromDB(userId: string) {
   const db = getDB();
@@ -35,54 +36,52 @@ export async function getUserTeamsWithPermissions(userId: string) {
     },
   });
 
-  return Promise.all(
-    userTeamMemberships.map(async (membership) => {
-      let roleName = "";
-      let permissions: string[] = [];
+  const customRoleIds = Array.from(new Set(
+    userTeamMemberships
+      .filter((membership) => !membership.isSystemRole)
+      .map((membership) => membership.roleId),
+  ));
+  const customRoles = customRoleIds.length === 0
+    ? []
+    : await db.query.teamRoleTable.findMany({
+        where: { id: { in: customRoleIds } },
+      });
+  const customRoleById = new Map(customRoles.map((role) => [role.id, role]));
 
-      // System role IDs carry the role name, and permissions come from the fixed role contract.
-      if (membership.isSystemRole) {
-        roleName = membership.roleId;
+  return userTeamMemberships.map((membership) => {
+    let roleName = "";
+    let permissions: string[] = [];
 
-        if (membership.roleId === SYSTEM_ROLES_ENUM.OWNER || membership.roleId === SYSTEM_ROLES_ENUM.ADMIN) {
-          permissions = Object.values(TEAM_PERMISSIONS);
-        } else if (membership.roleId === SYSTEM_ROLES_ENUM.MEMBER) {
-          permissions = [
-            TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-            TEAM_PERMISSIONS.CREATE_COMPONENTS,
-            TEAM_PERMISSIONS.EDIT_COMPONENTS,
-          ];
-        } else if (membership.roleId === SYSTEM_ROLES_ENUM.GUEST) {
-          permissions = [
-            TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-          ];
-        }
-      } else {
-        const role = await db.query.teamRoleTable.findFirst({
-          where: { id: membership.roleId },
-        });
+    // System role IDs carry the role name, and permissions come from the fixed role contract.
+    if (membership.isSystemRole) {
+      roleName = membership.roleId;
+      const systemRolePermissions = Object.hasOwn(SYSTEM_ROLE_PERMISSIONS, membership.roleId)
+        ? SYSTEM_ROLE_PERMISSIONS[membership.roleId as SystemRole]
+        : [];
+      permissions = [...systemRolePermissions];
+    } else {
+      const role = customRoleById.get(membership.roleId);
 
-        if (role) {
-          roleName = role.name;
-          // Custom role permissions are stored as JSON in D1.
-          permissions = role.permissions as string[];
-        }
+      if (role) {
+        roleName = role.name;
+        // Custom role permissions are stored as JSON in D1.
+        permissions = filterActiveTeamPermissions(role.permissions as string[]);
       }
+    }
 
-      return {
-        id: membership.teamId,
-        name: membership.team.name,
-        slug: membership.team.slug,
-        role: {
-          id: membership.roleId,
-          name: roleName,
-          isSystemRole: !!membership.isSystemRole,
-        },
-        permissions,
-        // Carried in the session so entitlements/gating can read the team plan without a DB hit.
-        planId: membership.team.subscriptionPlanId ?? null,
-        subscriptionStatus: membership.team.subscriptionStatus ?? null,
-      };
-    })
-  );
+    return {
+      id: membership.teamId,
+      name: membership.team.name,
+      slug: membership.team.slug,
+      role: {
+        id: membership.roleId,
+        name: roleName,
+        isSystemRole: !!membership.isSystemRole,
+      },
+      permissions,
+      // Carried in the session so entitlements/gating can read the team plan without a DB hit.
+      planId: membership.team.subscriptionPlanId ?? null,
+      subscriptionStatus: membership.team.subscriptionStatus ?? null,
+    };
+  });
 }
