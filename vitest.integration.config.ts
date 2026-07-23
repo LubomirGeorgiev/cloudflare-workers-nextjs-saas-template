@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
+import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime";
 
 function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
   const migrationsDirectory = fileURLToPath(new URL(`${migrationsPath}/`, import.meta.url));
@@ -24,6 +25,7 @@ function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
 export default defineConfig({
   logLevel: "error",
   plugins: [
+    rejectNextRuntimeInternals(),
     cloudflareTest(async () => ({
       miniflare: {
         compatibilityDate: "2026-04-21",
@@ -56,8 +58,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "@opentelemetry/api": fileURLToPath(new URL("./node_modules/next/dist/compiled/@opentelemetry/api/index.js", import.meta.url)),
       "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)),
+      ...vinextTestAliases,
     },
   },
   test: {
