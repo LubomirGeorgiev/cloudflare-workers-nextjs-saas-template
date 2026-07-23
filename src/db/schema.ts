@@ -112,6 +112,7 @@ export const SYSTEM_ROLES_ENUM = {
   GUEST: 'guest',
 } as const;
 
+// oxlint-disable-next-line project/no-unused-module-exports -- Exported for schema/tooling consumers.
 export const systemRoleTuple = Object.values(SYSTEM_ROLES_ENUM) as [string, ...string[]];
 
 // Define available permissions
@@ -216,6 +217,7 @@ export const teamMembershipTable = sqliteTable("team_membership", {
 ]));
 
 // Team role table
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle Kit discovers exported tables.
 export const teamRoleTable = sqliteTable("team_role", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => `trole_${createRandomId()}`).notNull(),

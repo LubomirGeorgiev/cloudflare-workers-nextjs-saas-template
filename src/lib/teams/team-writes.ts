@@ -3,13 +3,11 @@ import "server-only";
 import type { getDB } from "@/db";
 import { SYSTEM_ROLES_ENUM } from "@/db/schema";
 
-// Centralized raw-SQL write layer for the team subsystem. The pinned drizzle-orm beta cannot
-// run db.run(sql) items inside db.batch() on D1 (it type-checks but crashes at runtime), so the
-// race-safe insert paths (team creation, invitation, invitation acceptance) go through native
-// d1.prepare statements. Keeping every one of those column lists + bind orders in ONE place is
-// the point of this module: the drizzle schema shape (including commonColumns) is otherwise
-// re-encoded by hand at each call site, where a positional mismatch or a forgotten column is a
-// silent runtime failure rather than a type error.
+// Centralized raw-SQL write layer for race-safe conditional inserts and same-batch state changes.
+// These paths use native D1 prepared statements so SQL, bind ordering, and D1 result metadata stay
+// explicit in one place. The drizzle schema shape (including commonColumns) is otherwise re-encoded
+// by hand at each call site, where a positional mismatch or forgotten column is a silent runtime
+// failure rather than a type error.
 
 type D1Client = ReturnType<typeof getDB>["$client"];
 type D1PreparedStatement = ReturnType<D1Client["prepare"]>;

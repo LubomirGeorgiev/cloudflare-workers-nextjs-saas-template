@@ -10,7 +10,6 @@ import {
   GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME,
 } from "@/constants";
 import ms from "ms";
-import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 import { isGoogleSSOEnabled } from "@/flags";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { getLocale } from "next-intl/server";
@@ -43,13 +42,13 @@ export async function GET() {
       ssoRedirectUrl = google.createAuthorizationURL(state, codeVerifier, ["openid", "profile", "email"]);
 
       const secure = await shouldUseSecureCookies();
-      const cookieOptions: Partial<ResponseCookie> = {
+      const cookieOptions = {
         path: "/",
         httpOnly: true,
         secure,
         maxAge: Math.floor(ms("10 minutes") / 1000),
         sameSite: "lax"
-      };
+      } as const;
       const cookieStore = await cookies()
       cookieStore.set(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, cookieOptions)
       cookieStore.set(GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME, codeVerifier, cookieOptions)
