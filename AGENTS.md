@@ -58,6 +58,12 @@ Do not reintroduce legacy `next dev`, `next build`, or OpenNext commands unless 
 - Avoid enums; use maps or const objects instead.
 - Do not edit the generated `worker-configuration.d.ts` by hand; update `wrangler.jsonc` and run `pnpm run cf-typegen`.
 
+### Constants
+
+- Keep module-level configuration constants (batch sizes, TTLs, limits, prefixes, allowlists, and similar tunables) at the top of the file, after imports and any types they depend on.
+- Do not bury `SCREAMING_SNAKE_CASE` configs in the middle of a file next to the only function that uses them.
+- Global or cross-cutting configs belong in `src/constants.ts` (or `src/constants/` / `src/app/enums.ts` when that is the existing home). Keep a constant file-local only when it is truly private to that module.
+
 ### Imports and Packages
 
 - Add `import "server-only"` to server-only modules, except `page.tsx`.

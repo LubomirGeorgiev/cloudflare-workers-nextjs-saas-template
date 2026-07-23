@@ -4,8 +4,7 @@ import "server-only";
 import { teamInviteSchema } from "@/schemas/team-invite.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { acceptTeamInvitation } from "@/lib/teams/team-members";
-import { getSessionFromCookie } from "@/utils/auth";
+import { acceptTeamInvitationByToken } from "@/lib/teams/team-invitation-accept";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 
 export const acceptTeamInviteAction = actionClient
@@ -13,16 +12,10 @@ export const acceptTeamInviteAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const session = await getSessionFromCookie();
-
-        if (!session) {
-          throw new ActionError("NOT_AUTHORIZED", {
-            key: "Client.Auth.TeamInvite.errorMustBeLoggedIn",
-          });
-        }
-
+        // Every accept path requires a verified email; the core (acceptTeamInvitationByToken)
+        // re-checks and throws without one, so no separate guard is needed here.
         try {
-          const result = await acceptTeamInvitation(input.token);
+          const result = await acceptTeamInvitationByToken(input.token);
           return result;
         } catch (error) {
           console.error("Error accepting team invitation:", error);
@@ -36,6 +29,8 @@ export const acceptTeamInviteAction = actionClient
           });
         }
       },
-      RATE_LIMITS.EMAIL
+      // Acceptance sends no email; SETTINGS is the correct mutation bucket (EMAIL is for
+      // email-dispatch paths).
+      RATE_LIMITS.SETTINGS
     );
   });

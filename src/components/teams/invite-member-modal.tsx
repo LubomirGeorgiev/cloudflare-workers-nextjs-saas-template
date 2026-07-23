@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { requiredString, v, validationKey } from "@/lib/validation";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 
 // Define the form schema with validation
 const formSchema = v.object({
@@ -36,6 +37,7 @@ interface InviteMemberModalProps {
 export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMemberModalProps) {
   const t = useTranslations("Client.Dashboard.Teams");
   const tCommon = useTranslations("Client.Common");
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   // Initialize react-hook-form
@@ -59,6 +61,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
       toast.dismiss();
       toast.success(t("toastInviteSuccess"));
       form.reset();
+      router.refresh();
 
       if (onInviteSuccess) {
         onInviteSuccess();

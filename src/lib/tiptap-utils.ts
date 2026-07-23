@@ -46,6 +46,18 @@ export const SR_ONLY = {
   borderWidth: 0,
 } as const
 
+type ProtocolOptions = {
+  scheme: string
+
+  optionalSlashes?: boolean
+}
+
+type ProtocolConfig = Array<ProtocolOptions | string>
+
+const ATTR_WHITESPACE =
+  // oxlint-disable-next-line no-control-regex
+  /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
+
 export function cn(
   ...classes: (string | boolean | undefined | null)[]
 ): string {
@@ -331,18 +343,6 @@ export const handleImageUpload = async (
     throw error
   }
 }
-
-type ProtocolOptions = {
-  scheme: string
-
-  optionalSlashes?: boolean
-}
-
-type ProtocolConfig = Array<ProtocolOptions | string>
-
-const ATTR_WHITESPACE =
-  // oxlint-disable-next-line no-control-regex
-  /[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isAllowedUri(

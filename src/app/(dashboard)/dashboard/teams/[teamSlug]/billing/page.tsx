@@ -1,13 +1,11 @@
 import type { Route } from "next";
-import { notFound, redirect } from "next/navigation";
 
-import { getSessionFromCookie } from "@/utils/auth";
-import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
+import { hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getTeamSubscription, isTrialEligible } from "@/utils/team-subscription";
-import { getTeamBySlug } from "@/lib/teams/teams";
+import { requireTeamAccess } from "../team-page-guard";
 import { isBillingEnabled } from "@/flags";
 import { getTranslations } from "next-intl/server";
 import type { TeamPlanId } from "@/constants/plans";
@@ -21,11 +19,12 @@ interface BillingPageProps {
 
 export async function generateMetadata({ params }: BillingPageProps) {
   const { teamSlug } = await params;
-  const team = await getTeamBySlug(teamSlug);
   const t = await getTranslations("Client.Dashboard.Billing");
 
+  const { team } = await requireTeamAccess(teamSlug);
+
   return {
-    title: team ? `${team.name} — ${t("title")}` : t("title"),
+    title: `${team.name} — ${t("title")}`,
   };
 }
 
@@ -33,20 +32,7 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
   const { teamSlug } = await params;
   const t = await getTranslations("Client.Dashboard.Billing");
 
-  const session = await getSessionFromCookie();
-  if (!session) {
-    redirect(("/sign-in?redirect=" + encodeURIComponent(`/dashboard/teams/${teamSlug}/billing`)) as Route);
-  }
-
-  const team = await getTeamBySlug(teamSlug);
-  if (!team) {
-    notFound();
-  }
-
-  const { hasAccess } = await hasTeamMembership(team.id);
-  if (!hasAccess) {
-    notFound();
-  }
+  const { team, session } = await requireTeamAccess(teamSlug);
 
   const canManage = await hasTeamPermission(team.id, TEAM_PERMISSIONS.ACCESS_BILLING);
   const subscription = await getTeamSubscription(team.id);

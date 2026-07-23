@@ -7,7 +7,13 @@ import { getDB } from "@/db";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { getIP } from "./get-IP";
 import { MAX_SESSIONS_PER_USER } from "@/constants";
+
 const SESSION_PREFIX = "session:";
+// Refreshing a member runs several D1 reads and D1 allows only ~6 concurrent
+// queries per invocation, so large teams are processed in small batches.
+const TEAM_SESSION_REFRESH_BATCH_SIZE = 5;
+// Bump when KVSession changes so stored KV sessions are refreshed.
+export const CURRENT_SESSION_VERSION = 6;
 
 function getSessionKey(userId: string, sessionId: string): string {
   return `${SESSION_PREFIX}${userId}:${sessionId}`;
@@ -47,9 +53,6 @@ export interface KVSession {
   // Increment CURRENT_SESSION_VERSION when changing persisted session shape.
   version?: number;
 }
-
-// Bump when KVSession changes so stored KV sessions are refreshed.
-export const CURRENT_SESSION_VERSION = 6;
 
 async function getKV() {
   const { env } = await getCloudflareContext();
@@ -291,10 +294,6 @@ export async function updateAllSessionsOfUser(userId: string) {
     }
   }));
 }
-
-// Refreshing a member runs several D1 reads and D1 allows only ~6 concurrent
-// queries per invocation, so large teams are processed in small batches.
-const TEAM_SESSION_REFRESH_BATCH_SIZE = 5;
 
 // Re-fetch every member of a team (no request context needed) and refresh their KV
 // sessions so cached team plan/permissions reflect the new subscription state.

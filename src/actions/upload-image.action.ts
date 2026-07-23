@@ -4,7 +4,6 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
-import { createId } from "@paralleldrive/cuid2";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { fileTypeFromBuffer } from "file-type";
 import imageSize from "image-size";
@@ -13,6 +12,7 @@ import { getCmsImageR2Key, getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
 import { requiredString, v } from "@/lib/validation";
+import { createRandomId } from "@/utils/random-token";
 
 function sanitizeFilename(filename: string): string {
   // Remove any path separators and keep only alphanumeric, dash, underscore, and dot
@@ -30,7 +30,7 @@ function generateUniqueFilename({
   originalFilename: string;
   extension: string;
 }): string {
-  const uniqueId = createId();
+  const uniqueId = createRandomId();
   const sanitizedName = sanitizeFilename(originalFilename);
   const nameWithoutExt = sanitizedName.replace(/\.[^/.]+$/, "");
 

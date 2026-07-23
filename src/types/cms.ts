@@ -6,12 +6,6 @@ export type CmsEntryStatus = typeof CMS_ENTRY_STATUS[keyof typeof CMS_ENTRY_STAT
 // Tuple of all CMS entry status values for use in schemas
 export const cmsEntryStatusTuple = Object.values(CMS_ENTRY_STATUS) as [CmsEntryStatus, ...CmsEntryStatus[]];
 
-// `cms_entry.status` is a plain string column; guard raw DB values with this
-// rather than casting, so an unexpected status is caught instead of trusted.
-export function isCmsEntryStatus(value: string): value is CmsEntryStatus {
-  return (cmsEntryStatusTuple as readonly string[]).includes(value);
-}
-
 export const CMS_STATUS_FILTER_ALL = "all" as const;
 
 export type CmsStatusFilter = CmsEntryStatus | typeof CMS_STATUS_FILTER_ALL;
@@ -32,3 +26,9 @@ export type TranslatableEntryField = (typeof TRANSLATABLE_ENTRY_FIELDS)[number];
 // hashes, captured when a translation was created or last refreshed. Stored on the
 // translation row so the editor can detect when the source has since drifted.
 export type SourceContentHashes = Record<TranslatableEntryField, string>;
+
+// `cms_entry.status` is a plain string column; guard raw DB values with this
+// rather than casting, so an unexpected status is caught instead of trusted.
+export function isCmsEntryStatus(value: string): value is CmsEntryStatus {
+  return (cmsEntryStatusTuple as readonly string[]).includes(value);
+}

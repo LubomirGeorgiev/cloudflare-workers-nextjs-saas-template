@@ -1,6 +1,5 @@
 import "server-only";
 
-import { encodeHexLowerCase } from "@oslojs/encoding"
 import ms from "ms"
 import { cookies } from "next/headers";
 import isProd from "@/utils/is-prod";
@@ -23,8 +22,10 @@ import { ActionError } from "@/lib/action-error";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
-import { createBase64UrlToken } from "@/utils/random-token";
+import { createBase64UrlToken, hashToken } from "@/utils/random-token";
 import { shouldUseSecureCookies } from "./cookie-security";
+
+const SESSION_TOKEN_BYTES = 48;
 
 const getSessionLength = () => {
   return ms("30d");
@@ -34,15 +35,14 @@ const getSessionLength = () => {
  * This file is based on https://lucia-auth.com
  */
 
-const SESSION_TOKEN_BYTES = 48;
-
 export function generateSessionToken(): string {
   return createBase64UrlToken(SESSION_TOKEN_BYTES);
 }
 
+// Session id = SHA-256 hex of the raw token. Delegates to the canonical hashToken helper
+// (same lowercase-hex derivation as before) so a KV read never exposes a usable session token.
 async function generateSessionId(token: string): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-  return encodeHexLowerCase(new Uint8Array(hashBuffer));
+  return hashToken(token);
 }
 
 function encodeSessionCookie(userId: string, token: string): string {
@@ -220,9 +220,14 @@ const getRequiredVerifiedEmail = cache(async (doNotThrowError = false) => {
   return session;
 });
 
+// Overloads make the nullability visible at the type level: the default (throwing) form always
+// resolves to a session, so callers don't need a dead `if (!session)` guard, while the explicit
+// `doNotThrowError: true` opt-out is the only form that can resolve to null.
+export function requireVerifiedEmail(options: { doNotThrowError: true }): Promise<KVSession | null>;
+export function requireVerifiedEmail(options?: { doNotThrowError?: false }): Promise<KVSession>;
 export function requireVerifiedEmail({
   doNotThrowError = false,
-}: RequireSessionOptions = {}) {
+}: RequireSessionOptions = {}): Promise<KVSession | null> {
   return getRequiredVerifiedEmail(doNotThrowError);
 }
 

@@ -1,11 +1,24 @@
 import "server-only";
 
 import { getDB } from "@/db";
+import { ActionError } from "@/lib/action-error";
+import { normalizeEmail } from "@/lib/validation";
 import {
-  SYSTEM_ROLE_PERMISSIONS,
-  type SystemRole,
-} from "@/db/schema";
-import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
+  isMembershipCurrentlyActive,
+  resolveMembershipPermissions,
+} from "@/utils/team-membership";
+import type { KVSession } from "@/utils/kv-session";
+
+// Returns the session user's normalized (trimmed/lowercased) email, or throws the localized
+// "no account email" error. Centralizes the guard the invitation flows repeat so the missing-email
+// policy fails closed here — never falling open to an empty predicate that would match every row.
+export function requireNormalizedSessionEmail(session: KVSession): string {
+  const email = session.user.email ? normalizeEmail(session.user.email) : null;
+  if (!email) {
+    throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorNoAccountEmail" });
+  }
+  return email;
+}
 
 export async function getUserFromDB(userId: string) {
   const db = getDB();
@@ -36,8 +49,18 @@ export async function getUserTeamsWithPermissions(userId: string) {
     },
   });
 
+  // KV team data is a non-authoritative UI hint, but it must still exclude revoked
+  // (inactive) or expired memberships so hydration never resurrects access that D1
+  // no longer grants. Real authorization decisions go through team-auth.ts / D1.
+  const activeMemberships = userTeamMemberships.filter((membership) =>
+    isMembershipCurrentlyActive({
+      isActive: membership.isActive,
+      expiresAt: membership.expiresAt,
+    }),
+  );
+
   const customRoleIds = Array.from(new Set(
-    userTeamMemberships
+    activeMemberships
       .filter((membership) => !membership.isSystemRole)
       .map((membership) => membership.roleId),
   ));
@@ -48,26 +71,19 @@ export async function getUserTeamsWithPermissions(userId: string) {
       });
   const customRoleById = new Map(customRoles.map((role) => [role.id, role]));
 
-  return userTeamMemberships.map((membership) => {
-    let roleName = "";
-    let permissions: string[] = [];
+  return activeMemberships.map((membership) => {
+    const customRole = membership.isSystemRole
+      ? null
+      : customRoleById.get(membership.roleId) ?? null;
 
-    // System role IDs carry the role name, and permissions come from the fixed role contract.
-    if (membership.isSystemRole) {
-      roleName = membership.roleId;
-      const systemRolePermissions = Object.hasOwn(SYSTEM_ROLE_PERMISSIONS, membership.roleId)
-        ? SYSTEM_ROLE_PERMISSIONS[membership.roleId as SystemRole]
-        : [];
-      permissions = [...systemRolePermissions];
-    } else {
-      const role = customRoleById.get(membership.roleId);
-
-      if (role) {
-        roleName = role.name;
-        // Custom role permissions are stored as JSON in D1.
-        permissions = filterActiveTeamPermissions(role.permissions as string[]);
-      }
-    }
+    // resolveMembershipPermissions enforces that a custom role belongs to this
+    // membership's team; otherwise it resolves to no permissions.
+    const { roleName, permissions } = resolveMembershipPermissions({
+      isSystemRole: !!membership.isSystemRole,
+      roleId: membership.roleId,
+      teamId: membership.teamId,
+      customRole,
+    });
 
     return {
       id: membership.teamId,

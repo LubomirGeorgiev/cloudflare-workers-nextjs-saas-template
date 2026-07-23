@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
+import type { InferSafeActionFnResult } from "next-safe-action";
 import { createTeamAction } from "@/actions/team-actions";
 import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
 import { useTranslations } from "next-intl";
@@ -31,15 +32,11 @@ const formSchema = v.object({
 
 type FormValues = v.InferOutput<typeof formSchema>;
 
-interface CreateTeamPayload {
-  slug?: string;
-  data?: {
-    slug?: string;
-  };
-}
+// Derive the DTO from the action itself so the shape stays in sync automatically.
+type CreateTeamResult = InferSafeActionFnResult<typeof createTeamAction>["data"];
 
-function getCreatedTeamSlug(payload: CreateTeamPayload | undefined): string | undefined {
-  return payload?.data?.slug ?? payload?.slug;
+function getCreatedTeamSlug(payload: CreateTeamResult): string | undefined {
+  return payload?.data?.slug;
 }
 
 export function CreateTeamForm() {

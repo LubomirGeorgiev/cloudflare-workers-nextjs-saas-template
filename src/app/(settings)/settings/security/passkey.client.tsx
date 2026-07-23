@@ -28,33 +28,39 @@ interface PasskeyRegistrationButtonProps {
 }
 
 function PasskeyRegistrationButton({ email, className, onSuccess }: PasskeyRegistrationButtonProps) {
-  const [isRegistering, setIsRegistering] = useState(false);
   const router = useRouter();
   const t = useTranslations("Client.Settings.Security");
 
+  const { executeAsync: generateOptions } = useAction(generateRegistrationOptionsAction);
+  const { executeAsync: verifyRegistration } = useAction(verifyRegistrationAction);
+
+  // One local busy flag spanning the whole flow (both server actions plus the WebAuthn browser
+  // ceremony between them). Set at handler entry and cleared in finally, so there's no not-busy
+  // frame between steps for a double-click to slip through.
+  const [isRegistering, setIsRegistering] = useState(false);
+
   const handleRegister = async () => {
+    setIsRegistering(true);
     try {
-      setIsRegistering(true);
+      const optionsResult = await generateOptions({ email });
 
-      const { data: options, serverError: optionsError } = await generateRegistrationOptionsAction({ email });
-
-      if (optionsError || !options) {
-        throw new Error(optionsError?.message || t("toastOptionsError"));
+      if (optionsResult?.serverError || !optionsResult?.data) {
+        throw new Error(optionsResult?.serverError?.message || t("toastOptionsError"));
       }
 
       // Start the registration process in the browser
       const registrationResponse = await startRegistration({
-        optionsJSON: options,
+        optionsJSON: optionsResult.data,
       });
 
       // Send the response back to the server for verification
-      const { serverError: verificationError } = await verifyRegistrationAction({
+      const verificationResult = await verifyRegistration({
         email,
         response: registrationResponse,
       });
 
-      if (verificationError) {
-        throw new Error(verificationError.message);
+      if (verificationResult?.serverError) {
+        throw new Error(verificationResult.serverError.message);
       }
 
       toast.success(t("toastRegisterSuccess"));

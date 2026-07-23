@@ -15,6 +15,8 @@ import {
 
 import "@/components/tiptap-templates/simple/cms-content-styles.scss"
 
+const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
+
 // Lowlight returns hast nodes; this is the subset needed for React conversion.
 interface LowlightASTNode {
   type: "text" | "element";
@@ -175,8 +177,6 @@ interface CmsContentRendererProps {
   className?: string;
   onRendered?: () => void;
 }
-
-const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
 
 export function CmsContentRenderer({ content, className, onRendered }: CmsContentRendererProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);

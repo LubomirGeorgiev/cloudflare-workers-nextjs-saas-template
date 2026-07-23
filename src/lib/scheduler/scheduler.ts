@@ -1,4 +1,3 @@
-import { createId } from "@paralleldrive/cuid2";
 import { and, eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
@@ -9,6 +8,7 @@ import {
   type ScheduledJobType,
   type SchedulerQueue,
 } from "@/lib/scheduler/jobs";
+import { createRandomId } from "@/utils/random-token";
 
 const QUEUE_DELAY_LIMIT_SECONDS = 60 * 60 * 24;
 const SCHEDULER_DISPATCH_LIMIT = 200;
@@ -53,7 +53,7 @@ export async function deleteScheduledJobs({
 export async function scheduleJob<T extends ScheduledJobType>({
   queue,
   type,
-  dedupeKey = createId(),
+  dedupeKey = createRandomId(),
   payload,
   runAt,
 }: ScheduleJobParams<T>): Promise<"queued" | "persisted"> {

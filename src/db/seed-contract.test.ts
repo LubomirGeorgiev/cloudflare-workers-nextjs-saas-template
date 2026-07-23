@@ -17,7 +17,7 @@ describe("seeded user contract", () => {
 
     expect(seedSql).toContain(`'${documentedSeededAdminEmail}'`);
     expect(seedSql).toContain(`'${seededMemberEmail}'`);
-    expect(authHelpers).toContain(`email: "${seededMemberEmail}"`);
+    expect(authHelpers).toContain(`SEEDED_MEMBER_EMAIL = "${seededMemberEmail}"`);
     expect(readme).toContain(`${documentedSeededAdminEmail} / password`);
   });
 });

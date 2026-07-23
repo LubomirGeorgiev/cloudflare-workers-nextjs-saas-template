@@ -52,6 +52,9 @@ import {
 } from "../billing.actions";
 import { StripePaymentForm } from "./stripe-payment-form";
 
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 10;
+
 interface PlanCardsProps {
   teamId: string;
   currentPlanId: TeamPlanId;
@@ -78,9 +81,6 @@ interface PaymentDialogState {
   // an invoice payment; success must then complete the trial server-side.
   isTrialSetup?: boolean;
 }
-
-const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_ATTEMPTS = 10;
 
 export function PlanCards({
   teamId,
@@ -144,6 +144,7 @@ export function PlanCards({
   const { executeAsync: startTrialSetupAsync, isExecuting: isStartingTrial } = useAction(startTrialSetupAction);
   const { executeAsync: completeTrialAsync, isExecuting: isCompletingTrial } = useAction(completeTrialAction);
   const { executeAsync: resumeAsync, isExecuting: isResuming } = useAction(resumePaymentAction);
+  const { executeAsync: getSubscriptionAsync } = useAction(getTeamSubscriptionAction);
 
   const busy = isChanging || isCanceling || isSubscribing || isStartingTrial || isCompletingTrial || isResuming || isActivating;
 
@@ -172,7 +173,7 @@ export function PlanCards({
     activationPollAttemptRef.current += 1;
 
     try {
-      const result = await getTeamSubscriptionAction({ teamId });
+      const result = await getSubscriptionAsync({ teamId });
       const currentStatus = result?.data?.status;
       if (currentStatus === "active" || currentStatus === "trialing") {
         finishActivationPolling(true);

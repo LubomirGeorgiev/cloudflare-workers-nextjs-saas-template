@@ -7,6 +7,8 @@ import {
 } from "./app-frame";
 import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
 
+export const SEEDED_MEMBER_EMAIL = "sarah.chen@example.com";
+
 interface CreateVerifiedUserInLocalD1Params {
   email: string;
   firstName?: string;
@@ -98,7 +100,7 @@ export function signInSeededMember(
   expectedPathname = redirectPath
 ): Promise<void> {
   return signInWithPassword({
-    email: "sarah.chen@example.com",
+    email: SEEDED_MEMBER_EMAIL,
     password: "password",
     redirectPath,
     expectedPathname,

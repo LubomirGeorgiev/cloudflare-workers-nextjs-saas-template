@@ -6,8 +6,9 @@ import { cache } from "react";
 import { and, eq, isNull, or } from "drizzle-orm";
 
 import { getStripe } from "@/lib/stripe";
+import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
-import { teamTable, userTable } from "@/db/schema";
+import { teamTable, teamTrialReservationTable, userTable } from "@/db/schema";
 import { createScheduledQueueMessage, SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
@@ -80,7 +81,8 @@ export async function claimTeamSubscription({
 
 // Releases the slot when Stripe no longer knows the recorded subscription (e.g. deleted
 // in the dashboard). Conditional so a concurrently claimed replacement is never cleared.
-export async function releaseTeamSubscription({
+// File-local: the only caller is settleRecordedSubscription below.
+async function releaseTeamSubscription({
   teamId,
   subscriptionId,
 }: TeamSubscriptionSlotParams): Promise<void> {
@@ -93,6 +95,47 @@ export async function releaseTeamSubscription({
       eq(teamTable.id, teamId),
       eq(teamTable.stripeSubscriptionId, subscriptionId),
     ));
+}
+
+// Settles whatever subscription the team currently records so a new checkout can claim
+// the slot: blocks while one is genuinely active, cancels cancelable ones, and releases
+// ids Stripe has confirmed no longer exist. Shared by the subscribe/trial actions and the
+// trial-recovery service.
+export async function settleRecordedSubscription({
+  teamId,
+  recordedSubscriptionId,
+}: {
+  teamId: string;
+  recordedSubscriptionId: string;
+}): Promise<void> {
+  const stripe = getStripe();
+
+  const existing = await stripe.subscriptions
+    .retrieve(recordedSubscriptionId)
+    .catch((error: unknown) => {
+      // Only a Stripe-confirmed missing subscription may release the slot; any other
+      // failure (network, auth) must not risk creating a duplicate subscription.
+      if ((error as { code?: string })?.code === "resource_missing") return null;
+      throw error;
+    });
+
+  if (!existing) {
+    await releaseTeamSubscription({ teamId, subscriptionId: recordedSubscriptionId });
+    return;
+  }
+
+  const policy = getStripeSubscriptionTransitionPolicy(existing.status);
+
+  if (!policy || policy.subscribe === "block") {
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
+  }
+
+  // Do not create a replacement unless Stripe confirms the old subscription is
+  // canceled. Reconciling the terminal snapshot releases the team's slot.
+  const settled = policy.subscribe === "cancel"
+    ? await stripe.subscriptions.cancel(existing.id)
+    : existing;
+  await reconcileTeamFromSubscription({ subscription: settled });
 }
 
 // Idempotent: reuses the team's existing Stripe customer, otherwise creates one and
@@ -141,6 +184,12 @@ export async function ensureStripeCustomer({
 // One free trial per team AND per user: the team stamp stops re-trialing the same team,
 // the user stamp stops farming trials by creating fresh teams. Stripe dashboard-granted
 // trials bypass this on purpose (support can always comp a customer).
+//
+// Also consults `team_trial_reservation` so the UI pre-check and the atomic gate
+// (acquireTrialAttempt) share one truth: an in-flight reservation for either the user
+// or the team means the trial is already spent, even before the `trialUsedAt` stamps land.
+// The reservation table is intentionally NOT in the relational schema, so it is queried
+// with the core builder; a single indexed `.limit(1)` keeps this cheap for RSC render.
 export async function isTrialEligible({
   teamId,
   userId,
@@ -149,12 +198,20 @@ export async function isTrialEligible({
   userId: string;
 }): Promise<boolean> {
   const db = getDB();
-  const [team, user] = await Promise.all([
+  const [team, user, reservations] = await Promise.all([
     db.query.teamTable.findFirst({ where: { id: teamId } }),
     db.query.userTable.findFirst({ where: { id: userId } }),
+    db
+      .select({ id: teamTrialReservationTable.id })
+      .from(teamTrialReservationTable)
+      .where(or(
+        eq(teamTrialReservationTable.userId, userId),
+        eq(teamTrialReservationTable.teamId, teamId),
+      ))
+      .limit(1),
   ]);
 
-  return Boolean(team) && !team?.trialUsedAt && !user?.trialUsedAt;
+  return Boolean(team) && !team?.trialUsedAt && !user?.trialUsedAt && reservations.length === 0;
 }
 
 // Stamps the acting user when they start a trial. Conditional so the first trial's
@@ -191,18 +248,30 @@ export async function reconcileTeamFromSubscription({
 }: ReconcileParams): Promise<string | null> {
   const db = getDB();
 
+  const subscriptionCustomerId = getCustomerId(subscription.customer);
   const metadataTeamId = subscription.metadata?.teamId;
   let team = metadataTeamId
     ? await db.query.teamTable.findFirst({ where: { id: metadataTeamId } })
     : undefined;
 
-  if (!team) {
-    const customerId = getCustomerId(subscription.customer);
-    if (customerId) {
-      team = await db.query.teamTable.findFirst({
-        where: { stripeCustomerId: customerId },
-      });
-    }
+  // Trust the customer of record over metadata: if the metadata-resolved team is bound
+  // to a DIFFERENT Stripe customer, the teamId metadata is stale or forged — never write
+  // this subscription onto it. Fall through to resolving by the subscription's actual
+  // customer instead.
+  if (team && team.stripeCustomerId && subscriptionCustomerId && team.stripeCustomerId !== subscriptionCustomerId) {
+    console.warn("reconcileTeamFromSubscription: subscription customer does not match metadata team", {
+      subscriptionId: subscription.id,
+      metadataTeamId,
+      teamCustomerId: team.stripeCustomerId,
+      subscriptionCustomerId,
+    });
+    team = undefined;
+  }
+
+  if (!team && subscriptionCustomerId) {
+    team = await db.query.teamTable.findFirst({
+      where: { stripeCustomerId: subscriptionCustomerId },
+    });
   }
 
   if (!team) {

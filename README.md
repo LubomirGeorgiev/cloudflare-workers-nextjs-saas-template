@@ -274,3 +274,19 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
 The source of truth for preparing and deploying this template to production is the repo-local AI agent skill at `.agents/skills/prepare-cloudflare-production-deployment/SKILL.md`.
 
 That skill covers Cloudflare resource provisioning with [Cloudflare MCP](https://developers.cloudflare.com/agents/model-context-protocol/mcp-servers-for-cloudflare/), GitHub Actions secrets and variables with the [GitHub CLI](https://cli.github.com/), `wrangler.jsonc` binding updates, Worker secrets, Turnstile, Email Sending, and deployment verification.
+
+### Preflight for the `team_security_hardening` migration (existing databases only)
+
+This migration promotes previously non-unique indexes to unique ones. On a database with existing team data, run these read-only checks first — any returned rows must be deduplicated manually (keep the active/oldest row, repoint references) before applying the migration, or `CREATE UNIQUE INDEX` will fail mid-deploy:
+
+```sql
+-- Duplicate team memberships (same team + user more than once)
+SELECT teamId, userId, COUNT(*) AS n FROM team_membership GROUP BY teamId, userId HAVING n > 1;
+
+-- Duplicate role names within a team
+SELECT teamId, name, COUNT(*) AS n FROM team_role GROUP BY teamId, name HAVING n > 1;
+```
+
+Run them with `wrangler d1 execute <DB_NAME> --remote --command "<query>"`.
+
+The migration also deletes all pending (unaccepted) team invitations: invitation tokens are now stored hashed, so pre-existing plaintext-token invite links can no longer be redeemed. After deploying, ask team owners to resend any outstanding invitations.

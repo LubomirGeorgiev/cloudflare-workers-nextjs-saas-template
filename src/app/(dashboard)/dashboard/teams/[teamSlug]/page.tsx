@@ -1,14 +1,10 @@
-import { notFound } from "next/navigation";
-import { hasTeamMembership, hasTeamPermission } from "@/utils/team-auth";
+import { hasTeamPermission } from "@/utils/team-auth";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
-import Link from "next/link";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { getSessionFromCookie } from "@/utils/auth";
-import { redirectToSignIn } from "@/utils/auth-redirect";
+import { Button } from "@/components/ui/button";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
-import { getTeamMembers } from "@/lib/teams/team-members";
-import { getTeamBySlug } from "@/lib/teams/teams";
+import { getTeamMemberManagementData } from "@/lib/teams/team-members";
+import { requireTeamAccess } from "./team-page-guard";
 import {
   Table,
   TableBody,
@@ -20,8 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { cn } from "@/lib/utils";
+import { RevokeInvitationButton } from "@/components/teams/revoke-invitation-button";
 import { getLocale, getTranslations } from "next-intl/server";
 
 interface TeamPageProps {
@@ -56,14 +51,9 @@ function getMemberRoleLabel({
 // TODO Test the removal process
 export async function generateMetadata({ params }: TeamPageProps) {
   const { teamSlug } = await params;
-  const team = await getTeamBySlug(teamSlug);
   const t = await getTranslations("Client.Dashboard.Teams");
 
-  if (!team) {
-    return {
-      title: t("teamNotFound"),
-    };
-  }
+  const { team } = await requireTeamAccess(teamSlug);
 
   return {
     title: t("teamMetaTitle", { name: team.name }),
@@ -76,50 +66,16 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
   const t = await getTranslations("Client.Dashboard.Teams");
   const locale = await getLocale();
 
-  const session = await getSessionFromCookie();
-  if (!session) {
-    return redirectToSignIn(`/dashboard/teams/${teamSlug}`);
-  }
-
-  const team = await getTeamBySlug(teamSlug);
-
-  if (!team) {
-    notFound();
-  }
-
-  const { hasAccess, session: teamSession } = await hasTeamMembership(team.id);
-
-  // If user doesn't have access, show error message
-  if (!hasAccess) {
-    return (
-      <>
-        <PageHeader
-          items={[
-            {
-              href: "/dashboard/teams",
-              label: t("breadcrumb")
-            }
-          ]}
-        />
-        <div className="container mx-auto px-5 py-12">
-          <Alert variant="destructive" className="mb-6">
-            <AlertTitle>{t("accessDenied")}</AlertTitle>
-            <AlertDescription>
-              {t("accessDeniedDescription", { name: team.name })}
-            </AlertDescription>
-          </Alert>
-          <Link href="/dashboard/teams" className={cn(buttonVariants(), "mt-4")}>
-            {t("returnToTeams")}
-          </Link>
-        </div>
-      </>
-    );
-  }
+  const { team, session } = await requireTeamAccess(teamSlug);
 
   const canInviteMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS);
   const canRemoveMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS);
 
-  const teamMembers = await getTeamMembers(team.id);
+  const {
+    canRevokeInvitations,
+    members: teamMembers,
+    pendingInvitations,
+  } = await getTeamMemberManagementData(team.id);
 
   return (
     <>
@@ -175,7 +131,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
             <div className="p-6 border rounded-lg bg-card flex flex-col">
               <span className="text-sm font-medium text-muted-foreground">{t("yourRoleLabel")}</span>
               <span className="text-2xl font-bold capitalize">
-                {teamSession?.teams?.find(team2 => team2.id === team.id)?.role.name || t("memberRole")}
+                {session.teams?.find(team2 => team2.id === team.id)?.role.name || t("memberRole")}
               </span>
             </div>
 
@@ -261,6 +217,49 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
               </TableBody>
             </Table>
           </div>
+
+          {pendingInvitations.length > 0 && (
+            <div className="col-span-3 border rounded-lg p-6 bg-card">
+              <h2 className="text-xl font-semibold mb-4">{t("pendingInvitationsTitle")}</h2>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("columnEmail")}</TableHead>
+                    <TableHead>{t("columnRole")}</TableHead>
+                    <TableHead>{t("columnInvited")}</TableHead>
+                    <TableHead>{t("columnExpires")}</TableHead>
+                    <TableHead>{t("columnStatus")}</TableHead>
+                    {canRevokeInvitations && (
+                      <TableHead className="text-right">{t("columnAction")}</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingInvitations.map((invitation) => (
+                    <TableRow key={invitation.id}>
+                      <TableCell>{invitation.email}</TableCell>
+                      <TableCell className="capitalize">
+                        {getMemberRoleLabel({ member: invitation, t })}
+                      </TableCell>
+                      <TableCell>{formatDate(invitation.createdAt, locale)}</TableCell>
+                      <TableCell>{formatDate(invitation.expiresAt, locale)}</TableCell>
+                      <TableCell>{t("statusPending")}</TableCell>
+                      {canRevokeInvitations && (
+                        <TableCell className="text-right">
+                          <RevokeInvitationButton
+                            email={invitation.email}
+                            invitationId={invitation.id}
+                            teamId={team.id}
+                          />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       </div>
     </>

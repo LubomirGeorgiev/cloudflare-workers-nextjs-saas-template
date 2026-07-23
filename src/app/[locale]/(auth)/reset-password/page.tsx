@@ -1,11 +1,11 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
 import ResetPasswordClientComponent from "./reset-password.client";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
+import { hasValidExpiringToken } from "@/utils/kv-token";
 
 export async function generateMetadata({
   params,
@@ -33,15 +33,7 @@ export default async function ResetPasswordPage({
     return notFound();
   }
 
-  const { env } = await getCloudflareContext();
-
-  if (!env?.NEXT_INC_CACHE_KV) {
-    throw new Error("Can't connect to KV store");
-  }
-
-  const resetTokenStr = await env.NEXT_INC_CACHE_KV.get(getResetTokenKey(token));
-
-  if (!resetTokenStr) {
+  if (!await hasValidExpiringToken({ token, key: getResetTokenKey })) {
     return notFound();
   }
 

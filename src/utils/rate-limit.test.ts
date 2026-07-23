@@ -18,7 +18,7 @@ vi.mock("@/utils/cloudflare-context", () => ({
   getCloudflareContext: getCloudflareContextMock,
 }));
 
-const { checkRateLimit } = await import("@/utils/rate-limit");
+const { checkRateLimit, resetRateLimit } = await import("@/utils/rate-limit");
 
 describe("checkRateLimit", () => {
   afterEach(() => {
@@ -49,6 +49,33 @@ describe("checkRateLimit", () => {
 
     resolvePut();
     await expectAllowedRateLimit(resultPromise);
+  });
+});
+
+describe("resetRateLimit", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("deletes the current window's counter key", async () => {
+    const deleteMock = vi.fn(async (__key: string) => undefined);
+    getCloudflareContextMock.mockResolvedValue({
+      env: {
+        NEXT_INC_CACHE_KV: {
+          delete: deleteMock,
+        },
+      },
+    });
+
+    await resetRateLimit({
+      key: "account:digest",
+      identifier: "sign-in-account",
+      windowInSeconds: 3_600,
+    });
+
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    const deletedKey = deleteMock.mock.calls[0][0] as string;
+    expect(deletedKey).toMatch(/^rate-limit:sign-in-account:account:digest:\d+$/);
   });
 });
 

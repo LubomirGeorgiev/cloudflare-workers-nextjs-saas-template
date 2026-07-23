@@ -1,12 +1,18 @@
 import "server-only";
 
 import { ActionError, type ActionErrorMessage } from "@/lib/action-error";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
-import { createId } from "@paralleldrive/cuid2";
+import {
+  deleteHashedRecord,
+  type HashedRecordPayload,
+  putHashedRecord,
+  readHashedRecord,
+} from "@/utils/kv-record";
+import { createBase64UrlToken } from "@/utils/random-token";
 
-interface ExpiringTokenPayload {
+const EXPIRING_TOKEN_BYTES = 32;
+
+interface ExpiringTokenPayload extends HashedRecordPayload {
   userId: string;
-  expiresAt: string;
 }
 
 interface TokenActionError {
@@ -19,7 +25,6 @@ interface CreateExpiringTokenParams {
   key: (token: string) => string;
   expiresInSeconds: number;
   payload: Omit<ExpiringTokenPayload, "expiresAt">;
-  createToken?: () => string;
 }
 
 interface GetValidExpiringTokenParams {
@@ -34,40 +39,32 @@ interface DeleteExpiringTokenParams {
   key: (token: string) => string;
 }
 
-async function getTokenKV() {
-  const { env } = await getCloudflareContext();
-
-  if (!env?.NEXT_INC_CACHE_KV) {
-    throw new Error("Can't connect to KV store");
-  }
-
-  return env.NEXT_INC_CACHE_KV;
+interface HasValidExpiringTokenParams {
+  token: string;
+  key: (token: string) => string;
 }
 
 function toActionError(error: TokenActionError): ActionError {
   return new ActionError(error.code, error.message);
 }
 
+function hasUserId(payload: ExpiringTokenPayload): boolean {
+  return Boolean(payload.userId);
+}
+
 export async function createExpiringToken({
   key,
   expiresInSeconds,
   payload,
-  createToken = createId,
 }: CreateExpiringTokenParams): Promise<string> {
-  const kv = await getTokenKV();
-  const token = createToken();
-  const expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
+  const token = createBase64UrlToken(EXPIRING_TOKEN_BYTES);
 
-  await kv.put(
-    key(token),
-    JSON.stringify({
-      ...payload,
-      expiresAt: expiresAt.toISOString(),
-    }),
-    {
-      expirationTtl: expiresInSeconds,
-    }
-  );
+  await putHashedRecord<ExpiringTokenPayload>({
+    secret: token,
+    deriveKey: key,
+    payload,
+    expirationTtlSeconds: expiresInSeconds,
+  });
 
   return token;
 }
@@ -78,47 +75,39 @@ export async function getValidExpiringToken({
   notFoundError,
   expiredError = notFoundError,
 }: GetValidExpiringTokenParams): Promise<ExpiringTokenPayload> {
-  const kv = await getTokenKV();
-  const tokenString = await kv.get(key(token));
+  const result = await readHashedRecord<ExpiringTokenPayload>({
+    secret: token,
+    deriveKey: key,
+    validate: hasUserId,
+  });
 
-  if (!tokenString) {
-    throw toActionError(notFoundError);
+  if (result.status === "valid") {
+    return result.payload;
   }
 
-  let payload: ExpiringTokenPayload;
-
-  try {
-    payload = JSON.parse(tokenString) as ExpiringTokenPayload;
-  } catch {
-    await kv.delete(key(token));
-    throw toActionError(notFoundError);
-  }
-
-  if (!payload.userId || !payload.expiresAt) {
-    await kv.delete(key(token));
-    throw toActionError(notFoundError);
-  }
-
-  const expiresAt = new Date(payload.expiresAt);
-
-  if (Number.isNaN(expiresAt.getTime())) {
-    await kv.delete(key(token));
-    throw toActionError(notFoundError);
-  }
-
-  if (new Date() > expiresAt) {
-    await kv.delete(key(token));
-    throw toActionError(expiredError);
-  }
-
-  return payload;
+  throw toActionError(
+    result.status === "expired" ? expiredError : notFoundError,
+  );
 }
 
 export async function deleteExpiringToken({
   token,
   key,
 }: DeleteExpiringTokenParams): Promise<void> {
-  const kv = await getTokenKV();
+  await deleteHashedRecord({ secret: token, deriveKey: key });
+}
 
-  await kv.delete(key(token));
+// Not single-use: the reset flow reads on page view and consumes later, so a
+// valid entry is left in place; only invalid/expired entries are cleaned up.
+export async function hasValidExpiringToken({
+  token,
+  key,
+}: HasValidExpiringTokenParams): Promise<boolean> {
+  const result = await readHashedRecord<ExpiringTokenPayload>({
+    secret: token,
+    deriveKey: key,
+    validate: hasUserId,
+  });
+
+  return result.status === "valid";
 }

@@ -12,14 +12,18 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { passkeyEmailSchema } from "@/schemas/passkey.schema";
-import ms from "ms";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 import { v, validationKey } from "@/lib/validation";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
+import {
+  consumeWebAuthnChallenge,
+  storeWebAuthnChallenge,
+  WEBAUTHN_CHALLENGE_PURPOSE,
+  WEBAUTHN_CHALLENGE_TTL_SECONDS,
+} from "@/utils/webauthn-challenge";
 
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
-const PASSKEY_USER_ID_COOKIE_NAME = "passkey_user_id";
 
 export const startPasskeyRegistrationAction = actionClient
   .inputSchema(passkeyEmailSchema)
@@ -68,6 +72,12 @@ export const startPasskeyRegistrationAction = actionClient
 
         const options = await generatePasskeyRegistrationOptions(user.id, input.email);
 
+        await storeWebAuthnChallenge({
+          challenge: options.challenge,
+          purpose: WEBAUTHN_CHALLENGE_PURPOSE.SIGN_UP,
+          userId: user.id,
+        });
+
         const cookieStore = await cookies();
         const secure = await shouldUseSecureCookies();
 
@@ -77,16 +87,7 @@ export const startPasskeyRegistrationAction = actionClient
           secure,
           sameSite: "strict",
           path: "/",
-          maxAge: Math.floor(ms("10 minutes") / 1000),
-        });
-
-        // Store the user ID in a cookie for verification
-        cookieStore.set(PASSKEY_USER_ID_COOKIE_NAME, user.id, {
-          httpOnly: true,
-          secure,
-          sameSite: "strict",
-          path: "/",
-          maxAge: Math.floor(ms("10 minutes") / 1000),
+          maxAge: WEBAUTHN_CHALLENGE_TTL_SECONDS,
         });
 
         // Convert options to the expected type
@@ -119,9 +120,20 @@ export const completePasskeyRegistrationAction = actionClient
   .action(async ({ parsedInput: input }) => {
     const cookieStore = await cookies();
     const challenge = cookieStore.get(PASSKEY_CHALLENGE_COOKIE_NAME)?.value;
-    const userId = cookieStore.get(PASSKEY_USER_ID_COOKIE_NAME)?.value;
 
-    if (!challenge || !userId) {
+    if (!challenge) {
+      throw new ActionError("PRECONDITION_FAILED", { key: "Client.Auth.SignUp.errorInvalidRegistrationSession" });
+    }
+
+    cookieStore.delete(PASSKEY_CHALLENGE_COOKIE_NAME);
+
+    const challengePayload = await consumeWebAuthnChallenge({
+      challenge,
+      purpose: WEBAUTHN_CHALLENGE_PURPOSE.SIGN_UP,
+    });
+    const userId = challengePayload?.userId;
+
+    if (!userId) {
       throw new ActionError("PRECONDITION_FAILED", { key: "Client.Auth.SignUp.errorInvalidRegistrationSession" });
     }
 
@@ -151,10 +163,6 @@ export const completePasskeyRegistrationAction = actionClient
       });
 
       await createAndStoreSession(userId, "passkey", input.response.id);
-
-      // Clean up cookies
-      cookieStore.delete(PASSKEY_CHALLENGE_COOKIE_NAME);
-      cookieStore.delete(PASSKEY_USER_ID_COOKIE_NAME);
 
       return { success: true };
     } catch (error) {

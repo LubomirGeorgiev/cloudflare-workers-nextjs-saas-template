@@ -4,7 +4,6 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
 import { sendPasswordResetEmail } from "@/utils/email";
-import { init } from "@paralleldrive/cuid2";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
@@ -13,10 +12,6 @@ import { PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { isTurnstileEnabled } from "@/flags";
 import { createExpiringToken } from "@/utils/kv-token";
 import { getUserLocale } from "@/i18n/locale";
-
-const createId = init({
-  length: 32,
-});
 
 export const forgotPasswordAction = actionClient
   .inputSchema(forgotPasswordSchema)
@@ -54,7 +49,6 @@ export const forgotPasswordAction = actionClient
             payload: {
               userId: user.id,
             },
-            createToken: createId,
           });
 
           // Send reset email

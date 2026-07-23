@@ -29,7 +29,7 @@ VALUES
     'Testov',
     'test@test.com',
     -- The password is "password"
-    'e8e1ab2aedb0451c4351c733969d8b71:97f4d96d92689e1f4e48e6b3b2dec890dcb8f0c2d2e0e12b433bcafa38a8eebd',
+    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
     'admin',
     1767305213,
     '::1',
@@ -46,7 +46,7 @@ VALUES
     'Chen',
     'sarah.chen@example.com',
     -- The password is "password"
-    'e8e1ab2aedb0451c4351c733969d8b71:97f4d96d92689e1f4e48e6b3b2dec890dcb8f0c2d2e0e12b433bcafa38a8eebd',
+    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
     'user',
     1765305213,
     '::1',
@@ -63,7 +63,7 @@ VALUES
     'Rodriguez',
     'michael.rodriguez@example.com',
     -- The password is "password"
-    'e8e1ab2aedb0451c4351c733969d8b71:97f4d96d92689e1f4e48e6b3b2dec890dcb8f0c2d2e0e12b433bcafa38a8eebd',
+    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
     'user',
     1764305213,
     '::1',

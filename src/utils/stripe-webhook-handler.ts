@@ -5,6 +5,20 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { reconcileTeamFromSubscription } from "@/utils/team-subscription";
 
+// Events we act on. All of them resolve to a subscription that we re-fetch and snapshot,
+// so replays and out-of-order delivery converge to the same team state (idempotent).
+const HANDLED_EVENTS = new Set<Stripe.Event["type"]>([
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  // Fires ~3 days before a trial ends; we re-snapshot, and it's the natural hook point
+  // for a "trial ending soon" email in downstream projects.
+  "customer.subscription.trial_will_end",
+  "invoice.paid",
+  "invoice.payment_failed",
+  "invoice.payment_action_required",
+]);
+
 // Minimal shape we depend on so tests can inject a fake Stripe client.
 // oxlint-disable-next-line project/no-unused-module-exports -- exported for injection in tests.
 export interface StripeSubscriptionFetcher {
@@ -39,20 +53,6 @@ function getEventSubscriptionId(event: Stripe.Event): string | null {
 
   return null;
 }
-
-// Events we act on. All of them resolve to a subscription that we re-fetch and snapshot,
-// so replays and out-of-order delivery converge to the same team state (idempotent).
-const HANDLED_EVENTS = new Set<Stripe.Event["type"]>([
-  "customer.subscription.created",
-  "customer.subscription.updated",
-  "customer.subscription.deleted",
-  // Fires ~3 days before a trial ends; we re-snapshot, and it's the natural hook point
-  // for a "trial ending soon" email in downstream projects.
-  "customer.subscription.trial_will_end",
-  "invoice.paid",
-  "invoice.payment_failed",
-  "invoice.payment_action_required",
-]);
 
 interface HandleStripeEventOptions {
   // Injectable for tests; defaults to the shared Stripe client.

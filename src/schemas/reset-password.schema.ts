@@ -1,9 +1,10 @@
-import { encodeValidationMessage, minString, v, validationKey } from "@/lib/validation";
+import { v, validationKey } from "@/lib/validation";
+import { newPasswordSchema } from "./password.schema";
 
 export const resetPasswordSchema = v.pipe(
   v.object({
     token: v.string(),
-    password: minString(8, encodeValidationMessage("passwordMinLength", { min: 8 })),
+    password: newPasswordSchema,
     confirmPassword: v.string(),
   }),
   v.forward(

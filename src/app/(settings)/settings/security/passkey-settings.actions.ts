@@ -16,9 +16,14 @@ import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simp
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import ms from "ms";
 import { emailString, v, validationKey } from "@/lib/validation";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
+import {
+  consumeWebAuthnChallenge,
+  storeWebAuthnChallenge,
+  WEBAUTHN_CHALLENGE_PURPOSE,
+  WEBAUTHN_CHALLENGE_TTL_SECONDS,
+} from "@/utils/webauthn-challenge";
 
 const generateRegistrationOptionsSchema = v.object({
   email: emailString(),
@@ -26,7 +31,6 @@ const generateRegistrationOptionsSchema = v.object({
 
 const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challenge";
 const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_challenge";
-const PASSKEY_CHALLENGE_TTL_SECONDS = Math.floor(ms("10 minutes") / 1000);
 
 export const generateRegistrationOptionsAction = actionClient
   .inputSchema(generateRegistrationOptionsSchema)
@@ -58,6 +62,11 @@ export const generateRegistrationOptionsAction = actionClient
       }
 
       const options = await generatePasskeyRegistrationOptions(user.id, input.email);
+      await storeWebAuthnChallenge({
+        challenge: options.challenge,
+        purpose: WEBAUTHN_CHALLENGE_PURPOSE.REGISTRATION,
+        userId: user.id,
+      });
       const cookieStore = await cookies();
       const secure = await shouldUseSecureCookies();
 
@@ -66,7 +75,7 @@ export const generateRegistrationOptionsAction = actionClient
         secure,
         sameSite: "strict",
         path: "/",
-        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
+        maxAge: WEBAUTHN_CHALLENGE_TTL_SECONDS,
       });
 
       return options;
@@ -105,6 +114,17 @@ export const verifyRegistrationAction = actionClient
         throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidRegistrationSession" });
       }
 
+      cookieStore.delete(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME);
+
+      const challengePayload = await consumeWebAuthnChallenge({
+        challenge,
+        purpose: WEBAUTHN_CHALLENGE_PURPOSE.REGISTRATION,
+      });
+
+      if (challengePayload?.userId !== user.id) {
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidRegistrationSession" });
+      }
+
       try {
         await verifyPasskeyRegistration({
           userId: user.id,
@@ -121,8 +141,6 @@ export const verifyRegistrationAction = actionClient
         }
 
         throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorRegisterFailed" });
-      } finally {
-        cookieStore.delete(PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME);
       }
     }, RATE_LIMITS.SETTINGS);
   });
@@ -194,6 +212,10 @@ export const generateAuthenticationOptionsAction = actionClient
     return withRateLimit(async () => {
       const cookieStore = await cookies();
       const options = await generateDiscoverablePasskeyAuthenticationOptions();
+      await storeWebAuthnChallenge({
+        challenge: options.challenge,
+        purpose: WEBAUTHN_CHALLENGE_PURPOSE.AUTHENTICATION,
+      });
       const secure = await shouldUseSecureCookies();
 
       cookieStore.set(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME, options.challenge, {
@@ -201,7 +223,7 @@ export const generateAuthenticationOptionsAction = actionClient
         secure,
         sameSite: "strict",
         path: "/",
-        maxAge: PASSKEY_CHALLENGE_TTL_SECONDS,
+        maxAge: WEBAUTHN_CHALLENGE_TTL_SECONDS,
       });
 
       return options;
@@ -225,6 +247,17 @@ export const verifyAuthenticationAction = actionClient
         throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidAuthSession" });
       }
 
+      cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
+
+      const challengePayload = await consumeWebAuthnChallenge({
+        challenge,
+        purpose: WEBAUTHN_CHALLENGE_PURPOSE.AUTHENTICATION,
+      });
+
+      if (!challengePayload) {
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Settings.Security.errorInvalidAuthSession" });
+      }
+
       try {
         const { verification, credential } = await verifyPasskeyAuthentication({
           response: input.response,
@@ -243,8 +276,6 @@ export const verifyAuthenticationAction = actionClient
         }
 
         throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorAuthFailed" });
-      } finally {
-        cookieStore.delete(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME);
       }
     }, RATE_LIMITS.SIGN_IN);
   });

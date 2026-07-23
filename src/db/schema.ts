@@ -2,7 +2,6 @@ import { sqliteTable, integer, text, index, uniqueIndex } from "drizzle-orm/sqli
 import { defineRelations, type InferSelectModel, sql } from "drizzle-orm";
 
 import type Stripe from "stripe";
-import { createId } from '@paralleldrive/cuid2'
 import { CMS_ENTRY_STATUS, ROLES_ENUM, type UserRole } from "@/app/enums";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import type { BillingInterval, TeamPlanId } from "@/constants/plans";
@@ -16,6 +15,7 @@ import {
 } from "@/types/cms-navigation";
 import type { ScheduledJobPayload, ScheduledJobType } from "@/lib/scheduler/jobs";
 import type { CollectionsUnion } from "../../cms.config";
+import { createRandomId } from "@/utils/random-token";
 
 const roleTuple = Object.values(ROLES_ENUM) as [string, ...string[]];
 
@@ -31,7 +31,7 @@ const commonColumns = {
 
 export const userTable = sqliteTable("user", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `usr_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `usr_${createRandomId()}`).notNull(),
   firstName: text({
     length: 255,
   }),
@@ -75,7 +75,7 @@ export const userTable = sqliteTable("user", {
 
 export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `pkey_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `pkey_${createRandomId()}`).notNull(),
   userId: text().notNull().references(() => userTable.id),
   credentialId: text({
     length: 255,
@@ -152,7 +152,7 @@ export const SYSTEM_ROLE_PERMISSIONS = {
 // Team table
 export const teamTable = sqliteTable("team", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `team_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `team_${createRandomId()}`).notNull(),
   name: text({ length: 255 }).notNull(),
   slug: text({ length: 255 }).notNull(),
   description: text({ length: 1000 }),
@@ -193,7 +193,7 @@ export const teamTable = sqliteTable("team", {
 // Team membership table
 export const teamMembershipTable = sqliteTable("team_membership", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `tmem_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `tmem_${createRandomId()}`).notNull(),
   teamId: text().notNull().references(() => teamTable.id),
   userId: text().notNull().references(() => userTable.id),
   roleId: text().notNull(),
@@ -205,14 +205,20 @@ export const teamMembershipTable = sqliteTable("team_membership", {
   isActive: integer().default(1).notNull(),
 }, (table) => ([
   index('team_membership_user_id_idx').on(table.userId),
-  // Instead of unique() which causes linter errors, we'll create a unique constraint on columns
-  index('team_membership_unique_idx').on(table.teamId, table.userId),
+  // Independent unique index (not a schema-level .unique()) enforces one membership per
+  // (team, user) so concurrent invite-accept / direct-add races cannot duplicate seats.
+  // If CREATE UNIQUE INDEX fails on a legacy DB, dedupe first (keep active-then-oldest rows;
+  // for dup team_role names repoint memberships/invitations to the survivor before deleting;
+  // lower(trim()) invitation emails BEFORE deduping pending invites), then re-apply.
+  // Renamed from team_membership_unique_idx: the pinned drizzle-kit does not detect an
+  // in-place index()->uniqueIndex() flip, so the rename forces the drop+recreate.
+  uniqueIndex('team_membership_team_user_unique').on(table.teamId, table.userId),
 ]));
 
 // Team role table
 export const teamRoleTable = sqliteTable("team_role", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `trole_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `trole_${createRandomId()}`).notNull(),
   teamId: text().notNull().references(() => teamTable.id),
   name: text({ length: 255 }).notNull(),
   description: text({ length: 1000 }),
@@ -220,14 +226,15 @@ export const teamRoleTable = sqliteTable("team_role", {
   metadata: text({ length: 5000 }),
   isEditable: integer().default(1).notNull(),
 }, (table) => ([
-  // Instead of unique() which causes linter errors, we'll create a unique constraint on columns
-  index('team_role_name_unique_idx').on(table.teamId, table.name),
+  // Independent unique index enforces one role name per team (not a schema-level .unique()).
+  // Renamed from team_role_name_unique_idx: see team_membership_team_user_unique note.
+  uniqueIndex('team_role_team_name_unique').on(table.teamId, table.name),
 ]));
 
 // Team invitation table
 export const teamInvitationTable = sqliteTable("team_invitation", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `tinv_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `tinv_${createRandomId()}`).notNull(),
   teamId: text().notNull().references(() => teamTable.id),
   email: text({ length: 255 }).notNull(),
   roleId: text().notNull(),
@@ -238,15 +245,60 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
   acceptedAt: integer({ mode: "timestamp" }),
   acceptedBy: text().references(() => userTable.id),
 }, (table) => ([
-  index('team_invitation_team_email_idx').on(table.teamId, table.email),
   index('team_invitation_team_pending_idx').on(table.teamId, table.acceptedAt, table.expiresAt),
   index('team_invitation_email_pending_idx').on(table.email, table.acceptedAt, table.expiresAt),
+  // One PENDING invitation row per (team, email) so concurrent invites cannot create duplicate
+  // pending invitations. Scoped `WHERE acceptedAt IS NULL` so accepted history never blocks a new
+  // invite: a member removed after accepting can still be re-invited (a fresh pending row coexists
+  // with the old accepted rows). Renamed from team_invitation_team_email_unique so the pinned
+  // drizzle-kit emits a clean drop+create of an independent index (D1-safe) rather than an in-place
+  // change. Email is normalized at the application layer before insert.
+  uniqueIndex('team_invitation_team_email_pending_unique')
+    .on(table.teamId, table.email)
+    .where(sql`${table.acceptedAt} IS NULL`),
   uniqueIndex('team_invitation_token_unique').on(table.token),
+]));
+
+// Trial reservation table. Reserved atomically BEFORE Stripe subscription creation so the
+// once-per-user / once-per-team free trial cannot be farmed across concurrent requests.
+// Unique indexes on userId and teamId make the reservation the authoritative eligibility gate.
+export const teamTrialReservationTable = sqliteTable("team_trial_reservation", {
+  ...commonColumns,
+  // Runtime default instead of commonColumns' SQL DEFAULT: new tables must not introduce
+  // database-level defaults (see CLAUDE.md D1 schema-change safety).
+  updateCounter: integer().$defaultFn(() => 0).$onUpdate(() => sql`updateCounter + 1`),
+  id: text().primaryKey().$defaultFn(() => `ttrl_${createRandomId()}`).notNull(),
+  userId: text().notNull().references(() => userTable.id),
+  teamId: text().notNull().references(() => teamTable.id),
+  // Stripe idempotency keys are only reusable with identical parameters. Persist the
+  // immutable checkout inputs so an ambiguous attempt can resume, while a different
+  // SetupIntent/plan/interval remains blocked by the same trial reservation.
+  setupIntentId: text().notNull(),
+  planId: text().notNull(),
+  interval: text().notNull(),
+  customerId: text().notNull(),
+  paymentMethodId: text().notNull(),
+  priceId: text().notNull(),
+  trialDays: integer().notNull(),
+  // Recovery bookkeeping (all nullable, no DB defaults per D1 rules). Set once Stripe
+  // confirms the trial subscription, so a crashed attempt is settled by retrieving the
+  // real subscription instead of blindly re-creating one.
+  stripeSubscriptionId: text(),
+  // A race-loser subscription that could not be confirmed canceled inline; the recovery
+  // sweep cancels it later instead of leaving a silent orphan on Stripe.
+  orphanedSubscriptionId: text(),
+  // Last error marker and the time of the most recent recovery attempt, so the sweep can
+  // throttle repeated Stripe calls against a still-ambiguous reservation.
+  lastError: text(),
+  lastRecoveryAt: integer({ mode: "timestamp" }),
+}, (table) => ([
+  uniqueIndex('team_trial_reservation_user_id_unique').on(table.userId),
+  uniqueIndex('team_trial_reservation_team_id_unique').on(table.teamId),
 ]));
 
 export const cmsMediaTable = sqliteTable("cms_media", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_mda_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_mda_${createRandomId()}`).notNull(),
   fileName: text().notNull(),
   mimeType: text().notNull(),
   sizeInBytes: integer().notNull(),
@@ -281,7 +333,7 @@ const cmsEntryCommonColumns = {
 
 export const cmsEntryTable = sqliteTable("cms_entry", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_ent_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_ent_${createRandomId()}`).notNull(),
   collection: text().$type<CollectionsUnion>().notNull(),
   ...cmsEntryCommonColumns,
   status: text({
@@ -333,7 +385,7 @@ export const cmsEntryTable = sqliteTable("cms_entry", {
 
 export const scheduledJobTable = sqliteTable("scheduled_job", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `sjob_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `sjob_${createRandomId()}`).notNull(),
   type: text().$type<ScheduledJobType>().notNull(),
   dedupeKey: text().notNull(),
   payload: text({ mode: "json" }).$type<ScheduledJobPayload>().notNull(),
@@ -345,7 +397,7 @@ export const scheduledJobTable = sqliteTable("scheduled_job", {
 
 export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_nav_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_nav_${createRandomId()}`).notNull(),
   navigationKey: text({
     enum: cmsNavigationKeys,
   }).$type<CmsNavigationKey>().notNull(),
@@ -372,7 +424,7 @@ export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
 
 export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_red_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_red_${createRandomId()}`).notNull(),
   navigationKey: text({
     enum: cmsNavigationKeys,
   }).$type<CmsNavigationKey>().notNull(),
@@ -385,7 +437,7 @@ export const cmsNavigationRedirectTable = sqliteTable("cms_navigation_redirect",
 
 export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_ver_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_ver_${createRandomId()}`).notNull(),
   entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
   versionNumber: integer().notNull(),
   ...cmsEntryCommonColumns,
@@ -396,7 +448,7 @@ export const cmsEntryVersionTable = sqliteTable("cms_entry_version", {
 // Junction table for many-to-many relationship between entries and media
 export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cms_em_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cms_em_${createRandomId()}`).notNull(),
   entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
   mediaId: text().notNull().references(() => cmsMediaTable.id, { onDelete: 'cascade' }),
   position: integer(),
@@ -410,7 +462,7 @@ export const cmsEntryMediaTable = sqliteTable("cms_entry_media", {
 
 export const cmsTagTable = sqliteTable("cms_tag", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `ctag_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `ctag_${createRandomId()}`).notNull(),
   name: text().notNull(),
   slug: text().notNull(),
   description: text(),
@@ -429,7 +481,7 @@ export const cmsTagTable = sqliteTable("cms_tag", {
 // Junction table for many-to-many relationship between entries and tags
 export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
   ...commonColumns,
-  id: text().primaryKey().$defaultFn(() => `cet_${createId()}`).notNull(),
+  id: text().primaryKey().$defaultFn(() => `cet_${createRandomId()}`).notNull(),
   entryId: text().notNull().references(() => cmsEntryTable.id, { onDelete: 'cascade' }),
   tagId: text().notNull().references(() => cmsTagTable.id, { onDelete: 'cascade' }),
 }, (table) => ([
@@ -637,6 +689,8 @@ export type TeamMembership = InferSelectModel<typeof teamMembershipTable>;
 export type TeamRole = InferSelectModel<typeof teamRoleTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type TeamInvitation = InferSelectModel<typeof teamInvitationTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type TeamTrialReservation = InferSelectModel<typeof teamTrialReservationTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntry = InferSelectModel<typeof cmsEntryTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.

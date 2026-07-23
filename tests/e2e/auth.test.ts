@@ -18,112 +18,15 @@ import {
 } from "./app-frame";
 import {
   createVerifiedUserInLocalD1,
+  SEEDED_MEMBER_EMAIL,
   signInSeededMember,
   signInWithPassword,
 } from "./auth-helpers";
 import {
-  listLocalKVEntries,
   queryLocalD1,
   sqlStringLiteral,
+  waitForLocalEmailUrl,
 } from "./local-wrangler-state";
-
-async function readUserIdFromLocalD1(email: string): Promise<string | undefined> {
-  const output = await queryLocalD1({
-    sql: `select id from user where email = ${sqlStringLiteral(email)} limit 1;`,
-  }).catch(() => "");
-
-  return output || undefined;
-}
-
-async function readExpiringTokenUrlFromLocalKV({
-  email,
-  prefix,
-  pathname,
-}: {
-  email: string;
-  prefix: string;
-  pathname: string;
-}): Promise<URL | undefined> {
-  const userId = await readUserIdFromLocalD1(email);
-
-  if (!userId) {
-    return undefined;
-  }
-
-  for (const { key, value } of await listLocalKVEntries({ prefix })) {
-    try {
-      const payload = JSON.parse(value) as { userId?: string };
-
-      if (payload.userId === userId) {
-        return new URL(`${pathname}?token=${key.replace(prefix, "")}`, "http://localhost");
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return undefined;
-}
-
-async function readVerificationUrlFromLocalKV(email: string): Promise<URL | undefined> {
-  return readExpiringTokenUrlFromLocalKV({
-    email,
-    prefix: "email-verification:",
-    pathname: "/verify-email",
-  });
-}
-
-async function readPasswordResetUrlFromLocalKV(email: string): Promise<URL | undefined> {
-  return readExpiringTokenUrlFromLocalKV({
-    email,
-    prefix: "password-reset:",
-    pathname: "/reset-password",
-  });
-}
-
-async function waitForVerificationUrl({
-  email,
-}: {
-  email: string;
-}): Promise<URL> {
-  const timeoutAt = Date.now() + 5_000;
-
-  while (Date.now() < timeoutAt) {
-    const verificationUrl = await readVerificationUrlFromLocalKV(email);
-
-    if (verificationUrl) {
-      return verificationUrl;
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 50);
-    });
-  }
-
-  throw new Error("Timed out waiting for verification URL.");
-}
-
-async function waitForPasswordResetUrl({
-  email,
-}: {
-  email: string;
-}): Promise<URL> {
-  const timeoutAt = Date.now() + 5_000;
-
-  while (Date.now() < timeoutAt) {
-    const resetUrl = await readPasswordResetUrlFromLocalKV(email);
-
-    if (resetUrl) {
-      return resetUrl;
-    }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 50);
-    });
-  }
-
-  throw new Error("Timed out waiting for password reset URL.");
-}
 
 test("shows sign-in password validation before submitting", async () => {
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
@@ -132,7 +35,7 @@ test("shows sign-in password validation before submitting", async () => {
   await fillAppPlaceholder("Password", "short");
   await clickAppRole("button", "Sign In with Password");
 
-  await expectAppText("Password must be at least 8 characters", { exact: true });
+  await expectAppText("Password must be at least 6 characters", { exact: true });
 });
 
 test("redirects anonymous users away from protected settings", async () => {
@@ -162,6 +65,10 @@ test("signs in with the seeded password user", async () => {
   await signInSeededMember();
 
   await expectAppText("Dashboard", { exact: true });
+  const storedHash = await queryLocalD1({
+    sql: `select passwordHash from user where email = ${sqlStringLiteral(SEEDED_MEMBER_EMAIL)} limit 1;`,
+  });
+  expect(storedHash).toMatch(/^pbkdf2-sha256\$600000\$/);
 });
 
 test("redirects signed-in users away from auth pages", async () => {
@@ -189,7 +96,7 @@ test("shows sign-up validation before creating an account", async () => {
   await clickAppRole("button", "Create Account with Password");
 
   await expectAppText("Must be at least 2 characters", { exact: true });
-  await expectAppText("Must be at least 6 characters", { exact: true });
+  await expectAppText("Password must be at least 15 characters", { exact: true });
 });
 
 test("creates and verifies a new password account", async () => {
@@ -200,14 +107,15 @@ test("creates and verifies a new password account", async () => {
   await fillAppPlaceholder("Email address", email);
   await fillAppPlaceholder("First Name", "New");
   await fillAppPlaceholder("Last Name", "Account");
-  await fillAppPlaceholder("Password", "password");
+  await fillAppPlaceholder("Password", "correct horse battery staple");
   await clickAppRole("button", "Create Account with Password");
 
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Creating your account...");
 
-  const verificationUrl = await waitForVerificationUrl({
+  const verificationUrl = await waitForLocalEmailUrl({
     email,
+    pathname: "/verify-email",
   });
 
   await navigateAppFrame(`${verificationUrl.pathname}${verificationUrl.search}`);
@@ -232,7 +140,7 @@ test("keeps forgot-password responses enumeration-safe", async () => {
 test("resets a verified user's password and invalidates the reset token", async () => {
   const email = `password-reset-${Date.now()}@example.com`;
   const oldPassword = "password";
-  const newPassword = "new-password";
+  const newPassword = "new-password-strong";
 
   await createVerifiedUserInLocalD1({
     email,
@@ -245,8 +153,9 @@ test("resets a verified user's password and invalidates the reset token", async 
   await clickAppRole("button", "Send Reset Instructions");
   await expectAppToast("Reset instructions sent");
 
-  const resetUrl = await waitForPasswordResetUrl({
+  const resetUrl = await waitForLocalEmailUrl({
     email,
+    pathname: "/reset-password",
   });
 
   await navigateAppFrame(`${resetUrl.pathname}${resetUrl.search}`, {

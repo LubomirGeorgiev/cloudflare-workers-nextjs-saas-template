@@ -10,6 +10,7 @@ export const EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS = 24 * 60 * 60 // 24 ho
 export const MAX_SESSIONS_PER_USER = 5;
 export const MAX_TEAMS_CREATED_PER_USER = 3;
 export const MAX_TEAMS_JOINED_PER_USER = 10;
+export const TEAM_INVITATION_EXPIRY_DAYS = 7;
 export const SESSION_COOKIE_NAME = "session";
 export const AUTH_SESSION_PRESENT_COOKIE_NAME = "auth_session_present";
 export const GOOGLE_OAUTH_STATE_COOKIE_NAME = "google-oauth-state";

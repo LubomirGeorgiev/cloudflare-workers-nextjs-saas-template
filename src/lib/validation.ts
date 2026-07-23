@@ -54,6 +54,14 @@ export function emailString(message?: string) {
   );
 }
 
+// Canonical email form used at every identity boundary (auth lookups, rate-limit keys, team
+// invitations). SQLite's unique index is case-sensitive, so differently cased spellings would
+// otherwise become distinct identities. `emailString()` validates but intentionally does not
+// normalize, so callers must canonicalize before comparing or storing.
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export function minString(length: number, message?: string) {
   return v.pipe(
     v.string(REQUIRED_FIELD_MESSAGE),

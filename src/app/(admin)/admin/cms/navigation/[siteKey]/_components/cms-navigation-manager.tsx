@@ -68,13 +68,13 @@ import { generateSlug } from "@/utils/slugify";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 import { LocaleCoverageBadges } from "../../../_components/locale-coverage-badges";
 
-type DropPosition = "before" | "inside" | "after";
-type VisibleCmsNavigationRow = EditableTreeNode & { depth: number };
-type RootDropPosition = "start" | "end";
-
 const CMS_NAVIGATION_ROW_DRAG_TYPE = "cms-navigation-row";
 const CMS_NAVIGATION_ROOT_DROP_TYPE = "cms-navigation-root-drop";
 const CMS_NAVIGATION_TREE_INDENT_PX = 24;
+
+type DropPosition = "before" | "inside" | "after";
+type VisibleCmsNavigationRow = EditableTreeNode & { depth: number };
+type RootDropPosition = "start" | "end";
 
 interface CmsNavigationManagerProps {
   entries: CmsCollectionListItem[];

@@ -1,10 +1,12 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
+import type { InferSafeActionFnResult } from "next-safe-action"
 import { MoreHorizontal } from "lucide-react"
 import { format } from "date-fns"
 import { formatRelativeDateTime } from "@/utils/format-date"
 import { DEFAULT_LOCALE } from "@/i18n/config"
+import type { getUsersAction } from "../../_actions/get-users.action"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,14 +23,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-export type User = {
-  id: string
-  email: string | null
-  name: string | null
-  role: string
-  status: "active" | "inactive"
-  createdAt: Date
-}
+// Derive the row model from the action's return DTO so the table stays in sync.
+export type User = NonNullable<InferSafeActionFnResult<typeof getUsersAction>["data"]>["users"][number]
 
 export const columns: ColumnDef<User>[] = [
   {

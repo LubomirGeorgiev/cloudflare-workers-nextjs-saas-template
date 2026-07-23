@@ -34,12 +34,16 @@ export default function TeamInviteClientComponent() {
 
       router.refresh();
 
-      // Redirect to the team dashboard, with fallback to general dashboard
+      // Team detail routes are slug-based. Keep the database ID out of the URL.
       setTimeout(() => {
-        if (data && typeof data === "object" && "teamId" in data) {
-          router.push(`/dashboard/teams/${data.teamId}`);
+        if (
+          data
+          && typeof data === "object"
+          && "teamSlug" in data
+          && typeof data.teamSlug === "string"
+        ) {
+          router.push(`/dashboard/teams/${encodeURIComponent(data.teamSlug)}`);
         } else {
-          // Fallback to dashboard if teamId is not found
           router.push("/dashboard");
         }
       }, 500);

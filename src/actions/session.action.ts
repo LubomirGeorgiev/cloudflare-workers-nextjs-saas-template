@@ -4,6 +4,7 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { updateKVSessionSelectedTeam } from "@/utils/kv-session";
+import { getActiveTeamMembership } from "@/utils/team-membership";
 import { v } from "@/lib/validation";
 
 const updateSelectedTeamSchema = v.object({
@@ -22,9 +23,15 @@ export const updateSelectedTeamAction = actionClient
         });
       }
 
-      if (input.selectedTeam && session.teams) {
-        const teamExists = session.teams.some(team => team.id === input.selectedTeam);
-        if (!teamExists) {
+      // Validate the selection against a current, active D1 membership rather than the stale
+      // KV `session.teams` snapshot, so revoked/expired memberships can't be reselected.
+      if (input.selectedTeam) {
+        const membership = await getActiveTeamMembership({
+          teamId: input.selectedTeam,
+          userId: session.userId,
+        });
+
+        if (!membership) {
           throw new ActionError("FORBIDDEN", {
             key: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember",
           });

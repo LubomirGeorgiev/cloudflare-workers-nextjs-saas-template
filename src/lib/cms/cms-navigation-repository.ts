@@ -1,7 +1,6 @@
 import "server-only";
 
 import { eq, inArray } from "drizzle-orm";
-import { createId } from "@paralleldrive/cuid2";
 import { revalidatePath } from "next/cache";
 import { type CmsNavigationKey } from "@/../cms.config";
 
@@ -31,6 +30,7 @@ import {
   type CmsNavigationNodeType,
 } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
+import { createRandomId } from "@/utils/random-token";
 
 interface GetCmsNavigationTreeParams {
   navigationKey: CmsNavigationKey;
@@ -495,7 +495,7 @@ function remapTemporaryIds(items: CmsNavigationFlatNode[]): CmsNavigationFlatNod
 
   items.forEach((item) => {
     if (item.id.startsWith("temp_")) {
-      idMap.set(item.id, `cms_nav_${createId()}`);
+      idMap.set(item.id, `cms_nav_${createRandomId()}`);
     }
   });
 

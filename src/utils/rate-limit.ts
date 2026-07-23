@@ -45,6 +45,22 @@ function normalizeIP(ip: string): string {
   }
 }
 
+// Build the per-window KV key, normalizing IP-shaped keys to their /64 subnet.
+function buildWindowKey({
+  key,
+  identifier,
+  windowInSeconds,
+  now,
+}: {
+  key: string;
+  identifier: string;
+  windowInSeconds: number;
+  now: number;
+}): string {
+  const normalizedKey = ipaddr.isValid(key) ? normalizeIP(key) : key;
+  return `rate-limit:${identifier}:${normalizedKey}:${Math.floor(now / windowInSeconds)}`;
+}
+
 export async function checkRateLimit({
   key,
   options,
@@ -59,12 +75,12 @@ export async function checkRateLimit({
     throw new Error("Can't connect to KV store");
   }
 
-  // Normalize the key if it looks like an IP address
-  const normalizedKey = ipaddr.isValid(key) ? normalizeIP(key) : key;
-
-  const windowKey = `rate-limit:${options.identifier}:${normalizedKey}:${Math.floor(
-    now / options.windowInSeconds
-  )}`;
+  const windowKey = buildWindowKey({
+    key,
+    identifier: options.identifier,
+    windowInSeconds: options.windowInSeconds,
+    now,
+  });
 
   const currentCount = parseInt((await env.NEXT_INC_CACHE_KV.get(windowKey)) || "0");
   const reset = (Math.floor(now / options.windowInSeconds) + 1) * options.windowInSeconds;
@@ -94,4 +110,28 @@ export async function checkRateLimit({
     reset,
     limit: options.limit,
   };
+}
+
+// Clear the current window's counter so a prior increment no longer counts.
+// Used to refund a soft limit (e.g. an account bucket) after a successful attempt.
+// Assumes non-deferred writes: the increment must already be durable before we delete it.
+export async function resetRateLimit({
+  key,
+  identifier,
+  windowInSeconds,
+}: {
+  key: string;
+  identifier: string;
+  windowInSeconds: number;
+}): Promise<void> {
+  const { env } = await getCloudflareContext();
+
+  if (!env?.NEXT_INC_CACHE_KV) {
+    throw new Error("Can't connect to KV store");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const windowKey = buildWindowKey({ key, identifier, windowInSeconds, now });
+
+  await env.NEXT_INC_CACHE_KV.delete(windowKey);
 }

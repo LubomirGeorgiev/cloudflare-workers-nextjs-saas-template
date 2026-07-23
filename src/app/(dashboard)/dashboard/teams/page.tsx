@@ -10,6 +10,7 @@ import type { Route } from "next";
 import { PageHeader } from "@/components/page-header";
 import { PendingInvitations } from "./pending-invitations";
 import { getTranslations } from "next-intl/server";
+import type { TeamSummary } from "@/lib/teams/teams";
 
 export async function generateMetadata() {
   const t = await getTranslations("Client.Dashboard.Teams");
@@ -18,20 +19,6 @@ export async function generateMetadata() {
     title: t("metaTitle"),
     description: t("metaDescription"),
   };
-}
-
-interface TeamRole {
-  name: string;
-  id: string;
-}
-
-interface TeamItem {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  avatarUrl: string | null;
-  role?: TeamRole;
 }
 
 export default async function TeamsIndexPage() {
@@ -45,7 +32,7 @@ export default async function TeamsIndexPage() {
 
   const { data: result, serverError } = await getUserTeamsAction();
 
-  let teams: TeamItem[] = [];
+  let teams: TeamSummary[] = [];
   if (result?.success && result.data) {
     teams = result.data;
   }

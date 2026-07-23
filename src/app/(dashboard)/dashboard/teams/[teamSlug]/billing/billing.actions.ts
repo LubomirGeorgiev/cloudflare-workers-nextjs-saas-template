@@ -17,12 +17,12 @@ import { getAddon, getAddonMaxQuantity } from "@/constants/addons";
 import {
   ensureStripeCustomer,
   claimTeamSubscription,
-  releaseTeamSubscription,
   reconcileTeamFromSubscription,
   getTeamSubscription,
   isTrialEligible,
-  markUserTrialUsed,
+  settleRecordedSubscription,
 } from "@/utils/team-subscription";
+import { completeTrialSubscription } from "@/lib/teams/trial-subscription";
 import {
   createSubscriptionSchema,
   changePlanSchema,
@@ -63,46 +63,6 @@ async function requireExistingSubscription(teamId: string) {
   }
 
   return { stripe, subscriptionId: team.stripeSubscriptionId };
-}
-
-// Settles whatever subscription the team currently records so a new checkout can claim
-// the slot: blocks while one is genuinely active, cancels cancelable ones, and releases
-// ids Stripe has confirmed no longer exist.
-async function settleRecordedSubscription({
-  teamId,
-  recordedSubscriptionId,
-}: {
-  teamId: string;
-  recordedSubscriptionId: string;
-}) {
-  const stripe = getStripe();
-
-  const existing = await stripe.subscriptions
-    .retrieve(recordedSubscriptionId)
-    .catch((error: unknown) => {
-      // Only a Stripe-confirmed missing subscription may release the slot; any other
-      // failure (network, auth) must not risk creating a duplicate subscription.
-      if ((error as { code?: string })?.code === "resource_missing") return null;
-      throw error;
-    });
-
-  if (!existing) {
-    await releaseTeamSubscription({ teamId, subscriptionId: recordedSubscriptionId });
-    return;
-  }
-
-  const policy = getStripeSubscriptionTransitionPolicy(existing.status);
-
-  if (!policy || policy.subscribe === "block") {
-    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
-  }
-
-  // Do not create a replacement unless Stripe confirms the old subscription is
-  // canceled. Reconciling the terminal snapshot releases the team's slot.
-  const settled = policy.subscribe === "cancel"
-    ? await stripe.subscriptions.cancel(existing.id)
-    : existing;
-  await reconcileTeamFromSubscription({ subscription: settled });
 }
 
 // The loser of a concurrent subscribe race discards its just-created incomplete
@@ -279,82 +239,25 @@ export const completeTrialAction = actionClient
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
-      const stripe = getStripe();
 
-      const trialDays = await resolveTrialDays({ teamId, planId, userId: session.user.id });
+      // Eligibility is checked when the persisted attempt is acquired inside the service.
+      // Doing it here would reject the retained reservation needed to resume an ambiguous
+      // Stripe request with its stable idempotency key.
+      const trialDays = getPlan(planId).trialDays ?? 0;
       if (trialDays <= 0) {
         throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
       }
 
-      const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
-
       try {
-        if (team?.stripeSubscriptionId) {
-          await settleRecordedSubscription({ teamId, recordedSubscriptionId: team.stripeSubscriptionId });
-        }
-
-        const customerId = await ensureStripeCustomer({
+        await completeTrialSubscription({
           teamId,
+          userId: session.user.id,
           actingUserEmail: session.user.email,
+          planId,
+          interval,
+          setupIntentId,
+          trialDays,
         });
-
-        const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
-        const setupCustomerId = typeof setupIntent.customer === "string"
-          ? setupIntent.customer
-          : setupIntent.customer?.id;
-        const paymentMethodId = typeof setupIntent.payment_method === "string"
-          ? setupIntent.payment_method
-          : setupIntent.payment_method?.id;
-
-        // The SetupIntent id arrives from the client: only one that succeeded for THIS
-        // team's customer may start the trial.
-        if (setupCustomerId !== customerId || setupIntent.status !== "succeeded" || !paymentMethodId) {
-          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
-        }
-
-        // ...and only for the exact team/plan/interval it was stamped with in
-        // startTrialSetupAction, so a stale dialog can't start a mismatched subscription.
-        const setupMetadata = setupIntent.metadata ?? {};
-        if (
-          setupMetadata.teamId !== teamId ||
-          setupMetadata.planId !== planId ||
-          setupMetadata.interval !== interval
-        ) {
-          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
-        }
-
-        const subscription = await stripe.subscriptions.create({
-          customer: customerId,
-          items: [{ price: getPlanPriceId({ planId, interval }) }],
-          trial_period_days: trialDays,
-          // The card is attached above; if it's ever detached before trial end, cancel
-          // instead of generating invoices that can only fail.
-          trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
-          default_payment_method: paymentMethodId,
-          payment_settings: { save_default_payment_method: "on_subscription" },
-          metadata: { teamId },
-        }, {
-          // Fresh per request: only pins this call's network retries. Nothing is
-          // persisted, so a failed attempt cannot poison later ones.
-          idempotencyKey: `team-subscription:${teamId}:${crypto.randomUUID()}`,
-        });
-
-        const claimedSlot = await claimTeamSubscription({
-          teamId,
-          subscriptionId: subscription.id,
-        });
-
-        if (!claimedSlot) {
-          // Lost a concurrent subscribe race: discard our trial and let the winner stand.
-          await stripe.subscriptions.cancel(subscription.id).catch((error: unknown) => {
-            console.error("completeTrialAction: losing-subscription cleanup failed", error);
-          });
-          throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
-        }
-
-        // Reconciling the trialing snapshot stamps the team; stamp the acting user too.
-        await reconcileTeamFromSubscription({ subscription });
-        await markUserTrialUsed(session.user.id);
 
         return { success: true };
       } catch (error) {

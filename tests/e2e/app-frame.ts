@@ -276,6 +276,10 @@ export function getAppCurrentPathname(): string {
   return new URL(getAppPage().url()).pathname;
 }
 
+export function getAppCurrentUrl(): string {
+  return getAppPage().url();
+}
+
 export function fetchAppPath(path: string, init?: RequestInit): Promise<Response> {
   return fetch(new URL(path, e2eBaseUrl), init);
 }

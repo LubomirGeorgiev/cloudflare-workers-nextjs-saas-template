@@ -1,5 +1,5 @@
 import "server-only";
-import { checkRateLimit } from "./rate-limit";
+import { checkRateLimit, resetRateLimit } from "./rate-limit";
 import { getIP } from "./get-IP";
 import ms from "ms";
 import isProd from "./is-prod";
@@ -25,54 +25,11 @@ interface RateLimitConfig {
    * Persist successful counter writes after returning the response. Use only for soft, low-risk limits.
    */
   deferWrite?: boolean;
-}
-
-// `message` is log-only; `actionClient`'s `handleServerError` builds the
-// localized user-facing copy from `retryAfterSeconds`.
-export class RateLimitError extends Error {
-  readonly retryAfterSeconds: number;
-
-  constructor(retryAfterSeconds: number) {
-    super(`Rate limit exceeded. Try again in ${retryAfterSeconds}s.`);
-    this.name = "RateLimitError";
-    this.retryAfterSeconds = retryAfterSeconds;
-  }
-}
-
-export async function withRateLimit<T>(
-  action: () => Promise<T>,
-  config: RateLimitConfig
-): Promise<T> {
-  if (!isProd || isTestMode()) {
-    return action();
-  }
-
-  const ip = await getIP();
-  const key = config.userIdentifier || ip || UNKNOWN_IP_RATE_LIMIT_KEY;
-
-  if (!config.userIdentifier && !ip) {
-    console.warn(
-      `Rate limit "${config.identifier}" used ${UNKNOWN_IP_RATE_LIMIT_KEY} because the trusted client IP header was unavailable.`
-    );
-  }
-
-  const rateLimitResult = await checkRateLimit({
-    key,
-    options: {
-      identifier: config.identifier,
-      limit: config.limit,
-      windowInSeconds: config.windowInSeconds,
-      deferWrite: config.deferWrite,
-    },
-  });
-
-  if (!rateLimitResult.success) {
-    throw new RateLimitError(
-      Math.max(0, Math.ceil(rateLimitResult.reset - Date.now() / 1000))
-    );
-  }
-
-  return action();
+  /**
+   * Clear this bucket after the wrapped action succeeds so only failed attempts consume it.
+   * Intended for account-keyed sign-in limits; do not combine with `deferWrite`.
+   */
+  resetOnSuccess?: boolean;
 }
 
 // Common rate limit configurations
@@ -80,6 +37,11 @@ export const RATE_LIMITS = {
   SIGN_IN: {
     identifier: "sign-in",
     limit: 15,
+    windowInSeconds: Math.floor(ms("60 minutes") / 1000),
+  },
+  SIGN_IN_ACCOUNT: {
+    identifier: "sign-in-account",
+    limit: 10,
     windowInSeconds: Math.floor(ms("60 minutes") / 1000),
   },
   GOOGLE_SSO_REQUEST: {
@@ -164,3 +126,74 @@ export const RATE_LIMITS = {
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
 } as const;
+
+// `message` is log-only; `actionClient`'s `handleServerError` builds the
+// localized user-facing copy from `retryAfterSeconds`.
+export class RateLimitError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(`Rate limit exceeded. Try again in ${retryAfterSeconds}s.`);
+    this.name = "RateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export async function withRateLimit<T>(
+  action: () => Promise<T>,
+  config: RateLimitConfig
+): Promise<T> {
+  if (!isProd || isTestMode()) {
+    return action();
+  }
+
+  // Normalize a falsy identifier to undefined so an empty string can't collapse every
+  // request into one shared bucket or skip the IP fallback.
+  const userIdentifier = config.userIdentifier || undefined;
+
+  const ip = userIdentifier === undefined ? await getIP() : undefined;
+  const key = userIdentifier ?? ip ?? UNKNOWN_IP_RATE_LIMIT_KEY;
+
+  if (!userIdentifier && !ip) {
+    console.warn(
+      `Rate limit "${config.identifier}" used ${UNKNOWN_IP_RATE_LIMIT_KEY} because the trusted client IP header was unavailable.`
+    );
+  }
+
+  const rateLimitResult = await checkRateLimit({
+    key,
+    options: {
+      identifier: config.identifier,
+      limit: config.limit,
+      windowInSeconds: config.windowInSeconds,
+      deferWrite: config.deferWrite,
+    },
+  });
+
+  if (!rateLimitResult.success) {
+    throw new RateLimitError(
+      Math.max(0, Math.ceil(rateLimitResult.reset - Date.now() / 1000))
+    );
+  }
+
+  const result = await action();
+
+  // The counter was incremented before the action ran; refund it on success so only
+  // failed attempts consume the bucket. A failed reset must never fail the request.
+  if (config.resetOnSuccess) {
+    try {
+      await resetRateLimit({
+        key,
+        identifier: config.identifier,
+        windowInSeconds: config.windowInSeconds,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to reset rate limit "${config.identifier}" after a successful attempt.`,
+        error
+      );
+    }
+  }
+
+  return result;
+}

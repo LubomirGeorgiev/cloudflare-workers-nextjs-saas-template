@@ -4,7 +4,6 @@ import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { getUserLocale } from "@/i18n/locale";
 import { getVerificationTokenKey } from "@/utils/auth-utils";
 import { sendVerificationEmail } from "@/utils/email";
-import { createId } from "@paralleldrive/cuid2";
 import { createExpiringToken } from "@/utils/kv-token";
 
 interface SendUserVerificationEmailParams {
@@ -24,7 +23,6 @@ export async function sendUserVerificationEmail({
     payload: {
       userId,
     },
-    createToken: createId,
   });
 
   // All callers run inside a request (server actions), so getUserLocale()

@@ -5,13 +5,17 @@ import { promisify } from "node:util";
 import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
 
 const execFileAsync = promisify(execFile);
-const wranglerStateDir = getE2ERuntimeEnv().E2E_WRANGLER_STATE_DIR;
+const {
+  E2E_PREVIEW_LOG_FILE: previewLogFile,
+  E2E_WRANGLER_STATE_DIR: wranglerStateDir,
+} = getE2ERuntimeEnv();
 const sqliteRetryDelayMs = 100;
 const sqliteRetryLimit = 8;
+const localEmailPollDelayMs = 50;
+// Local Queues may hold a message briefly while filling a delivery batch.
+const localEmailTimeoutMs = 10_000;
 
 let d1SqlitePath: string | undefined;
-let kvSqlitePath: string | undefined;
-let kvBlobDirectory: string | undefined;
 
 async function findFirstSqliteFile({
   directory,
@@ -43,47 +47,6 @@ async function getD1SqlitePath(): Promise<string> {
   }
 
   return d1SqlitePath;
-}
-
-async function getKVSqlitePath(): Promise<string> {
-  if (!wranglerStateDir) {
-    throw new Error("E2E_WRANGLER_STATE_DIR is not configured.");
-  }
-
-  kvSqlitePath ??= await findFirstSqliteFile({
-    directory: join(wranglerStateDir, "v3", "kv", "miniflare-KVNamespaceObject"),
-  });
-
-  if (!kvSqlitePath) {
-    throw new Error("Could not find the local Miniflare KV SQLite database.");
-  }
-
-  return kvSqlitePath;
-}
-
-async function getKVBlobDirectory(): Promise<string> {
-  if (!wranglerStateDir) {
-    throw new Error("E2E_WRANGLER_STATE_DIR is not configured.");
-  }
-
-  if (kvBlobDirectory) {
-    return kvBlobDirectory;
-  }
-
-  const kvDirectory = join(wranglerStateDir, "v3", "kv");
-  const namespaceDirectories = (await readdir(kvDirectory, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory() && entry.name !== "miniflare-KVNamespaceObject")
-    .map((entry) => entry.name);
-
-  if (namespaceDirectories.length !== 1) {
-    throw new Error(
-      `Expected exactly one local Miniflare KV namespace directory, found ${namespaceDirectories.length}.`
-    );
-  }
-
-  kvBlobDirectory = join(kvDirectory, namespaceDirectories[0]!, "blobs");
-
-  return kvBlobDirectory;
 }
 
 async function querySqlite({
@@ -127,36 +90,53 @@ export async function queryLocalD1({ sql }: { sql: string }): Promise<string> {
   });
 }
 
-export async function listLocalKVEntries({
-  prefix,
+export async function waitForLocalEmailUrl({
+  email,
+  pathname,
 }: {
-  prefix: string;
-}): Promise<Array<{ key: string; value: string }>> {
-  const [databasePath, blobDirectory] = await Promise.all([
-    getKVSqlitePath(),
-    getKVBlobDirectory(),
-  ]);
-  const output = await querySqlite({
-    databasePath,
-    sql: `select key, blob_id from _mf_entries where key like ${sqlStringLiteral(`${prefix}%`)};`,
-  });
+  email: string;
+  pathname: string;
+}): Promise<URL> {
+  if (!previewLogFile) {
+    throw new Error("E2E_PREVIEW_LOG_FILE is not configured.");
+  }
 
-  const entries: Array<{ key: string; value: string }> = [];
+  const timeoutAt = Date.now() + localEmailTimeoutMs;
 
-  for (const line of output.split("\n")) {
-    const [key, blobId] = line.split("|");
+  while (Date.now() < timeoutAt) {
+    const previewLog = await readFile(previewLogFile, "utf8").catch(() => "");
+    const lines = previewLog.split("\n");
 
-    if (!key || !blobId || !key.startsWith(prefix)) {
-      continue;
+    for (let index = lines.length - 1; index >= 0; index -= 1) {
+      if (lines[index]?.trim() !== `To: ${email}`) {
+        continue;
+      }
+
+      const textFileLine = lines
+        .slice(index + 1, index + 6)
+        .find((line) => line.trim().startsWith("Text: "));
+      const textFile = textFileLine?.trim().slice("Text: ".length);
+
+      if (!textFile) {
+        continue;
+      }
+
+      const emailText = await readFile(textFile, "utf8").catch(() => "");
+      for (const match of emailText.matchAll(/https?:\/\/[^\s]+/g)) {
+        const url = new URL(match[0]);
+
+        if (url.pathname === pathname) {
+          return url;
+        }
+      }
     }
 
-    entries.push({
-      key,
-      value: await readFile(join(blobDirectory, blobId), "utf8"),
+    await new Promise((resolve) => {
+      setTimeout(resolve, localEmailPollDelayMs);
     });
   }
 
-  return entries;
+  throw new Error(`Timed out waiting for ${pathname} email sent to ${email}.`);
 }
 
 export function sqlStringLiteral(value: string): string {
