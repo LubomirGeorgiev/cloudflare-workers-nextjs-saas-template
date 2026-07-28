@@ -97,15 +97,15 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.45.0",
     "@cloudflare/vitest-pool-workers": "^0.16.14",
-    "@tailwindcss/typography": "^0.5.19",
-    "@tailwindcss/vite": "^4.3.0",
+    "@tailwindcss/typography": "^0.5.20",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/lodash.throttle": "^4.1.9",
     "@types/ms": "2.1.0",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@typescript/typescript6": "^6.0.2",
-    "@vinext/cloudflare": "1.0.0-beta.3",
+    "@vinext/cloudflare": "1.0.0-beta.4",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitejs/plugin-rsc": "^0.5.30",
     "drizzle-kit": "1.0.0-rc.4",
@@ -115,12 +115,12 @@
     "react-server-dom-webpack": "^19.2.8",
     "sass": "^1.99.0",
     "schema-dts": "^1.1.5",
-    "tailwindcss": "^4.3.0",
+    "tailwindcss": "^4.3.3",
     "tw-animate-css": "^1.4.0",
     "typescript": "^7",
-    "vinext": "1.0.0-beta.3",
+    "vinext": "1.0.0-beta.4",
     "vite": "^8.1.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.113.0"
+    "wrangler": "^4.114.0"
   }
 }
