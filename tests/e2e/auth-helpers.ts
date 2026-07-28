@@ -7,7 +7,11 @@ import {
 } from "./app-frame";
 import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
 
+export const SEEDED_ADMIN_EMAIL = "test@test.com";
 export const SEEDED_MEMBER_EMAIL = "sarah.chen@example.com";
+// Every seeded account shares this password (see `src/db/seed.sql`); one home so a reseed
+// with different credentials is a single edit.
+export const SEEDED_USER_PASSWORD = "password";
 
 interface CreateVerifiedUserInLocalD1Params {
   email: string;
@@ -101,7 +105,7 @@ export function signInSeededMember(
 ): Promise<void> {
   return signInWithPassword({
     email: SEEDED_MEMBER_EMAIL,
-    password: "password",
+    password: SEEDED_USER_PASSWORD,
     redirectPath,
     expectedPathname,
   });

@@ -14,7 +14,11 @@ import {
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
-import { createVerifiedUserInLocalD1, signInWithPassword } from "./auth-helpers";
+import {
+  createVerifiedUserInLocalD1,
+  SEEDED_USER_PASSWORD,
+  signInWithPassword,
+} from "./auth-helpers";
 import {
   queryLocalD1,
   sqlStringLiteral,
@@ -113,7 +117,7 @@ async function createOwnerAndTeam({ label }: { label: string }): Promise<OwnerAn
 
   await signInWithPassword({
     email: ownerEmail,
-    password: "password",
+    password: SEEDED_USER_PASSWORD,
     redirectPath: "/dashboard/teams/create",
   });
 
@@ -180,7 +184,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
 
   await signInWithPassword({
     email,
-    password: "password",
+    password: SEEDED_USER_PASSWORD,
     redirectPath: "/dashboard/teams/create",
   });
 
@@ -254,7 +258,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
 
   await signInWithPassword({
     email: inviteeEmail,
-    password: "password",
+    password: SEEDED_USER_PASSWORD,
   });
   await navigateAppFrame(`/team-invite?token=${encodeURIComponent(acceptanceToken)}`);
   await expectAppPathname(expectedTeamPathname);
@@ -348,7 +352,7 @@ test("rejects invitation acceptance for expired tokens and mismatched emails", a
     expiresInSeconds: -60,
   });
 
-  await signInWithPassword({ email: matchingEmail, password: "password" });
+  await signInWithPassword({ email: matchingEmail, password: SEEDED_USER_PASSWORD });
   await navigateAppFrame(`/team-invite?token=${encodeURIComponent(expiredToken)}`);
   await expectAppText("Invitation Error", { exact: true });
   await expectAppText("Invitation has expired");

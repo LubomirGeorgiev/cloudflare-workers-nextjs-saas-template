@@ -14,6 +14,7 @@ vi.mock("@/lib/ai/generate-text", () => ({
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { runAiText } from "@/lib/ai/generate-text";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
+import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import {
   collectTranslatableStrings,
   reconcileTranslation,
@@ -94,6 +95,10 @@ function buildLongDoc(texts: string[]): JSONContent {
 function contentTexts(content: JSONContent): Array<string | undefined> {
   return (content.content ?? []).map((node) => node.content?.[0].text);
 }
+
+// Driven off the app locale config so renaming or dropping a locale cannot strand these
+// tests. Cross-locale cases are skipped on single-locale forks, where translation no-ops.
+const TARGET_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 describe("collectTranslatableStrings", () => {
   test("collects text, image alt, and alert title/body, skipping code", () => {
@@ -176,7 +181,7 @@ describe("reconcileTranslation", () => {
   });
 });
 
-describe("translateEntryFields", () => {
+describe.skipIf(!TARGET_LOCALE)("translateEntryFields", () => {
   test("maps named fields and content translations without shifting blank fields", async () => {
     mockAiContext();
     mockTranslatedValues(["Descripcion traducida", "Contenido traducido"]);
@@ -188,8 +193,8 @@ describe("translateEntryFields", () => {
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "Source content" }] }],
       },
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(result.title).toBe("");
@@ -206,8 +211,8 @@ describe("translateEntryFields", () => {
       title: "",
       seoDescription: "Source description",
       content: { type: "doc", content: [] },
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(result.seoDescription).toHaveLength(CMS_SEO_DESCRIPTION_MAX_LENGTH);
@@ -225,8 +230,8 @@ describe("translateEntryFields", () => {
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "keep body" }] }],
       },
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
       only: ["title"],
     });
 
@@ -241,22 +246,22 @@ describe("translateEntryFields", () => {
   });
 });
 
-describe("translateText", () => {
+describe.skipIf(!TARGET_LOCALE)("translateText", () => {
   test("uses the shared AI guard and named-field translation path", async () => {
     mockAiContext();
     mockTranslatedValues(["Etiqueta"]);
 
     const result = await translateText({
       text: "Label",
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(result).toEqual({ text: "Etiqueta", translated: true });
   });
 });
 
-describe("translateTagFields", () => {
+describe.skipIf(!TARGET_LOCALE)("translateTagFields", () => {
   test("keeps blank tag names from shifting the description translation", async () => {
     mockAiContext();
     mockTranslatedValues(["Descripcion de etiqueta"]);
@@ -264,8 +269,8 @@ describe("translateTagFields", () => {
     const result = await translateTagFields({
       name: "",
       description: "Tag description",
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(result).toEqual({
@@ -276,7 +281,7 @@ describe("translateTagFields", () => {
   });
 });
 
-describe("translateEntryFields chunking", () => {
+describe.skipIf(!TARGET_LOCALE)("translateEntryFields chunking", () => {
   test("reassembles multi-batch chunked content in source order", async () => {
     mockAiContext();
     mockAiUppercasePerChunk();
@@ -289,8 +294,8 @@ describe("translateEntryFields chunking", () => {
       title: "",
       seoDescription: null,
       content: buildLongDoc(texts),
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(runAiTextMock).toHaveBeenCalledTimes(5);
@@ -310,8 +315,8 @@ describe("translateEntryFields chunking", () => {
       title: "",
       seoDescription: null,
       content: buildLongDoc(texts),
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(runAiTextMock).toHaveBeenCalledTimes(2);
@@ -332,8 +337,8 @@ describe("translateEntryFields chunking", () => {
       title: "",
       seoDescription: null,
       content: buildLongDoc(texts),
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     const outputs = contentTexts(result.content);
@@ -352,8 +357,8 @@ describe("withAiTranslation fallbacks", () => {
   test("same-locale request skips the AI entirely and returns the source", async () => {
     const result = await translateText({
       text: "Label",
-      sourceLocale: "en",
-      targetLocale: "en",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: DEFAULT_LOCALE,
     });
 
     expect(result).toEqual({ text: "Label", translated: false });
@@ -375,8 +380,8 @@ describe("withAiTranslation fallbacks", () => {
       title: "Source title",
       seoDescription: "Source description",
       content,
-      sourceLocale: "en",
-      targetLocale: "es",
+      sourceLocale: DEFAULT_LOCALE,
+      targetLocale: TARGET_LOCALE,
     });
 
     expect(result).toEqual({

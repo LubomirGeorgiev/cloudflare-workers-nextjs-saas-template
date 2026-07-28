@@ -41,3 +41,8 @@ export const CMS_ALLOWED_IMAGE_TYPES = [
 ] as const;
 
 export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;
+
+// Shared by every schema that collects a person's name (sign-up, passkey registration, profile
+// settings) so the limit and its validation copy stay in one place.
+export const NAME_MIN_LENGTH = 2;
+export const NAME_MAX_LENGTH = 255;

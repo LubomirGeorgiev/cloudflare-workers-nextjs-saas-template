@@ -18,7 +18,9 @@ import {
 } from "./app-frame";
 import {
   createVerifiedUserInLocalD1,
+  SEEDED_ADMIN_EMAIL,
   SEEDED_MEMBER_EMAIL,
+  SEEDED_USER_PASSWORD,
   signInSeededMember,
   signInWithPassword,
 } from "./auth-helpers";
@@ -27,15 +29,32 @@ import {
   sqlStringLiteral,
   waitForLocalEmailUrl,
 } from "./local-wrangler-state";
+import {
+  LEGACY_PASSWORD_MIN_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from "../../src/schemas/password.schema";
+import { NAME_MIN_LENGTH } from "../../src/constants";
+
+const NAME_MIN_LENGTH_MESSAGE = `Must be at least ${NAME_MIN_LENGTH} characters`;
+
+function passwordMinLengthMessage(min: number) {
+  return `Password must be at least ${min} characters`;
+}
+
+// Validation limits are template-configurable, so drive the "too short" inputs off the
+// constant instead of literals that silently stop being too short.
+function tooShort(min: number) {
+  return "a".repeat(min - 1);
+}
 
 test("shows sign-in password validation before submitting", async () => {
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
 
-  await fillAppPlaceholder("Email address", "test@test.com");
-  await fillAppPlaceholder("Password", "short");
+  await fillAppPlaceholder("Email address", SEEDED_ADMIN_EMAIL);
+  await fillAppPlaceholder("Password", tooShort(LEGACY_PASSWORD_MIN_LENGTH));
   await clickAppRole("button", "Sign In with Password");
 
-  await expectAppText("Password must be at least 6 characters", { exact: true });
+  await expectAppText(passwordMinLengthMessage(LEGACY_PASSWORD_MIN_LENGTH), { exact: true });
 });
 
 test("redirects anonymous users away from protected settings", async () => {
@@ -47,7 +66,7 @@ test("redirects anonymous users away from protected settings", async () => {
 test("shows a visible error toast for invalid credentials", async () => {
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
 
-  await fillAppPlaceholder("Email address", "test@test.com");
+  await fillAppPlaceholder("Email address", SEEDED_ADMIN_EMAIL);
   await fillAppPlaceholder("Password", "wrongpass");
   await clickAppRole("button", "Sign In with Password");
 
@@ -90,13 +109,13 @@ test("shows sign-up validation before creating an account", async () => {
 
   await expectAppText("Create your account", { exact: true });
   await fillAppPlaceholder("Email address", "new-user-e2e@example.com");
-  await fillAppPlaceholder("First Name", "A");
-  await fillAppPlaceholder("Last Name", "B");
-  await fillAppPlaceholder("Password", "short");
+  await fillAppPlaceholder("First Name", tooShort(NAME_MIN_LENGTH));
+  await fillAppPlaceholder("Last Name", tooShort(NAME_MIN_LENGTH));
+  await fillAppPlaceholder("Password", tooShort(PASSWORD_MIN_LENGTH));
   await clickAppRole("button", "Create Account with Password");
 
-  await expectAppText("Must be at least 2 characters", { exact: true });
-  await expectAppText("Password must be at least 15 characters", { exact: true });
+  await expectAppText(NAME_MIN_LENGTH_MESSAGE, { exact: true });
+  await expectAppText(passwordMinLengthMessage(PASSWORD_MIN_LENGTH), { exact: true });
 });
 
 test("creates and verifies a new password account", async () => {
@@ -139,7 +158,7 @@ test("keeps forgot-password responses enumeration-safe", async () => {
 
 test("resets a verified user's password and invalidates the reset token", async () => {
   const email = `password-reset-${Date.now()}@example.com`;
-  const oldPassword = "password";
+  const oldPassword = SEEDED_USER_PASSWORD;
   const newPassword = "new-password-strong";
 
   await createVerifiedUserInLocalD1({
@@ -192,13 +211,13 @@ describe("profile settings", () => {
     await navigateAppFrame("/settings", { waitForHydration: true });
 
     await expectAppText("Profile Settings", { exact: true });
-    await fillAppLabel({ label: "First Name", value: "A" });
-    await fillAppLabel({ label: "Last Name", value: "B" });
+    await fillAppLabel({ label: "First Name", value: tooShort(NAME_MIN_LENGTH) });
+    await fillAppLabel({ label: "Last Name", value: tooShort(NAME_MIN_LENGTH) });
     await clickAppRole("button", "Save changes");
 
     // Both name fields share the central `Validation.minLength` message, so expect it
     // to render once per invalid field rather than field-specific copy.
-    await expectAppTextCount("Must be at least 2 characters", 2, { exact: true });
+    await expectAppTextCount(NAME_MIN_LENGTH_MESSAGE, 2, { exact: true });
   });
 
   test("updates profile settings and shows a visible success toast", async () => {
@@ -214,7 +233,7 @@ describe("profile settings", () => {
 
     await signInWithPassword({
       email,
-      password: "password",
+      password: SEEDED_USER_PASSWORD,
       redirectPath: "/settings",
     });
     await navigateAppFrame("/settings", { waitForHydration: true });

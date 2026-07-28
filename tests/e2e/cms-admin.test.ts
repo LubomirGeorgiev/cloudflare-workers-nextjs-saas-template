@@ -6,9 +6,14 @@ import {
   expectAppText,
   navigateAppFrame,
 } from "./app-frame";
-import { createVerifiedUserInLocalD1, signInWithPassword } from "./auth-helpers";
+import {
+  createVerifiedUserInLocalD1,
+  SEEDED_USER_PASSWORD,
+  signInWithPassword,
+} from "./auth-helpers";
+import { SEEDED_BLOG_ENTRY, SEEDED_DOCS_ENTRY } from "./seed-fixtures";
 
-const password = "password";
+const password = SEEDED_USER_PASSWORD;
 
 let adminEmail: string;
 
@@ -50,9 +55,9 @@ test("lets admins browse the CMS dashboard and seeded collection lists", async (
   await expectAppText("Blogs", { exact: true });
   await expectAppText("Create Blog", { exact: true });
   await expectAppText("Filter by status:", { exact: true });
-  await expectAppText("Getting Started with Next.js 15", { exact: true });
-  await expectAppText("getting-started-with-nextjs-15", { exact: true });
-  await expectAppText("Test Testov", { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.slug, { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.authorName, { exact: true });
 
   await navigateAppFrame("/admin/cms/docs");
 
@@ -68,12 +73,12 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   await signInWithPassword({
     email: adminEmail,
     password,
-    redirectPath: "/admin/cms/blog/cms_ent_test001",
+    redirectPath: `/admin/cms/blog/${SEEDED_BLOG_ENTRY.id}`,
   });
 
-  await expectAppPathname("/admin/cms/blog/cms_ent_test001");
+  await expectAppPathname(`/admin/cms/blog/${SEEDED_BLOG_ENTRY.id}`);
   await expectAppText("Edit Blog", { exact: true });
-  await expectAppText("Getting Started with Next.js 15", { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
   await expectAppText("Basic Information", { exact: true });
   await expectAppText("Custom Fields", { exact: true });
   await expectAppText("Content", { exact: true });
@@ -88,16 +93,16 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   await expectAppText("Version history");
   await expectAppLabelValue({
     label: "Title *",
-    value: "Getting Started with Next.js 15",
+    value: SEEDED_BLOG_ENTRY.title,
   });
   await expectAppLabelValue({
     label: "URL Slug *",
-    value: "getting-started-with-nextjs-15",
+    value: SEEDED_BLOG_ENTRY.slug,
   });
 
-  await navigateAppFrame("/admin/cms/docs/cms_ent_docs001");
+  await navigateAppFrame(`/admin/cms/docs/${SEEDED_DOCS_ENTRY.id}`);
 
-  await expectAppPathname("/admin/cms/docs/cms_ent_docs001");
+  await expectAppPathname(`/admin/cms/docs/${SEEDED_DOCS_ENTRY.id}`);
   await expectAppText("Edit Doc", { exact: true });
   await expectAppRoleText({
     role: "combobox",

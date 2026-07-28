@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { fetchAppPath } from "./app-frame";
+import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -32,7 +33,7 @@ test("serves a sitemap containing seeded CMS routes and no protected app routes"
 
   const body = await response.text();
   expectAbsoluteLoc(body, "/blog");
-  expectAbsoluteLoc(body, "/blog/getting-started-with-nextjs-15");
-  expectAbsoluteLoc(body, "/docs/getting-started/introduction");
+  expectAbsoluteLoc(body, SEEDED_BLOG_ENTRY_PATH);
+  expectAbsoluteLoc(body, SEEDED_DOCS_ENTRY_PATH);
   expect(body).not.toMatch(/<loc>[^<]*(?:\/dashboard|\/settings)[^<]*<\/loc>/);
 });

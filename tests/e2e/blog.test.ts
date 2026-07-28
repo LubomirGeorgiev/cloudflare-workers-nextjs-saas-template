@@ -6,19 +6,20 @@ import {
   expectNoAppText,
   loadAppFrame,
 } from "./app-frame";
+import { SEEDED_BLOG_ENTRY, SEEDED_BLOG_ENTRY_PATH } from "./seed-fixtures";
 
 test("renders seeded blog content from fresh D1 state", async () => {
   await loadAppFrame("/blog");
 
   await expectAppRole("heading", "Blog", { exact: true });
-  await expectAppText("Getting Started with Next.js 15", { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
 });
 
 test("renders a full seeded blog article with author, tags, and rich content", async () => {
-  await loadAppFrame("/blog/getting-started-with-nextjs-15");
+  await loadAppFrame(SEEDED_BLOG_ENTRY_PATH);
 
-  await expectAppRole("heading", "Getting Started with Next.js 15", { exact: true });
-  await expectAppText("Test Testov", { exact: true });
+  await expectAppRole("heading", SEEDED_BLOG_ENTRY.title, { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.authorName, { exact: true });
   await expectAppText("Next.js", { exact: true });
   await expectAppText("React", { exact: true });
   await expectAppText("TypeScript", { exact: true });
@@ -32,7 +33,7 @@ test("routes numbered blog pages to the correct paginated result set", async () 
   await expectAppPathname("/blog/2");
   await expectAppRole("heading", "Blog", { exact: true });
   await expectAppText("Advanced Git Workflows for Teams", { exact: true });
-  await expectNoAppText("Getting Started with Next.js 15", { exact: true });
+  await expectNoAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
 });
 
 test("filters blog posts by seeded tag", async () => {
@@ -47,8 +48,8 @@ test("filters blog posts by seeded tag", async () => {
 test("filters blog posts by seeded author", async () => {
   await loadAppFrame("/blog/authors/test-testov--usr_lyo1up6a9q75dmpv3o5x9irj");
 
-  await expectAppRole("heading", "Test Testov", { exact: true });
+  await expectAppRole("heading", SEEDED_BLOG_ENTRY.authorName, { exact: true });
   await expectAppText("7 posts", { exact: true });
-  await expectAppText("Getting Started with Next.js 15", { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
   await expectAppText("Serverless Architecture Patterns", { exact: true });
 });

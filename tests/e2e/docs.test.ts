@@ -9,11 +9,12 @@ import {
   loadAppFrame,
 } from "./app-frame";
 import { SITE_NAME } from "../../src/constants";
+import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
-  await loadAppFrame("/docs/getting-started/introduction");
+  await loadAppFrame(SEEDED_DOCS_ENTRY_PATH);
 
-  await expectAppRole("heading", "Introduction", { exact: true });
+  await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
   await expectAppText(
     "Learn how this template is structured and how to ship your first feature quickly."
   );
@@ -22,19 +23,19 @@ test("renders seeded docs navigation content from fresh D1 state", async () => {
 test("redirects the docs root to the first navigable docs page", async () => {
   await loadAppFrame("/docs");
 
-  await expectAppPathname("/docs/getting-started/introduction");
-  await expectAppRole("heading", "Introduction", { exact: true });
+  await expectAppPathname(SEEDED_DOCS_ENTRY_PATH);
+  await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
 });
 
 test("honors seeded docs navigation redirects", async () => {
   await loadAppFrame("/docs/getting-started/setup");
 
-  await expectAppPathname("/docs/getting-started/introduction");
-  await expectAppRole("heading", "Introduction", { exact: true });
+  await expectAppPathname(SEEDED_DOCS_ENTRY_PATH);
+  await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
 });
 
 test("serves docs markdown exports for AI and download workflows", async () => {
-  const response = await fetchAppPath("/markdown/docs/introduction");
+  const response = await fetchAppPath(`/markdown/docs/${SEEDED_DOCS_ENTRY.slug}`);
 
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
@@ -86,7 +87,7 @@ test("serves docs search results from the public API endpoint", async () => {
 });
 
 test("searches docs from the command dialog", async () => {
-  await loadAppFrame("/docs/getting-started/introduction", { waitForHydration: true });
+  await loadAppFrame(SEEDED_DOCS_ENTRY_PATH, { waitForHydration: true });
 
   await clickAppRole("button", "Search docs");
   await fillAppPlaceholder("Search docs...", "authentication");
