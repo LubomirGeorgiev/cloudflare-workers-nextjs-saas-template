@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DEFAULT_ADMIN_TABLE_PAGE_SIZE } from "@/constants";
 import { DataTable } from "@/components/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
@@ -49,7 +50,7 @@ export function CmsEntriesTable({
   const [statusFilter, setStatusFilter] = useState<CmsStatusFilter>(CMS_STATUS_FILTER_ALL);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(DEFAULT_ADMIN_TABLE_PAGE_SIZE);
   // Membership is keyed by the (collection, slug) translation group, so every locale
   // sibling of an attached entry counts as in-navigation.
   const docsNavigationSlugsSet = useMemo(

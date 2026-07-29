@@ -46,3 +46,14 @@ export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;
 // settings) so the limit and its validation copy stay in one place.
 export const NAME_MIN_LENGTH = 2;
 export const NAME_MAX_LENGTH = 255;
+
+// Shared by team create and team rename so both paths enforce one limit.
+export const TEAM_NAME_MAX_LENGTH = 100;
+export const TEAM_DESCRIPTION_MAX_LENGTH = 1000;
+
+// Pagination for every admin table. The default and max are also the server-side API contract,
+// declared explicitly so that editing or reordering the presentational dropdown list cannot
+// silently change what the server accepts; `src/constants.test.ts` keeps the three in step.
+export const DEFAULT_ADMIN_TABLE_PAGE_SIZE = 10;
+export const MAX_ADMIN_TABLE_PAGE_SIZE = 500;
+export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100, 300, 500];

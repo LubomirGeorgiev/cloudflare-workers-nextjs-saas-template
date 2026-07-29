@@ -12,13 +12,15 @@ import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
-import { v } from "@/lib/validation";
+import {
+  cmsMediaBucketKeySchema,
+  cmsMediaIdSchema,
+  listCmsMediaSchema,
+  updateCmsMediaSchema,
+} from "@/schemas/cms-media.schema";
 
 export const listCmsMediaAction = actionClient
-  .inputSchema(v.object({
-    page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
-    limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(100)), 20),
-  }))
+  .inputSchema(listCmsMediaSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -80,9 +82,7 @@ export const listCmsMediaAction = actionClient
   });
 
 export const getCmsMediaDetailsAction = actionClient
-  .inputSchema(v.object({
-    mediaId: v.string(),
-  }))
+  .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -163,12 +163,7 @@ function updateImageNodesInContent(
 }
 
 export const updateCmsMediaAction = actionClient
-  .inputSchema(v.object({
-    mediaId: v.string(),
-    alt: v.optional(v.string()),
-    width: v.optional(v.number()),
-    height: v.optional(v.number()),
-  }))
+  .inputSchema(updateCmsMediaSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -261,9 +256,7 @@ export const updateCmsMediaAction = actionClient
   });
 
 export const getCmsMediaByBucketKeyAction = actionClient
-  .inputSchema(v.object({
-    bucketKey: v.string(),
-  }))
+  .inputSchema(cmsMediaBucketKeySchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -285,9 +278,7 @@ export const getCmsMediaByBucketKeyAction = actionClient
   });
 
 export const deleteCmsMediaAction = actionClient
-  .inputSchema(v.object({
-    mediaId: v.string(),
-  }))
+  .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {
       await requireAdmin();

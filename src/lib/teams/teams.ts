@@ -1,9 +1,12 @@
 import "server-only";
 import { cache } from "react";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, teamMembershipTable } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamMembershipTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
+import { requireTeamPermission } from "@/utils/team-auth";
 import { generateSlug } from "@/utils/slugify";
+import { syncStripeCustomerName } from "@/utils/team-subscription";
+import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { ActionError } from "@/lib/action-error";
 import { eq, and, count, gt, isNull, or } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
@@ -199,6 +202,53 @@ export async function createTeam({
     teamId,
     name,
     slug,
+  };
+}
+
+function logRenameFollowUpFailure(step: string) {
+  return (error: unknown) => {
+    console.error(`Team rename follow-up failed: ${step}`, error);
+  };
+}
+
+// Renaming deliberately leaves `slug` alone: the slug is the team's URL, and regenerating it
+// would break bookmarks, shared links, and invitation emails already in flight.
+export async function renameTeam({ teamId, name }: { teamId: string; name: string }) {
+  const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS);
+  const db = getDB();
+
+  const [renamedTeam] = await db
+    .update(teamTable)
+    .set({ name })
+    .where(eq(teamTable.id, teamId))
+    .returning({
+      id: teamTable.id,
+      name: teamTable.name,
+      slug: teamTable.slug,
+      stripeCustomerId: teamTable.stripeCustomerId,
+    });
+
+  // Defensive, not the primary path: requireTeamPermission already rejects an unknown team with
+  // FORBIDDEN (no membership row can exist for it), so this only fires when the team is deleted
+  // in the race window between that check and this update.
+  if (!renamedTeam) {
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFound" });
+  }
+
+  // D1 has no transactions, so the rename above is already durable: none of these independent
+  // follow-ups may fail it. The acting user's sessions refresh so their own team switcher updates
+  // immediately; every other member's cached name and Stripe's copy catch up out of band.
+  await Promise.all([
+    updateAllSessionsOfUser(session.userId).catch(logRenameFollowUpFailure("acting user sessions")),
+    syncStripeCustomerName({ stripeCustomerId: renamedTeam.stripeCustomerId, name })
+      .catch(logRenameFollowUpFailure("Stripe customer sync")),
+    enqueueTeamSessionsRefresh(teamId).catch(logRenameFollowUpFailure("team sessions refresh enqueue")),
+  ]);
+
+  return {
+    teamId: renamedTeam.id,
+    name: renamedTeam.name,
+    slug: renamedTeam.slug,
   };
 }
 

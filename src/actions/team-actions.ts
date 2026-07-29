@@ -1,17 +1,12 @@
 "use server";
 
-import { createTeam, getUserTeams } from "@/lib/teams/teams";
+import { revalidatePath } from "next/cache";
+
+import { createTeam, getUserTeams, renameTeam } from "@/lib/teams/teams";
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
-import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
-
-const createTeamSchema = v.object({
-  name: v.pipe(
-    requiredString(validationKey("nameRequired")),
-    v.maxLength(100, encodeValidationMessage("nameMaxLength", { max: 100 }))
-  ),
-  description: v.optional(maxString(1000, encodeValidationMessage("descriptionMaxLength", { max: 1000 }))),
-});
+import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+import { createTeamSchema, renameTeamSchema } from "@/schemas/team.schema";
 
 export const createTeamAction = actionClient
   .inputSchema(createTeamSchema)
@@ -21,6 +16,28 @@ export const createTeamAction = actionClient
       failureMessageKey: "Client.Dashboard.Teams.toastCreateError",
       handler: () => createTeam(input),
     });
+  });
+
+export const renameTeamAction = actionClient
+  .inputSchema(renameTeamSchema)
+  .action(async ({ parsedInput: input }) => {
+    return withRateLimit(
+      async () => {
+        const result = await runVerifiedAction({
+          actionName: "Failed to rename team",
+          failureMessageKey: "Client.Dashboard.Teams.toastRenameError",
+          handler: () => renameTeam(input),
+        });
+
+        // The name is rendered in the teams listing cards, and in the team page heading,
+        // breadcrumb, and metadata.
+        revalidatePath("/dashboard/teams");
+        revalidatePath(`/dashboard/teams/${result.data.slug}`);
+
+        return result;
+      },
+      RATE_LIMITS.SETTINGS
+    );
   });
 
 export const getUserTeamsAction = actionClient

@@ -7,12 +7,12 @@ import { getUsersAction } from "../../_actions/get-users.action"
 import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
-import { PAGE_SIZE_OPTIONS } from "../../admin-constants"
+import { ADMIN_TABLE_PAGE_SIZE_OPTIONS, DEFAULT_ADMIN_TABLE_PAGE_SIZE } from "@/constants"
 import { useQueryState } from "nuqs"
 
 export function UsersTable() {
   const [page, setPage] = useQueryState("page", { defaultValue: "1" })
-  const [pageSize, setPageSize] = useQueryState("pageSize", { defaultValue: PAGE_SIZE_OPTIONS[0].toString() })
+  const [pageSize, setPageSize] = useQueryState("pageSize", { defaultValue: DEFAULT_ADMIN_TABLE_PAGE_SIZE.toString() })
   const [emailFilter, setEmailFilter] = useQueryState("email", { defaultValue: "" })
 
   const { execute: fetchUsers, result, status } = useAction(getUsersAction, {
@@ -78,7 +78,7 @@ export function UsersTable() {
                 totalCount={data.totalCount}
                 itemNameSingular="user"
                 itemNamePlural="users"
-                pageSizeOptions={PAGE_SIZE_OPTIONS}
+                pageSizeOptions={ADMIN_TABLE_PAGE_SIZE_OPTIONS}
                 getRowHref={getRowHref}
               />
             </div>

@@ -143,6 +143,14 @@ Never bundle Turnstile (`/accounts/{account_id}/challenges/widgets`) and Images 
 - Preserve rate limiting, input validation, and sanitization patterns.
 - Optimize for Web Vitals and efficient data fetching.
 
+### Parallel Awaits
+
+- `Promise.all` independent consecutive awaits; leave borderline cases sequential — a missed one costs nothing, a wrong one is a bug.
+- Keep sequential: guards before what they guard, reads that must see an earlier write, D1/cross-store writes, awaits split by an early return, load-bearing error fall-through.
+- Never `Promise.all(items.map(...))` over an unbounded array — chunk it, like `refreshTeamMemberSessions` in `src/utils/kv-session.ts`.
+- Skip React `cache()` reads and repeated `getTranslations`/`cookies`/`headers` — already memoized.
+- Post-commit effects that must not fail a committed write get their own `.catch` per entry (`renameTeam` in `src/lib/teams/teams.ts`).
+
 ## Forms, Validation, and Server Actions
 
 ### Schemas

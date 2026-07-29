@@ -5,11 +5,7 @@ import { actionClient } from "@/lib/safe-action";
 import { getSessionFromCookie } from "@/utils/auth";
 import { updateKVSessionSelectedTeam } from "@/utils/kv-session";
 import { getActiveTeamMembership } from "@/utils/team-membership";
-import { v } from "@/lib/validation";
-
-const updateSelectedTeamSchema = v.object({
-  selectedTeam: v.optional(v.string()),
-});
+import { updateSelectedTeamSchema } from "@/schemas/session.schema";
 
 export const updateSelectedTeamAction = actionClient
   .inputSchema(updateSelectedTeamSchema)

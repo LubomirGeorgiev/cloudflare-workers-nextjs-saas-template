@@ -598,7 +598,14 @@
         "roleOwner": "Propietario",
         "roleMember": "Miembro",
         "roleGuest": "Invitado",
-        "roleCustom": "Rol personalizado"
+        "roleCustom": "Rol personalizado",
+        "renameTeam": "Renombrar equipo",
+        "renameModalTitle": "Renombrar equipo",
+        "renameModalUrlNote": "La dirección web del equipo no cambia.",
+        "renameNameLabel": "Nombre del equipo",
+        "toastRenaming": "Renombrando equipo...",
+        "toastRenameSuccess": "Equipo renombrado correctamente",
+        "toastRenameError": "No se pudo renombrar el equipo"
       },
       "Billing": {
         "breadcrumbDashboard": "Panel",

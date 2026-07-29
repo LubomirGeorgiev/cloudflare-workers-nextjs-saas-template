@@ -8,6 +8,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { UAParser } from 'ua-parser-js';
 import { SessionWithMeta } from "@/types";
 import { v } from "@/lib/validation";
+import { deleteSessionSchema } from "@/schemas/session.schema";
 
 function isValidSession(session: unknown): session is SessionWithMeta {
   if (!session || typeof session !== 'object') return false;
@@ -75,9 +76,7 @@ export const getSessionsAction = actionClient
   });
 
 export const deleteSessionAction = actionClient
-  .inputSchema(v.object({
-    sessionId: v.string(),
-  }))
+  .inputSchema(deleteSessionSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {

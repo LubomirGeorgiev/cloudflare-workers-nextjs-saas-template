@@ -1,7 +1,6 @@
 import "server-only";
 
 import type Stripe from "stripe";
-import { env } from "cloudflare:workers";
 import { cache } from "react";
 import { and, eq, isNull, or } from "drizzle-orm";
 
@@ -9,7 +8,7 @@ import { getStripe } from "@/lib/stripe";
 import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
 import { teamTable, teamTrialReservationTable, userTable } from "@/db/schema";
-import { createScheduledQueueMessage, SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
+import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
 import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
@@ -181,6 +180,21 @@ export async function ensureStripeCustomer({
   return canonicalTeam.stripeCustomerId;
 }
 
+// Keeps the Stripe customer's display name in step with the team name; a team without a
+// customer yet is a no-op. Async on purpose: callers run it as a post-commit follow-up, so a
+// synchronous getStripe() config throw must surface as a rejection they can catch.
+export async function syncStripeCustomerName({
+  stripeCustomerId,
+  name,
+}: {
+  stripeCustomerId: string | null;
+  name: string;
+}): Promise<void> {
+  if (!stripeCustomerId) return;
+
+  await getStripe().customers.update(stripeCustomerId, { name });
+}
+
 // One free trial per team AND per user: the team stamp stops re-trialing the same team,
 // the user stamp stops farming trials by creating fresh teams. Stripe dashboard-granted
 // trials bypass this on purpose (support can always comp a customer).
@@ -223,16 +237,6 @@ export async function markUserTrialUsed(userId: string): Promise<void> {
     .update(userTable)
     .set({ trialUsedAt: new Date() })
     .where(and(eq(userTable.id, userId), isNull(userTable.trialUsedAt)));
-}
-
-// Refreshing member sessions fans out to D1 + KV work per member — far too slow to run
-// inline in a webhook Stripe expects to ack quickly. Offload it to the scheduler queue.
-async function enqueueTeamSessionsRefresh(teamId: string): Promise<void> {
-  await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
-    type: SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH,
-    payload: { teamId },
-    runAt: new Date(),
-  }));
 }
 
 interface ReconcileParams {

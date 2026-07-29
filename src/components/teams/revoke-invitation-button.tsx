@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { revokeTeamInvitationAction } from "@/actions/team-membership-actions";
 import { Button } from "@/components/ui/button";
-import type { RevokeTeamInvitationSchema } from "@/schemas/team-invitation.schema";
+import type { RevokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
 import {
   Dialog,
   DialogClose,

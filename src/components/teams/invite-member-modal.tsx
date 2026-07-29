@@ -17,16 +17,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { requiredString, v, validationKey } from "@/lib/validation";
+import { inviteMemberFormSchema, type InviteMemberFormSchema } from "@/schemas/team-membership.schema";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 
-// Define the form schema with validation
-const formSchema = v.object({
-  email: v.pipe(requiredString(validationKey("emailRequired")), v.email(validationKey("invalidEmail")))
-});
-
-type FormValues = v.InferOutput<typeof formSchema>;
+type FormValues = InviteMemberFormSchema;
 
 interface InviteMemberModalProps {
   teamId: string;
@@ -42,7 +37,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
 
   // Initialize react-hook-form
   const form = useForm<FormValues>({
-    resolver: valibotResolver(formSchema),
+    resolver: valibotResolver(inviteMemberFormSchema),
     defaultValues: {
       email: ""
     }

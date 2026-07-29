@@ -4,11 +4,7 @@ import { ActionError } from "@/lib/action-error"
 import { actionClient } from "@/lib/safe-action"
 import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
-import { requiredString, v } from "@/lib/validation"
-
-const getUserDataSchema = v.object({
-  userId: requiredString("User ID is required"),
-})
+import { getUserDataSchema } from "@/schemas/admin-users.schema"
 
 export const getUserData = actionClient
   .inputSchema(getUserDataSchema)

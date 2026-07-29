@@ -10,27 +10,7 @@ import { inviteUserToTeam } from "@/lib/teams/team-invite";
 import { acceptTeamInvitationById } from "@/lib/teams/team-invitation-accept";
 import { revokeTeamInvitation } from "@/lib/teams/team-invitation-revoke";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { emailString, encodeValidationMessage, requiredString, v, validationKey } from "@/lib/validation";
-import { revokeTeamInvitationSchema } from "@/schemas/team-invitation.schema";
-
-// Invite user schema
-const inviteUserSchema = v.object({
-  teamId: requiredString(validationKey("teamIdRequired")),
-  email: v.pipe(emailString(), v.maxLength(255, encodeValidationMessage("emailMaxLength", { max: 255 }))),
-  roleId: requiredString(validationKey("roleRequired")),
-  isSystemRole: v.optional(v.boolean(), true),
-});
-
-const removeMemberSchema = v.object({
-  teamId: requiredString(validationKey("teamIdRequired")),
-  userId: requiredString(validationKey("userIdRequired")),
-});
-
-// Dashboard acceptance addresses invitations by id + the session's verified email, never by a
-// bearer token.
-const invitationIdSchema = v.object({
-  invitationId: requiredString(validationKey("invitationIdRequired")),
-});
+import { invitationIdSchema, inviteUserSchema, removeMemberSchema, revokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
 
 export const inviteUserAction = actionClient
   .inputSchema(inviteUserSchema)

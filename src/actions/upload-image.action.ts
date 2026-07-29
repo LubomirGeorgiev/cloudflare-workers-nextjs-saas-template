@@ -11,7 +11,7 @@ import { CMS_IMAGE_MAX_FILE_SIZE, CMS_ALLOWED_IMAGE_TYPES } from "@/constants";
 import { getCmsImageR2Key, getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
-import { requiredString, v } from "@/lib/validation";
+import { uploadImageSchema } from "@/schemas/cms-media.schema";
 import { createRandomId } from "@/utils/random-token";
 
 function sanitizeFilename(filename: string): string {
@@ -36,11 +36,6 @@ function generateUniqueFilename({
 
   return `${uniqueId}-${nameWithoutExt}.${extension}`;
 }
-
-const uploadImageSchema = v.object({
-  file: v.instance(File),
-  collection: requiredString("Collection slug is required"),
-});
 
 export const uploadImageAction = actionClient
   .inputSchema(uploadImageSchema)

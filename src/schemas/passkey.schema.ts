@@ -1,5 +1,7 @@
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
+
 import { NAME_MAX_LENGTH, NAME_MIN_LENGTH } from "@/constants";
-import { emailString, minMaxString, v } from "@/lib/validation";
+import { emailString, minMaxString, v, validationKey } from "@/lib/validation";
 import { captchaSchema } from "./captcha.schema";
 
 export const passkeyEmailSchema = v.object({
@@ -12,3 +14,43 @@ export const passkeyEmailSchema = v.object({
 });
 
 export type PasskeyEmailSchema = v.InferOutput<typeof passkeyEmailSchema>;
+
+// WebAuthn credential payloads come back from the browser API as opaque JSON. They are
+// structurally checked here and verified for real against the stored challenge in
+// @/utils/webauthn — this schema is a shape gate, not the security boundary.
+function webAuthnResponseSchema<T extends AuthenticationResponseJSON | RegistrationResponseJSON>(
+  message: string,
+) {
+  return v.custom<T>(
+    (value): value is T =>
+      typeof value === "object" && value !== null && "id" in value && "rawId" in value,
+    message,
+  );
+}
+
+export const generateRegistrationOptionsSchema = v.object({
+  email: emailString(),
+});
+
+export const verifyRegistrationSchema = v.object({
+  email: emailString(),
+  response: webAuthnResponseSchema<RegistrationResponseJSON>(
+    validationKey("invalidRegistrationResponse"),
+  ),
+});
+
+export const deletePasskeySchema = v.object({
+  credentialId: v.string(),
+});
+
+export const verifyAuthenticationSchema = v.object({
+  response: webAuthnResponseSchema<AuthenticationResponseJSON>(
+    validationKey("invalidAuthenticationResponse"),
+  ),
+});
+
+export const completePasskeyRegistrationSchema = v.object({
+  response: webAuthnResponseSchema<RegistrationResponseJSON>(
+    validationKey("invalidRegistrationResponse"),
+  ),
+});

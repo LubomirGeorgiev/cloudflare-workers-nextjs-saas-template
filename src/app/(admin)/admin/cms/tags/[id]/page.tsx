@@ -36,9 +36,10 @@ export default async function EditTagPage({
     return redirect("/admin/cms/tags");
   }
 
-  const localeSiblings = await getCmsTagLocaleSiblings(tag.slug);
-
-  const entriesByCollection = await getCmsEntriesByTagId({ tagId: id, status: "all" as const });
+  const [localeSiblings, entriesByCollection] = await Promise.all([
+    getCmsTagLocaleSiblings(tag.slug),
+    getCmsEntriesByTagId({ tagId: id, status: "all" as const }),
+  ]);
   const totalEntries = Object.values(entriesByCollection).reduce(
     (sum, entries) => sum + entries.length,
     0

@@ -598,7 +598,14 @@
         "roleOwner": "Owner",
         "roleMember": "Member",
         "roleGuest": "Guest",
-        "roleCustom": "Custom Role"
+        "roleCustom": "Custom Role",
+        "renameTeam": "Rename Team",
+        "renameModalTitle": "Rename team",
+        "renameModalUrlNote": "The team's web address stays the same.",
+        "renameNameLabel": "Team Name",
+        "toastRenaming": "Renaming team...",
+        "toastRenameSuccess": "Team renamed successfully",
+        "toastRenameError": "Failed to rename team"
       },
       "Billing": {
         "breadcrumbDashboard": "Dashboard",

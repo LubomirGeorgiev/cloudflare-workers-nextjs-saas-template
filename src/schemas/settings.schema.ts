@@ -7,3 +7,5 @@ export const userSettingsSchema = v.object({
   firstName: minString(NAME_MIN_LENGTH),
   lastName: minString(NAME_MIN_LENGTH),
 });
+
+export type UserSettingsSchema = v.InferOutput<typeof userSettingsSchema>;

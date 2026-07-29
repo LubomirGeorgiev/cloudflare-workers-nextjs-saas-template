@@ -11,26 +11,10 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import type { InferSafeActionFnResult } from "next-safe-action";
 import { createTeamAction } from "@/actions/team-actions";
-import { encodeValidationMessage, maxString, requiredString, v, validationKey } from "@/lib/validation";
+import { createTeamSchema, type CreateTeamSchema } from "@/schemas/team.schema";
 import { useTranslations } from "next-intl";
 
-const formSchema = v.object({
-  name: v.pipe(
-    requiredString(validationKey("teamNameRequired")),
-    v.maxLength(100, encodeValidationMessage("teamNameMaxLength", { max: 100 }))
-  ),
-  description: v.optional(maxString(1000, encodeValidationMessage("descriptionMaxLength", { max: 1000 }))),
-  avatarUrl: v.optional(v.union([
-    v.pipe(
-      v.string(),
-      v.url(validationKey("invalidUrl")),
-      v.maxLength(600, encodeValidationMessage("urlMaxLength", { max: 600 }))
-    ),
-    v.literal(""),
-  ])),
-});
-
-type FormValues = v.InferOutput<typeof formSchema>;
+type FormValues = CreateTeamSchema;
 
 // Derive the DTO from the action itself so the shape stays in sync automatically.
 type CreateTeamResult = InferSafeActionFnResult<typeof createTeamAction>["data"];
@@ -61,22 +45,15 @@ export function CreateTeamForm() {
   });
 
   const form = useForm<FormValues>({
-    resolver: valibotResolver(formSchema),
+    resolver: valibotResolver(createTeamSchema),
     defaultValues: {
       name: "",
       description: "",
-      avatarUrl: "",
     },
   });
 
   function onSubmit(data: FormValues) {
-    // Clean up empty string in avatarUrl if present
-    const formData = {
-      ...data,
-      avatarUrl: data.avatarUrl || undefined
-    };
-
-    submitCreateTeam(formData);
+    submitCreateTeam(data);
   }
 
   return (

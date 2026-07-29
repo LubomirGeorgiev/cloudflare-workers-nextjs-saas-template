@@ -11,12 +11,10 @@ import {
 import { type CollectionsUnion } from "@/../cms.config";
 import { revalidateCmsEntryPaths } from "@/app/(admin)/admin/_actions/cms-entry-revalidation";
 import { requireAdmin } from "@/utils/auth";
-import { v } from "@/lib/validation";
+import { cmsEntryVersionListSchema, cmsEntryVersionRefSchema } from "@/schemas/cms-version.schema";
 
 export const getCmsEntryVersionsAction = actionClient
-  .inputSchema(v.object({
-    entryId: v.string(),
-  }))
+  .inputSchema(cmsEntryVersionListSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -25,9 +23,7 @@ export const getCmsEntryVersionsAction = actionClient
   });
 
 export const getCmsEntryVersionCountAction = actionClient
-  .inputSchema(v.object({
-    entryId: v.string(),
-  }))
+  .inputSchema(cmsEntryVersionListSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -36,10 +32,7 @@ export const getCmsEntryVersionCountAction = actionClient
   });
 
 export const revertCmsEntryVersionAction = actionClient
-  .inputSchema(v.object({
-    entryId: v.string(),
-    versionId: v.string(),
-  }))
+  .inputSchema(cmsEntryVersionRefSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -59,10 +52,7 @@ export const revertCmsEntryVersionAction = actionClient
   });
 
 export const deleteCmsEntryVersionAction = actionClient
-  .inputSchema(v.object({
-    entryId: v.string(),
-    versionId: v.string(),
-  }))
+  .inputSchema(cmsEntryVersionRefSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 

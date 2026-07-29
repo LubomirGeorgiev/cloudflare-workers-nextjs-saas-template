@@ -129,7 +129,11 @@ export async function generateMetadata({
   // A fallback render serves default-locale content, so localize tags to the
   // body's real language, not the URL's, keeping keywords consistent.
   const displayLocale = isFallback ? DEFAULT_LOCALE : locale
-  const localizedTags = await localizeEntryTags(entry.tags, displayLocale)
+  // Tag localization and the entry's translation set are independent reads of the resolved entry.
+  const [localizedTags, availableLocales] = await Promise.all([
+    localizeEntryTags(entry.tags, displayLocale),
+    getEntryLocales({ collectionSlug: "blog", slug }),
+  ])
   const tags = localizedTags.map(({ tag }) => tag.name)
 
   const { publishedDate, modifiedDate } = getCmsEntryDates({
@@ -138,7 +142,6 @@ export async function generateMetadata({
     updatedAt: entry.updatedAt,
   })
 
-  const availableLocales = await getEntryLocales({ collectionSlug: "blog", slug })
   const validLocales = availableLocales.filter(isLocale)
 
   // A fallback render serves default-locale content under a non-default-locale

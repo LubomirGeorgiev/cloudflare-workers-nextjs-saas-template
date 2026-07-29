@@ -7,14 +7,13 @@ import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { cookies, headers } from "next/headers";
 import { createAndStoreSession, canSignUp } from "@/utils/auth";
-import type { RegistrationResponseJSON, PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
+import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
-import { passkeyEmailSchema } from "@/schemas/passkey.schema";
+import { completePasskeyRegistrationSchema, passkeyEmailSchema } from "@/schemas/passkey.schema";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
-import { v, validationKey } from "@/lib/validation";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
 import {
   consumeWebAuthnChallenge,
@@ -108,12 +107,6 @@ export const startPasskeyRegistrationAction = actionClient
       RATE_LIMITS.SIGN_UP
     );
   });
-
-const completePasskeyRegistrationSchema = v.object({
-  response: v.custom<RegistrationResponseJSON>((val): val is RegistrationResponseJSON => {
-    return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
-  }, validationKey("invalidRegistrationResponse")),
-});
 
 export const completePasskeyRegistrationAction = actionClient
   .inputSchema(completePasskeyRegistrationSchema)

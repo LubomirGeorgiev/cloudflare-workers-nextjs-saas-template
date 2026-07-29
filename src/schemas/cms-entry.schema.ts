@@ -1,8 +1,9 @@
 import { collectionSchema } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { cmsEntryStatusTuple } from "@/types/cms";
+import { cmsEntryStatusTuple, cmsStatusFilterTuple } from "@/types/cms";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { coerceDate, maxString, requiredString, v, validationKey } from "@/lib/validation";
+import { cmsTranslationTargetFields } from "@/schemas/cms-translation.schema";
 
 export const cmsEntryStatusSchema = v.picklist(cmsEntryStatusTuple);
 
@@ -115,3 +116,24 @@ export const updateCmsEntrySchema = withStatusPublishedAtValidation(
 );
 export type CmsEntryFormInput = v.InferInput<typeof cmsEntryFormSchema>;
 export type CmsEntryFormData = v.InferOutput<typeof cmsEntryFormSchema>;
+
+export const listCmsEntriesSchema = v.object({
+  collection: collectionSchema,
+  status: v.optional(v.picklist(cmsStatusFilterTuple), "all"),
+  limit: v.optional(v.number(), 20),
+  offset: v.optional(v.number(), 0),
+});
+
+export const cmsEntryIdSchema = v.object({ id: v.string() });
+
+// Distinct from cmsEntryIdSchema: these actions surface the id in an admin error toast,
+// so the id carries its own required message.
+export const requiredCmsEntryIdSchema = v.object({
+  id: requiredString("Entry ID is required"),
+});
+
+export const createCmsEntryTranslationActionSchema = v.object({
+  collection: collectionSchema,
+  slug: requiredString("Slug is required"),
+  ...cmsTranslationTargetFields,
+});

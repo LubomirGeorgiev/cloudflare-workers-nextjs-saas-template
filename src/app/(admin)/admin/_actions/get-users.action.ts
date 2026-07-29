@@ -5,14 +5,7 @@ import { getDB } from "@/db"
 import { requireAdmin } from "@/utils/auth"
 import { sql } from "drizzle-orm"
 import { userTable } from "@/db/schema"
-import { PAGE_SIZE_OPTIONS } from "../admin-constants"
-import { v } from "@/lib/validation"
-
-const getUsersSchema = v.object({
-  page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
-  pageSize: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(Math.max(...PAGE_SIZE_OPTIONS))), PAGE_SIZE_OPTIONS[0]),
-  emailFilter: v.optional(v.string()),
-})
+import { getUsersSchema } from "@/schemas/admin-users.schema"
 
 export const getUsersAction = actionClient
   .inputSchema(getUsersSchema)

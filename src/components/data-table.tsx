@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronDown } from "lucide-react"
+import { ADMIN_TABLE_PAGE_SIZE_OPTIONS } from "@/constants"
 import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
@@ -67,7 +68,7 @@ export function DataTable<TData, TValue>({
   totalCount,
   itemNameSingular,
   itemNamePlural,
-  pageSizeOptions = [10, 20, 100],
+  pageSizeOptions = ADMIN_TABLE_PAGE_SIZE_OPTIONS,
   getRowHref,
   excludeClickableColumns = ["actions"],
   filterComponents,

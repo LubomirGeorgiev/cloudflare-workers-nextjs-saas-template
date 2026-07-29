@@ -1,7 +1,7 @@
 "use server";
 
 import "server-only";
-import { teamInviteSchema } from "@/schemas/team-invite.schema";
+import { teamInviteSchema } from "@/schemas/team-membership.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { acceptTeamInvitationByToken } from "@/lib/teams/team-invitation-accept";

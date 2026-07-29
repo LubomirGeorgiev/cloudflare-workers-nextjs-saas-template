@@ -3,8 +3,15 @@
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { collectionSchema, type CollectionsUnion } from "@/../cms.config";
-import { createCmsEntrySchema, updateCmsEntrySchema } from "@/schemas/cms-entry.schema";
+import { type CollectionsUnion } from "@/../cms.config";
+import {
+  cmsEntryIdSchema,
+  createCmsEntrySchema,
+  createCmsEntryTranslationActionSchema,
+  listCmsEntriesSchema,
+  requiredCmsEntryIdSchema,
+  updateCmsEntrySchema,
+} from "@/schemas/cms-entry.schema";
 import {
   getFreshCmsCollection,
   getFreshCmsCollectionCount,
@@ -20,11 +27,7 @@ import {
 } from "@/lib/cms/entry";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { revalidateCmsEntryPaths } from "@/app/(admin)/admin/_actions/cms-entry-revalidation";
-import { cmsStatusFilterTuple } from "@/types/cms";
-import { requiredString, v } from "@/lib/validation";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, isLocale, type Locale } from "@/i18n/config";
-
-const listStatusEnum = v.picklist(cmsStatusFilterTuple);
+import { DEFAULT_LOCALE, ENABLED_LOCALES, isLocale, type Locale } from "@/i18n/config";
 
 // A listed entry augmented with translation-group coverage for its (collection, slug): the enabled locales
 // still missing (so the table can flag incomplete translations) and the total number of locale rows in the
@@ -35,14 +38,7 @@ export type CmsEntryListRow = CmsCollectionListItem & {
 };
 
 export const listCmsEntriesAction = actionClient
-  .inputSchema(
-    v.object({
-      collection: collectionSchema,
-      status: v.optional(listStatusEnum, "all"),
-      limit: v.optional(v.number(), 20),
-      offset: v.optional(v.number(), 0),
-    })
-  )
+  .inputSchema(listCmsEntriesSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -137,7 +133,7 @@ export const updateCmsEntryAction = actionClient
   });
 
 export const deleteCmsEntryAction = actionClient
-  .inputSchema(v.object({ id: v.string() }))
+  .inputSchema(cmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -153,19 +149,7 @@ export const deleteCmsEntryAction = actionClient
   });
 
 export const createTranslationAction = actionClient
-  .inputSchema(
-    v.object({
-      collection: collectionSchema,
-      slug: requiredString("Slug is required"),
-      // Source can be any catalog locale (the row must already exist); the target
-      // is restricted to served locales — with i18n disabled this rejects creating
-      // orphan translations that would never be routed to.
-      sourceLocale: v.picklist(LOCALES),
-      targetLocale: v.picklist(ENABLED_LOCALES),
-      // Auto-translate the seeded copy by default; pass false for a verbatim copy.
-      autoTranslate: v.optional(v.boolean(), true),
-    })
-  )
+  .inputSchema(createCmsEntryTranslationActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
 
@@ -195,7 +179,7 @@ export const createTranslationAction = actionClient
 // re-anchors its staleness snapshot. Overwrites AI output in place (translations are
 // not hand-tuned in this template).
 export const retranslateTranslationAction = actionClient
-  .inputSchema(v.object({ id: requiredString("Entry ID is required") }))
+  .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -217,7 +201,7 @@ export const retranslateTranslationAction = actionClient
 // Clears the stale flag without changing content — for when an admin has reconciled
 // the translation by hand and only wants the badge to go away.
 export const markTranslationReviewedAction = actionClient
-  .inputSchema(v.object({ id: requiredString("Entry ID is required") }))
+  .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -237,11 +221,7 @@ export const markTranslationReviewedAction = actionClient
   });
 
 export const generateSeoDescriptionAction = actionClient
-  .inputSchema(
-    v.object({
-      id: requiredString("Entry ID is required"),
-    })
-  )
+  .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 

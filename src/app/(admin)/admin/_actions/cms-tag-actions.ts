@@ -11,8 +11,13 @@ import {
   deleteCmsTag,
   createCmsTagTranslation,
 } from "@/lib/cms/tags";
-import { requiredString, v } from "@/lib/validation";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES } from "@/i18n/config";
+import {
+  cmsTagIdSchema,
+  createCmsTagActionSchema,
+  createCmsTagTranslationActionSchema,
+  updateCmsTagActionSchema,
+} from "@/schemas/cms-tag.schema";
+import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
 
 // A tag mutation can change the admin list and every served locale's public tag pages (localized names live
 // on /blog/tags and /blog/tags/[slug]). Public pages are locale-prefixed "as-needed": the default locale is
@@ -37,14 +42,7 @@ export const listCmsTagsAction = actionClient
   });
 
 export const createCmsTagAction = actionClient
-  .inputSchema(
-    v.object({
-      name: requiredString("Name is required"),
-      slug: requiredString("Slug is required"),
-      description: v.optional(v.string()),
-      color: v.optional(v.string()),
-    })
-  )
+  .inputSchema(createCmsTagActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
 
@@ -66,15 +64,7 @@ export const createCmsTagAction = actionClient
   });
 
 export const updateCmsTagAction = actionClient
-  .inputSchema(
-    v.object({
-      id: v.string(),
-      name: v.optional(requiredString("Name is required")),
-      slug: v.optional(requiredString("Slug is required")),
-      description: v.optional(v.string()),
-      color: v.optional(v.string()),
-    })
-  )
+  .inputSchema(updateCmsTagActionSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -96,7 +86,7 @@ export const updateCmsTagAction = actionClient
   });
 
 export const deleteCmsTagAction = actionClient
-  .inputSchema(v.object({ id: v.string() }))
+  .inputSchema(cmsTagIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
@@ -108,19 +98,7 @@ export const deleteCmsTagAction = actionClient
   });
 
 export const createTagTranslationAction = actionClient
-  .inputSchema(
-    v.object({
-      slug: requiredString("Slug is required"),
-      // Source can be any catalog locale (the row already exists); only the target
-      // is restricted to served locales below.
-      sourceLocale: v.picklist(LOCALES),
-      // Only served locales are valid targets — with i18n disabled this rejects
-      // creating orphan translations that would never be routed to.
-      targetLocale: v.picklist(ENABLED_LOCALES),
-      // Auto-translate the seeded copy by default; pass false for a verbatim copy.
-      autoTranslate: v.optional(v.boolean(), true),
-    })
-  )
+  .inputSchema(createCmsTagTranslationActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
 

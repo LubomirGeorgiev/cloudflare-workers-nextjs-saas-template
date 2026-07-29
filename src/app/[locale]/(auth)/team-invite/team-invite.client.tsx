@@ -6,7 +6,7 @@ import { useRouter as useLocaleRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { acceptTeamInviteAction } from "./team-invite.action";
-import { teamInviteSchema } from "@/schemas/team-invite.schema";
+import { teamInviteSchema } from "@/schemas/team-membership.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";

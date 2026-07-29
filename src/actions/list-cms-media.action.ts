@@ -5,14 +5,10 @@ import { requireAdmin } from "@/utils/auth";
 import { getDB } from "@/db";
 import { cmsMediaTable } from "@/db/schema";
 import { desc, like, or } from "drizzle-orm";
-import { v } from "@/lib/validation";
+import { listCmsMediaForPickerSchema } from "@/schemas/cms-media.schema";
 
 export const listCmsMediaForPickerAction = actionClient
-  .inputSchema(v.object({
-    page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
-    limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50)), 20),
-    search: v.optional(v.string()),
-  }))
+  .inputSchema(listCmsMediaForPickerSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 

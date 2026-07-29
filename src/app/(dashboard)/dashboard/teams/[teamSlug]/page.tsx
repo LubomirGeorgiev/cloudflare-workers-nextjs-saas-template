@@ -3,6 +3,7 @@ import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/db/schema";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
+import { RenameTeamModal } from "@/components/teams/rename-team-modal";
 import { getTeamMemberManagementData } from "@/lib/teams/team-members";
 import { requireTeamAccess } from "./team-page-guard";
 import {
@@ -68,8 +69,13 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
   const { team, session } = await requireTeamAccess(teamSlug);
 
-  const canInviteMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS);
-  const canRemoveMembers = await hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS);
+  // Independent reads of the same request-cached membership; requireTeamAccess above is the
+  // access guard and must stay sequential.
+  const [canInviteMembers, canRemoveMembers, canEditTeamSettings] = await Promise.all([
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS),
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS),
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS),
+  ]);
 
   const {
     canRevokeInvitations,
@@ -103,6 +109,16 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            {canEditTeamSettings && (
+              <RenameTeamModal
+                teamId={team.id}
+                currentName={team.name}
+                trigger={
+                  <Button variant="outline">{t("renameTeam")}</Button>
+                }
+              />
+            )}
+
             {canInviteMembers && (
               <InviteMemberModal
                 teamId={team.id}

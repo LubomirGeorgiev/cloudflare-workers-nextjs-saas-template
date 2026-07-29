@@ -275,9 +275,12 @@ export async function getAllSessionIdsOfUser(userId: string) {
 }
 
 export async function updateAllSessionsOfUser(userId: string) {
-  const sessions = await getAllSessionIdsOfUser(userId);
-
-  const newUserData = await getUserFromDB(userId);
+  // Independent reads (KV session list vs. D1 user row); the missing-user short-circuit below
+  // still runs before the team lookup and the session writes.
+  const [sessions, newUserData] = await Promise.all([
+    getAllSessionIdsOfUser(userId),
+    getUserFromDB(userId),
+  ]);
 
   if (!newUserData) return;
 

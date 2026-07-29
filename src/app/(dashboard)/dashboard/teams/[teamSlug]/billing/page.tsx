@@ -34,9 +34,13 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
 
   const { team, session } = await requireTeamAccess(teamSlug);
 
-  const canManage = await hasTeamPermission(team.id, TEAM_PERMISSIONS.ACCESS_BILLING);
-  const subscription = await getTeamSubscription(team.id);
-  const trialEligible = await isTrialEligible({ teamId: team.id, userId: session.user.id });
+  // Three independent reads for the already-authorized team; requireTeamAccess above is the
+  // access guard and must stay sequential.
+  const [canManage, subscription, trialEligible] = await Promise.all([
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.ACCESS_BILLING),
+    getTeamSubscription(team.id),
+    isTrialEligible({ teamId: team.id, userId: session.user.id }),
+  ]);
 
   const header = (
     <PageHeader

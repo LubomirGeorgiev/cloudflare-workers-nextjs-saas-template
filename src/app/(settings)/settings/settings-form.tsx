@@ -2,7 +2,6 @@
 
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import { useForm } from "react-hook-form";
-import type { InferOutput } from "valibot";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -18,14 +17,14 @@ import { toast } from "sonner";
 import { updateUserProfileAction } from "./settings.actions";
 import { useEffect } from "react";
 import { useSessionStore } from "@/state/session";
-import { userSettingsSchema } from "@/schemas/settings.schema";
+import { userSettingsSchema, type UserSettingsSchema } from "@/schemas/settings.schema";
 import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-type UserSettingsFormValues = InferOutput<typeof userSettingsSchema>;
+type UserSettingsFormValues = UserSettingsSchema;
 
 export function SettingsForm() {
   const router = useRouter()

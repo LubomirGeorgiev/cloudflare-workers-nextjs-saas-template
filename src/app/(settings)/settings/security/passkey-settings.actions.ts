@@ -12,11 +12,16 @@ import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireVerifiedEmail, createAndStoreSession } from "@/utils/auth";
-import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { emailString, v, validationKey } from "@/lib/validation";
+import { v } from "@/lib/validation";
+import {
+  deletePasskeySchema,
+  generateRegistrationOptionsSchema,
+  verifyAuthenticationSchema,
+  verifyRegistrationSchema,
+} from "@/schemas/passkey.schema";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
 import {
   consumeWebAuthnChallenge,
@@ -24,10 +29,6 @@ import {
   WEBAUTHN_CHALLENGE_PURPOSE,
   WEBAUTHN_CHALLENGE_TTL_SECONDS,
 } from "@/utils/webauthn-challenge";
-
-const generateRegistrationOptionsSchema = v.object({
-  email: emailString(),
-});
 
 const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challenge";
 const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_challenge";
@@ -81,11 +82,6 @@ export const generateRegistrationOptionsAction = actionClient
       return options;
     }, RATE_LIMITS.SETTINGS);
   });
-
-const verifyRegistrationSchema = v.object({
-  email: emailString(),
-  response: v.custom<RegistrationResponseJSON>(() => true),
-});
 
 export const verifyRegistrationAction = actionClient
   .inputSchema(verifyRegistrationSchema)
@@ -144,10 +140,6 @@ export const verifyRegistrationAction = actionClient
       }
     }, RATE_LIMITS.SETTINGS);
   });
-
-const deletePasskeySchema = v.object({
-  credentialId: v.string(),
-});
 
 export const deletePasskeyAction = actionClient
   .inputSchema(deletePasskeySchema)
@@ -229,12 +221,6 @@ export const generateAuthenticationOptionsAction = actionClient
       return options;
     }, RATE_LIMITS.SIGN_IN);
   });
-
-const verifyAuthenticationSchema = v.object({
-  response: v.custom<AuthenticationResponseJSON>((val): val is AuthenticationResponseJSON => {
-    return typeof val === "object" && val !== null && "id" in val && "rawId" in val;
-  }, validationKey("invalidAuthenticationResponse")),
-});
 
 export const verifyAuthenticationAction = actionClient
   .inputSchema(verifyAuthenticationSchema)

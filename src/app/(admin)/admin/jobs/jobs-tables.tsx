@@ -4,6 +4,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { AlertCircle, Cloud, Database, Info } from "lucide-react";
 import * as React from "react";
 
+import { ADMIN_TABLE_PAGE_SIZE_OPTIONS, DEFAULT_ADMIN_TABLE_PAGE_SIZE } from "@/constants";
 import { DataTable } from "@/components/data-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +23,6 @@ import type {
 } from "@/lib/scheduler/admin";
 import { formatDateTime, formatRelativeDateTime } from "@/utils/format-date";
 import { DEFAULT_LOCALE } from "@/i18n/config";
-
-const JOBS_PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function formatPayload(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -45,7 +44,7 @@ function getPageCount(totalCount: number, pageSize: number): number {
 
 function usePaginatedRows<Row>(rows: Row[]) {
   const [pageIndex, setPageIndex] = React.useState(0);
-  const [pageSize, setPageSize] = React.useState(JOBS_PAGE_SIZE_OPTIONS[0]);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_ADMIN_TABLE_PAGE_SIZE);
   const pageCount = getPageCount(rows.length, pageSize);
   const pageRows = React.useMemo(
     () => rows.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize),
@@ -256,7 +255,7 @@ export function D1ScheduledJobsTable({ jobs }: { jobs: ScheduledJobTableRow[] })
           totalCount={jobs.length}
           itemNameSingular="job"
           itemNamePlural="jobs"
-          pageSizeOptions={JOBS_PAGE_SIZE_OPTIONS}
+          pageSizeOptions={ADMIN_TABLE_PAGE_SIZE_OPTIONS}
         />
       </CardContent>
     </Card>
@@ -303,7 +302,7 @@ export function CloudflareQueueTable({
           totalCount={messages.length}
           itemNameSingular="message"
           itemNamePlural="messages"
-          pageSizeOptions={JOBS_PAGE_SIZE_OPTIONS}
+          pageSizeOptions={ADMIN_TABLE_PAGE_SIZE_OPTIONS}
         />
       </CardContent>
     </Card>
