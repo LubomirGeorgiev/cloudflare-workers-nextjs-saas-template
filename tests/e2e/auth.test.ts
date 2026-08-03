@@ -87,7 +87,7 @@ test("signs in with the seeded password user", async () => {
   const storedHash = await queryLocalD1({
     sql: `select passwordHash from user where email = ${sqlStringLiteral(SEEDED_MEMBER_EMAIL)} limit 1;`,
   });
-  expect(storedHash).toMatch(/^pbkdf2-sha256\$600000\$/);
+  expect(storedHash).toMatch(/^pbkdf2-sha256\$100000\$/);
 });
 
 test("redirects signed-in users away from auth pages", async () => {

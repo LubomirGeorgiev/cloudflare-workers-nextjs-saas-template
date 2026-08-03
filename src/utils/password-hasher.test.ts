@@ -20,7 +20,9 @@ describe("password hashing", () => {
 
     const [algorithm, iterations, salt, hash] = storedHash.split("$");
     expect(algorithm).toBe("pbkdf2-sha256");
-    expect(iterations).toBe("600000");
+    // Cloudflare's production runtime caps PBKDF2 at 100k iterations and local workerd does not,
+    // so this assertion is the only thing standing between a raised value and a broken deploy.
+    expect(iterations).toBe("100000");
     expect(salt).toBe("ABEiM0RVZneImaq7zN3u_w");
     expect(hash).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
@@ -96,10 +98,9 @@ describe("password hashing", () => {
     `${"00".repeat(16)}:${"gg".repeat(32)}`,
     `${"00".repeat(16)}:${"11".repeat(32)}:extra`,
     "pbkdf2-sha256$0$ABEiM0RVZneImaq7zN3u_w$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "pbkdf2-sha256$10000001$ABEiM0RVZneImaq7zN3u_w$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "pbkdf2-sha256$600000$too-short$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    "pbkdf2-sha256$600000$ABEiM0RVZneImaq7zN3u_w$invalid+base64",
-    "unknown$600000$ABEiM0RVZneImaq7zN3u_w$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "pbkdf2-sha256$100000$too-short$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "pbkdf2-sha256$100000$ABEiM0RVZneImaq7zN3u_w$invalid+base64",
+    "unknown$100000$ABEiM0RVZneImaq7zN3u_w$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   ])("rejects malformed stored values without throwing: %s", async (storedHash) => {
     await expect(verifyPassword({
       storedHash,

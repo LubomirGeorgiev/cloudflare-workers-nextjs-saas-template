@@ -29,7 +29,7 @@ VALUES
     'Testov',
     'test@test.com',
     -- The password is "password"
-    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
+    'pbkdf2-sha256$100000$PLU3ILve_3_EGcOqkLZdYQ$JiKNeEbdsTpuMFxrlKNM63__IOf0oI13fML-FD5Zt_E',
     'admin',
     1767305213,
     '::1',
@@ -46,7 +46,7 @@ VALUES
     'Chen',
     'sarah.chen@example.com',
     -- The password is "password"
-    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
+    'pbkdf2-sha256$100000$PLU3ILve_3_EGcOqkLZdYQ$JiKNeEbdsTpuMFxrlKNM63__IOf0oI13fML-FD5Zt_E',
     'user',
     1765305213,
     '::1',
@@ -63,7 +63,7 @@ VALUES
     'Rodriguez',
     'michael.rodriguez@example.com',
     -- The password is "password"
-    'pbkdf2-sha256$600000$PLU3ILve_3_EGcOqkLZdYQ$W0Md6AIh525x9HzJy7LB1LFFPXE05tWXdyhznYCT2CU',
+    'pbkdf2-sha256$100000$PLU3ILve_3_EGcOqkLZdYQ$JiKNeEbdsTpuMFxrlKNM63__IOf0oI13fML-FD5Zt_E',
     'user',
     1764305213,
     '::1',

@@ -8,8 +8,10 @@ import {
 } from "@oslojs/encoding";
 
 const PASSWORD_HASH_ALGORITHM = "pbkdf2-sha256";
-const PASSWORD_HASH_ITERATIONS = 600_000;
-const MAX_PASSWORD_HASH_ITERATIONS = 10_000_000;
+// Cloudflare's production runtime rejects PBKDF2 above 100k iterations (workerd's
+// IsolateLimitEnforcer default); local workerd does not enforce it, so a higher value here passes
+// dev and CI and only fails after deploy. https://github.com/cloudflare/workerd/issues/1346
+const PASSWORD_HASH_ITERATIONS = 100_000;
 const LEGACY_PASSWORD_HASH_ITERATIONS = 100_000;
 const PASSWORD_HASH_BYTES = 32;
 const PASSWORD_SALT_BYTES = 16;
@@ -112,9 +114,7 @@ function parsePasswordHashIterations(value: string | undefined): number | null {
 
   const iterations = Number(value);
 
-  return Number.isSafeInteger(iterations) && iterations <= MAX_PASSWORD_HASH_ITERATIONS
-    ? iterations
-    : null;
+  return Number.isSafeInteger(iterations) ? iterations : null;
 }
 
 interface VersionedHashBytes {

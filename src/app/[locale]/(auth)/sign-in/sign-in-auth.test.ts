@@ -107,7 +107,7 @@ const { signInWithPassword } = await import("./sign-in-auth");
 
 const LEGACY_HASH =
   "00112233445566778899aabbccddeeff:74910295e41874e5826df4cff58a5284ec96d7fa21a38bc368f0be9b638ee303";
-const CURRENT_HASH = "pbkdf2-sha256$600000$salt$current";
+const CURRENT_HASH = "pbkdf2-sha256$100000$salt$current";
 
 describe("signInWithPassword", () => {
   beforeEach(() => {
@@ -117,7 +117,7 @@ describe("signInWithPassword", () => {
       passwordHash: CURRENT_HASH,
     });
     findPasskeyMock.mockResolvedValue(null);
-    hashPasswordMock.mockResolvedValue("pbkdf2-sha256$600000$new-salt$new-hash");
+    hashPasswordMock.mockResolvedValue("pbkdf2-sha256$100000$new-salt$new-hash");
     hashTokenMock.mockResolvedValue("email-digest");
     verifyPasswordMock.mockResolvedValue({
       isValid: true,
@@ -231,7 +231,7 @@ describe("signInWithPassword", () => {
 
     expect(hashPasswordMock).toHaveBeenCalledWith({ password: "legacy-password" });
     expect(setMock).toHaveBeenCalledWith({
-      passwordHash: "pbkdf2-sha256$600000$new-salt$new-hash",
+      passwordHash: "pbkdf2-sha256$100000$new-salt$new-hash",
     });
     expect(eqMock).toHaveBeenNthCalledWith(1, "user.id", "user-1");
     expect(eqMock).toHaveBeenNthCalledWith(2, "user.passwordHash", LEGACY_HASH);
