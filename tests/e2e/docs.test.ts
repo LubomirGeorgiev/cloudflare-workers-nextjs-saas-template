@@ -19,8 +19,11 @@ import {
   MCP_PATH,
   SITE_NAME,
 } from "../../src/constants";
-import enMessages from "../../src/i18n/messages/en.json";
+import { DEFAULT_LOCALE } from "../../src/i18n/config";
+import { MESSAGE_CATALOGS } from "../../src/i18n/message-catalogs";
 import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
+
+const defaultMessages = MESSAGE_CATALOGS[DEFAULT_LOCALE];
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame(SEEDED_DOCS_ENTRY_PATH);
@@ -96,9 +99,9 @@ test("points agents at the OpenAPI document and the MCP endpoint from llms.txt",
 
 test("renders the agent platform docs pages that are app routes", async () => {
   const pages = [
-    { pathname: API_AUTH_DOCS_PATH, heading: enMessages.Client.Docs.Auth.title },
-    { pathname: MCP_DOCS_PATH, heading: enMessages.Client.Docs.Mcp.title },
-    { pathname: API_ERRORS_DOCS_PATH, heading: enMessages.Client.Docs.ApiErrors.title },
+    { pathname: API_AUTH_DOCS_PATH, heading: defaultMessages.Client.Docs.Auth.title },
+    { pathname: MCP_DOCS_PATH, heading: defaultMessages.Client.Docs.Mcp.title },
+    { pathname: API_ERRORS_DOCS_PATH, heading: defaultMessages.Client.Docs.ApiErrors.title },
   ];
 
   for (const { pathname, heading } of pages) {
@@ -134,14 +137,14 @@ test("serves docs search results from the public API endpoint", async () => {
   expect(body.results.length).toBeGreaterThan(0);
   expect(body.results.length).toBeLessThanOrEqual(3);
   expect(body.results[0]).toMatchObject({
-    title: "Authentication Setup",
-    snippet: expect.stringContaining("Authentication"),
+    title: defaultMessages.Client.Docs.Auth.title,
+    snippet: expect.stringMatching(/authentication/i),
   });
   expect(body.results.every((result) => result.title && result.resolvedPath && result.snippet)).toBe(true);
 
   const resolvedPath = new URL(body.results[0]?.resolvedPath ?? "");
   expect(resolvedPath.protocol).toMatch(/^https?:$/);
-  expect(resolvedPath.pathname).toBe("/docs/getting-started/authentication");
+  expect(resolvedPath.pathname).toBe(API_AUTH_DOCS_PATH);
 });
 
 test("searches docs from the command dialog", async () => {
@@ -209,11 +212,11 @@ test("filters the server-rendered endpoints client-side and reflects the query i
   await expectAppText(first.summary);
 
   await fillAppPlaceholder(
-    enMessages.Client.Docs.ApiReference.searchPlaceholder,
+    defaultMessages.Client.Docs.ApiReference.searchPlaceholder,
     "no-endpoint-matches-this",
   );
 
-  await expectAppText(enMessages.Client.Docs.ApiReference.noResults);
+  await expectAppText(defaultMessages.Client.Docs.ApiReference.noResults);
   // Hidden, not removed: the operations stay in the document for crawlers and for a no-JS reader.
   await expectAppTextHidden(first.summary);
   expect(new URL(getAppCurrentUrl()).searchParams.get("q")).toBe("no-endpoint-matches-this");
