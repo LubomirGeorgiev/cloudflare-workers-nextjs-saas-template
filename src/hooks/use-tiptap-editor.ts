@@ -18,7 +18,11 @@ export function useTiptapEditor(providedEditor?: Editor | null): {
   const editorState = useEditorState({
     editor: mainEditor,
     selector(context) {
-      if (!context.editor) {
+      // useEditorState caches its snapshot until the next transaction, so a destroyed
+      // editor survives here across a route change. isEditable can't detect that: the
+      // view getter falls back to a stub proxy hard-coding editable:true, while
+      // commandManager is already null, so any can()/chain() call throws.
+      if (!context.editor || context.editor.isDestroyed) {
         return {
           editor: null,
           editorState: undefined,

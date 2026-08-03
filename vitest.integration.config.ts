@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
 import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime";
+import { openApiDocument } from "./tools/openapi-document";
 
 function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
   const migrationsDirectory = fileURLToPath(new URL(`${migrationsPath}/`, import.meta.url));
@@ -25,11 +26,12 @@ function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
 export default defineConfig({
   logLevel: "error",
   plugins: [
+    openApiDocument(),
     rejectNextRuntimeInternals(),
     cloudflareTest(async () => ({
       miniflare: {
         compatibilityDate: "2026-04-21",
-        compatibilityFlags: ["nodejs_compat"],
+        compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
         bindings: {
           APP_TEST_MODE: "true",
           EMAIL_FROM: "no-reply@example.com",
@@ -44,6 +46,11 @@ export default defineConfig({
         },
         kvNamespaces: {
           NEXT_INC_CACHE_KV: {
+            id: "billing-integration-kv",
+          },
+          // Mirrors wrangler.jsonc: a second binding onto the same namespace id, so the tests
+          // exercise the real prefix coexistence rather than an isolated store.
+          OAUTH_KV: {
             id: "billing-integration-kv",
           },
         },

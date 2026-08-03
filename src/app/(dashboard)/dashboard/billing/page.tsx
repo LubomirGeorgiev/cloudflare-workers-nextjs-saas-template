@@ -1,12 +1,12 @@
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 
 // Team billing lives at /dashboard/teams/[teamSlug]/billing. This thin redirect points
 // the generic nav "Billing" item at the session's selected team so nav stays team-agnostic.
 export default async function BillingRedirectPage() {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session) {
     return redirectToSignIn("/dashboard/billing");

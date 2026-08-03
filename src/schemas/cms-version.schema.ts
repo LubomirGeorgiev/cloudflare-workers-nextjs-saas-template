@@ -1,10 +1,11 @@
 import { v } from "@/lib/validation";
+import { idField } from "@/schemas/fields";
 
 export const cmsEntryVersionListSchema = v.object({
-  entryId: v.string(),
+  entryId: idField(),
 });
 
 export const cmsEntryVersionRefSchema = v.object({
-  entryId: v.string(),
-  versionId: v.string(),
+  entryId: idField(),
+  versionId: idField(),
 });

@@ -7,7 +7,7 @@ import { getLocale } from "next-intl/server";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL } from "@/constants";
 import { redirect } from "@/i18n/navigation";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import type { SessionValidationResult } from "@/types";
 
 interface RedirectAuthenticatedUserParams {
@@ -57,7 +57,7 @@ export async function redirectAuthenticatedUser({
   redirectPath,
   shouldRedirect,
 }: RedirectAuthenticatedUserParams): Promise<SessionValidationResult> {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
   const requestHeaders = await headers();
   const acceptHeader = requestHeaders.get("accept") ?? "";
   const isRscRequest =

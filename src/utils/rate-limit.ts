@@ -2,6 +2,7 @@ import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { waitUntil } from "cloudflare:workers";
 import * as ipaddr from "ipaddr.js";
+import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 
 interface RateLimitOptions {
   // Maximum number of requests allowed within the window
@@ -20,6 +21,10 @@ interface RateLimitResult {
   reset: number; // Timestamp when the rate limit resets
   limit: number;
 }
+
+// This limiter is an abuse-resistance signal, not an accounting or authorization boundary. KV
+// reads and writes are eventually consistent and the increment is not atomic, so concurrent
+// requests (especially across PoPs) can temporarily exceed a configured limit.
 
 // Normalize an IP address for rate limiting
 // For IPv6, we use the /64 subnet to prevent rate limit bypassing
@@ -58,7 +63,7 @@ function buildWindowKey({
   now: number;
 }): string {
   const normalizedKey = ipaddr.isValid(key) ? normalizeIP(key) : key;
-  return `rate-limit:${identifier}:${normalizedKey}:${Math.floor(now / windowInSeconds)}`;
+  return `${APP_KV_PREFIXES.rateLimit}${identifier}:${normalizedKey}:${Math.floor(now / windowInSeconds)}`;
 }
 
 export async function checkRateLimit({

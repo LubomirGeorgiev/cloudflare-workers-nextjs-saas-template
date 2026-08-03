@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { redirect } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
 import TeamInviteClientComponent from "./team-invite.client";
@@ -29,7 +29,7 @@ export default async function TeamInvitePage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const { locale } = await params;
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
   const token = (await searchParams)?.token;
 
   // If no token is provided, redirect to sign in

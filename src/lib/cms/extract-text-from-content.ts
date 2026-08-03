@@ -28,7 +28,9 @@ function extractNodeText(node: JSONContent | undefined): string {
 }
 
 export function extractTextFromContent(content: JSONContent): string {
-  if (!content) return "";
+  if (!content) {
+    return "";
+  }
 
   try {
     return extractNodeText(content).replace(/\s+/g, " ").trim();

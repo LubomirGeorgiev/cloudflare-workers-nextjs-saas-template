@@ -83,8 +83,18 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🧾 Stripe Customer Portal for payment methods, invoices, and billing details
   - 🔒 Plan-based entitlements and feature gating (e.g. seat limits)
   - 🛠️ One-command Stripe setup (`pnpm stripe:setup`)
+- 🤖 AI-agent platform (public API, OAuth, MCP)
+  - 🌐 Versioned public REST API built with Hono, reusing the app's own service layer
+  - 📘 OpenAPI 3.1 document generated from the same Valibot schemas the server validates with
+  - 📖 Server-rendered API reference with client-side search — no spec-viewer bundle — plus authentication and error-code guides
+  - 🔑 API keys for users and teams, with scopes, optional expiry, and one-time secret display
+  - 🪪 OAuth 2.1 authorization server (PKCE, dynamic client registration, consent screen)
+  - 🔌 Remote MCP server whose tools are derived from the OpenAPI document — no hand-written tool list
+  - 🧭 Connect guides for Claude Code, claude.ai, ChatGPT, Cursor, VS Code, Codex, Antigravity, and Grok CLI
+  - 🧹 Self-service revocation from Settings → API & MCP, plus an admin view of registered OAuth apps
 - 👑 Admin Dashboard
   - 👥 User Management
+  - 🪪 OAuth app registry with verification and revocation
 - 📝 Content Management System
   - 🗂️ Config-driven collections for blog and docs content
   - ✍️ Rich TipTap editor with markdown paste, markdown copy, tables, code highlighting, and alert blocks
@@ -206,6 +216,35 @@ The billing page lives at `/dashboard/teams/[teamSlug]/billing` (the generic `/d
 
 **Entitlements & downgrades:** feature access is derived from the team's plan via `getTeamEntitlements` ([`src/utils/entitlements.ts`](src/utils/entitlements.ts)). Plan limits (e.g. seats) are enforced only at *grow* points such as inviting members — a team that drops to a lower plan keeps its existing members and is never auto-evicted.
 
+## AI-agent platform (public API, OAuth, MCP)
+
+The template ships a public machine surface next to the web app: a versioned REST API, an OpenAPI document, an OAuth 2.1 authorization server, and a remote MCP server. They are one pipeline rather than four features — an endpoint is described once and shows up in the reference, in `openapi.json`, and as an agent tool.
+
+**Public REST API.** A [Hono](https://hono.dev/) app mounted at `/api/v1` ([`src/api/`](src/api)). Handlers call the same `src/lib/**` service functions the app's server actions use, so business rules exist in exactly one place. Requests are authenticated by a bearer credential, rate limited per credential by the app's shared KV limiter (`RATE_LIMITS.API_AUTHED` / `RATE_LIMITS.API_ANON` in [`src/utils/with-rate-limit.ts`](src/utils/with-rate-limit.ts)), and failures come back as [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents whose `code` member is a stable, untranslated identifier.
+
+**OpenAPI + docs.** `GET /api/v1/openapi.json` is generated from the Valibot request/response schemas in [`src/schemas/api/`](src/schemas/api) and the `describeRoute` metadata on each route. The reference at `/docs/api` is our own: every operation, field, example, and `curl` snippet is rendered on the server from that document, and the only client JavaScript is an instant filter over the already-rendered endpoints. `/docs/authentication`, `/docs/api/errors`, and `/docs/mcp` cover credentials, error codes, and agent setup. `/docs/llms.txt` points agents at the spec and the MCP endpoint. How a fork extends the API and MCP surface is repo documentation, not a public page: [`docs/extending-api-and-mcp.md`](docs/extending-api-and-mcp.md).
+
+**API keys.** Users create keys under **Settings → API & MCP**, teams under team settings (gated by the `MANAGE_API_KEYS` team permission). A key carries scopes and an optional expiry, its secret is displayed once, and only a hash plus the last characters are stored. Keys are cached in KV for a few minutes with the same version/TTL discipline as sessions, so revocation is immediate locally and propagates in about a minute. The prefixes live at the top of [`src/constants.ts`](src/constants.ts) — **rebrand them when forking**, because secret scanners attribute a leaked key to whoever owns the prefix.
+
+**OAuth 2.1 provider.** [`@cloudflare/workers-oauth-provider`](https://github.com/cloudflare/workers-oauth-provider) wraps the Worker in `worker-entrypoint.ts`. It serves the discovery documents, the token endpoint, Client ID Metadata Document identity, and (when `OAUTH_OPEN_DCR_ENABLED` is on) dynamic client registration; the consent screen at `/oauth/authorize` is our own page. Stable CIMD or operator-issued client identities are preferred for trusted integrations. DCR remains the compatibility fallback: every generated client ID is kept distinct, shown as unverified, and clamped to `DCR_ALLOWED_SCOPES` until an admin verifies that exact registration at `/admin/oauth-apps`. Users see and revoke every connected app under **Settings → API & MCP**, alongside the agent-connection guide and their API keys.
+
+**MCP server.** `/mcp` speaks Streamable HTTP and accepts both credential types. Tools are derived from the OpenAPI document at request time ([`src/mcp/derive-tools.ts`](src/mcp/derive-tools.ts)) and filtered by the caller's scopes, so `tools/list` never advertises something the credential could not call. Tool calls dispatch in-process into the Hono app — no self-fetch.
+
+**Connecting an agent.** Hosted assistants (claude.ai, ChatGPT) connect over OAuth: paste the MCP URL and approve the consent screen. CLI and editor clients (Claude Code, Codex, Cursor, VS Code, Antigravity, Grok CLI) can do that too, or send an API key as an `Authorization: Bearer` header. Ready-made snippets for each client are rendered from [`src/constants/agent-clients.ts`](src/constants/agent-clients.ts) on the API-keys settings page and at `/docs/mcp`.
+
+**Extending it in your fork:**
+
+| File | What to change there |
+| --- | --- |
+| [`src/api/index.ts`](src/api/index.ts) | `registerCustomRoutes` — mount your routers; they inherit auth, rate limiting, and problem+json errors |
+| [`src/schemas/api/`](src/schemas/api) | Valibot request/response schemas (these also type the derived agent tools) |
+| [`src/lib/api/scopes.ts`](src/lib/api/scopes.ts) | The scope catalog and the ceiling for self-registered OAuth clients |
+| [`src/mcp/tool-overrides.ts`](src/mcp/tool-overrides.ts) | Rename, re-describe, or hide a derived tool by `operationId` |
+| [`src/mcp/index.ts`](src/mcp/index.ts) | `registerCustomTools` — agent tools with no REST equivalent |
+| [`src/constants/agent-clients.ts`](src/constants/agent-clients.ts) | The agent-client registry behind every setup snippet |
+
+No extra secrets are needed: the provider generates and stores its own key material. The Cloudflare-side additions are covered under [Changes to wrangler.jsonc](#changes-to-wranglerjsonc).
+
 ## End-to-end tests
 
 E2E tests use Vitest with Playwright-driven Chromium pages and run against the production-style local Worker preview.
@@ -259,9 +298,14 @@ After making a change to `wrangler.jsonc`, run `pnpm run cf-typegen` to regenera
 
 Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code through `cloudflare:workers` or the local helper in `src/utils/cloudflare-context.ts`. The custom Worker entry lives in `worker-entrypoint.ts` and is configured as the `main` entry in `wrangler.jsonc`.
 
+Bindings worth knowing about when you fork:
+
+- `OAUTH_KV` — a **second binding onto the same KV namespace** as `NEXT_INC_CACHE_KV`, not a new namespace. `@cloudflare/workers-oauth-provider` hardcodes the binding name, and its keys are prefix-scoped (see `OAUTH_RESERVED_KV_PREFIXES` in `src/constants.ts`), so nothing collides with the app's own keys. Point it at your own namespace id together with `NEXT_INC_CACHE_KV`.
+- The `global_fetch_strictly_public` compatibility flag is required by the OAuth provider's client-metadata fetches; leave it in place.
+
 ## Things to change and customize before deploying to production
 
-1. Go to `src/constants.ts` and update it with your project details
+1. Go to `src/constants.ts` and update it with your project details — including `API_KEY_PREFIX_LIVE` / `API_KEY_PREFIX_TEST`, so leaked keys are attributed to you and not to the template
 2. Update the `name` field in `package.json` to your project name so generated metrics and package metadata identify the reused template correctly
 3. Update `AGENTS.md` with your project specification so that AI coding agents can give you better suggestions
 4. Update the footer in `src/components/footer.tsx` with your project details and links

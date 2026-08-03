@@ -91,6 +91,7 @@ function createSession({
   const now = new Date("2026-06-09T12:00:00.000Z");
 
   return {
+    kind: "cookie" as const,
     id: "session-1",
     userId: "user-1",
     expiresAt: now.getTime() + 60_000,

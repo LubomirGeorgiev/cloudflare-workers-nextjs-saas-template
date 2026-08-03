@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 import { CreateTeamForm } from "@/components/teams/create-team-form";
 import { PageHeader } from "@/components/page-header";
@@ -16,7 +16,7 @@ export async function generateMetadata() {
 export default async function CreateTeamPage() {
   const t = await getTranslations("Client.Dashboard.Teams");
 
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session) {
     return redirectToSignIn("/dashboard/teams/create");

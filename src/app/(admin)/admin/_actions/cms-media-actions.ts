@@ -7,7 +7,8 @@ import { getDB } from "@/db";
 import { cmsMediaTable, cmsEntryTable, cmsEntryMediaTable } from "@/db/schema";
 import { eq, desc, inArray, sql } from "drizzle-orm";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
-import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
@@ -122,7 +123,9 @@ function updateImageNodesInContent(
   bucketKey: string,
   updates: { alt?: string; title?: string; width?: number; height?: number }
 ): boolean {
-  if (!content) return false;
+  if (!content) {
+    return false;
+  }
 
   let hasChanges = false;
 
@@ -280,7 +283,7 @@ export const getCmsMediaByBucketKeyAction = actionClient
 export const deleteCmsMediaAction = actionClient
   .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(async () => {
+    return withUserRateLimit(async () => {
       await requireAdmin();
 
       const db = getDB();

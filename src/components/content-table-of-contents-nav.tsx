@@ -13,6 +13,7 @@ import {
   type TableOfContentsNode,
   flattenTableOfContentsIds,
 } from "@/lib/cms/table-of-contents-tree";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 /** Aligns with `scroll-mt-24` on article headings (6rem). */
@@ -94,11 +95,14 @@ function TableOfContentsBranch({
 interface ContentTableOfContentsNavProps {
   nodes: TableOfContentsNode[];
   ariaLabel: string;
+  /** Opt-in for the docs rails: styled scrollbar plus edge fades. Blog keeps the native overflow. */
+  scrollArea?: boolean;
 }
 
 export function ContentTableOfContentsNav({
   nodes,
   ariaLabel,
+  scrollArea = false,
 }: ContentTableOfContentsNavProps) {
   const orderedIds = useMemo(() => flattenTableOfContentsIds(nodes), [nodes]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -172,18 +176,37 @@ export function ContentTableOfContentsNav({
     activeItem?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [activeId]);
 
+  const branch = (
+    <TableOfContentsBranch
+      nodes={nodes}
+      activeId={activeId}
+      depth={0}
+      onLinkClick={handleLinkClick}
+    />
+  );
+
+  // Bounding the viewport rather than the root keeps it the scroll container,
+  // which is what both `h-full` and `scroll-fade-y`'s scroll timeline need.
+  if (scrollArea) {
+    return (
+      <ScrollArea
+        className="mt-4"
+        viewportClassName="max-h-[calc(100vh-6rem)] scroll-fade-y"
+      >
+        <nav ref={navRef} className="pr-3" aria-label={ariaLabel}>
+          {branch}
+        </nav>
+      </ScrollArea>
+    );
+  }
+
   return (
     <nav
       ref={navRef}
       className="mt-4 max-h-[calc(100vh-6rem)] overflow-y-auto pr-3"
       aria-label={ariaLabel}
     >
-      <TableOfContentsBranch
-        nodes={nodes}
-        activeId={activeId}
-        depth={0}
-        onLinkClick={handleLinkClick}
-      />
+      {branch}
     </nav>
   );
 }

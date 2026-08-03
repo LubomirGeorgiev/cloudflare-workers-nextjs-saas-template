@@ -5,10 +5,13 @@ import { headers } from "next/headers";
 
 import { getDB } from "@/db";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
+import { purgeUserPrincipalCaches } from "@/utils/kv-principal-cache";
+import { mapInBatches } from "@/utils/map-in-batches";
 import { getIP } from "./get-IP";
 import { MAX_SESSIONS_PER_USER } from "@/constants";
+import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 
-const SESSION_PREFIX = "session:";
+const SESSION_PREFIX = APP_KV_PREFIXES.session;
 // Refreshing a member runs several D1 reads and D1 allows only ~6 concurrent
 // queries per invocation, so large teams are processed in small batches.
 const TEAM_SESSION_REFRESH_BATCH_SIZE = 5;
@@ -111,18 +114,26 @@ export async function createKVSession({
     // Sort sessions by expiration time (oldest first)
     const sortedSessions = [...existingSessions].sort((a, b) => {
       // If a session has no expiration, treat it as oldest
-      if (!a.absoluteExpiration) return -1;
-      if (!b.absoluteExpiration) return 1;
+      if (!a.absoluteExpiration) {
+        return -1;
+      }
+      if (!b.absoluteExpiration) {
+        return 1;
+      }
       return a.absoluteExpiration.getTime() - b.absoluteExpiration.getTime();
     });
 
     // Delete the oldest sessions
     for (let i = 0; i < sessionsToDelete; i++) {
       const sessionKey = sortedSessions[i]?.key;
-      if (!sessionKey) continue;
+      if (!sessionKey) {
+        continue;
+      }
 
       const sessionId = sessionKey.split(':')[2];
-      if (!sessionId) continue;
+      if (!sessionId) {
+        continue;
+      }
 
       await deleteKVSession(sessionId, userId);
     }
@@ -147,7 +158,9 @@ export async function getKVSession(sessionId: string, userId: string): Promise<K
   }
 
   const sessionStr = await kv.get(getSessionKey(userId, sessionId));
-  if (!sessionStr) return null;
+  if (!sessionStr) {
+    return null;
+  }
 
   const session = JSON.parse(sessionStr) as KVSession
 
@@ -174,7 +187,9 @@ export async function updateKVSession(
   teams?: KVSession['teams']
 ): Promise<KVSession | null> {
   const session = await getKVSession(sessionId, userId);
-  if (!session) return null;
+  if (!session) {
+    return null;
+  }
 
   // Only fetch user data if not provided
   const updatedUser = userData ?? await getUserFromDB(userId);
@@ -213,7 +228,9 @@ export async function updateKVSession(
 
 export async function deleteKVSession(sessionId: string, userId: string): Promise<void> {
   const session = await getKVSession(sessionId, userId);
-  if (!session) return;
+  if (!session) {
+    return;
+  }
 
   const kv = await getKV();
 
@@ -226,7 +243,9 @@ export async function deleteKVSession(sessionId: string, userId: string): Promis
 
 export async function updateKVSessionSelectedTeam(sessionId: string, userId: string, selectedTeam: string | undefined): Promise<KVSession | null> {
   const session = await getKVSession(sessionId, userId);
-  if (!session) return null;
+  if (!session) {
+    return null;
+  }
 
   const updatedSession: KVSession = {
     ...session,
@@ -282,14 +301,22 @@ export async function updateAllSessionsOfUser(userId: string) {
     getUserFromDB(userId),
   ]);
 
-  if (!newUserData) return;
+  // The one purge site for bearer snapshots, and it runs even for a deleted user: only the session
+  // refresh below has nothing left to do. Rebuilds read D1, which already holds the new identity.
+  await purgeUserPrincipalCaches(userId);
+
+  if (!newUserData) {
+    return;
+  }
 
   const teamsWithPermissions = await getUserTeamsWithPermissions(userId);
 
   await Promise.all(sessions.map(async (sessionObj) => {
     // Extract sessionId from key (format: "session:userId:sessionId")
     const sessionId = sessionObj.key.split(':')[2];
-    if (!sessionId) return;
+    if (!sessionId) {
+      return;
+    }
 
     // Only update non-expired sessions
     if (sessionObj.absoluteExpiration && sessionObj.absoluteExpiration.getTime() > Date.now()) {
@@ -309,11 +336,11 @@ export async function refreshTeamMemberSessions(teamId: string): Promise<void> {
     columns: { userId: true },
   });
 
-  for (let i = 0; i < memberships.length; i += TEAM_SESSION_REFRESH_BATCH_SIZE) {
-    await Promise.all(
-      memberships
-        .slice(i, i + TEAM_SESSION_REFRESH_BATCH_SIZE)
-        .map((membership) => updateAllSessionsOfUser(membership.userId)),
-    );
-  }
+  await mapInBatches({
+    items: memberships,
+    batchSize: TEAM_SESSION_REFRESH_BATCH_SIZE,
+    // Bearer snapshots are dropped by updateAllSessionsOfUser itself; purging here too would
+    // double every member's KV work.
+    fn: (membership) => updateAllSessionsOfUser(membership.userId),
+  });
 }

@@ -24,10 +24,14 @@ export function useCursorVisibility({
 
   useEffect(() => {
     const ensureCursorVisibility = () => {
-      if (!editor) return
+      if (!editor) {
+        return
+      }
 
       const { state, view } = editor
-      if (!view.hasFocus()) return
+      if (!view.hasFocus()) {
+        return
+      }
 
       const { from } = state.selection
       const cursorCoords = view.coordsAtPos(from)

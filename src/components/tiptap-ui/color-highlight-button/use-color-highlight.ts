@@ -108,18 +108,23 @@ export function canColorHighlight(
   editor: Editor | null,
   mode: HighlightMode = "mark"
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
 
   if (mode === "mark") {
     if (
       !isMarkInSchema("highlight", editor) ||
       isNodeTypeSelected(editor, ["image"])
-    )
+    ) {
       return false
+    }
 
     return editor.can().setMark("highlight")
   } else {
-    if (!isExtensionAvailable(editor, ["nodeBackground"])) return false
+    if (!isExtensionAvailable(editor, ["nodeBackground"])) {
+      return false
+    }
 
     try {
       return editor.can().toggleNodeBackgroundColor("test")
@@ -135,14 +140,18 @@ export function isColorHighlightActive(
   highlightColor?: string,
   mode: HighlightMode = "mark"
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
 
   if (mode === "mark") {
     return highlightColor
       ? editor.isActive("highlight", { color: highlightColor })
       : editor.isActive("highlight")
   } else {
-    if (!highlightColor) return false
+    if (!highlightColor) {
+      return false
+    }
 
     try {
       const { state } = editor
@@ -167,8 +176,12 @@ export function removeHighlight(
   editor: Editor | null,
   mode: HighlightMode = "mark"
 ): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canColorHighlight(editor, mode)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canColorHighlight(editor, mode)) {
+    return false
+  }
 
   if (mode === "mark") {
     return editor.chain().focus().unsetMark("highlight").run()
@@ -185,12 +198,18 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable, mode } = props
 
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
 
   if (mode === "mark") {
-    if (!isMarkInSchema("highlight", editor)) return false
+    if (!isMarkInSchema("highlight", editor)) {
+      return false
+    }
   } else {
-    if (!isExtensionAvailable(editor, ["nodeBackground"])) return false
+    if (!isExtensionAvailable(editor, ["nodeBackground"])) {
+      return false
+    }
   }
 
   if (hideWhenUnavailable && !editor.isActive("code")) {
@@ -217,7 +236,9 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
   const isActive = isColorHighlightActive(editor, highlightColor, mode)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable, mode }))
@@ -233,8 +254,9 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
   }, [editor, hideWhenUnavailable, mode])
 
   const handleColorHighlight = useCallback(() => {
-    if (!editor || !canColorHighlightState || !highlightColor || !label)
+    if (!editor || !canColorHighlightState || !highlightColor || !label) {
       return false
+    }
 
     if (mode === "mark") {
       if (editor.state.storedMarks) {

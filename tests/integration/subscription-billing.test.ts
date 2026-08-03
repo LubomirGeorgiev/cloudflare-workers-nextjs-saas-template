@@ -54,7 +54,9 @@ async function seedMember({ teamId, userId }: { teamId: string; userId: string }
 
 async function seedSession({ userId }: { userId: string }): Promise<string> {
   const user = await db.query.userTable.findFirst({ where: { id: userId } });
-  if (!user) throw new Error(`User not found: ${userId}`);
+  if (!user) {
+    throw new Error(`User not found: ${userId}`);
+  }
 
   const expiresAt = new Date(Date.now() + 30 * dayInMs);
   const session: KVSession = {

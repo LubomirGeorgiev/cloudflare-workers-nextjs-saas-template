@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { TEAM_INVITATION_EXPIRY_DAYS } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import { getUserLocale } from "@/i18n/locale";
 import { getTeamEntitlements } from "@/utils/entitlements";
 import { fromStoredAddonQuantities } from "@/constants/addons";
@@ -94,8 +94,15 @@ export async function inviteUserToTeam({
     addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
   });
 
-  // Email content (not an error): translated here, in the inviter's request locale.
-  const t = await getTranslations("Client.Dashboard.Teams");
+  // The invitee may not have an account yet, so there's no preferredLocale to
+  // read - use the inviter's locale instead (request-scoped: cookie ->
+  // preferredLocale -> Accept-Language -> default).
+  const inviterLocale = await getUserLocale();
+
+  // Email content (not an error): translated here, in the inviter's locale. Must be the
+  // request-free translator — this service also runs on the API/MCP path, where next-intl's
+  // server API resolves to its client build and throws.
+  const t = getTranslator({ locale: inviterLocale, namespace: "Client.Dashboard.Teams" });
   const teamName = team.name as string || t("teamFallbackName");
 
   const inviter = {
@@ -103,11 +110,6 @@ export async function inviteUserToTeam({
     lastName: session.user.lastName || "",
     fullName: `${session.user.firstName || ""} ${session.user.lastName || ""}`.trim() || session.user.email,
   };
-
-  // The invitee may not have an account yet, so there's no preferredLocale to
-  // read - use the inviter's locale instead (request-scoped: cookie ->
-  // preferredLocale -> Accept-Language -> default).
-  const inviterLocale = await getUserLocale();
 
   // Fresh bearer token per invite. Only the hash is stored; the raw token goes into the email
   // link and is never persisted or returned.

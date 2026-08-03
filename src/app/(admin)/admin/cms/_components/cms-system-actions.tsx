@@ -133,7 +133,9 @@ export function CmsSystemActions() {
   }
 
   function confirmPending() {
-    if (!pendingConfirm) return;
+    if (!pendingConfirm) {
+      return;
+    }
     const { key, input } = pendingConfirm;
     setPendingConfirm(null);
     handleAction(key, input);

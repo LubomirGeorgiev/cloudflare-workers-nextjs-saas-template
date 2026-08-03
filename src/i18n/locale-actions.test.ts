@@ -5,11 +5,11 @@ import { ENABLED_LOCALES } from "./config";
 vi.mock("server-only", () => ({}));
 
 let sessionUserId: string | null;
-const getSessionFromCookieMock = vi.fn(async () =>
+const getCurrentSessionMock = vi.fn(async () =>
   sessionUserId === null ? null : { user: { id: sessionUserId } },
 );
 vi.mock("@/utils/auth", () => ({
-  getSessionFromCookie: getSessionFromCookieMock,
+  getCurrentSession: getCurrentSessionMock,
 }));
 
 const whereMock = vi.fn(async () => undefined);
@@ -30,7 +30,7 @@ const unsupportedLocale = "zz";
 
 beforeEach(() => {
   sessionUserId = null;
-  getSessionFromCookieMock.mockClear();
+  getCurrentSessionMock.mockClear();
   updateMock.mockClear();
   setMock.mockClear();
   whereMock.mockClear();
@@ -65,7 +65,7 @@ describe("setUserLocale", () => {
       "Unsupported locale",
     );
 
-    expect(getSessionFromCookieMock).not.toHaveBeenCalled();
+    expect(getCurrentSessionMock).not.toHaveBeenCalled();
     expect(getDBMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
   });

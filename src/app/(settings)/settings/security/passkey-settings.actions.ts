@@ -15,6 +15,7 @@ import { requireVerifiedEmail, createAndStoreSession } from "@/utils/auth";
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { v } from "@/lib/validation";
 import {
   deletePasskeySchema,
@@ -36,7 +37,7 @@ const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_cha
 export const generateRegistrationOptionsAction = actionClient
   .inputSchema(generateRegistrationOptionsSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(async () => {
+    return withUserRateLimit(async () => {
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -86,7 +87,7 @@ export const generateRegistrationOptionsAction = actionClient
 export const verifyRegistrationAction = actionClient
   .inputSchema(verifyRegistrationSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(async () => {
+    return withUserRateLimit(async () => {
       const session = await requireVerifiedEmail();
 
       const db = getDB();
@@ -144,7 +145,7 @@ export const verifyRegistrationAction = actionClient
 export const deletePasskeyAction = actionClient
   .inputSchema(deletePasskeySchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(async () => {
+    return withUserRateLimit(async () => {
       const session = await requireVerifiedEmail();
       const userId = session?.user?.id;
 

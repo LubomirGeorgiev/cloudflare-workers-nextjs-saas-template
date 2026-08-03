@@ -20,8 +20,12 @@ export function shouldShowTableMenu(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("table", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("table", editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable && !editor.isActive("table")) {
     return false
@@ -38,7 +42,9 @@ export function useTableDropdownMenu(config?: UseTableDropdownMenuConfig) {
   const isActive = editor?.isActive("table") || false
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowTableMenu({ editor, hideWhenUnavailable }))

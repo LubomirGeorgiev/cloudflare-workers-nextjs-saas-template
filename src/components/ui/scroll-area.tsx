@@ -8,12 +8,14 @@ import { cn } from "@/lib/utils"
 interface ScrollAreaProps
   extends React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> {
   scrollOrientation?: "vertical" | "horizontal"
+  /** Styles the viewport, not the root — `scroll-fade` only works on the element that actually scrolls. */
+  viewportClassName?: string
 }
 
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   ScrollAreaProps
->(({ className, children, scrollOrientation = "vertical", ...props }, ref) => (
+>(({ className, children, scrollOrientation = "vertical", viewportClassName, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
     className={cn(
@@ -23,7 +25,9 @@ const ScrollArea = React.forwardRef<
     )}
     {...props}
   >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+    <ScrollAreaPrimitive.Viewport
+      className={cn("h-full w-full rounded-[inherit]", viewportClassName)}
+    >
       {children}
     </ScrollAreaPrimitive.Viewport>
     {scrollOrientation === "vertical" ? (

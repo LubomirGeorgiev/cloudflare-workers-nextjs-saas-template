@@ -38,7 +38,9 @@ function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): Bi
 }
 
 function getCustomerId(customer: Stripe.Subscription["customer"]): string | null {
-  if (!customer) return null;
+  if (!customer) {
+    return null;
+  }
   return typeof customer === "string" ? customer : customer.id;
 }
 
@@ -114,7 +116,9 @@ export async function settleRecordedSubscription({
     .catch((error: unknown) => {
       // Only a Stripe-confirmed missing subscription may release the slot; any other
       // failure (network, auth) must not risk creating a duplicate subscription.
-      if ((error as { code?: string })?.code === "resource_missing") return null;
+      if ((error as { code?: string })?.code === "resource_missing") {
+        return null;
+      }
       throw error;
     });
 
@@ -190,7 +194,9 @@ export async function syncStripeCustomerName({
   stripeCustomerId: string | null;
   name: string;
 }): Promise<void> {
-  if (!stripeCustomerId) return;
+  if (!stripeCustomerId) {
+    return;
+  }
 
   await getStripe().customers.update(stripeCustomerId, { name });
 }

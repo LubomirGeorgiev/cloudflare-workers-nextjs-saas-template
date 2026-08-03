@@ -1,4 +1,130 @@
-/* Syntax highlighting for tiptap editor - light and dark themes */
+/* Syntax highlighting (GitHub theme) - light and dark.
+   Applied to the tiptap editor and, via .hljs-code, to any other lowlight-rendered block. */
+@use "sass:map";
+
+$hljs-light: (
+  keyword: #d73a49,
+  title: #6f42c1,
+  attr: #005cc5,
+  string: #032f62,
+  built-in: #e36209,
+  comment: #6a737d,
+  name: #22863a,
+  subst: #24292e,
+  section: #005cc5,
+  bullet: #735c0f,
+  addition: #22863a,
+  addition-bg: #f0fff4,
+  deletion: #b31d28,
+  deletion-bg: #ffeef0,
+);
+
+$hljs-dark: (
+  keyword: #ff7b72,
+  title: #d2a8ff,
+  attr: #79c0ff,
+  string: #a5d6ff,
+  built-in: #ffa657,
+  comment: #8b949e,
+  name: #7ee787,
+  subst: #e6edf3,
+  section: #1f6feb,
+  bullet: #f2cc60,
+  addition: #aff5b4,
+  addition-bg: #033a16,
+  deletion: #ffdcd7,
+  deletion-bg: #67060c,
+);
+
+@mixin hljs-tokens($theme) {
+  .hljs-doctag,
+  .hljs-keyword,
+  .hljs-meta .hljs-keyword,
+  .hljs-template-tag,
+  .hljs-template-variable,
+  .hljs-type,
+  .hljs-variable.language_ {
+    color: map.get($theme, keyword);
+  }
+
+  .hljs-title,
+  .hljs-title.class_,
+  .hljs-title.class_.inherited__,
+  .hljs-title.function_ {
+    color: map.get($theme, title);
+  }
+
+  .hljs-attr,
+  .hljs-attribute,
+  .hljs-literal,
+  .hljs-meta,
+  .hljs-number,
+  .hljs-operator,
+  .hljs-variable,
+  .hljs-selector-attr,
+  .hljs-selector-class,
+  .hljs-selector-id {
+    color: map.get($theme, attr);
+  }
+
+  .hljs-regexp,
+  .hljs-string,
+  .hljs-meta .hljs-string {
+    color: map.get($theme, string);
+  }
+
+  .hljs-built_in,
+  .hljs-symbol {
+    color: map.get($theme, built-in);
+  }
+
+  .hljs-comment,
+  .hljs-code,
+  .hljs-formula {
+    color: map.get($theme, comment);
+  }
+
+  .hljs-name,
+  .hljs-quote,
+  .hljs-selector-tag,
+  .hljs-selector-pseudo {
+    color: map.get($theme, name);
+  }
+
+  .hljs-subst {
+    color: map.get($theme, subst);
+  }
+
+  .hljs-section {
+    color: map.get($theme, section);
+    font-weight: bold;
+  }
+
+  .hljs-bullet {
+    color: map.get($theme, bullet);
+  }
+
+  .hljs-emphasis {
+    color: map.get($theme, subst);
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    color: map.get($theme, subst);
+    font-weight: bold;
+  }
+
+  .hljs-addition {
+    color: map.get($theme, addition);
+    background-color: map.get($theme, addition-bg);
+  }
+
+  .hljs-deletion {
+    color: map.get($theme, deletion);
+    background-color: map.get($theme, deletion-bg);
+  }
+}
+
 .tiptap.ProseMirror {
   /* Override Tailwind prose styles to ensure code block background works correctly */
   pre {
@@ -6,98 +132,15 @@
     color: var(--tt-codeblock-text) !important;
   }
 
-  /* Syntax highlighting - Light mode (GitHub theme) */
   pre code {
-    .hljs-doctag,
-    .hljs-keyword,
-    .hljs-meta .hljs-keyword,
-    .hljs-template-tag,
-    .hljs-template-variable,
-    .hljs-type,
-    .hljs-variable.language_ {
-      color: #d73a49;
-    }
-
-    .hljs-title,
-    .hljs-title.class_,
-    .hljs-title.class_.inherited__,
-    .hljs-title.function_ {
-      color: #6f42c1;
-    }
-
-    .hljs-attr,
-    .hljs-attribute,
-    .hljs-literal,
-    .hljs-meta,
-    .hljs-number,
-    .hljs-operator,
-    .hljs-variable,
-    .hljs-selector-attr,
-    .hljs-selector-class,
-    .hljs-selector-id {
-      color: #005cc5;
-    }
-
-    .hljs-regexp,
-    .hljs-string,
-    .hljs-meta .hljs-string {
-      color: #032f62;
-    }
-
-    .hljs-built_in,
-    .hljs-symbol {
-      color: #e36209;
-    }
-
-    .hljs-comment,
-    .hljs-code,
-    .hljs-formula {
-      color: #6a737d;
-    }
-
-    .hljs-name,
-    .hljs-quote,
-    .hljs-selector-tag,
-    .hljs-selector-pseudo {
-      color: #22863a;
-    }
-
-    .hljs-subst {
-      color: #24292e;
-    }
-
-    .hljs-section {
-      color: #005cc5;
-      font-weight: bold;
-    }
-
-    .hljs-bullet {
-      color: #735c0f;
-    }
-
-    .hljs-emphasis {
-      color: #24292e;
-      font-style: italic;
-    }
-
-    .hljs-strong {
-      color: #24292e;
-      font-weight: bold;
-    }
-
-    .hljs-addition {
-      color: #22863a;
-      background-color: #f0fff4;
-    }
-
-    .hljs-deletion {
-      color: #b31d28;
-      background-color: #ffeef0;
-    }
+    @include hljs-tokens($hljs-light);
   }
 }
 
-/* Dark mode syntax highlighting */
+.hljs-code {
+  @include hljs-tokens($hljs-light);
+}
+
 .dark .tiptap.ProseMirror {
   /* Override Tailwind prose styles for dark mode */
   pre {
@@ -106,91 +149,10 @@
   }
 
   pre code {
-    .hljs-doctag,
-    .hljs-keyword,
-    .hljs-meta .hljs-keyword,
-    .hljs-template-tag,
-    .hljs-template-variable,
-    .hljs-type,
-    .hljs-variable.language_ {
-      color: #ff7b72;
-    }
-
-    .hljs-title,
-    .hljs-title.class_,
-    .hljs-title.class_.inherited__,
-    .hljs-title.function_ {
-      color: #d2a8ff;
-    }
-
-    .hljs-attr,
-    .hljs-attribute,
-    .hljs-literal,
-    .hljs-meta,
-    .hljs-number,
-    .hljs-operator,
-    .hljs-variable,
-    .hljs-selector-attr,
-    .hljs-selector-class,
-    .hljs-selector-id {
-      color: #79c0ff;
-    }
-
-    .hljs-regexp,
-    .hljs-string,
-    .hljs-meta .hljs-string {
-      color: #a5d6ff;
-    }
-
-    .hljs-built_in,
-    .hljs-symbol {
-      color: #ffa657;
-    }
-
-    .hljs-comment,
-    .hljs-code,
-    .hljs-formula {
-      color: #8b949e;
-    }
-
-    .hljs-name,
-    .hljs-quote,
-    .hljs-selector-tag,
-    .hljs-selector-pseudo {
-      color: #7ee787;
-    }
-
-    .hljs-subst {
-      color: #e6edf3;
-    }
-
-    .hljs-section {
-      color: #1f6feb;
-      font-weight: bold;
-    }
-
-    .hljs-bullet {
-      color: #f2cc60;
-    }
-
-    .hljs-emphasis {
-      color: #e6edf3;
-      font-style: italic;
-    }
-
-    .hljs-strong {
-      color: #e6edf3;
-      font-weight: bold;
-    }
-
-    .hljs-addition {
-      color: #aff5b4;
-      background-color: #033a16;
-    }
-
-    .hljs-deletion {
-      color: #ffdcd7;
-      background-color: #67060c;
-    }
+    @include hljs-tokens($hljs-dark);
   }
+}
+
+.dark .hljs-code {
+  @include hljs-tokens($hljs-dark);
 }

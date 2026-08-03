@@ -3,7 +3,8 @@ import "server-only";
 import { cookies, headers } from "next/headers";
 
 import { I18N_ENABLED } from "@/constants";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getBearerPrincipal } from "@/lib/api/principal";
+import { getCurrentSession } from "@/utils/auth";
 import {
   DEFAULT_LOCALE,
   ENABLED_LOCALES,
@@ -57,6 +58,16 @@ export async function getUserLocale(): Promise<Locale> {
     return DEFAULT_LOCALE;
   }
 
+  // Bearer requests (API + MCP) are served by plain Worker handlers, outside the App Router
+  // request scope where `cookies()`/`headers()` throw. A credential carries no cookie anyway,
+  // so the user's stored preference is the only signal there.
+  const principal = getBearerPrincipal();
+  if (principal) {
+    const preferredLocale = principal.user?.preferredLocale;
+
+    return isSupportedLocale(preferredLocale) ? preferredLocale : DEFAULT_LOCALE;
+  }
+
   const cookieStore = await cookies();
   const fromCookie = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
   if (isSupportedLocale(fromCookie)) {
@@ -64,7 +75,7 @@ export async function getUserLocale(): Promise<Locale> {
   }
 
   // Authenticated users fall back to their stored preference before header negotiation.
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
   const preferred = session?.user?.preferredLocale;
   if (isSupportedLocale(preferred)) {
     return preferred;

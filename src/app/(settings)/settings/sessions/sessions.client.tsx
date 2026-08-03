@@ -12,16 +12,7 @@ import { deleteSessionAction } from "./sessions.actions";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDateTime } from "@/utils/format-date";
 import { formatDeviceDescription } from "@/utils/format-device-description";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { toast } from "sonner";
 import React from "react";
 import { useRouter } from "next/navigation";
@@ -54,17 +45,14 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
     () => new Intl.DisplayNames([locale], { type: "region" }),
     [locale],
   );
-  const dialogCloseRef = React.useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Sessions");
-  const tCommon = useTranslations("Client.Common");
   const tDevice = useTranslations("Client.Settings.Device");
-  const { execute: deleteSession } = useAction(deleteSessionAction, {
+  const { executeAsync: deleteSession } = useAction(deleteSessionAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || t("toastDeleteError"));
     },
     onSuccess: () => {
       toast.success(t("toastDeleteSuccess"));
-      dialogCloseRef.current?.click();
       router.refresh();
     }
   });
@@ -103,36 +91,17 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
               </div>
               <div>
                 {!session?.isCurrentSession && (
-                  <Dialog>
-                    <DialogTrigger
-                      render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
-                    >
-                      {t("deleteSession")}
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>{t("deleteSessionConfirmTitle")}</DialogTitle>
-                        <DialogDescription>
-                          {t("deleteSessionConfirmDescription")}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter className="mt-6 sm:mt-0">
-                        <DialogClose
-                          ref={dialogCloseRef}
-                          render={<Button variant="outline" />}
-                        >
-                          {tCommon("cancel")}
-                        </DialogClose>
-                        <Button
-                          variant="destructive"
-                          className="mb-4 sm:mb-0"
-                          onClick={() => deleteSession({ sessionId: session.id })}
-                        >
-                          {t("deleteSession")}
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                  <ConfirmDestructiveDialog
+                    trigger={
+                      <Button size="sm" variant="destructive" className="w-full sm:w-auto" />
+                    }
+                    triggerLabel={t("deleteSession")}
+                    title={t("deleteSessionConfirmTitle")}
+                    description={t("deleteSessionConfirmDescription")}
+                    confirmLabel={t("deleteSession")}
+                    pendingLabel={t("deletingSession")}
+                    onConfirm={() => deleteSession({ sessionId: session.id })}
+                  />
                 )}
               </div>
             </div>

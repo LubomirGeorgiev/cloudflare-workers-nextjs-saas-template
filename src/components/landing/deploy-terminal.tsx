@@ -67,7 +67,9 @@ export function DeployTerminal() {
       setTyped("");
 
       function typeChar() {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
         charIndex += 1;
         setTyped(line.command!.slice(0, charIndex));
 

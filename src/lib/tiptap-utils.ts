@@ -93,7 +93,9 @@ export const parseShortcutKeys = (props: {
 }) => {
   const { shortcutKeys, delimiter = "+", capitalize = true } = props
 
-  if (!shortcutKeys) return []
+  if (!shortcutKeys) {
+    return []
+  }
 
   return shortcutKeys
     .split(delimiter)
@@ -105,7 +107,9 @@ export const isMarkInSchema = (
   markName: string,
   editor: Editor | null
 ): boolean => {
-  if (!editor?.schema) return false
+  if (!editor?.schema) {
+    return false
+  }
   return editor.schema.spec.marks.get(markName) !== undefined
 }
 
@@ -113,7 +117,9 @@ export const isNodeInSchema = (
   nodeName: string,
   editor: Editor | null
 ): boolean => {
-  if (!editor?.schema) return false
+  if (!editor?.schema) {
+    return false
+  }
   return editor.schema.spec.nodes.get(nodeName) !== undefined
 }
 
@@ -152,7 +158,9 @@ export function isExtensionAvailable(
   editor: Editor | null,
   extensionNames: string | string[]
 ): boolean {
-  if (!editor) return false
+  if (!editor) {
+    return false
+  }
 
   const names = Array.isArray(extensionNames)
     ? extensionNames
@@ -193,7 +201,9 @@ export function findNodePosition(props: {
 }): { pos: number; node: PMNode } | null {
   const { editor, node, nodePos } = props
 
-  if (!editor || !editor.state?.doc) return null
+  if (!editor || !editor.state?.doc) {
+    return null
+  }
 
   // Zero is valid position
   const hasValidNode = node !== undefined && node !== null
@@ -238,10 +248,14 @@ export function isNodeTypeSelected(
   nodeTypeNames: string[] = [],
   checkAncestorNodes: boolean = false
 ): boolean {
-  if (!editor || !editor.state.selection) return false
+  if (!editor || !editor.state.selection) {
+    return false
+  }
 
   const { selection } = editor.state
-  if (selection.empty) return false
+  if (selection.empty) {
+    return false
+  }
 
   // Direct node selection check
   if (selection instanceof NodeSelection) {
@@ -267,7 +281,9 @@ export function selectionWithinConvertibleTypes(
   editor: Editor,
   types: string[] = []
 ): boolean {
-  if (!editor || types.length === 0) return false
+  if (!editor || types.length === 0) {
+    return false
+  }
 
   const { state } = editor
   const { selection } = state
@@ -408,14 +424,18 @@ export function updateNodesAttr<A extends string = string, V = unknown>(
   attrName: A,
   next: V | ((prev: V | undefined) => V | undefined)
 ): boolean {
-  if (!targets.length) return false
+  if (!targets.length) {
+    return false
+  }
 
   let changed = false
 
   for (const { pos } of targets) {
     // Always re-read from the transaction's current doc
     const currentNode = tr.doc.nodeAt(pos)
-    if (!currentNode) continue
+    if (!currentNode) {
+      continue
+    }
 
     const prevValue = (currentNode.attrs as Record<string, unknown>)[
       attrName
@@ -425,7 +445,9 @@ export function updateNodesAttr<A extends string = string, V = unknown>(
         ? (next as (p: V | undefined) => V | undefined)(prevValue)
         : next
 
-    if (prevValue === resolvedNext) continue
+    if (prevValue === resolvedNext) {
+      continue
+    }
 
     const nextAttrs: Record<string, unknown> = { ...currentNode.attrs }
     if (resolvedNext === undefined) {
@@ -446,7 +468,9 @@ export function updateNodesAttr<A extends string = string, V = unknown>(
 export function selectCurrentBlockContent(editor: Editor) {
   const { selection, doc } = editor.state
 
-  if (!selection.empty) return
+  if (!selection.empty) {
+    return
+  }
 
   const $pos = selection.$from
   let blockNode = null

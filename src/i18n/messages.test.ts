@@ -3,7 +3,9 @@ import { describe, expect, test } from "vitest";
 import { DEFAULT_LOCALE, LOCALES } from "./config";
 
 function keyPaths(obj: unknown, prefix = ""): string[] {
-  if (obj === null || typeof obj !== "object") return [prefix];
+  if (obj === null || typeof obj !== "object") {
+    return [prefix];
+  }
   return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
     keyPaths(v, prefix ? `${prefix}.${k}` : k),
   );
@@ -11,8 +13,12 @@ function keyPaths(obj: unknown, prefix = ""): string[] {
 
 // Flatten to [dotted-path, string] pairs for the value-level checks (placeholders, empties).
 function stringLeaves(obj: unknown, prefix = ""): Array<[string, string]> {
-  if (typeof obj === "string") return [[prefix, obj]];
-  if (obj === null || typeof obj !== "object") return [];
+  if (typeof obj === "string") {
+    return [[prefix, obj]];
+  }
+  if (obj === null || typeof obj !== "object") {
+    return [];
+  }
   return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
     stringLeaves(v, prefix ? `${prefix}.${k}` : k),
   );
@@ -31,8 +37,12 @@ function collectArgs(message: string, out: Set<string>): void {
   for (const inner of topLevelGroups(message)) {
     const commaIndex = inner.indexOf(",");
     const name = (commaIndex === -1 ? inner : inner.slice(0, commaIndex)).trim();
-    if (/^[a-zA-Z0-9_]+$/.test(name)) out.add(name);
-    if (commaIndex === -1) continue;
+    if (/^[a-zA-Z0-9_]+$/.test(name)) {
+      out.add(name);
+    }
+    if (commaIndex === -1) {
+      continue;
+    }
 
     const rest = inner.slice(commaIndex + 1);
     const typeEnd = rest.indexOf(",");
@@ -40,7 +50,9 @@ function collectArgs(message: string, out: Set<string>): void {
     // For plural/select the tail is `selector {sub-message}` groups; recurse into the
     // sub-message bodies (they may hold nested args) but never treat them as args.
     if (typeEnd !== -1 && (type === "plural" || type === "selectordinal" || type === "select")) {
-      for (const sub of topLevelGroups(rest.slice(typeEnd + 1))) collectArgs(sub, out);
+      for (const sub of topLevelGroups(rest.slice(typeEnd + 1))) {
+        collectArgs(sub, out);
+      }
     }
   }
 }
@@ -49,12 +61,17 @@ function collectArgs(message: string, out: Set<string>): void {
 function topLevelGroups(text: string): string[] {
   const groups: string[] = [];
   for (let i = 0; i < text.length; i++) {
-    if (text[i] !== "{") continue;
+    if (text[i] !== "{") {
+      continue;
+    }
     let depth = 0;
     let j = i;
     for (; j < text.length; j++) {
-      if (text[j] === "{") depth++;
-      else if (text[j] === "}" && --depth === 0) break;
+      if (text[j] === "{") {
+        depth++;
+      } else if (text[j] === "}" && --depth === 0) {
+        break;
+      }
     }
     groups.push(text.slice(i + 1, j));
     i = j;
@@ -126,10 +143,14 @@ describe("message catalogs", () => {
     async (locale) => {
       const mismatches = stringLeaves(await loadCatalog(locale)).flatMap(([path, value]) => {
         const defaultValue = defaultLeaves.get(path);
-        if (defaultValue === undefined) return [];
+        if (defaultValue === undefined) {
+          return [];
+        }
         const expected = icuPlaceholders(defaultValue);
         const actual = icuPlaceholders(value);
-        if (setsEqual(expected, actual)) return [];
+        if (setsEqual(expected, actual)) {
+          return [];
+        }
         return [`${path}: expected {${[...expected].sort()}}, got {${[...actual].sort()}}`];
       });
 

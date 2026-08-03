@@ -8,6 +8,7 @@ import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
 import { VINEXT_CACHE_PREFIX } from "./src/constants/vinext-cache";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
+import { openApiDocument } from "./tools/openapi-document";
 import { getSchedulerQueueName } from "./tools/wrangler-config";
 
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
@@ -32,6 +33,10 @@ export default defineConfig({
       "@base-ui/react",
       "@base-ui/utils",
       "@tiptap/core",
+      // Pre-bundling this while its @tiptap/core peer is excluded made the RSC dep
+      // optimizer prune the cached chunk mid-request ("file does not exist at
+      // .vite/deps_rsc/@tiptap_markdown.js" 500s on /docs/*).
+      "@tiptap/markdown",
       "@tiptap/pm",
       "@tiptap/static-renderer",
       "prosemirror-model",
@@ -71,6 +76,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    openApiDocument(),
     vinext({
       cache: {
         cdn: cdnAdapter(),

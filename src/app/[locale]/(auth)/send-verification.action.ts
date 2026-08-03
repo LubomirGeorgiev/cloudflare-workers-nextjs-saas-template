@@ -2,7 +2,7 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { v } from "@/lib/validation";
@@ -12,7 +12,7 @@ export const sendVerificationAction = actionClient
   .action(async () => {
     return withRateLimit(
       async () => {
-        const session = await getSessionFromCookie();
+        const session = await getCurrentSession();
 
         if (!session) {
           throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });

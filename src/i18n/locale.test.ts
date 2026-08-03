@@ -21,7 +21,7 @@ vi.mock("next/headers", () => ({
 
 let preferredLocale: string | null;
 vi.mock("@/utils/auth", () => ({
-  getSessionFromCookie: vi.fn(async () =>
+  getCurrentSession: vi.fn(async () =>
     preferredLocale === undefined ? null : { user: { preferredLocale } },
   ),
 }));

@@ -66,11 +66,31 @@ import { buildCmsResolvedPath } from "@/lib/cms/cms-paths";
 import { cn } from "@/lib/utils";
 import { generateSlug } from "@/utils/slugify";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { getStatusConfig } from "@/lib/cms/cms-entry-status-config";
+import { CmsEntryStatusBadge } from "../../../_components/cms-entry-status-badge";
 import { LocaleCoverageBadges } from "../../../_components/locale-coverage-badges";
 
 const CMS_NAVIGATION_ROW_DRAG_TYPE = "cms-navigation-row";
 const CMS_NAVIGATION_ROOT_DROP_TYPE = "cms-navigation-root-drop";
 const CMS_NAVIGATION_TREE_INDENT_PX = 24;
+const HIDDEN_FROM_PUBLIC_NAV_HINT = "not shown in the public navigation until published";
+
+// The public tree is queried with status=published and prunes page nodes whose entry is missing, so
+// a non-published entry silently disappears from the site while still sitting in this editor.
+function CmsNavigationEntryStatusBadge({ status }: { status: string | null }) {
+  if (!status || status === CMS_ENTRY_STATUS.PUBLISHED) {
+    return null;
+  }
+
+  return (
+    <CmsEntryStatusBadge
+      status={status}
+      className="shrink-0"
+      title={`${getStatusConfig(status)?.label ?? status} — ${HIDDEN_FROM_PUBLIC_NAV_HINT}`}
+    />
+  );
+}
 
 type DropPosition = "before" | "inside" | "after";
 type VisibleCmsNavigationRow = EditableTreeNode & { depth: number };
@@ -155,6 +175,8 @@ interface CmsNavigationRowProps {
   draggedId: string | null;
   isSelected: boolean;
   resolvedPath: string | null;
+  /** Status of the linked entry; null for groups and for pages whose entry is not loaded. */
+  entryStatus: string | null;
   // Keep row coverage hidden in single-locale mode; the badges render all enabled locales.
   translatableLocales: Locale[];
   translatedLocales: Set<Locale>;
@@ -527,6 +549,7 @@ function CmsNavigationRow({
   draggedId,
   isSelected,
   resolvedPath,
+  entryStatus,
   translatableLocales,
   translatedLocales,
   onCanDrop,
@@ -630,6 +653,7 @@ function CmsNavigationRow({
               : "Group without URL segment"}
         </p>
       </div>
+      <CmsNavigationEntryStatusBadge status={entryStatus} />
       {translatableLocales.length > 0 ? (
         <LocaleCoverageBadges
           translatedLocales={translatedLocales}
@@ -771,12 +795,16 @@ export function CmsNavigationManager({
   );
 
   const panelResolvedPath = useMemo(() => {
-    if (!selectedNode) return null;
+    if (!selectedNode) {
+      return null;
+    }
     const isPage = selectedNode.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE;
     const groupHasSegment =
       selectedNode.nodeType === CMS_NAVIGATION_NODE_TYPES.GROUP &&
       Boolean(selectedNode.slugSegment);
-    if (!isPage && !groupHasSegment) return null;
+    if (!isPage && !groupHasSegment) {
+      return null;
+    }
     return resolvedPaths.get(selectedNode.id) ?? null;
   }, [resolvedPaths, selectedNode]);
 
@@ -788,6 +816,11 @@ export function CmsNavigationManager({
   const assignedEntryIds = useMemo(
     () => new Set(items.map((item) => item.entryId).filter(Boolean)),
     [items]
+  );
+
+  const entryStatusById = useMemo(
+    () => new Map(entries.map((entry) => [entry.id, entry.status])),
+    [entries]
   );
 
   const availableEntries = useMemo(
@@ -853,7 +886,9 @@ export function CmsNavigationManager({
       },
       onSuccess: ({ data }) => {
         const nodeId = translateTargetNodeIdRef.current;
-        if (!data || !nodeId) return;
+        if (!data || !nodeId) {
+          return;
+        }
 
         updateNode(nodeId, (node) => ({
           ...node,
@@ -1067,6 +1102,7 @@ export function CmsNavigationManager({
                     draggedId={draggedId}
                     isSelected={row.id === selectedNodeId}
                     resolvedPath={resolvedPaths.get(row.id) ?? null}
+                    entryStatus={row.entryId ? entryStatusById.get(row.entryId) ?? null : null}
                     translatableLocales={translatableLocales}
                     translatedLocales={getRowTranslatedLocales({
                       node: row,
@@ -1122,9 +1158,10 @@ export function CmsNavigationManager({
                         /{entry.slug}
                       </p>
                     </div>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      Add page
-                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <CmsNavigationEntryStatusBadge status={entry.status} />
+                      <span className="text-xs text-muted-foreground">Add page</span>
+                    </div>
                   </CommandItem>
                 ))}
             </CommandList>

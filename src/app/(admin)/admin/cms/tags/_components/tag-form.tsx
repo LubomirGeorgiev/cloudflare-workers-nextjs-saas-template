@@ -99,7 +99,9 @@ export function TagForm({ mode, tag }: TagFormProps) {
         color,
       });
     } else {
-      if (!tag) return;
+      if (!tag) {
+        return;
+      }
 
       updateTag({
         id: tag.id,
@@ -112,7 +114,9 @@ export function TagForm({ mode, tag }: TagFormProps) {
   };
 
   const handleDelete = () => {
-    if (!tag) return;
+    if (!tag) {
+      return;
+    }
 
     deleteTag({ id: tag.id });
   };

@@ -22,7 +22,9 @@ describe("plans catalog yearly billing", () => {
   test("yearly amounts apply the configured discount to 12 monthly payments", () => {
     for (const planId of PAID_PLAN_IDS) {
       const plan = TEAM_PLANS[planId];
-      if (plan.interval !== "month") continue;
+      if (plan.interval !== "month") {
+        continue;
+      }
 
       const fullYear = plan.amount * 12;
       const expected = Math.round((fullYear * (100 - (YEARLY_DISCOUNT_PERCENT ?? 0))) / 100);

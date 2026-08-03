@@ -1,11 +1,13 @@
-import { v, validationKey } from "@/lib/validation";
-import { newPasswordSchema } from "./password.schema";
+import { maxString, v, validationKey } from "@/lib/validation";
+import { tokenField } from "@/schemas/fields";
+import { newPasswordSchema, PASSWORD_MAX_LENGTH } from "./password.schema";
 
 export const resetPasswordSchema = v.pipe(
   v.object({
-    token: v.string(),
+    token: tokenField(),
     password: newPasswordSchema,
-    confirmPassword: v.string(),
+    // Only ever compared with `password`; bounded so the comparison cannot be handed a huge string.
+    confirmPassword: maxString(PASSWORD_MAX_LENGTH),
   }),
   v.forward(
     v.partialCheck(

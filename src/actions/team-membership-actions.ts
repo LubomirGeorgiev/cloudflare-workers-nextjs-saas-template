@@ -10,6 +10,7 @@ import { inviteUserToTeam } from "@/lib/teams/team-invite";
 import { acceptTeamInvitationById } from "@/lib/teams/team-invitation-accept";
 import { revokeTeamInvitation } from "@/lib/teams/team-invitation-revoke";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { invitationIdSchema, inviteUserSchema, removeMemberSchema, revokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
 
 export const inviteUserAction = actionClient
@@ -30,7 +31,7 @@ export const inviteUserAction = actionClient
 export const removeTeamMemberAction = actionClient
   .inputSchema(removeMemberSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(
+    return withUserRateLimit(
       async () => {
         return runVerifiedAction({
           actionName: "Failed to remove team member",
@@ -45,7 +46,7 @@ export const removeTeamMemberAction = actionClient
 export const revokeTeamInvitationAction = actionClient
   .inputSchema(revokeTeamInvitationSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(
+    return withUserRateLimit(
       async () => {
         return runVerifiedAction({
           actionName: "Failed to revoke team invitation",
@@ -60,7 +61,7 @@ export const revokeTeamInvitationAction = actionClient
 export const acceptInvitationAction = actionClient
   .inputSchema(invitationIdSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(
+    return withUserRateLimit(
       async () => {
         return runVerifiedAction({
           actionName: "Failed to accept invitation",

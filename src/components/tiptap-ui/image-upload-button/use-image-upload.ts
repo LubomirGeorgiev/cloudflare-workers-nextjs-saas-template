@@ -24,22 +24,32 @@ export interface UseImageUploadConfig {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertImage(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!isExtensionAvailable(editor, "imageUpload")) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isExtensionAvailable(editor, "imageUpload")) {
+    return false
+  }
 
   return editor.can().insertContent({ type: "imageUpload" })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isImageActive(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return editor.isActive("imageUpload")
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertImage(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canInsertImage(editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canInsertImage(editor)) {
+    return false
+  }
 
   try {
     return editor
@@ -61,8 +71,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isExtensionAvailable(editor, "imageUpload")) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isExtensionAvailable(editor, "imageUpload")) {
+    return false
+  }
 
   if (hideWhenUnavailable && !editor.isActive("code")) {
     return canInsertImage(editor)
@@ -85,7 +99,9 @@ export function useImageUpload(config?: UseImageUploadConfig) {
   const isActive = isImageActive(editor)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))
@@ -101,7 +117,9 @@ export function useImageUpload(config?: UseImageUploadConfig) {
   }, [editor, hideWhenUnavailable])
 
   const handleImage = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = insertImage(editor)
     if (success) {

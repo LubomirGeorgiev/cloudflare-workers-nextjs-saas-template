@@ -48,7 +48,9 @@ export function useScrolling(
     const supportsScrollEnd = element === window && "onscrollend" in window
 
     const handleScroll: EventListener = () => {
-      if (!isScrolling) setIsScrolling(true)
+      if (!isScrolling) {
+        setIsScrolling(true)
+      }
 
       if (!supportsScrollEnd) {
         clearTimeout(timeout)

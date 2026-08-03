@@ -4,10 +4,18 @@ import { SCHEDULED_JOB_TYPES, type ScheduledQueueMessage } from "@/lib/scheduler
 
 const {
   dispatchScheduledJobsToQueueMock,
+  pruneExpiredUnverifiedCimdOAuthAppsMock,
+  purgeExpiredOAuthDataMock,
+  renewVerifiedOAuthClientsMock,
   runScheduledJobMock,
+  settleStaleTrialReservationsMock,
 } = vi.hoisted(() => ({
   dispatchScheduledJobsToQueueMock: vi.fn(),
+  pruneExpiredUnverifiedCimdOAuthAppsMock: vi.fn(),
+  purgeExpiredOAuthDataMock: vi.fn(),
+  renewVerifiedOAuthClientsMock: vi.fn(),
   runScheduledJobMock: vi.fn(),
+  settleStaleTrialReservationsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/scheduler/scheduler", () => ({
@@ -18,6 +26,25 @@ vi.mock("@/lib/scheduler/scheduler", () => ({
 vi.mock("@/lib/scheduler/job-handlers", () => ({
   runScheduledJob: runScheduledJobMock,
 }));
+
+// The cron's maintenance sweeps are lazy `import()`s of server-only graphs: unmocked they throw
+// under plain Vitest and the entrypoint's catch swallows it, so the branch would look covered
+// while never running. Mocking the exact specifiers is what makes the assertions below real.
+vi.mock("@/lib/oauth/oauth-maintenance", () => ({
+  pruneExpiredUnverifiedCimdOAuthApps: pruneExpiredUnverifiedCimdOAuthAppsMock,
+  purgeExpiredOAuthData: purgeExpiredOAuthDataMock,
+  renewVerifiedOAuthClients: renewVerifiedOAuthClientsMock,
+}));
+
+vi.mock("@/lib/teams/trial-subscription", () => ({
+  settleStaleTrialReservations: settleStaleTrialReservationsMock,
+}));
+
+const BILLING_ENV_KEYS = [
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+] as const;
 
 const { handleSchedulerCron, handleSchedulerQueue } = await import("@/lib/scheduler/worker");
 
@@ -43,9 +70,44 @@ function createMessage({
   };
 }
 
+// The cron reads the Stripe env directly, so pin it per test instead of inheriting the machine's.
+function stubBillingConfigured(isConfigured: boolean) {
+  for (const key of BILLING_ENV_KEYS) {
+    vi.stubEnv(key, isConfigured ? `stub-${key}` : "");
+  }
+}
+
+// Makes a mocked sweep finish a macrotask later than its siblings and report whether it actually
+// finished, so a test can tell "started" apart from "settled".
+function trackSettlement(mock: ReturnType<typeof vi.fn>) {
+  let isSettled = false;
+
+  mock.mockImplementationOnce(async () => {
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+    isSettled = true;
+  });
+
+  return () => isSettled;
+}
+
+function runCron(now: Date) {
+  const queue = { send: vi.fn() };
+
+  return {
+    queue,
+    result: handleSchedulerCron({
+      env: { SCHEDULER_QUEUE: queue } as unknown as Env,
+      now,
+    }),
+  };
+}
+
 describe("scheduler worker", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
@@ -62,6 +124,99 @@ describe("scheduler worker", () => {
     })).resolves.toBe(2);
 
     expect(dispatchScheduledJobsToQueueMock).toHaveBeenCalledWith({ queue, now });
+  });
+
+  test("cron runs every OAuth maintenance sweep", async () => {
+    stubBillingConfigured(false);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(2);
+
+    const { queue, result } = runCron(now);
+
+    await expect(result).resolves.toBe(2);
+    expect(pruneExpiredUnverifiedCimdOAuthAppsMock).toHaveBeenCalledWith(now);
+    expect(purgeExpiredOAuthDataMock).toHaveBeenCalledWith(now);
+    expect(renewVerifiedOAuthClientsMock).toHaveBeenCalledWith(now);
+    expect(dispatchScheduledJobsToQueueMock).toHaveBeenCalledWith({ queue, now });
+    expect(settleStaleTrialReservationsMock).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    {
+      failing: pruneExpiredUnverifiedCimdOAuthAppsMock,
+      surviving: purgeExpiredOAuthDataMock,
+      name: "CIMD pruning",
+    },
+    { failing: purgeExpiredOAuthDataMock, surviving: renewVerifiedOAuthClientsMock, name: "purge" },
+    { failing: renewVerifiedOAuthClientsMock, surviving: purgeExpiredOAuthDataMock, name: "renewal" },
+  ])("cron waits for a sibling OAuth sweep to settle when the $name sweep fails", async ({
+    failing,
+    surviving,
+  }) => {
+    stubBillingConfigured(false);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    const failure = new Error("oauth kv unavailable");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(2);
+    failing.mockRejectedValueOnce(failure);
+    const survived = trackSettlement(surviving);
+
+    const { queue, result } = runCron(now);
+
+    await expect(result).resolves.toBe(2);
+    // Called is not enough: `waitUntil` tracks only the cron promise, so a sibling still in flight
+    // when it resolves is a sibling the isolate can be torn down under.
+    expect(survived()).toBe(true);
+    expect(dispatchScheduledJobsToQueueMock).toHaveBeenCalledWith({ queue, now });
+    expect(consoleError).toHaveBeenCalledWith(expect.any(String), failure);
+    consoleError.mockRestore();
+  });
+
+  test("cron settles stale trial reservations only when billing is configured", async () => {
+    stubBillingConfigured(true);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+    await expect(runCron(now).result).resolves.toBe(0);
+
+    expect(settleStaleTrialReservationsMock).toHaveBeenCalledWith({ now });
+    expect(purgeExpiredOAuthDataMock).toHaveBeenCalledWith(now);
+  });
+
+  test("a failing billing sweep still lets every OAuth sweep settle", async () => {
+    stubBillingConfigured(true);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    const failure = new Error("stripe unavailable");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(1);
+    settleStaleTrialReservationsMock.mockRejectedValueOnce(failure);
+    const cimdPruned = trackSettlement(pruneExpiredUnverifiedCimdOAuthAppsMock);
+    const purged = trackSettlement(purgeExpiredOAuthDataMock);
+    const renewed = trackSettlement(renewVerifiedOAuthClientsMock);
+
+    await expect(runCron(now).result).resolves.toBe(1);
+
+    expect(cimdPruned()).toBe(true);
+    expect(purged()).toBe(true);
+    expect(renewed()).toBe(true);
+    expect(consoleError).toHaveBeenCalledWith(expect.any(String), failure);
+    consoleError.mockRestore();
+  });
+
+  test("a failing OAuth sweep still lets the billing sweep settle", async () => {
+    stubBillingConfigured(true);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    const failure = new Error("oauth kv unavailable");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(1);
+    purgeExpiredOAuthDataMock.mockRejectedValueOnce(failure);
+    const settledTrials = trackSettlement(settleStaleTrialReservationsMock);
+
+    await expect(runCron(now).result).resolves.toBe(1);
+
+    expect(settledTrials()).toBe(true);
+    expect(consoleError).toHaveBeenCalledWith(expect.any(String), failure);
+    consoleError.mockRestore();
   });
 
   test("queue retries a message scheduled for the future", async () => {

@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
 
+import { getDocsNavPaddingLeft } from "./docs-nav-indent";
+
 interface DocsSidebarProps {
   nodes: CmsNavigationTreeNode[];
   className?: string;
@@ -40,7 +42,7 @@ function DocsSidebarNode({
             "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted/70",
             pathname === node.resolvedPath && "bg-accent font-medium text-accent-foreground"
           )}
-          style={{ paddingLeft: `${depth * 14 + 12}px` }}
+          style={{ paddingLeft: getDocsNavPaddingLeft(depth) }}
         >
           {node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE ? (
             <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -52,7 +54,7 @@ function DocsSidebarNode({
       ) : (
         <div
           className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground/80"
-          style={{ paddingLeft: `${depth * 14 + 12}px` }}
+          style={{ paddingLeft: getDocsNavPaddingLeft(depth) }}
         >
           <FolderTree className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="truncate">{title}</span>

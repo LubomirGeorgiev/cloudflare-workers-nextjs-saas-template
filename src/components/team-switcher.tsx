@@ -53,7 +53,9 @@ export function TeamSwitcher({
 
   // Find the active team based on selectedTeamId from session
   const activeTeam = useMemo(() => {
-    if (!selectedTeamId) return teams[0] || null
+    if (!selectedTeamId) {
+      return teams[0] || null
+    }
 
     // Find the matching team in the props by ID
     return teams.find(t => t.id === selectedTeamId) || teams[0] || null

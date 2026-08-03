@@ -83,10 +83,14 @@ export function DataTable<TData, TValue>({
   // "group" (worth cross-highlighting) when siblings actually exist on this page.
   const groupSizes = React.useMemo(() => {
     const sizes = new Map<string, number>()
-    if (!getRowGroupKey) return sizes
+    if (!getRowGroupKey) {
+      return sizes
+    }
     for (const row of data) {
       const key = getRowGroupKey(row)
-      if (key) sizes.set(key, (sizes.get(key) ?? 0) + 1)
+      if (key) {
+        sizes.set(key, (sizes.get(key) ?? 0) + 1)
+      }
     }
     return sizes
   }, [data, getRowGroupKey])

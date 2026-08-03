@@ -6,7 +6,8 @@ import { ActionError } from "@/lib/action-error";
 import { eq, and, isNull } from "drizzle-orm";
 import { isMembershipCurrentlyActive, getActiveTeamMembership } from "@/utils/team-membership";
 import { requireNormalizedSessionEmail } from "@/utils/session-user";
-import { updateAllSessionsOfUser, type KVSession } from "@/utils/kv-session";
+import { updateAllSessionsOfUser } from "@/utils/kv-session";
+import type { CurrentSession } from "@/types";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { hashInvitationToken } from "@/lib/teams/invitation-tokens";
 import { normalizeEmail } from "@/lib/validation";
@@ -48,7 +49,7 @@ async function acceptResolvedInvitation({
   session,
 }: {
   invitation: AcceptableInvitation;
-  session: KVSession;
+  session: CurrentSession;
 }) {
   const db = getDB();
 

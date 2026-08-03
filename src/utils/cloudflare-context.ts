@@ -14,8 +14,12 @@ export interface CloudflareContext {
 
 function parseCfBooleanHeader(raw: string): boolean | undefined {
   const v = raw.trim().toLowerCase();
-  if (v === "true" || v === "1" || v === "yes") return true;
-  if (v === "false" || v === "0" || v === "no") return false;
+  if (v === "true" || v === "1" || v === "yes") {
+    return true;
+  }
+  if (v === "false" || v === "0" || v === "no") {
+    return false;
+  }
   return undefined;
 }
 
@@ -28,7 +32,9 @@ function getRequestContextFromHeaders(headersList: Headers): CloudflareRequestCo
     const { key, header } = row;
     const valueKind = "valueKind" in row ? row.valueKind : undefined;
     const value = headersList.get(header);
-    if (!value) continue;
+    if (!value) {
+      continue;
+    }
 
     if (valueKind === "boolean") {
       const parsed = parseCfBooleanHeader(value);

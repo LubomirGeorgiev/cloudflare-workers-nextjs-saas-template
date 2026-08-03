@@ -586,12 +586,16 @@ export function VersionHistory({
   const hasContentChanges = Boolean(contentDiff?.hasChanges);
 
   const handleRevert = () => {
-    if (!selectedVersion) return;
+    if (!selectedVersion) {
+      return;
+    }
     setRevertVersionToRestore(selectedVersion);
   };
 
   const confirmRevert = () => {
-    if (!revertVersionToRestore) return;
+    if (!revertVersionToRestore) {
+      return;
+    }
 
     revertVersion({
       entryId,
@@ -606,7 +610,9 @@ export function VersionHistory({
   };
 
   const confirmDelete = () => {
-    if (!deleteVersionId) return;
+    if (!deleteVersionId) {
+      return;
+    }
 
     deleteVersion({
       entryId,

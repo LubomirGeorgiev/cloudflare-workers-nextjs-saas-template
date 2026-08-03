@@ -6,7 +6,13 @@ import {
   withPublishedAtLifecycleValidation,
 } from "@/schemas/cms-entry.schema";
 import { cmsStatusFilterTuple } from "@/types/cms";
-import { requiredString, v } from "@/lib/validation";
+import { CMS_MAX_SLUGS_PER_LOOKUP, ID_MAX_LENGTH, SLUG_MAX_LENGTH } from "@/constants";
+import { maxString, v } from "@/lib/validation";
+import { idField, slugField } from "@/schemas/fields";
+
+// Repository params, not request bodies — but this is the canonical write boundary, so its
+// strings are bounded like every caller-supplied one rather than trusting the layer above.
+const collectionSlugField = maxString(SLUG_MAX_LENGTH);
 
 const cmsEntryStatusOrAllSchema = v.picklist(cmsStatusFilterTuple);
 
@@ -20,9 +26,9 @@ const cmsEntryLocaleSchema = v.optional(v.picklist(LOCALES), DEFAULT_LOCALE);
 // baseline". See SourceContentHashes in types/cms.
 const sourceContentHashesSchema = v.nullable(
   v.object({
-    title: v.string(),
-    seoDescription: v.string(),
-    content: v.string(),
+    title: maxString(ID_MAX_LENGTH),
+    seoDescription: maxString(ID_MAX_LENGTH),
+    content: maxString(ID_MAX_LENGTH),
   })
 );
 
@@ -38,7 +44,7 @@ const cmsIncludeRelationsSchema = v.optional(v.object({
 const cmsAllLocalesSchema = v.optional(v.boolean(), false);
 
 export const getCmsCollectionParamsSchema = v.object({
-  collectionSlug: v.string(),
+  collectionSlug: collectionSlugField,
   status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
   includeRelations: cmsIncludeRelationsSchema,
   limit: v.optional(v.pipe(v.number(), v.minValue(1))),
@@ -48,33 +54,33 @@ export const getCmsCollectionParamsSchema = v.object({
 });
 
 export const getCmsCollectionCountParamsSchema = v.object({
-  collectionSlug: v.string(),
+  collectionSlug: collectionSlugField,
   status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
   locale: cmsEntryLocaleSchema,
   allLocales: cmsAllLocalesSchema,
 });
 
 export const getCmsEntryByIdParamsSchema = v.object({
-  id: requiredString(),
+  id: idField(),
   includeRelations: cmsIncludeRelationsSchema,
 });
 
 export const getCmsEntryBySlugParamsSchema = v.object({
-  collectionSlug: v.string(),
-  slug: requiredString(),
+  collectionSlug: collectionSlugField,
+  slug: slugField(),
   status: v.optional(cmsEntryStatusOrAllSchema, CMS_ENTRY_STATUS.PUBLISHED),
   includeRelations: cmsIncludeRelationsSchema,
   locale: cmsEntryLocaleSchema,
 });
 
 export const getEntryLocalesParamsSchema = v.object({
-  collectionSlug: v.string(),
-  slug: requiredString(),
+  collectionSlug: collectionSlugField,
+  slug: slugField(),
 });
 
 export const getEntryLocalesForSlugsParamsSchema = v.object({
-  collectionSlug: v.string(),
-  slugs: v.array(v.string()),
+  collectionSlug: collectionSlugField,
+  slugs: v.pipe(v.array(slugField()), v.maxLength(CMS_MAX_SLUGS_PER_LOOKUP)),
 });
 
 const cmsEntryBaseSchema = v.object({
@@ -86,8 +92,8 @@ const cmsEntryBaseSchema = v.object({
 export const createCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
   v.object({
     ...cmsEntryBaseSchema.entries,
-    collectionSlug: v.string(),
-    createdBy: requiredString(),
+    collectionSlug: collectionSlugField,
+    createdBy: idField(),
   })
 );
 
@@ -103,35 +109,35 @@ export const updateCmsEntryParamsSchema = withPublishedAtLifecycleValidation(
     featuredImageId: v.optional(cmsEntryBaseSchema.entries.featuredImageId),
     fields: v.optional(v.unknown()),
     sourceContentHashes: v.optional(sourceContentHashesSchema),
-    id: requiredString(),
+    id: idField(),
   })
 );
 
 export const deleteCmsEntryParamsSchema = v.object({
-  id: requiredString(),
+  id: idField(),
 });
 
 export const createCmsEntryTranslationParamsSchema = v.object({
-  collectionSlug: v.string(),
-  slug: requiredString(),
+  collectionSlug: collectionSlugField,
+  slug: slugField(),
   // Both feed a row insert, so validate against the full locale catalog here —
   // the canonical write boundary — rather than trusting callers. Use LOCALES (not
   // ENABLED_LOCALES) so a valid source/target isn't rejected when i18n is off.
   sourceLocale: v.picklist(LOCALES),
   targetLocale: v.picklist(LOCALES),
-  createdBy: requiredString(),
+  createdBy: idField(),
   // AI-translate the seeded copy by default; opt out for a verbatim copy.
   autoTranslate: v.optional(v.boolean(), true),
 });
 
-export const getCmsEntryVersionsParamsSchema = requiredString();
+export const getCmsEntryVersionsParamsSchema = idField();
 
 export const deleteCmsEntryVersionParamsSchema = v.object({
-  entryId: requiredString(),
-  versionId: requiredString(),
+  entryId: idField(),
+  versionId: idField(),
 });
 
 export const revertCmsEntryToVersionParamsSchema = v.object({
-  entryId: requiredString(),
-  versionId: requiredString(),
+  entryId: idField(),
+  versionId: idField(),
 });

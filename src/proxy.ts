@@ -3,14 +3,19 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { I18N_ENABLED } from "@/constants";
 import { LOCALES } from "@/i18n/config";
+import { shouldLocalizePathname } from "@/i18n/localized-paths";
 import { routing } from "@/i18n/routing";
 
 const intlMiddleware = createMiddleware(routing);
 
-// With i18n disabled, locale-prefixed URLs collapse to one canonical bare path.
-// Use 307 so indexed/bookmarked prefixes keep working without caching a permanent
-// mapping if i18n is re-enabled.
 export default function proxy(request: NextRequest) {
+  if (!shouldLocalizePathname(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
+  // With i18n disabled, locale-prefixed URLs collapse to one canonical bare path.
+  // Use 307 so indexed/bookmarked prefixes keep working without caching a permanent
+  // mapping if i18n is re-enabled.
   if (!I18N_ENABLED) {
     const stripped = stripLocalePrefix(request.nextUrl.pathname);
     if (stripped !== null) {
@@ -37,9 +42,9 @@ function stripLocalePrefix(pathname: string): string | null {
   return null;
 }
 
-// Keep public app/[locale] pages matched while excluding authed sections, APIs,
-// assets, and extensionless /markdown endpoints. Use one negative-lookahead regex
-// because Vinext fails the `/(group)` matcher form.
+// Only framework-internal paths are excluded here; which app paths get localized is
+// `shouldLocalizePathname`'s call, so that rule stays importable and testable. Use one
+// negative-lookahead regex because Vinext fails the `/(group)` matcher form.
 export const config = {
-  matcher: ["/((?!api|markdown|dashboard|settings|admin|_next|_vercel|.*\\..*).*)"],
+  matcher: ["/((?!_next|_vercel).*)"],
 };

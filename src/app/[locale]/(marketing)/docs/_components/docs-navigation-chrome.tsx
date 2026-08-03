@@ -2,12 +2,13 @@ import "server-only";
 
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { redirect } from "@/i18n/navigation";
 
-import { DocsLlmsTxtLink } from "./docs-llms-txt-link";
+import { DocsRouteLinks } from "./docs-guide-links";
 import { DocsSearch } from "./docs-search";
 import { DocsSidebar } from "./docs-sidebar";
 import { MobileDocsNav } from "./mobile-docs-nav";
@@ -30,17 +31,24 @@ export async function DocsNavigationChrome() {
   return (
     <>
       <aside className="hidden border-r bg-muted/20 py-10 lg:block">
-        <div className="sticky top-10 flex max-h-[calc(100vh-5rem)] flex-col">
+        {/* Definite height, not max-height: the ScrollArea viewport is `h-full`, which only
+            resolves against a flex parent whose own height is definite. */}
+        <div className="sticky top-10 flex h-[calc(100vh-5rem)] flex-col">
           <p className="mb-4 px-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             {t("heading")}
           </p>
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-            <div className="space-y-3 px-3">
-              <DocsSearch registerHotkeys />
-              <DocsLlmsTxtLink />
+          <ScrollArea className="min-h-0 flex-1" viewportClassName="scroll-fade-y">
+            <div className="flex flex-col gap-3">
+              <div className="px-3">
+                <DocsSearch registerHotkeys />
+              </div>
+              {/* Guides first, then the static reference and machine surfaces. */}
+              <DocsSidebar nodes={sidebarTree} />
+              <div className="space-y-3 border-t px-3 pt-3">
+                <DocsRouteLinks />
+              </div>
             </div>
-            <DocsSidebar nodes={sidebarTree} />
-          </div>
+          </ScrollArea>
         </div>
       </aside>
 
@@ -67,20 +75,24 @@ export function DocsNavigationChromeFallback() {
   return (
     <>
       <aside className="hidden border-r bg-muted/20 py-10 lg:block">
-        <div className="sticky top-10 flex max-h-[calc(100vh-5rem)] flex-col">
+        {/* Definite height, not max-height: the ScrollArea viewport is `h-full`, which only
+            resolves against a flex parent whose own height is definite. */}
+        <div className="sticky top-10 flex h-[calc(100vh-5rem)] flex-col">
           <Skeleton className="mb-4 ml-6 h-3 w-28" />
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-            <div className="space-y-3 px-3">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+          <ScrollArea className="min-h-0 flex-1" viewportClassName="scroll-fade-y">
+            <div className="flex flex-col gap-3">
+              <div className="space-y-3 px-3">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+              <div className="space-y-3 px-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-11/12" />
+                <Skeleton className="h-8 w-10/12" />
+                <Skeleton className="h-8 w-9/12" />
+              </div>
             </div>
-            <div className="space-y-3 px-3">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-11/12" />
-              <Skeleton className="h-8 w-10/12" />
-              <Skeleton className="h-8 w-9/12" />
-            </div>
-          </div>
+          </ScrollArea>
         </div>
       </aside>
 

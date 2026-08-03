@@ -2,7 +2,7 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { getSessionFromCookie } from "@/utils/auth";
+import { requireCookieSession } from "@/utils/auth";
 import { updateKVSessionSelectedTeam } from "@/utils/kv-session";
 import { getActiveTeamMembership } from "@/utils/team-membership";
 import { updateSelectedTeamSchema } from "@/schemas/session.schema";
@@ -11,13 +11,9 @@ export const updateSelectedTeamAction = actionClient
   .inputSchema(updateSelectedTeamSchema)
   .action(async ({ parsedInput: input }) => {
     try {
-      const session = await getSessionFromCookie();
-
-      if (!session) {
-        throw new ActionError("FORBIDDEN", {
-          key: "Client.Dashboard.Teams.errorMustBeLoggedIn",
-        });
-      }
+      // The selected team lives on the KV session record, so this needs a real one — a bearer
+      // caller is refused for the right reason instead of being told it is not logged in.
+      const session = await requireCookieSession();
 
       // Validate the selection against a current, active D1 membership rather than the stale
       // KV `session.teams` snapshot, so revoked/expired memberships can't be reselected.

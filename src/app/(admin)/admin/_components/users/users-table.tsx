@@ -7,12 +7,20 @@ import { getUsersAction } from "../../_actions/get-users.action"
 import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
-import { ADMIN_TABLE_PAGE_SIZE_OPTIONS, DEFAULT_ADMIN_TABLE_PAGE_SIZE } from "@/constants"
+import { ADMIN_TABLE_PAGE_SIZE_OPTIONS } from "@/constants"
 import { useQueryState } from "nuqs"
+import { AdminTableShell } from "../admin-table-shell"
+import { useAdminTablePagination } from "../use-admin-table-pagination"
 
 export function UsersTable() {
-  const [page, setPage] = useQueryState("page", { defaultValue: "1" })
-  const [pageSize, setPageSize] = useQueryState("pageSize", { defaultValue: DEFAULT_ADMIN_TABLE_PAGE_SIZE.toString() })
+  const {
+    page,
+    pageSize,
+    pageIndex,
+    onPageChange,
+    onPageSizeChange,
+    resetToFirstPage,
+  } = useAdminTablePagination()
   const [emailFilter, setEmailFilter] = useQueryState("email", { defaultValue: "" })
 
   const { execute: fetchUsers, result, status } = useAction(getUsersAction, {
@@ -24,21 +32,12 @@ export function UsersTable() {
   const error = result.serverError
 
   useEffect(() => {
-    fetchUsers({ page: parseInt(page), pageSize: parseInt(pageSize), emailFilter })
+    fetchUsers({ page, pageSize, emailFilter })
   }, [fetchUsers, page, pageSize, emailFilter])
-
-  const handlePageChange = (newPage: number) => {
-    setPage((newPage + 1).toString()) // Convert from 0-based to 1-based and store as string
-  }
-
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize.toString())
-    setPage("1") // Reset to first page when changing page size
-  }
 
   const handleEmailFilterChange = (value: string) => {
     setEmailFilter(value)
-    setPage("1") // Reset to first page when filtering
+    resetToFirstPage()
   }
 
   const getRowHref = (user: User) => {
@@ -46,45 +45,41 @@ export function UsersTable() {
   }
 
   return (
-    <div className="p-6 w-full min-w-0 flex flex-col overflow-hidden">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between flex-shrink-0">
-        <h1 className="text-3xl font-bold">Users</h1>
-        <Input
-          placeholder="Filter emails..."
-          type="search"
-          value={emailFilter}
-          onChange={(event) => handleEmailFilterChange(event.target.value)}
-          className="max-w-sm"
-        />
-      </div>
-      <div className="mt-8 flex-1 min-h-0">
-        <div className="space-y-4 h-full">
-          {status === 'executing' || status === 'idle' ? (
-            <div>Loading...</div>
-          ) : error ? (
-            <div>Error: {error.message}</div>
-          ) : !data ? (
-            <div>No users found</div>
-          ) : (
-            <div className="w-full min-w-0">
-              <DataTable
-                columns={columns}
-                data={data.users}
-                pageCount={data.totalPages}
-                pageIndex={parseInt(page) - 1}
-                pageSize={parseInt(pageSize)}
-                onPageChange={handlePageChange}
-                onPageSizeChange={handlePageSizeChange}
-                totalCount={data.totalCount}
-                itemNameSingular="user"
-                itemNamePlural="users"
-                pageSizeOptions={ADMIN_TABLE_PAGE_SIZE_OPTIONS}
-                getRowHref={getRowHref}
-              />
-            </div>
-          )}
+    <AdminTableShell
+      header={
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-3xl font-bold">Users</h1>
+          <Input
+            placeholder="Filter emails..."
+            type="search"
+            value={emailFilter}
+            onChange={(event) => handleEmailFilterChange(event.target.value)}
+            className="max-w-sm"
+          />
         </div>
-      </div>
-    </div>
+      }
+      isLoading={status === 'executing' || status === 'idle'}
+      loadingMessage="Loading..."
+      errorMessage={error ? `Error: ${error.message}` : undefined}
+      emptyMessage="No users found"
+      hasData={Boolean(data)}
+    >
+      {data ? (
+        <DataTable
+          columns={columns}
+          data={data.users}
+          pageCount={data.totalPages}
+          pageIndex={pageIndex}
+          pageSize={pageSize}
+          onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
+          totalCount={data.totalCount}
+          itemNameSingular="user"
+          itemNamePlural="users"
+          pageSizeOptions={ADMIN_TABLE_PAGE_SIZE_OPTIONS}
+          getRowHref={getRowHref}
+        />
+      ) : null}
+    </AdminTableShell>
   )
 }

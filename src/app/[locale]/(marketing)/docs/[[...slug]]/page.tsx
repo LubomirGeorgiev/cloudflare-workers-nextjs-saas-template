@@ -1,6 +1,6 @@
 import { type Metadata } from "next";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import type { JSONContent } from "@tiptap/core";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -31,7 +31,7 @@ import { resolveDocsPage } from "@/lib/cms/resolve-docs-page";
 import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } from "@/i18n/config";
-import { Link, permanentRedirect, redirect } from "@/i18n/navigation";
+import { Link, permanentRedirect, redirect as redirectLocalized } from "@/i18n/navigation";
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
@@ -94,19 +94,20 @@ export async function generateMetadata({
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
   if (result.type === "markdown-redirect") {
-    redirect({
-      href: buildCmsEntryMarkdownPath({
+    // Unlocalized on purpose: `/markdown/*` is served outside `app/[locale]`, so a
+    // locale prefix here 404s. The markdown route resolves the locale itself.
+    redirect(
+      buildCmsEntryMarkdownPath({
         collectionSlug: result.collectionSlug,
         slug: result.slug,
-      }) as Route,
-      locale,
-    });
+      }) as Route
+    );
   }
 
   if (result.type === "redirect") {
     // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
     // active locale prefix rather than dropping it (see module-level comment).
-    redirect({ href: result.path as Route, locale });
+    redirectLocalized({ href: result.path as Route, locale });
   }
 
   if (result.type === "group") {
@@ -210,13 +211,14 @@ export default async function DocsPage({ params }: DocsPageProps) {
   const docsBasePath = docsNavigation.basePath;
 
   if (result.type === "markdown-redirect") {
-    redirect({
-      href: buildCmsEntryMarkdownPath({
+    // Unlocalized on purpose: `/markdown/*` is served outside `app/[locale]`, so a
+    // locale prefix here 404s. The markdown route resolves the locale itself.
+    redirect(
+      buildCmsEntryMarkdownPath({
         collectionSlug: result.collectionSlug,
         slug: result.slug,
-      }) as Route,
-      locale,
-    });
+      }) as Route
+    );
   }
 
   if (result.type === "redirect") {
@@ -226,7 +228,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
       permanentRedirect({ href: result.path as Route, locale });
     }
 
-    redirect({ href: result.path as Route, locale });
+    redirectLocalized({ href: result.path as Route, locale });
   }
 
   if (result.type === "not-found") {

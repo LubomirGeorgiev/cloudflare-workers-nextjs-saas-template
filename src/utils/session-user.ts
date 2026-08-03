@@ -7,12 +7,12 @@ import {
   isMembershipCurrentlyActive,
   resolveMembershipPermissions,
 } from "@/utils/team-membership";
-import type { KVSession } from "@/utils/kv-session";
+import type { CurrentSession } from "@/types";
 
 // Returns the session user's normalized (trimmed/lowercased) email, or throws the localized
 // "no account email" error. Centralizes the guard the invitation flows repeat so the missing-email
 // policy fails closed here — never falling open to an empty predicate that would match every row.
-export function requireNormalizedSessionEmail(session: KVSession): string {
+export function requireNormalizedSessionEmail(session: CurrentSession): string {
   const email = session.user.email ? normalizeEmail(session.user.email) : null;
   if (!email) {
     throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorNoAccountEmail" });

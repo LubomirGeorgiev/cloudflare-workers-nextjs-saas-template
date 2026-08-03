@@ -10,5 +10,7 @@ interface DocsOnThisPageNavProps {
 export async function DocsOnThisPageNav({ nodes }: DocsOnThisPageNavProps) {
   const t = await getTranslations("Client.Docs.Page");
 
-  return <ContentTableOfContentsNav nodes={nodes} ariaLabel={t("onThisPage")} />;
+  return (
+    <ContentTableOfContentsNav nodes={nodes} ariaLabel={t("onThisPage")} scrollArea />
+  );
 }

@@ -4,6 +4,15 @@ import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import {
+  API_OPENAPI_SPEC_PATH,
+  API_V1_BASE_PATH,
+  OAUTH_AUTHORIZE_PATH,
+  OAUTH_OPEN_DCR_ENABLED,
+  OAUTH_PROTECTED_RESOURCE_PATH,
+  OAUTH_REGISTER_PATH,
+} from "@/constants";
+import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import { __INTERNAL_CF_CONTEXT_FIELDS } from "@/utils/cf-context-fields";
 import {
   __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
@@ -48,6 +57,69 @@ describe("worker edge integration", () => {
 
     await expect(response.json()).resolves.toEqual({ ok: true });
     expect(innerFetchMock).not.toHaveBeenCalled();
+  });
+
+  // The public API now sits behind the OAuth provider, which rejects credential-less requests
+  // itself. The invariant under test is unchanged: it never reaches the Next handler.
+  test("the public API is routed away from the Vinext app handler", async () => {
+    const response = await worker.fetch(
+      new Request(`https://example.com${API_V1_BASE_PATH}/me`),
+      env as Env,
+      createExecutionContext()
+    );
+
+    expect(innerFetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toContain(
+      `resource_metadata="https://example.com${OAUTH_PROTECTED_RESOURCE_PATH}${API_V1_BASE_PATH}/me"`,
+    );
+  });
+
+  // Machine clients need the contract before they have a credential, so this one path is routed
+  // to the Hono app ahead of the provider rather than being gated behind a bearer token.
+  test("the OpenAPI document stays readable without a credential", async () => {
+    const response = await worker.fetch(
+      new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`),
+      env as Env,
+      createExecutionContext()
+    );
+
+    expect(innerFetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+  });
+
+  test("the consent page falls through to the Next app handler", async () => {
+    await worker.fetch(
+      new Request(`https://example.com${OAUTH_AUTHORIZE_PATH}`),
+      env as Env,
+      createExecutionContext()
+    );
+
+    expect(innerFetchMock).toHaveBeenCalledOnce();
+  });
+
+  test("authorization server metadata advertises S256-only PKCE", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/.well-known/oauth-authorization-server"),
+      env as Env,
+      createExecutionContext()
+    );
+    const metadata = await response.json() as {
+      code_challenge_methods_supported: string[];
+      registration_endpoint?: string;
+      scopes_supported: string[];
+    };
+
+    expect(innerFetchMock).not.toHaveBeenCalled();
+    expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
+    expect(metadata.scopes_supported).toEqual([...API_SCOPE_NAMES]);
+    // Flag-aware: forks that turn the kill-switch off must not advertise an endpoint they
+    // do not serve.
+    if (OAUTH_OPEN_DCR_ENABLED) {
+      expect(metadata.registration_endpoint).toContain(OAUTH_REGISTER_PATH);
+    } else {
+      expect(metadata.registration_endpoint).toBeUndefined();
+    }
   });
 
   test("all Worker-injected header names use the internal prefix", () => {
@@ -100,7 +172,9 @@ describe("worker edge integration", () => {
     expect(body.headers["__INTERNAL_CF_IS_EU_COUNTRY"]).toBe("true");
 
     for (const header of __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP) {
-      if (header === __INTERNAL_TRUSTED_CLIENT_IP_HEADER) continue;
+      if (header === __INTERNAL_TRUSTED_CLIENT_IP_HEADER) {
+        continue;
+      }
       expect(body.headers[header] ?? null).toBeNull();
     }
   });

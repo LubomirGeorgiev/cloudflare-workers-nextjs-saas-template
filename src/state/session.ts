@@ -82,7 +82,9 @@ export const useSessionStore = create(
 
       hasTeamRole: (teamId: string, roleId: string, isSystemRole: boolean = false) => {
         const team = get().session?.teams?.find(t => t.id === teamId);
-        if (!team) return false;
+        if (!team) {
+          return false;
+        }
 
         if (isSystemRole) {
           return team.role.isSystemRole && team.role.id === roleId;
@@ -93,7 +95,9 @@ export const useSessionStore = create(
 
       hasTeamPermission: (teamId: string, permission: string) => {
         const team = get().session?.teams?.find(t => t.id === teamId);
-        if (!team) return false;
+        if (!team) {
+          return false;
+        }
 
         return team.permissions.includes(permission);
       },

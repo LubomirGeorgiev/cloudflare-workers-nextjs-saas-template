@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createTeam, getUserTeams, renameTeam } from "@/lib/teams/teams";
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
-import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { createTeamSchema, renameTeamSchema } from "@/schemas/team.schema";
 
 export const createTeamAction = actionClient
@@ -21,7 +22,7 @@ export const createTeamAction = actionClient
 export const renameTeamAction = actionClient
   .inputSchema(renameTeamSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(
+    return withUserRateLimit(
       async () => {
         const result = await runVerifiedAction({
           actionName: "Failed to rename team",

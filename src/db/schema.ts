@@ -66,6 +66,9 @@ export const userTable = sqliteTable("user", {
   // Set when this user starts a free trial on any team, so trials can't be farmed by
   // creating fresh teams. Checked together with team.trialUsedAt for eligibility.
   trialUsedAt: integer({ mode: "timestamp" }),
+  // Usage hint, not an audit trail: stamped from getCurrentSession at most every
+  // USER_ACTIVITY_UPDATE_INTERVAL (see src/utils/user-activity.ts). Null = never seen.
+  lastActiveAt: integer({ mode: "timestamp" }),
 }, (table) => ([
   index('google_account_id_idx').on(table.googleAccountId),
   index('role_idx').on(table.role),
@@ -135,6 +138,9 @@ export const TEAM_PERMISSIONS = {
   EDIT_ROLES: 'edit_roles',
   DELETE_ROLES: 'delete_roles',
   ASSIGN_ROLES: 'assign_roles',
+
+  // Machine credentials
+  MANAGE_API_KEYS: 'manage_api_keys',
 } as const;
 
 export type SystemRole = typeof SYSTEM_ROLES_ENUM[keyof typeof SYSTEM_ROLES_ENUM];
@@ -296,6 +302,77 @@ export const teamTrialReservationTable = sqliteTable("team_trial_reservation", {
 }, (table) => ([
   uniqueIndex('team_trial_reservation_user_id_unique').on(table.userId),
   uniqueIndex('team_trial_reservation_team_id_unique').on(table.teamId),
+]));
+
+// Machine credentials for the public API / MCP. D1 is the source of truth; KV only caches a
+// resolved snapshot (src/utils/kv-api-key.ts). Only the SHA-256 hash of the secret is stored —
+// `keyPrefix` + `last4` exist purely so the UI can identify a key it can never show again.
+export const apiKeyTable = sqliteTable("api_key", {
+  ...commonColumns,
+  // Runtime default instead of commonColumns' SQL DEFAULT: new tables must not introduce
+  // database-level defaults (see CLAUDE.md D1 schema-change safety).
+  updateCounter: integer().$defaultFn(() => 0).$onUpdate(() => sql`updateCounter + 1`),
+  id: text().primaryKey().$defaultFn(() => `akey_${createRandomId()}`).notNull(),
+  userId: text().notNull().references(() => userTable.id),
+  // Null = a personal key. Set = the key's audience: creating it needs MANAGE_API_KEYS, and it may
+  // only ever act on that one team — never another, and never on account-level operations.
+  teamId: text().references(() => teamTable.id),
+  name: text({ length: 255 }).notNull(),
+  keyHash: text({ length: 64 }).notNull(),
+  keyPrefix: text({ length: 32 }).notNull(),
+  last4: text({ length: 8 }).notNull(),
+  // Snapshot of the granted scopes (JSON array), not resolved permissions: scopes only narrow
+  // what the owner may do, and team authorization stays D1-authoritative at call time.
+  scopes: text({ mode: "json" }).$type<string[]>().notNull(),
+  expiresAt: integer({ mode: "timestamp" }),
+  revokedAt: integer({ mode: "timestamp" }),
+  // Throttled write (at most once per cache generation), so it is a usage hint, not an audit log.
+  lastUsedAt: integer({ mode: "timestamp" }),
+}, (table) => ([
+  // Independent unique index: the hash is the only lookup key on the authentication hot path.
+  uniqueIndex('api_key_key_hash_unique').on(table.keyHash),
+  index('api_key_user_id_idx').on(table.userId),
+  index('api_key_team_id_idx').on(table.teamId),
+]));
+
+export type OAuthAppRegistrationSource = "cimd" | "dcr" | "portal";
+
+// Administrative identity and verification mirror for OAuth clients. Provider KV authenticates
+// DCR clients; its separate client and grant records hold data this row cannot reconstruct. Each
+// client ID stays distinct, so verification never transfers between similar registrations.
+export const oauthAppTable = sqliteTable("oauth_app", {
+  ...commonColumns,
+  // Runtime default instead of commonColumns' SQL DEFAULT: new tables must not introduce
+  // database-level defaults (see CLAUDE.md D1 schema-change safety).
+  updateCounter: integer().$defaultFn(() => 0).$onUpdate(() => sql`updateCounter + 1`),
+  id: text().primaryKey().$defaultFn(() => `oapp_${createRandomId()}`).notNull(),
+  // The provider's client identifier; for CIMD clients this is the metadata document URL.
+  clientId: text().notNull(),
+  ownerUserId: text().references(() => userTable.id),
+  ownerTeamId: text().references(() => teamTable.id),
+  name: text(),
+  logoUri: text(),
+  // JSON array, mirrored from the registration so the consent screen can show the callback
+  // domain even after the KV client record has expired.
+  redirectUris: text({ mode: "json" }).$type<string[]>(),
+  tokenEndpointAuthMethod: text(),
+  secretHash: text(),
+  // 'cimd' (URL identity), 'dcr' (self-registered), or 'portal' (operator-created). Plain text,
+  // not an enum: SQLite CHECK constraints would force a rebuild to extend the set.
+  registrationSource: text().$type<OAuthAppRegistrationSource>(),
+  /** Null = unverified. Admin verification unlocks all scopes and renews DCR registrations. */
+  verifiedAt: integer({ mode: "timestamp" }),
+  /** Last renewal ATTEMPT (null = never): the sweep's scan order, advanced even when it failed. */
+  lastRenewedAt: integer({ mode: "timestamp" }),
+}, (table) => ([
+  // Independent unique index rather than a column constraint: index changes never rebuild.
+  uniqueIndex('oauth_app_client_id_unique').on(table.clientId),
+  index('oauth_app_verified_at_idx').on(table.verifiedAt),
+  index('oauth_app_source_verified_updated_at_idx').on(
+    table.registrationSource,
+    table.verifiedAt,
+    table.updatedAt,
+  ),
 ]));
 
 export const cmsMediaTable = sqliteTable("cms_media", {
@@ -492,6 +569,7 @@ export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
 ]));
 
 const relationSchema = {
+  apiKeyTable,
   cmsNavigationItemTable,
   cmsNavigationRedirectTable,
   cmsEntryMediaTable,
@@ -500,20 +578,51 @@ const relationSchema = {
   cmsEntryVersionTable,
   cmsMediaTable,
   cmsTagTable,
+  oauthAppTable,
   passKeyCredentialTable,
   scheduledJobTable,
   teamInvitationTable,
   teamMembershipTable,
   teamRoleTable,
   teamTable,
+  teamTrialReservationTable,
   userTable,
 };
 
 export const relations = defineRelations(relationSchema, (r) => ({
+  apiKeyTable: {
+    user: r.one.userTable({
+      from: r.apiKeyTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+    team: r.one.teamTable({
+      from: r.apiKeyTable.teamId,
+      to: r.teamTable.id,
+    }),
+  },
+  oauthAppTable: {
+    ownerUser: r.one.userTable({
+      from: r.oauthAppTable.ownerUserId,
+      to: r.userTable.id,
+    }),
+    ownerTeam: r.one.teamTable({
+      from: r.oauthAppTable.ownerTeamId,
+      to: r.teamTable.id,
+    }),
+  },
   cmsMediaTable: {
     entryMedia: r.many.cmsEntryMediaTable({
       from: r.cmsMediaTable.id,
       to: r.cmsEntryMediaTable.mediaId,
+    }),
+    featuredInEntries: r.many.cmsEntryTable({
+      from: r.cmsMediaTable.id,
+      to: r.cmsEntryTable.featuredImageId,
+    }),
+    featuredInEntryVersions: r.many.cmsEntryVersionTable({
+      from: r.cmsMediaTable.id,
+      to: r.cmsEntryVersionTable.featuredImageId,
     }),
     uploadedByUser: r.one.userTable({
       from: r.cmsMediaTable.uploadedBy,
@@ -578,6 +687,10 @@ export const relations = defineRelations(relationSchema, (r) => ({
       from: r.cmsEntryTable.id,
       to: r.cmsEntryVersionTable.entryId,
     }),
+    navigationItems: r.many.cmsNavigationItemTable({
+      from: r.cmsEntryTable.id,
+      to: r.cmsNavigationItemTable.entryId,
+    }),
   },
   cmsEntryVersionTable: {
     entry: r.one.cmsEntryTable({
@@ -595,6 +708,22 @@ export const relations = defineRelations(relationSchema, (r) => ({
       to: r.cmsMediaTable.id,
     }),
   },
+  cmsNavigationItemTable: {
+    entry: r.one.cmsEntryTable({
+      from: r.cmsNavigationItemTable.entryId,
+      to: r.cmsEntryTable.id,
+    }),
+    // parentId carries no database-level FK (a self-referencing constraint would make any
+    // future rebuild of this table order-dependent); the tree is enforced in app code.
+    parent: r.one.cmsNavigationItemTable({
+      from: r.cmsNavigationItemTable.parentId,
+      to: r.cmsNavigationItemTable.id,
+    }),
+    children: r.many.cmsNavigationItemTable({
+      from: r.cmsNavigationItemTable.id,
+      to: r.cmsNavigationItemTable.parentId,
+    }),
+  },
   teamTable: {
     memberships: r.many.teamMembershipTable({
       from: r.teamTable.id,
@@ -607,6 +736,19 @@ export const relations = defineRelations(relationSchema, (r) => ({
     roles: r.many.teamRoleTable({
       from: r.teamTable.id,
       to: r.teamRoleTable.teamId,
+    }),
+    apiKeys: r.many.apiKeyTable({
+      from: r.teamTable.id,
+      to: r.apiKeyTable.teamId,
+    }),
+    ownedOAuthApps: r.many.oauthAppTable({
+      from: r.teamTable.id,
+      to: r.oauthAppTable.ownerTeamId,
+    }),
+    // One row at most: team_trial_reservation_team_id_unique makes this a 1:0..1 edge.
+    trialReservation: r.one.teamTrialReservationTable({
+      from: r.teamTable.id,
+      to: r.teamTrialReservationTable.teamId,
     }),
   },
   teamRoleTable: {
@@ -648,18 +790,59 @@ export const relations = defineRelations(relationSchema, (r) => ({
       to: r.userTable.id,
     }),
   },
+  teamTrialReservationTable: {
+    team: r.one.teamTable({
+      from: r.teamTrialReservationTable.teamId,
+      to: r.teamTable.id,
+      optional: false,
+    }),
+    user: r.one.userTable({
+      from: r.teamTrialReservationTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
+  },
   userTable: {
+    apiKeys: r.many.apiKeyTable({
+      from: r.userTable.id,
+      to: r.apiKeyTable.userId,
+    }),
     passkeys: r.many.passKeyCredentialTable({
       from: r.userTable.id,
       to: r.passKeyCredentialTable.userId,
+    }),
+    ownedOAuthApps: r.many.oauthAppTable({
+      from: r.userTable.id,
+      to: r.oauthAppTable.ownerUserId,
     }),
     teamMemberships: r.many.teamMembershipTable({
       from: r.userTable.id,
       to: r.teamMembershipTable.userId,
     }),
+    invitedTeamMemberships: r.many.teamMembershipTable({
+      from: r.userTable.id,
+      to: r.teamMembershipTable.invitedBy,
+    }),
+    sentTeamInvitations: r.many.teamInvitationTable({
+      from: r.userTable.id,
+      to: r.teamInvitationTable.invitedBy,
+    }),
+    acceptedTeamInvitations: r.many.teamInvitationTable({
+      from: r.userTable.id,
+      to: r.teamInvitationTable.acceptedBy,
+    }),
+    // One row at most: team_trial_reservation_user_id_unique makes this a 1:0..1 edge.
+    trialReservation: r.one.teamTrialReservationTable({
+      from: r.userTable.id,
+      to: r.teamTrialReservationTable.userId,
+    }),
     cmsEntries: r.many.cmsEntryTable({
       from: r.userTable.id,
       to: r.cmsEntryTable.createdBy,
+    }),
+    cmsEntryVersions: r.many.cmsEntryVersionTable({
+      from: r.userTable.id,
+      to: r.cmsEntryVersionTable.createdBy,
     }),
     cmsMedia: r.many.cmsMediaTable({
       from: r.userTable.id,
@@ -693,6 +876,10 @@ export type TeamRole = InferSelectModel<typeof teamRoleTable>;
 export type TeamInvitation = InferSelectModel<typeof teamInvitationTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type TeamTrialReservation = InferSelectModel<typeof teamTrialReservationTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type ApiKey = InferSelectModel<typeof apiKeyTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type OAuthApp = InferSelectModel<typeof oauthAppTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type CmsEntry = InferSelectModel<typeof cmsEntryTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.

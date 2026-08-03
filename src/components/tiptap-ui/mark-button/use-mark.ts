@@ -57,23 +57,32 @@ export const MARK_SHORTCUT_KEYS: Record<Mark, string> = {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canToggleMark(editor: Editor | null, type: Mark): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!isMarkInSchema(type, editor) || isNodeTypeSelected(editor, ["image"]))
+  if (!editor || !editor.isEditable) {
     return false
+  }
+  if (!isMarkInSchema(type, editor) || isNodeTypeSelected(editor, ["image"])) {
+    return false
+  }
 
   return editor.can().toggleMark(type)
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isMarkActive(editor: Editor | null, type: Mark): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return editor.isActive(type)
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleMark(editor: Editor | null, type: Mark): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canToggleMark(editor, type)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canToggleMark(editor, type)) {
+    return false
+  }
 
   return editor.chain().focus().toggleMark(type).run()
 }
@@ -86,8 +95,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, type, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isMarkInSchema(type, editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isMarkInSchema(type, editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable && !editor.isActive("code")) {
     return canToggleMark(editor, type)
@@ -115,7 +128,9 @@ export function useMark(config: UseMarkConfig) {
   const isActive = isMarkActive(editor, type)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, type, hideWhenUnavailable }))
@@ -131,7 +146,9 @@ export function useMark(config: UseMarkConfig) {
   }, [editor, type, hideWhenUnavailable])
 
   const handleMark = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = toggleMark(editor, type)
     if (success) {

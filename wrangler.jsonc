@@ -11,7 +11,9 @@
       }
     ],
     "compatibility_date": "2026-07-07",
-    "compatibility_flags": ["nodejs_compat"],
+    // `global_fetch_strictly_public` is required by the OAuth provider's CIMD support: client_id
+    // metadata documents are fetched from the public internet, never looped back into this Worker.
+    "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
     "assets": {
       "directory": "dist/client",
       "binding": "ASSETS",
@@ -86,6 +88,14 @@
     "kv_namespaces": [
         {
             "binding": "NEXT_INC_CACHE_KV",
+            "id": "e922d6e22f4a46b6a92be653e90c6ca1"
+        },
+        // Second binding onto the SAME namespace: @cloudflare/workers-oauth-provider hardcodes the
+        // `OAUTH_KV` binding name, and forking the template must not require provisioning anything
+        // extra. Its keys are prefix-scoped (see OAUTH_RESERVED_KV_PREFIXES in src/constants.ts);
+        // re-audit those prefixes whenever the library is upgraded.
+        {
+            "binding": "OAUTH_KV",
             "id": "e922d6e22f4a46b6a92be653e90c6ca1"
         }
     ],

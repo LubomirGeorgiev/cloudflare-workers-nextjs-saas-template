@@ -1,5 +1,9 @@
 import { getUserData } from "../../_actions/get-user.action"
-import { cache } from "react"
+import { cache, Suspense } from "react"
+import {
+  UserCredentialsSection,
+  UserCredentialsSkeleton,
+} from "../../_components/users/user-credentials-section"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +13,7 @@ import { getInitials } from "@/utils/name-initials"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import {
+  Activity,
   Calendar,
   Mail,
   Shield,
@@ -156,6 +161,13 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                 <p className="text-sm">{format(user.createdAt, "PPpp")}</p>
               </div>
               <div>
+                <label className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                  <Activity className="h-3 w-3" />
+                  Last Active
+                </label>
+                <p className="text-sm">{user.lastActiveAt ? format(user.lastActiveAt, "PPpp") : "Never"}</p>
+              </div>
+              <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
                 <p className="text-sm">{format(user.updatedAt, "PPpp")}</p>
               </div>
@@ -228,6 +240,10 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
             </CardContent>
           </Card>
         </div>
+
+        <Suspense fallback={<UserCredentialsSkeleton />}>
+          <UserCredentialsSection userId={user.id} />
+        </Suspense>
       </div>
     </div>
   )

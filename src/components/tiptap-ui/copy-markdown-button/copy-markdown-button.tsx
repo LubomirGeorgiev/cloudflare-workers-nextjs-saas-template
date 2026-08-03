@@ -12,7 +12,9 @@ export function CopyMarkdownButton() {
   const { editor } = useTiptapEditor()
 
   const handleCopyMarkdown = async () => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     try {
       const markdown = renderToMarkdown({

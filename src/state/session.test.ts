@@ -68,6 +68,7 @@ describe("session store hydration", () => {
 
 function createSession({ now }: { now: Date }) {
   return {
+    kind: "cookie" as const,
     id: "session-1",
     userId: "user-1",
     expiresAt: now.getTime() + 60_000,

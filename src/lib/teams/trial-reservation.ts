@@ -75,10 +75,14 @@ export async function acquireTrialAttempt(params: TrialAttemptParams): Promise<T
 
   // This folds the friendly eligibility check into acquisition so a retained exact
   // attempt can resume, while legacy trial stamps still block creating a fresh row.
-  if (!team || !user || team.trialUsedAt || user.trialUsedAt) return null;
+  if (!team || !user || team.trialUsedAt || user.trialUsedAt) {
+    return null;
+  }
 
   if (existingAttempt) {
-    if (!matchesTrialAttempt({ attempt: existingAttempt, params })) return null;
+    if (!matchesTrialAttempt({ attempt: existingAttempt, params })) {
+      return null;
+    }
     return { ...existingAttempt, isResume: true };
   }
 
@@ -89,13 +93,17 @@ export async function acquireTrialAttempt(params: TrialAttemptParams): Promise<T
       .returning({ id: teamTrialReservationTable.id });
     return reservation ? { ...params, id: reservation.id, isResume: false } : null;
   } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
+    if (!isUniqueConstraintError(error)) {
+      throw error;
+    }
 
     // Same-attempt callers can race between the read and insert. The unique index elects
     // one persisted row; every identical caller resumes it and reaches Stripe with the
     // same parameters and key. A different user's/team's attempt remains blocked.
     const winningAttempt = await findTrialAttempt(params);
-    if (!winningAttempt || !matchesTrialAttempt({ attempt: winningAttempt, params })) return null;
+    if (!winningAttempt || !matchesTrialAttempt({ attempt: winningAttempt, params })) {
+      return null;
+    }
     return { ...winningAttempt, isResume: true };
   }
 }

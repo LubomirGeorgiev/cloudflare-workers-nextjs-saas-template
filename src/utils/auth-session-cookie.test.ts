@@ -33,6 +33,10 @@ vi.mock("./kv-session", () => ({
   updateKVSession: vi.fn(),
 }));
 
+vi.mock("@/utils/user-activity", () => ({
+  touchUserLastActiveAt: vi.fn(),
+}));
+
 const {
   deleteSessionTokenCookie,
   generateSessionToken,

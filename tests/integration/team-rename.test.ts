@@ -35,7 +35,7 @@ const {
 vi.mock("@/utils/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/auth")>()),
   requireVerifiedEmail: async () => authState.current,
-  getSessionFromCookie: async () => authState.current,
+  getCurrentSession: async () => authState.current,
 }));
 
 vi.mock("@/lib/stripe", () => ({

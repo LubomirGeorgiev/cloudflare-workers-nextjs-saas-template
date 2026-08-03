@@ -13,12 +13,14 @@ import {
   CURRENT_SESSION_VERSION
 } from "./kv-session";
 import { cache } from "react"
-import type { SessionValidationResult } from "@/types";
+import type { CookieSession, CurrentSession, SessionValidationResult } from "@/types";
 import {
   AUTH_SESSION_PRESENT_COOKIE_NAME,
   SESSION_COOKIE_NAME,
 } from "@/constants";
 import { ActionError } from "@/lib/action-error";
+import { getBearerPrincipal, principalToSession } from "@/lib/api/principal";
+import { touchUserLastActiveAt } from "@/utils/user-activity";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
@@ -51,7 +53,9 @@ function encodeSessionCookie(userId: string, token: string): string {
 
 function decodeSessionCookie(cookie: string): { userId: string; token: string } | null {
   const parts = cookie.split(':');
-  if (parts.length !== 2) return null;
+  if (parts.length !== 2) {
+    return null;
+  }
   return { userId: parts[0], token: parts[1] };
 }
 
@@ -109,12 +113,14 @@ export async function createAndStoreSession(
   });
 }
 
-async function validateSessionToken(token: string, userId: string): Promise<SessionValidationResult | null> {
+async function validateSessionToken(token: string, userId: string): Promise<KVSession | null> {
   const sessionId = await generateSessionId(token);
 
   const session = await getKVSession(sessionId, userId);
 
-  if (!session) return null;
+  if (!session) {
+    return null;
+  }
 
   // If the session has expired, delete it and return null
   if (Date.now() >= session.expiresAt) {
@@ -174,10 +180,7 @@ export async function deleteSessionTokenCookie(): Promise<void> {
   cookieStore.delete(AUTH_SESSION_PRESENT_COOKIE_NAME);
 }
 
-/**
- * This function can only be called in a Server Components, Server Action or Route Handler
- */
-export const getSessionFromCookie = cache(async (): Promise<SessionValidationResult | null> => {
+const getCookieSession = cache(async (): Promise<CookieSession | null> => {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -191,15 +194,57 @@ export const getSessionFromCookie = cache(async (): Promise<SessionValidationRes
     return null;
   }
 
-  return validateSessionToken(decoded.token, decoded.userId);
+  const session = await validateSessionToken(decoded.token, decoded.userId);
+
+  return session && { ...session, kind: "cookie" };
 })
+
+/**
+ * This function can only be called in a Server Components, Server Action or Route Handler
+ */
+// Bearer callers (REST API, MCP) arrive with an AsyncLocalStorage principal instead of a cookie,
+// which makes every existing lib function API-callable unchanged. The lookup sits outside the
+// React `cache` so a memoized cookie session can never be handed to a different principal.
+export async function getCurrentSession(): Promise<SessionValidationResult | null> {
+  const principal = getBearerPrincipal();
+
+  if (principal) {
+    return principalToSession(principal);
+  }
+
+  const session = await getCookieSession();
+
+  // `lastActiveAt` tracks people, not credentials: every cookie-authenticated request flows
+  // through here, so this is the one stamp site, and machine traffic is deliberately not stamped.
+  if (session?.user?.id) {
+    touchUserLastActiveAt(session.user.id);
+  }
+
+  return session;
+}
+
+// For session-keyed writes (rotating a selected team, revoking a device): a bearer credential has
+// no KV session to act on, so the refusal is explicit rather than a silent no-op on a null `id`.
+export async function requireCookieSession(): Promise<CookieSession> {
+  const session = await getCurrentSession();
+
+  if (!session) {
+    throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
+  }
+
+  if (session.kind !== "cookie") {
+    throw new ActionError("FORBIDDEN", { key: "Client.Errors.requiresBrowserSession" });
+  }
+
+  return session;
+}
 
 interface RequireSessionOptions {
   doNotThrowError?: boolean;
 }
 
 const getRequiredVerifiedEmail = cache(async (doNotThrowError = false) => {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session && doNotThrowError) {
     return null;
@@ -223,16 +268,16 @@ const getRequiredVerifiedEmail = cache(async (doNotThrowError = false) => {
 // Overloads make the nullability visible at the type level: the default (throwing) form always
 // resolves to a session, so callers don't need a dead `if (!session)` guard, while the explicit
 // `doNotThrowError: true` opt-out is the only form that can resolve to null.
-export function requireVerifiedEmail(options: { doNotThrowError: true }): Promise<KVSession | null>;
-export function requireVerifiedEmail(options?: { doNotThrowError?: false }): Promise<KVSession>;
+export function requireVerifiedEmail(options: { doNotThrowError: true }): Promise<CurrentSession | null>;
+export function requireVerifiedEmail(options?: { doNotThrowError?: false }): Promise<CurrentSession>;
 export function requireVerifiedEmail({
   doNotThrowError = false,
-}: RequireSessionOptions = {}): Promise<KVSession | null> {
+}: RequireSessionOptions = {}): Promise<CurrentSession | null> {
   return getRequiredVerifiedEmail(doNotThrowError);
 }
 
 const getRequiredAdmin = cache(async (doNotThrowError = false) => {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session && doNotThrowError) {
     return null;

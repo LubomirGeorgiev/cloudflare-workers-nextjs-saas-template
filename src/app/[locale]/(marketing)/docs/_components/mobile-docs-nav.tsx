@@ -13,7 +13,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
-import { DocsLlmsTxtLink } from "./docs-llms-txt-link";
+import { DocsRouteLinks } from "./docs-guide-links";
 import { DocsSidebar } from "./docs-sidebar";
 
 interface MobileDocsNavProps {
@@ -35,20 +35,21 @@ export function MobileDocsNav({ nodes }: MobileDocsNavProps) {
 
       <SheetContent
         side="left"
-        className="w-[280px] bg-muted p-0 sm:max-w-[280px]"
+        className="w-70 bg-muted p-0 sm:max-w-70"
       >
         <SheetHeader className="border-b px-4 py-4 text-left">
           <SheetTitle>{t("heading")}</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto py-4">
-          <div className="space-y-1 px-4">
-            <DocsLlmsTxtLink onNavigate={() => setIsOpen(false)} />
-          </div>
+          {/* Guides first, then the static reference and machine surfaces. */}
           <DocsSidebar
             nodes={nodes}
-            className="px-4 pt-1"
+            className="px-4"
             onNavigate={() => setIsOpen(false)}
           />
+          <div className="mt-4 space-y-1 border-t px-4 pt-4">
+            <DocsRouteLinks onNavigate={() => setIsOpen(false)} />
+          </div>
         </div>
       </SheetContent>
     </Sheet>

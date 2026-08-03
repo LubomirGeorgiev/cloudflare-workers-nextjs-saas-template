@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { fetchAppPath } from "./app-frame";
+import { API_AUTH_DOCS_PATH, API_DOCS_PATH, MCP_DOCS_PATH } from "../../src/constants";
 import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 function escapeRegExp(value: string): string {
@@ -35,5 +36,8 @@ test("serves a sitemap containing seeded CMS routes and no protected app routes"
   expectAbsoluteLoc(body, "/blog");
   expectAbsoluteLoc(body, SEEDED_BLOG_ENTRY_PATH);
   expectAbsoluteLoc(body, SEEDED_DOCS_ENTRY_PATH);
+  expectAbsoluteLoc(body, API_DOCS_PATH);
+  expectAbsoluteLoc(body, API_AUTH_DOCS_PATH);
+  expectAbsoluteLoc(body, MCP_DOCS_PATH);
   expect(body).not.toMatch(/<loc>[^<]*(?:\/dashboard|\/settings)[^<]*<\/loc>/);
 });

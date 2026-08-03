@@ -3,7 +3,7 @@
 import { actionClient } from "@/lib/safe-action";
 import {
   deleteSessionTokenCookie,
-  getSessionFromCookie,
+  getCurrentSession,
   invalidateSession
 } from "@/utils/auth";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
@@ -11,9 +11,11 @@ import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 export const signOutAction = actionClient.action(async () => {
   return withRateLimit(
     async () => {
-      const session = await getSessionFromCookie()
+      const session = await getCurrentSession()
 
-      if (session) {
+      // Signing out is a cookie operation: a bearer credential has no KV session to invalidate,
+      // and clearing the cookie below is still the whole of what sign-out means for it.
+      if (session?.kind === "cookie") {
         await invalidateSession(
           session.id,
           session.userId

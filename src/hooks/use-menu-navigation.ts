@@ -32,44 +32,58 @@ export function useMenuNavigation<T>({
 
   useEffect(() => {
     const handleKeyboardNavigation = (event: KeyboardEvent) => {
-      if (!items.length) return false
+      if (!items.length) {
+        return false
+      }
 
       const moveNext = () =>
         setSelectedIndex((currentIndex) => {
-          if (currentIndex === -1) return 0
+          if (currentIndex === -1) {
+            return 0
+          }
           return (currentIndex + 1) % items.length
         })
 
       const movePrev = () =>
         setSelectedIndex((currentIndex) => {
-          if (currentIndex === -1) return items.length - 1
+          if (currentIndex === -1) {
+            return items.length - 1
+          }
           return (currentIndex - 1 + items.length) % items.length
         })
 
       switch (event.key) {
         case "ArrowUp": {
-          if (orientation === "horizontal") return false
+          if (orientation === "horizontal") {
+            return false
+          }
           event.preventDefault()
           movePrev()
           return true
         }
 
         case "ArrowDown": {
-          if (orientation === "horizontal") return false
+          if (orientation === "horizontal") {
+            return false
+          }
           event.preventDefault()
           moveNext()
           return true
         }
 
         case "ArrowLeft": {
-          if (orientation === "vertical") return false
+          if (orientation === "vertical") {
+            return false
+          }
           event.preventDefault()
           movePrev()
           return true
         }
 
         case "ArrowRight": {
-          if (orientation === "vertical") return false
+          if (orientation === "vertical") {
+            return false
+          }
           event.preventDefault()
           moveNext()
           return true
@@ -98,7 +112,9 @@ export function useMenuNavigation<T>({
         }
 
         case "Enter": {
-          if (event.isComposing) return false
+          if (event.isComposing) {
+            return false
+          }
           event.preventDefault()
           if (selectedIndex !== -1 && items[selectedIndex]) {
             onSelect?.(items[selectedIndex])

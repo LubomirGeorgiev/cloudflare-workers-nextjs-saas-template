@@ -70,7 +70,9 @@ export const MarkButton = forwardRef<HTMLButtonElement, MarkButtonProps>(
     const handleClick = useCallback(
       (event: React.MouseEvent<HTMLButtonElement>) => {
         onClick?.(event)
-        if (event.defaultPrevented) return
+        if (event.defaultPrevented) {
+          return
+        }
         handleMark()
       },
       [handleMark, onClick]

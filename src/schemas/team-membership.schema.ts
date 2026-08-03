@@ -1,9 +1,8 @@
-import { emailString, encodeValidationMessage, requiredString, v, validationKey } from "@/lib/validation";
+import { emailString, v, validationKey } from "@/lib/validation";
+import { idField, teamIdField, tokenField } from "@/schemas/fields";
 
-const teamMemberEmailField = v.pipe(
-  emailString(),
-  v.maxLength(255, encodeValidationMessage("emailMaxLength", { max: 255 })),
-);
+// `emailString()` carries EMAIL_MAX_LENGTH itself, so this is the shared rule with nothing added.
+const teamMemberEmailField = emailString();
 
 // The invite dialog collects only the email; the action adds team + role. Both sides share
 // one email rule so client and server can never drift apart.
@@ -14,30 +13,30 @@ export const inviteMemberFormSchema = v.object({
 export type InviteMemberFormSchema = v.InferOutput<typeof inviteMemberFormSchema>;
 
 export const inviteUserSchema = v.object({
-  teamId: requiredString(validationKey("teamIdRequired")),
+  teamId: teamIdField(),
   email: teamMemberEmailField,
-  roleId: requiredString(validationKey("roleRequired")),
+  roleId: idField(validationKey("roleRequired")),
   isSystemRole: v.optional(v.boolean(), true),
 });
 
 export const removeMemberSchema = v.object({
-  teamId: requiredString(validationKey("teamIdRequired")),
-  userId: requiredString(validationKey("userIdRequired")),
+  teamId: teamIdField(),
+  userId: idField(validationKey("userIdRequired")),
 });
 
 // Dashboard acceptance addresses invitations by id + the session's verified email, never by a
 // bearer token.
 export const invitationIdSchema = v.object({
-  invitationId: requiredString(validationKey("invitationIdRequired")),
+  invitationId: idField(validationKey("invitationIdRequired")),
 });
 
 export const revokeTeamInvitationSchema = v.object({
-  teamId: requiredString(validationKey("teamIdRequired")),
-  invitationId: requiredString(validationKey("invitationIdRequired")),
+  teamId: teamIdField(),
+  invitationId: idField(validationKey("invitationIdRequired")),
 });
 
 export type RevokeTeamInvitationSchema = v.InferOutput<typeof revokeTeamInvitationSchema>;
 
 export const teamInviteSchema = v.object({
-  token: requiredString(validationKey("invitationTokenRequired")),
+  token: tokenField(validationKey("invitationTokenRequired")),
 });

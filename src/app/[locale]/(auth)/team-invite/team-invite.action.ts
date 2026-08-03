@@ -5,12 +5,13 @@ import { teamInviteSchema } from "@/schemas/team-membership.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { acceptTeamInvitationByToken } from "@/lib/teams/team-invitation-accept";
-import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
 export const acceptTeamInviteAction = actionClient
   .inputSchema(teamInviteSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(
+    return withUserRateLimit(
       async () => {
         // Every accept path requires a verified email; the core (acceptTeamInvitationByToken)
         // re-checks and throws without one, so no separate guard is needed here.

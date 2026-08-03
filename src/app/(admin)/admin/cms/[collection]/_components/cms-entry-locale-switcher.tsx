@@ -36,7 +36,9 @@ export function CmsEntryLocaleSwitcher({
       });
     },
     onSuccess: ({ data }) => {
-      if (!data) return;
+      if (!data) {
+        return;
+      }
       if (aiEnabled && !data.aiTranslated) {
         toast.warning("Created as a copy — AI translation was unavailable. Translate it manually.", {
           id: toastIdRef.current,

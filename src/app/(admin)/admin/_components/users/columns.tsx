@@ -3,9 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import type { InferSafeActionFnResult } from "next-safe-action"
 import { MoreHorizontal } from "lucide-react"
-import { format } from "date-fns"
-import { formatRelativeDateTime } from "@/utils/format-date"
-import { DEFAULT_LOCALE } from "@/i18n/config"
+import { RelativeDateCell } from "../relative-date-cell"
 import type { getUsersAction } from "../../_actions/get-users.action"
 
 import { Button } from "@/components/ui/button"
@@ -17,11 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 // Derive the row model from the action's return DTO so the table stays in sync.
 export type User = NonNullable<InferSafeActionFnResult<typeof getUsersAction>["data"]>["users"][number]
@@ -62,20 +55,14 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "createdAt",
     header: "Created",
-    cell: ({ row }) => {
-      const date = row.getValue("createdAt") as Date
-      const formattedDate = format(new Date(date), "PPpp")
-      return (
-        <Tooltip>
-          <TooltipTrigger>
-            {formatRelativeDateTime(date, DEFAULT_LOCALE)}
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{formattedDate}</p>
-          </TooltipContent>
-        </Tooltip>
-      )
-    },
+    cell: ({ row }) => <RelativeDateCell value={row.getValue("createdAt") as Date} />,
+  },
+  {
+    accessorKey: "lastActiveAt",
+    header: "Last Active",
+    cell: ({ row }) => (
+      <RelativeDateCell value={row.getValue("lastActiveAt") as Date | null} emptyLabel="Never" />
+    ),
   },
   {
     id: "actions",

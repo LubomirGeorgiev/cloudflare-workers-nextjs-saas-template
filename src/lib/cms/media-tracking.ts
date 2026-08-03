@@ -12,7 +12,9 @@ function extractMediaIdsFromContent(content: unknown): string[] {
   const mediaIds = new Set<string>();
 
   function traverse(node: unknown) {
-    if (!node || typeof node !== "object") return;
+    if (!node || typeof node !== "object") {
+      return;
+    }
 
     const nodeObj = node as Record<string, unknown>;
 
@@ -39,7 +41,9 @@ function extractMediaIdsFromContent(content: unknown): string[] {
 }
 
 async function getMediaIdsByBucketKeys(bucketKeys: string[]): Promise<string[]> {
-  if (bucketKeys.length === 0) return [];
+  if (bucketKeys.length === 0) {
+    return [];
+  }
 
   const db = getDB();
 

@@ -1,6 +1,6 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { SessionHydrator } from "@/components/session-hydrator"
-import { getSessionFromCookie } from "@/utils/auth"
+import { getCurrentSession } from "@/utils/auth"
 import { isBillingEnabled } from "@/flags"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -12,7 +12,7 @@ import { redirect } from "next/navigation"
 import { getTranslations } from "next-intl/server"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSessionFromCookie()
+  const session = await getCurrentSession()
   const t = await getTranslations("Client.Dashboard.layout")
 
   if (!session) {

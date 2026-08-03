@@ -35,6 +35,7 @@
     "project/no-next-link-in-translatable-pages": "error",
     "project/client-translations-under-client-namespace": "error",
     "array-callback-return": "error",
+    "curly": ["error", "all"],
     "eqeqeq": "error",
     "no-fallthrough": "error",
     "no-implied-eval": "error",

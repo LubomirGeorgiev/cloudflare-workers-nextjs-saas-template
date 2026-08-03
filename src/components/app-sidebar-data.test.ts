@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { getAppSidebarData } from "./app-sidebar-data";
+import { SETTINGS_API_MCP_PATH } from "@/constants";
 import type { SessionValidationResult } from "@/types";
 
 describe("getAppSidebarData", () => {
@@ -44,6 +45,19 @@ describe("getAppSidebarData", () => {
     );
   });
 
+  test("includes the API & MCP link under settings", () => {
+    const data = getAppSidebarData({
+      session: createSession({ role: "user" }),
+    });
+
+    const settings = data.navMain.find((item) => item.url === "/settings");
+    expect(settings?.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: SETTINGS_API_MCP_PATH }),
+      ]),
+    );
+  });
+
   test("does not include the admin panel link for a non-admin session", () => {
     const data = getAppSidebarData({
       session: createSession({ role: "user" }),
@@ -64,6 +78,7 @@ function createSession({ role }: { role: "admin" | "user" }) {
   const now = new Date("2026-05-29T12:00:00.000Z");
 
   return {
+    kind: "cookie" as const,
     id: "session-1",
     userId: "user-1",
     expiresAt: now.getTime() + 60_000,

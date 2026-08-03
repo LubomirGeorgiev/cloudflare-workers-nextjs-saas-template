@@ -263,7 +263,9 @@ async function retrieveSubscriptionOrNull(
   return stripe.subscriptions
     .retrieve(subscriptionId)
     .catch((error: unknown) => {
-      if ((error as { code?: string })?.code === "resource_missing") return null;
+      if ((error as { code?: string })?.code === "resource_missing") {
+        return null;
+      }
       throw error;
     });
 }
@@ -276,7 +278,9 @@ async function cancelOrphanIfPresent(
     .cancel(subscriptionId)
     .catch((error: unknown) => {
       // Already gone or auto-expired — nothing to clean up.
-      if ((error as { code?: string })?.code === "resource_missing") return;
+      if ((error as { code?: string })?.code === "resource_missing") {
+        return;
+      }
       console.error("settleStaleTrialReservations: orphan cancel failed", { subscriptionId, error });
     });
 }

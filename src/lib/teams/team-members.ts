@@ -119,6 +119,21 @@ export async function removeTeamMember({
 }) {
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.REMOVE_MEMBERS);
 
+  return deleteTeamMembership({ teamId, userId });
+}
+
+// The removal itself, minus the team-permission check: an admin acting from the user detail page
+// is authorized by their system role, not by a membership they do not have. Owner protection is
+// part of the operation, not of the check, so it applies to both callers.
+//
+// Carries no authorization of its own: only call it behind one.
+export async function deleteTeamMembership({
+  teamId,
+  userId
+}: {
+  teamId: string;
+  userId: string;
+}) {
   const db = getDB();
 
   const membership = await db.query.teamMembershipTable.findFirst({

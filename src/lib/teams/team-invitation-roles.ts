@@ -8,7 +8,7 @@ import {
 } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { getActiveTeamMembership } from "@/utils/team-membership";
-import type { KVSession } from "@/utils/kv-session";
+import type { CurrentSession } from "@/types";
 import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
 
 const DEFAULT_INVITATION_ROLE_ID = SYSTEM_ROLES_ENUM.MEMBER;
@@ -79,7 +79,7 @@ export async function requirePermissionToAssignRole({
   teamId,
   role,
 }: {
-  session: KVSession;
+  session: CurrentSession;
   teamId: string;
   role: ResolvedInvitationRole;
 }) {

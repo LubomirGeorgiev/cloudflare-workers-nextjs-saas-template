@@ -52,7 +52,9 @@ export function collectTranslatableStrings(content: JSONContent): CollectedStrin
   const collected: CollectedStrings = { values: [], setters: [] };
 
   function visit(node: JSONContent | undefined, canTranslateText: boolean): void {
-    if (!node || typeof node !== "object") return;
+    if (!node || typeof node !== "object") {
+      return;
+    }
 
     const isCodeBlock = node.type === "codeBlock";
 

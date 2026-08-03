@@ -4,7 +4,9 @@ import { Fragment } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 
 function looksLikeMarkdown(text: string): boolean {
-  if (!text) return false
+  if (!text) {
+    return false
+  }
 
   return (
     /^#{1,6}\s/.test(text) ||

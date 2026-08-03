@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 import { SettingsForm } from "./settings-form";
 import { LanguageForm } from "./language-form";
@@ -44,7 +44,7 @@ function SettingsFormSkeleton() {
 }
 
 export default async function SettingsPage() {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session) {
     return redirectToSignIn();

@@ -83,7 +83,9 @@ export function getAddonAmount({ addon, interval }: { addon: TeamAddon; interval
 // JSON-parsed by the drizzle column), dropping ids no longer in the catalog and
 // non-positive/invalid quantities so stale rows degrade gracefully after a catalog change.
 export function fromStoredAddonQuantities(value: unknown): TeamAddonQuantities {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
 
   const quantities: TeamAddonQuantities = {};
   for (const [addonId, quantity] of Object.entries(value)) {
@@ -101,6 +103,8 @@ export function toStoredAddonQuantities(quantities: TeamAddonQuantities): TeamAd
     .filter(([, quantity]) => Number.isInteger(quantity) && quantity > 0)
     .sort(([a], [b]) => a.localeCompare(b));
 
-  if (!entries.length) return null;
+  if (!entries.length) {
+    return null;
+  }
   return Object.fromEntries(entries);
 }

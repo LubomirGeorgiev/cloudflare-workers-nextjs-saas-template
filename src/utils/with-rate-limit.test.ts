@@ -53,6 +53,14 @@ describe("withRateLimit", () => {
     });
   });
 
+  // Asserts the invariant, not the numbers: a fork is expected to tune these budgets, but an
+  // anonymous sprayer must never get a bucket as generous as an authenticated credential's.
+  test("keeps separate credential and IP budgets for the public API", () => {
+    expect(RATE_LIMITS.API_ANON.identifier).not.toBe(RATE_LIMITS.API_AUTHED.identifier);
+    expect(RATE_LIMITS.API_ANON.limit).toBeLessThan(RATE_LIMITS.API_AUTHED.limit);
+    expect(RATE_LIMITS.API_ANON.windowInSeconds).toBe(RATE_LIMITS.API_AUTHED.windowInSeconds);
+  });
+
   test("passes deferred write configuration to the rate limit checker", async () => {
     getIPMock.mockResolvedValue("203.0.113.10");
     checkRateLimitMock.mockResolvedValue({

@@ -24,7 +24,9 @@ function getToggleColor(
   targets: NodeWithPos[],
   inputColor: string
 ): string | null {
-  if (targets.length === 0) return null
+  if (targets.length === 0) {
+    return null
+  }
 
   for (const target of targets) {
     const currentColor = target.node.attrs?.backgroundColor ?? null
@@ -66,7 +68,9 @@ export const NodeBackground = Extension.create<NodeBackgroundOptions>({
 
             parseHTML: (element: HTMLElement) => {
               const styleColor = element.style?.backgroundColor
-              if (styleColor) return styleColor
+              if (styleColor) {
+                return styleColor
+              }
 
               const dataColor = element.getAttribute("data-background-color")
               return dataColor || null
@@ -74,7 +78,9 @@ export const NodeBackground = Extension.create<NodeBackgroundOptions>({
 
             renderHTML: (attributes) => {
               const color = attributes.backgroundColor as string | null
-              if (!color) return {}
+              if (!color) {
+                return {}
+              }
 
               if (this.options.useStyle) {
                 return {
@@ -106,7 +112,9 @@ export const NodeBackground = Extension.create<NodeBackgroundOptions>({
             this.options.types
           )
 
-          if (targets.length === 0) return false
+          if (targets.length === 0) {
+            return false
+          }
 
           const targetColor = getTargetColor(targets, inputColor)
 

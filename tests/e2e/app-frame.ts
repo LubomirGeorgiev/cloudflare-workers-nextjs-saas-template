@@ -238,6 +238,18 @@ export async function expectNoAppText(
     .waitFor({ state: "detached", timeout: absentExpectationTimeoutMs });
 }
 
+// Distinct from expectNoAppText on purpose: use this where the markup must stay in the document
+// and only be hidden, like the server-rendered API reference under its client-side filter.
+export async function expectAppTextHidden(
+  text: string,
+  options?: { exact?: boolean }
+): Promise<void> {
+  await getAppPage()
+    .getByText(text, { exact: options?.exact })
+    .first()
+    .waitFor({ state: "hidden", timeout: absentExpectationTimeoutMs });
+}
+
 export async function expectAppToast(text: string): Promise<void> {
   await getAppPage()
     .locator("[data-sonner-toast]")

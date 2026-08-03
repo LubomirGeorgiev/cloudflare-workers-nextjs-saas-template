@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { SessionsClient } from "./sessions.client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSessionsAction } from "./sessions.actions";
-import { redirectToSignIn } from "@/utils/auth-redirect";
+import { PageErrorState } from "@/components/page-error-state";
+import { resolvePageAction } from "@/utils/page-action-result";
 import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata() {
@@ -14,10 +15,10 @@ export async function generateMetadata() {
 }
 
 export default async function SessionsPage() {
-  const { data: sessions, serverError } = await getSessionsAction()
+  const sessions = await resolvePageAction(await getSessionsAction())
 
-  if (serverError || !sessions) {
-    return redirectToSignIn()
+  if (!sessions.ok) {
+    return <PageErrorState message={sessions.message} />;
   }
 
   return (
@@ -30,7 +31,7 @@ export default async function SessionsPage() {
         </div>
       }
     >
-      <SessionsClient sessions={sessions} />
+      <SessionsClient sessions={sessions.data} />
     </Suspense>
   );
 }

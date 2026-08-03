@@ -17,9 +17,15 @@ export interface UseAlertBlockConfig {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertAlertBlock(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema(ALERT_BLOCK_NODE_NAME, editor)) return false
-  if (isNodeTypeSelected(editor, ["image"])) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema(ALERT_BLOCK_NODE_NAME, editor)) {
+    return false
+  }
+  if (isNodeTypeSelected(editor, ["image"])) {
+    return false
+  }
 
   return editor.can().insertContent({
     type: ALERT_BLOCK_NODE_NAME,
@@ -28,8 +34,12 @@ export function canInsertAlertBlock(editor: Editor | null): boolean {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertAlertBlock(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canInsertAlertBlock(editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canInsertAlertBlock(editor)) {
+    return false
+  }
 
   try {
     editor.chain().focus().setAlertBlock().run()
@@ -45,8 +55,12 @@ function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema(ALERT_BLOCK_NODE_NAME, editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema(ALERT_BLOCK_NODE_NAME, editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable) {
     return canInsertAlertBlock(editor)
@@ -79,7 +93,9 @@ export function useAlertBlock(config?: UseAlertBlockConfig) {
   }, [])
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))

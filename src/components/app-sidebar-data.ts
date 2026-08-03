@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { ROLES_ENUM } from "@/app/enums";
+import { SETTINGS_API_MCP_PATH } from "@/constants";
 import type { SessionValidationResult } from "@/types";
 import type messages from "@/i18n/messages/en.json";
 
@@ -113,6 +114,11 @@ export function getAppSidebarData({
             title: "Sessions",
             titleKey: "sessions",
             url: "/settings/sessions",
+          },
+          {
+            title: "API & MCP",
+            titleKey: "apiMcp",
+            url: SETTINGS_API_MCP_PATH,
           },
           {
             title: "Change Password",

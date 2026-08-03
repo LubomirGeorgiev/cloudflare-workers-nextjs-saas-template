@@ -30,17 +30,23 @@ export interface LinkHandlerProps {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canSetLink(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
 
   // The third argument 'true' checks whether the current selection is inside an image caption, and prevents setting a link there
   // If the selection is inside an image caption, we can't set a link
-  if (isNodeTypeSelected(editor, ["image"], true)) return false
+  if (isNodeTypeSelected(editor, ["image"], true)) {
+    return false
+  }
   return editor.can().setMark("link")
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function isLinkActive(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return editor.isActive("link")
 }
 
@@ -70,7 +76,9 @@ export function useLinkHandler(props: LinkHandlerProps) {
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const { href } = editor.getAttributes("link")
 
@@ -80,7 +88,9 @@ export function useLinkHandler(props: LinkHandlerProps) {
   }, [editor, url])
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const updateLinkState = () => {
       const { href } = editor.getAttributes("link")
@@ -94,7 +104,9 @@ export function useLinkHandler(props: LinkHandlerProps) {
   }, [editor])
 
   const setLink = useCallback(() => {
-    if (!url || !editor) return
+    if (!url || !editor) {
+      return
+    }
 
     const { selection } = editor.state
     const isEmpty = selection.empty
@@ -115,7 +127,9 @@ export function useLinkHandler(props: LinkHandlerProps) {
   }, [editor, onSetLink, url])
 
   const removeLink = useCallback(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
     editor
       .chain()
       .focus()
@@ -128,7 +142,9 @@ export function useLinkHandler(props: LinkHandlerProps) {
 
   const openLink = useCallback(
     (target: string = "_blank", features: string = "noopener,noreferrer") => {
-      if (!url) return
+      if (!url) {
+        return
+      }
 
       const safeUrl = sanitizeUrl(url, window.location.href)
       if (safeUrl !== "#") {
@@ -160,7 +176,9 @@ export function useLinkState(props: {
   const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(

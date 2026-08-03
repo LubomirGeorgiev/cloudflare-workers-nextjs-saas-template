@@ -13,9 +13,10 @@ import { capitalize } from "@/utils/text";
 import { useTranslations } from "next-intl";
 
 // Known route segments that have a dedicated Settings.Nav translation label.
-const SEGMENT_TITLE_KEYS: Record<string, "security" | "sessions"> = {
+const SEGMENT_TITLE_KEYS: Record<string, "security" | "sessions" | "apiMcp"> = {
   security: "security",
   sessions: "sessions",
+  "api-mcp": "apiMcp",
 };
 
 export function SettingsBreadcrumbs() {

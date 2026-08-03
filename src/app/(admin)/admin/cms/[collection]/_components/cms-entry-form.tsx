@@ -309,7 +309,9 @@ export function CmsEntryForm({
 
   const handleCreateTag = useCallback(
     (tagName: string) => {
-      if (!tagName.trim()) return;
+      if (!tagName.trim()) {
+        return;
+      }
 
       const slug = generateSlug(tagName);
 
@@ -454,7 +456,9 @@ export function CmsEntryForm({
         tagIds: data.tagIds || [],
       });
     } else {
-      if (!entry) return;
+      if (!entry) {
+        return;
+      }
 
       await updateEntry({
         ...data,

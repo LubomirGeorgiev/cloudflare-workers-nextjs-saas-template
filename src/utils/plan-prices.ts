@@ -41,7 +41,9 @@ export function getPlanPriceId({
 // Monthly and yearly prices of the same plan resolve identically (entitlements do
 // not depend on the billing interval).
 export function planIdFromPriceId(priceId: string | null | undefined): TeamPlanId | null {
-  if (!priceId) return null;
+  if (!priceId) {
+    return null;
+  }
 
   for (const planId of PAID_PLAN_IDS) {
     for (const interval of BILLING_INTERVALS) {
@@ -82,7 +84,9 @@ export function getAddonPriceId({
 
 // Reverse lookup: resolve a Stripe price ID back to our add-on id, either interval.
 export function addonIdFromPriceId(priceId: string | null | undefined): TeamAddonId | null {
-  if (!priceId) return null;
+  if (!priceId) {
+    return null;
+  }
 
   for (const addonId of TEAM_ADDON_IDS) {
     for (const interval of BILLING_INTERVALS) {
@@ -104,10 +108,14 @@ type ResolvedSubscriptionPrice =
 // price is unknown to this deployment (rotated envs, or created outside the app).
 export function resolveSubscriptionPriceId(priceId: string | null | undefined): ResolvedSubscriptionPrice | null {
   const planId = planIdFromPriceId(priceId);
-  if (planId) return { kind: "plan", planId };
+  if (planId) {
+    return { kind: "plan", planId };
+  }
 
   const addonId = addonIdFromPriceId(priceId);
-  if (addonId) return { kind: "addon", addonId };
+  if (addonId) {
+    return { kind: "addon", addonId };
+  }
 
   return null;
 }

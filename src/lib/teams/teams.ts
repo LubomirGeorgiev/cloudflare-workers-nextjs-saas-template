@@ -8,9 +8,10 @@ import { generateSlug } from "@/utils/slugify";
 import { syncStripeCustomerName } from "@/utils/team-subscription";
 import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { ActionError } from "@/lib/action-error";
+import { isTeamInAudience } from "@/lib/api/principal";
 import { eq, and, count, gt, isNull, or } from "drizzle-orm";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
-import { isMembershipCurrentlyActive } from "@/utils/team-membership";
+import { getActiveTeamMembership, isMembershipCurrentlyActive } from "@/utils/team-membership";
 import { MAX_TEAMS_CREATED_PER_USER, MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import {
   bothGuards,
@@ -91,7 +92,7 @@ export async function createTeam({
   name: string;
   description?: string;
   avatarUrl?: string;
-}) {
+}): Promise<TeamSummary> {
   // requireVerifiedEmail throws when there is no verified session, so it always returns one here.
   const session = await requireVerifiedEmail();
   const userId = session.userId;
@@ -169,7 +170,9 @@ export async function createTeam({
       teamCreated = didInsert(results[0]);
       break;
     } catch (error) {
-      if (isUniqueConstraintError(error)) continue;
+      if (isUniqueConstraintError(error)) {
+        continue;
+      }
       throw error;
     }
   }
@@ -198,10 +201,15 @@ export async function createTeam({
 
   await updateAllSessionsOfUser(userId);
 
+  // The same summary shape every other team read returns, built from the write's own inputs: the
+  // creator is always the owner, and re-reading the row would only re-read what was just written.
   return {
-    teamId,
+    id: teamId,
     name,
     slug,
+    description: description ?? null,
+    avatarUrl: avatarUrl ?? null,
+    role: { id: SYSTEM_ROLES_ENUM.OWNER, name: SYSTEM_ROLES_ENUM.OWNER },
   };
 }
 
@@ -213,7 +221,9 @@ function logRenameFollowUpFailure(step: string) {
 
 // Renaming deliberately leaves `slug` alone: the slug is the team's URL, and regenerating it
 // would break bookmarks, shared links, and invitation emails already in flight.
-export async function renameTeam({ teamId, name }: { teamId: string; name: string }) {
+export async function renameTeam(
+  { teamId, name }: { teamId: string; name: string },
+): Promise<TeamSummary> {
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS);
   const db = getDB();
 
@@ -225,6 +235,8 @@ export async function renameTeam({ teamId, name }: { teamId: string; name: strin
       id: teamTable.id,
       name: teamTable.name,
       slug: teamTable.slug,
+      description: teamTable.description,
+      avatarUrl: teamTable.avatarUrl,
       stripeCustomerId: teamTable.stripeCustomerId,
     });
 
@@ -245,11 +257,33 @@ export async function renameTeam({ teamId, name }: { teamId: string; name: strin
     enqueueTeamSessionsRefresh(teamId).catch(logRenameFollowUpFailure("team sessions refresh enqueue")),
   ]);
 
+  // The same summary shape `createTeam` and `getUserTeams` return, so no caller has to re-read the
+  // team and patch the new name over a stale listing. The membership is the request-cached one
+  // `requireTeamPermission` already resolved above.
+  const membership = await getActiveTeamMembership({ teamId, userId: session.userId });
+
   return {
-    teamId: renamedTeam.id,
+    id: renamedTeam.id,
     name: renamedTeam.name,
     slug: renamedTeam.slug,
+    description: renamedTeam.description,
+    avatarUrl: renamedTeam.avatarUrl,
+    role: { id: membership?.roleId ?? "", name: membership?.roleName ?? "" },
   };
+}
+
+const TEAM_NOT_FOUND_DETAIL = "No team with that id is visible to this credential.";
+
+// Membership is the read authorization for a single team: `getUserTeams` already returns exactly
+// the teams the caller can open, so filtering it cannot leak a team they are not a member of.
+export async function getTeamForCaller(teamId: string): Promise<TeamSummary> {
+  const team = (await getUserTeams()).find((candidate) => candidate.id === teamId);
+
+  if (!team) {
+    throw new ActionError("NOT_FOUND", TEAM_NOT_FOUND_DETAIL);
+  }
+
+  return team;
 }
 
 export const getUserTeams = cache(async (): Promise<TeamSummary[]> => {
@@ -284,7 +318,10 @@ export const getUserTeams = cache(async (): Promise<TeamSummary[]> => {
   // Only list teams the user can actually open. The page guard (requireTeamAccess ->
   // getActiveTeamMembership) 404s inactive/expired memberships, so listing them here would
   // surface teams that 404 on click. Same predicate, one source of truth.
+  // A team-scoped API key sees only its own team here, so the one listing that enumerates the
+  // owner's memberships cannot hand a team credential the rest of the account's teams.
   const activeTeams = userTeams.filter((membership) =>
+    isTeamInAudience(membership.teamId) &&
     isMembershipCurrentlyActive({
       isActive: membership.isActive,
       expiresAt: membership.expiresAt,

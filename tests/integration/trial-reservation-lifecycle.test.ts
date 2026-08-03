@@ -132,23 +132,31 @@ function makeFakeStripe(handlers: {
     subscriptions: {
       create: async (params: Stripe.SubscriptionCreateParams, options: Stripe.RequestOptions) => {
         calls.created.push({ params, idempotencyKey: options?.idempotencyKey });
-        if (!handlers.create) throw new Error("unexpected subscriptions.create");
+        if (!handlers.create) {
+          throw new Error("unexpected subscriptions.create");
+        }
         return handlers.create(params);
       },
       retrieve: async (id: string) => {
         calls.retrieved.push(id);
-        if (!handlers.retrieve) throw new Error("unexpected subscriptions.retrieve");
+        if (!handlers.retrieve) {
+          throw new Error("unexpected subscriptions.retrieve");
+        }
         return handlers.retrieve(id);
       },
       cancel: async (id: string) => {
         calls.canceled.push(id);
-        if (!handlers.cancel) throw new Error("unexpected subscriptions.cancel");
+        if (!handlers.cancel) {
+          throw new Error("unexpected subscriptions.cancel");
+        }
         return handlers.cancel(id);
       },
     },
     setupIntents: {
       retrieve: async () => {
-        if (!handlers.setupIntent) throw new Error("unexpected setupIntents.retrieve");
+        if (!handlers.setupIntent) {
+          throw new Error("unexpected setupIntents.retrieve");
+        }
         return handlers.setupIntent;
       },
     },

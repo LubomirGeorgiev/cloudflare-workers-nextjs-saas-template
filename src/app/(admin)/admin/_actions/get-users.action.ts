@@ -39,6 +39,7 @@ export const getUsersAction = actionClient
           role: true,
           emailVerified: true,
           createdAt: true,
+          lastActiveAt: true,
         },
         where: userWhereClause,
         orderBy: { createdAt: "desc" },
@@ -57,6 +58,7 @@ export const getUsersAction = actionClient
       role: user.role,
       status: user.emailVerified ? "active" as const : "inactive" as const,
       createdAt: user.createdAt,
+      lastActiveAt: user.lastActiveAt,
     }))
 
     return {

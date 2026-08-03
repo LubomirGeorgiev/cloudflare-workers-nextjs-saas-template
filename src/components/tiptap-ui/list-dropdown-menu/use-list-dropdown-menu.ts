@@ -60,7 +60,9 @@ export function canToggleAnyList(
   editor: Editor | null,
   listTypes: ListType[]
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return listTypes.some((type) => canToggleList(editor, type))
 }
 
@@ -69,7 +71,9 @@ export function isAnyListActive(
   editor: Editor | null,
   listTypes: ListType[]
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return listTypes.some((type) => isListActive(editor, type))
 }
 
@@ -108,7 +112,9 @@ export function getActiveListType(
   editor: Editor | null,
   availableTypes: ListType[]
 ): ListType | undefined {
-  if (!editor || !editor.isEditable) return undefined
+  if (!editor || !editor.isEditable) {
+    return undefined
+  }
   return availableTypes.find((type) => isListActive(editor, type))
 }
 
@@ -132,7 +138,9 @@ export function useListDropdownMenu(config?: UseListDropdownMenuConfig) {
   const activeList = filteredLists.find((option) => option.type === activeType)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(

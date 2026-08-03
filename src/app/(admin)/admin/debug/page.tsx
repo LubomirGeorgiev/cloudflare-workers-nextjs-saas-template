@@ -21,7 +21,9 @@ interface SerializableEnvDump {
 }
 
 function stringifyEnvValue(value: unknown): unknown {
-  if (value === null || value === undefined) return value
+  if (value === null || value === undefined) {
+    return value
+  }
 
   const valueType = typeof value
   if (valueType === "string" || valueType === "number" || valueType === "boolean") {

@@ -1,6 +1,7 @@
-import { requiredString, v, validationKey } from "@/lib/validation";
+import { v, validationKey } from "@/lib/validation";
+import { tokenField } from "@/schemas/fields";
 
 export const googleSSOCallbackSchema = v.object({
-  code: requiredString(validationKey("authorizationCodeRequired")),
-  state: requiredString(validationKey("stateParameterRequired")),
+  code: tokenField(validationKey("authorizationCodeRequired")),
+  state: tokenField(validationKey("stateParameterRequired")),
 });

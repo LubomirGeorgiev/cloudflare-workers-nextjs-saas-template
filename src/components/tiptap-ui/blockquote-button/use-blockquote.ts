@@ -32,12 +32,15 @@ export function canToggleBlockquote(
   editor: Editor | null,
   turnInto: boolean = true
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   if (
     !isNodeInSchema("blockquote", editor) ||
     isNodeTypeSelected(editor, ["image"])
-  )
+  ) {
     return false
+  }
 
   if (!turnInto) {
     return editor.can().toggleWrap("blockquote")
@@ -54,8 +57,9 @@ export function canToggleBlockquote(
       "blockquote",
       "codeBlock",
     ])
-  )
+  ) {
     return false
+  }
 
   // Either we can wrap in blockquote directly on the selection,
   // or we can clear formatting/nodes to arrive at a blockquote.
@@ -64,8 +68,12 @@ export function canToggleBlockquote(
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function toggleBlockquote(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canToggleBlockquote(editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canToggleBlockquote(editor)) {
+    return false
+  }
 
   try {
     const view = editor.view
@@ -78,7 +86,9 @@ export function toggleBlockquote(editor: Editor | null): boolean {
         editor,
         node: state.selection.$anchor.node(1),
       })?.pos
-      if (!isValidPosition(pos)) return false
+      if (!isValidPosition(pos)) {
+        return false
+      }
 
       tr = tr.setSelection(NodeSelection.create(state.doc, pos))
       view.dispatch(tr)
@@ -131,8 +141,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("blockquote", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("blockquote", editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable && !editor.isActive("code")) {
     return canToggleBlockquote(editor)
@@ -154,7 +168,9 @@ export function useBlockquote(config?: UseBlockquoteConfig) {
   const isActive = editor?.isActive("blockquote") || false
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))
@@ -170,7 +186,9 @@ export function useBlockquote(config?: UseBlockquoteConfig) {
   }, [editor, hideWhenUnavailable])
 
   const handleToggle = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = toggleBlockquote(editor)
     if (success) {

@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { getUserTeamsAction } from "@/actions/team-actions";
 import { notFound } from "next/navigation";
 import { redirectToSignIn } from "@/utils/auth-redirect";
@@ -24,7 +24,7 @@ export async function generateMetadata() {
 export default async function TeamsIndexPage() {
   const t = await getTranslations("Client.Dashboard.Teams");
 
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session) {
     return redirectToSignIn("/dashboard/teams");

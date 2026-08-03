@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef} from "react";
+import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -13,7 +13,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDateTime } from "@/utils/format-date";
 import { formatDeviceDescription } from "@/utils/format-device-description";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { PASSKEY_AUTHENTICATOR_IDS } from "@/utils/passkey-authenticator-ids";
@@ -104,17 +104,14 @@ interface PasskeysListProps {
 export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysListProps) {
   const router = useRouter();
   const locale = useLocale();
-  const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const t = useTranslations("Client.Settings.Security");
-  const tCommon = useTranslations("Client.Common");
   const tDevice = useTranslations("Client.Settings.Device");
-  const { execute: deletePasskey } = useAction(deletePasskeyAction, {
+  const { executeAsync: deletePasskey } = useAction(deletePasskeyAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || t("toastDeleteError"));
     },
     onSuccess: () => {
       toast.success(t("toastDeleteSuccess"));
-      dialogCloseRef.current?.click();
       router.refresh();
     }
   });
@@ -162,36 +159,17 @@ export function PasskeysList({ passkeys, currentPasskeyId, email }: PasskeysList
                 </div>
                 <div>
                   {!isCurrentPasskey(passkey) && (
-                    <Dialog>
-                      <DialogTrigger
-                        render={<Button size="sm" variant="destructive" className="w-full sm:w-auto" />}
-                      >
-                        {t("deletePasskey")}
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{t("deletePasskeyConfirmTitle")}</DialogTitle>
-                          <DialogDescription>
-                            {t("deletePasskeyConfirmDescription")}
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="mt-6 sm:mt-0">
-                          <DialogClose
-                            ref={dialogCloseRef}
-                            render={<Button variant="outline" />}
-                          >
-                            {tCommon("cancel")}
-                          </DialogClose>
-                          <Button
-                            variant="destructive"
-                            className="mb-4 sm:mb-0"
-                            onClick={() => deletePasskey({ credentialId: passkey.credentialId })}
-                          >
-                            {t("deletePasskey")}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                    <ConfirmDestructiveDialog
+                      trigger={
+                        <Button size="sm" variant="destructive" className="w-full sm:w-auto" />
+                      }
+                      triggerLabel={t("deletePasskey")}
+                      title={t("deletePasskeyConfirmTitle")}
+                      description={t("deletePasskeyConfirmDescription")}
+                      confirmLabel={t("deletePasskey")}
+                      pendingLabel={t("deletingPasskey")}
+                      onConfirm={() => deletePasskey({ credentialId: passkey.credentialId })}
+                    />
                   )}
                 </div>
               </div>

@@ -40,15 +40,21 @@ function getEventSubscriptionId(event: Stripe.Event): string | null {
       | { subscription_details?: { subscription?: string | { id?: string } } }
       | undefined;
     const fromParent = parent?.subscription_details?.subscription;
-    if (typeof fromParent === "string") return fromParent;
+    if (typeof fromParent === "string") {
+      return fromParent;
+    }
     if (fromParent && typeof fromParent === "object" && typeof fromParent.id === "string") {
       return fromParent.id;
     }
 
     // Fallback for older payload shapes.
     const legacy = (object as { subscription?: string | { id?: string } }).subscription;
-    if (typeof legacy === "string") return legacy;
-    if (legacy && typeof legacy === "object" && typeof legacy.id === "string") return legacy.id;
+    if (typeof legacy === "string") {
+      return legacy;
+    }
+    if (legacy && typeof legacy === "object" && typeof legacy.id === "string") {
+      return legacy.id;
+    }
   }
 
   return null;

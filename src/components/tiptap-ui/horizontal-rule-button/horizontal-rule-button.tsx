@@ -64,7 +64,9 @@ export const HorizontalRuleButton = forwardRef<
     const handleClick = useCallback(
       (event: React.MouseEvent<HTMLButtonElement>) => {
         onClick?.(event)
-        if (event.defaultPrevented) return
+        if (event.defaultPrevented) {
+          return
+        }
         handleInsert()
       },
       [handleInsert, onClick]

@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 
 import {
   ENABLED_LOCALES,
@@ -22,7 +22,7 @@ export async function setUserLocale(locale: Locale): Promise<void> {
     throw new Error(`Unsupported locale: ${locale}`);
   }
 
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
   if (session?.user) {
     await getDB()
       .update(userTable)

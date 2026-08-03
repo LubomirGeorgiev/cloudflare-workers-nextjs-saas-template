@@ -1,8 +1,9 @@
 import { coerceNumber, requiredString, v } from "@/lib/validation";
+import { SEARCH_QUERY_MAX_LENGTH } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
 
 export const docsSearchQuerySchema = v.object({
-  q: v.pipe(requiredString(), v.trim(), v.maxLength(100)),
+  q: v.pipe(requiredString(), v.trim(), v.maxLength(SEARCH_QUERY_MAX_LENGTH)),
   limit: v.optional(v.pipe(coerceNumber(), v.integer(), v.minValue(1), v.maxValue(20)), 8),
   // Scope results to the active locale so /es searches don't surface English rows.
   // Only served locales are valid — with i18n disabled this narrows to the default.

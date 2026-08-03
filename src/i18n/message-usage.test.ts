@@ -20,7 +20,9 @@ const SRC_DIR = fileURLToPath(new URL("..", import.meta.url));
 const TRANSLATOR_FACTORIES = ["useTranslations", "getTranslations", "createTranslator"];
 
 function keyPaths(obj: unknown, prefix = ""): string[] {
-  if (obj === null || typeof obj !== "object") return [prefix];
+  if (obj === null || typeof obj !== "object") {
+    return [prefix];
+  }
   return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
     keyPaths(v, prefix ? `${prefix}.${k}` : k),
   );
@@ -29,9 +31,15 @@ function keyPaths(obj: unknown, prefix = ""): string[] {
 function listSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) return listSourceFiles(fullPath);
-    if (!/\.tsx?$/.test(entry.name)) return [];
-    if (/\.(test|d)\.tsx?$/.test(entry.name)) return [];
+    if (entry.isDirectory()) {
+      return listSourceFiles(fullPath);
+    }
+    if (!/\.tsx?$/.test(entry.name)) {
+      return [];
+    }
+    if (/\.(test|d)\.tsx?$/.test(entry.name)) {
+      return [];
+    }
     return [fullPath];
   });
 }
@@ -40,8 +48,11 @@ function listSourceFiles(dir: string): string[] {
 function parenGroup(text: string, openParen: number): string {
   let depth = 0;
   for (let i = openParen; i < text.length; i++) {
-    if (text[i] === "(") depth++;
-    else if (text[i] === ")" && --depth === 0) return text.slice(openParen + 1, i);
+    if (text[i] === "(") {
+      depth++;
+    } else if (text[i] === ")" && --depth === 0) {
+      return text.slice(openParen + 1, i);
+    }
   }
   return text.slice(openParen + 1);
 }
@@ -85,7 +96,9 @@ function markNamespace(namespace: string, usage: UsageCollector): void {
   // ActionError bridge in safe-action.ts) would mark the entire catalog used
   // and make this test vacuous. Its runtime keys are full catalog paths that
   // appear as string literals at throw sites, which the literal pass catches.
-  if (namespace) usage.prefixes.add(`${namespace}.`);
+  if (namespace) {
+    usage.prefixes.add(`${namespace}.`);
+  }
 }
 
 // Classify every occurrence of one translator variable in a file and record
@@ -99,30 +112,44 @@ function collectVariableUsage(
   },
 ): void {
   const markKey = (key: string) => {
-    for (const ns of namespaces) usage.paths.add(ns ? `${ns}.${key}` : key);
+    for (const ns of namespaces) {
+      usage.paths.add(ns ? `${ns}.${key}` : key);
+    }
   };
   const markAll = () => {
-    for (const ns of namespaces) markNamespace(ns, usage);
+    for (const ns of namespaces) {
+      markNamespace(ns, usage);
+    }
   };
   const markPrefix = (prefix: string) => {
     for (const ns of namespaces) {
-      if (ns || prefix) usage.prefixes.add(ns ? `${ns}.${prefix}` : prefix);
-      else markNamespace(ns, usage);
+      if (ns || prefix) {
+        usage.prefixes.add(ns ? `${ns}.${prefix}` : prefix);
+      } else {
+        markNamespace(ns, usage);
+      }
     }
   };
 
   for (const occurrence of content.matchAll(new RegExp(String.raw`\b${name}\b`, "g"))) {
-    if (content[occurrence.index - 1] === ".") continue; // property access on another object
+    if (content[occurrence.index - 1] === ".") {
+      continue; // property access on another object
+    }
     let rest = content.slice(occurrence.index + name.length);
     const method = /^\s*\.\s*(?:rich|markup|raw|has)\s*\(/.exec(rest);
-    if (method) rest = rest.slice(method[0].length - 1);
+    if (method) {
+      rest = rest.slice(method[0].length - 1);
+    }
     if (method || /^\s*\(/.test(rest)) {
       const arg = parenGroup(rest, rest.indexOf("(")).trim();
       if (arg.startsWith('"') || arg.startsWith("'")) {
         const literal = arg.slice(1, arg.indexOf(arg[0], 1));
         // Concatenated key like t("errors." + code): the literal is a prefix, not a full path.
-        if (literal.endsWith(".")) markPrefix(literal);
-        else markKey(literal);
+        if (literal.endsWith(".")) {
+          markPrefix(literal);
+        } else {
+          markKey(literal);
+        }
       } else if (arg.startsWith("`")) {
         // Template key: everything before the first interpolation is a stable prefix.
         const literalPrefix = arg.slice(1, arg.includes("${") ? arg.indexOf("${") : arg.indexOf("`", 1));
@@ -163,7 +190,9 @@ function collectFileUsage(content: string, usage: UsageCollector): void {
 // as full dotted catalog paths in string literals; count those as usage too.
 function collectLiteralPathUsage(content: string, catalogKeys: Set<string>, usage: UsageCollector): void {
   for (const match of content.matchAll(/["'`]([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)["'`]/g)) {
-    if (catalogKeys.has(match[1])) usage.paths.add(match[1]);
+    if (catalogKeys.has(match[1])) {
+      usage.paths.add(match[1]);
+    }
   }
 }
 

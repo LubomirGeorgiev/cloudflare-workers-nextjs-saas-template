@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { redirect as nextRedirect } from "next/navigation";
 import { redirect } from "@/i18n/navigation";
@@ -24,7 +24,7 @@ export async function GET() {
       return redirect({ href: "/", locale })
     }
 
-    const session = await getSessionFromCookie()
+    const session = await getCurrentSession()
 
     if (session) {
       // Dashboard lives outside `[locale]`; keep next/navigation redirect.

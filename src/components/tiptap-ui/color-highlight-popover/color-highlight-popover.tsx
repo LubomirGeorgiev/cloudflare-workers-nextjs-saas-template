@@ -100,12 +100,18 @@ export function ColorHighlightPopoverContent({
     items: menuItems,
     orientation: "both",
     onSelect: (item) => {
-      if (!containerRef.current) return false
+      if (!containerRef.current) {
+        return false
+      }
       const highlightedElement = containerRef.current.querySelector(
         '[data-highlighted="true"]'
       ) as HTMLElement
-      if (highlightedElement) highlightedElement.click()
-      if (item.value === "none") handleRemoveHighlight()
+      if (highlightedElement) {
+        highlightedElement.click()
+      }
+      if (item.value === "none") {
+        handleRemoveHighlight()
+      }
       return true
     },
     autoSelectFirstItem: false,
@@ -175,7 +181,9 @@ export function ColorHighlightPopover({
       onApplied,
     })
 
-  if (!isVisible) return null
+  if (!isVisible) {
+    return null
+  }
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

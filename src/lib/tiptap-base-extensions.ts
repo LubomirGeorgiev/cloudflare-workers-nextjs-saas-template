@@ -12,45 +12,9 @@ import { TableRow } from "@tiptap/extension-table/row"
 import { TableCell } from "@tiptap/extension-table/cell"
 import { TableHeader } from "@tiptap/extension-table/header"
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
-import bash from "highlight.js/lib/languages/bash"
-import css from "highlight.js/lib/languages/css"
-import dockerfile from "highlight.js/lib/languages/dockerfile"
-import javascript from "highlight.js/lib/languages/javascript"
-import json from "highlight.js/lib/languages/json"
-import markdown from "highlight.js/lib/languages/markdown"
-import python from "highlight.js/lib/languages/python"
-import shell from "highlight.js/lib/languages/shell"
-import sql from "highlight.js/lib/languages/sql"
-import typescript from "highlight.js/lib/languages/typescript"
-import xml from "highlight.js/lib/languages/xml"
-import yaml from "highlight.js/lib/languages/yaml"
-import { createLowlight } from "lowlight"
 import { HorizontalRule } from "@/components/tiptap-node/horizontal-rule-node/horizontal-rule-node-extension"
 import { AlertBlockExtension } from "@/components/tiptap-node/alert-block/alert-block-extension"
-
-// Shared lowlight instance used across all extensions and renderers
-export const sharedLowlight = createLowlight({
-  bash,
-  css,
-  docker: dockerfile,
-  dockerfile,
-  html: xml,
-  js: javascript,
-  javascript,
-  jsx: javascript,
-  json,
-  markdown,
-  python,
-  shell,
-  sql,
-  ts: typescript,
-  tsx: typescript,
-  typescript,
-  xml,
-  yaml,
-})
-
-type LowlightInstance = ReturnType<typeof createLowlight>
+import { sharedLowlight, type LowlightInstance } from "@/lib/lowlight"
 
 interface GetBaseExtensionsOptions {
   lowlight?: LowlightInstance

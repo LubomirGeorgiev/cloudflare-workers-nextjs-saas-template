@@ -1,4 +1,16 @@
 {
+  // Real dependencies that no import statement points at, so static analysis cannot see them.
+  "ignoreDependencies": [
+    // Optional peers hono-openapi resolves by name: the first converts Valibot schemas when the
+    // build-time generator runs, the second validates requests at runtime.
+    "@valibot/to-json-schema",
+    "@hono/standard-validator"
+  ],
+  // Loaded by path, not by import: the vite plugin in tools/ spawns the generator, which aliases
+  // these stubs into the module graph it builds.
+  "dynamicallyLoaded": [
+    "scripts/utils/**"
+  ],
   "health": {
     "ignore": [
       "**/*.test.ts",

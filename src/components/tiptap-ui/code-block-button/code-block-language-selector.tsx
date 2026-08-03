@@ -98,7 +98,9 @@ export function CodeBlockLanguageSelector({
         return;
       }
       
-      if (!editor) return
+      if (!editor) {
+        return
+      }
 
       editor
         .chain()

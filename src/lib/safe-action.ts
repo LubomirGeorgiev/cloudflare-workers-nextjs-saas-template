@@ -6,7 +6,7 @@ import { ActionError, type ActionErrorMessageKey, type ActionErrorMessageParams 
 import { translateValidationKey } from "@/lib/validation-messages";
 import { RateLimitError } from "@/utils/with-rate-limit";
 
-interface ActionServerError {
+export interface ActionServerError {
   code: string;
   message: string;
   // Stable catalog key of keyed ActionErrors, so clients can branch on the

@@ -23,7 +23,9 @@ function isStreamedMetadataOutlet(node: Node): node is HTMLDivElement {
 }
 
 function containsStreamedMetadataOutlet(node: Node): boolean {
-  if (isStreamedMetadataOutlet(node)) return true;
+  if (isStreamedMetadataOutlet(node)) {
+    return true;
+  }
   return (
     node instanceof Element &&
     Array.from(node.querySelectorAll("div[hidden]")).some(isStreamedMetadataOutlet)
@@ -34,7 +36,9 @@ function hoistStreamedMetadata(): void {
   const outlets = Array.from(document.body.querySelectorAll("div[hidden]")).filter(
     isStreamedMetadataOutlet,
   );
-  if (outlets.length === 0) return;
+  if (outlets.length === 0) {
+    return;
+  }
 
   // Drop the tags hoisted for the previous route before installing the new
   // ones, so soft navigations never leave two canonicals/titles in <head>.

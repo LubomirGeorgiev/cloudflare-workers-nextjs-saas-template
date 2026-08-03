@@ -34,7 +34,9 @@ interface EntitlementInput {
 function applyAddonLimits(base: TeamPlanLimits, addons: TeamAddonQuantities): TeamPlanLimits {
   return Object.entries(addons).reduce((limits, [addonId, quantity]) => {
     const grants = getAddon(addonId)?.limits;
-    if (!grants || quantity <= 0) return limits;
+    if (!grants || quantity <= 0) {
+      return limits;
+    }
 
     return {
       seats: limits.seats + (grants.seats ?? 0) * quantity,

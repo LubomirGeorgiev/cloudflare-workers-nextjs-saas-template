@@ -8,6 +8,7 @@ import { getDB } from "@/db";
 import { TEAM_PERMISSIONS } from "@/db/schema";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
+import { getTeamBillingSummary } from "@/lib/billing/team-billing";
 import { getStripe } from "@/lib/stripe";
 import { isBillingEnabled } from "@/flags";
 import { getPlan } from "@/constants/plans";
@@ -18,7 +19,6 @@ import {
   ensureStripeCustomer,
   claimTeamSubscription,
   reconcileTeamFromSubscription,
-  getTeamSubscription,
   isTrialEligible,
   settleRecordedSubscription,
 } from "@/utils/team-subscription";
@@ -38,7 +38,9 @@ import { SITE_URL } from "@/constants";
 // Reads the invoice's confirmation_secret client secret from an expanded subscription.
 function readClientSecret(subscription: Stripe.Subscription): string | null {
   const invoice = subscription.latest_invoice;
-  if (!invoice || typeof invoice === "string") return null;
+  if (!invoice || typeof invoice === "string") {
+    return null;
+  }
   return invoice.confirmation_secret?.client_secret ?? null;
 }
 
@@ -157,7 +159,9 @@ export const createSubscriptionAction = actionClient
           subscriptionId: subscription.id,
         };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("createSubscriptionAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -176,7 +180,9 @@ async function resolveTrialDays({
   userId: string;
 }): Promise<number> {
   const trialDays = getPlan(planId).trialDays ?? 0;
-  if (trialDays <= 0) return 0;
+  if (trialDays <= 0) {
+    return 0;
+  }
   return (await isTrialEligible({ teamId, userId })) ? trialDays : 0;
 }
 
@@ -221,7 +227,9 @@ export const startTrialSetupAction = actionClient
 
         return { success: true, clientSecret: setupIntent.client_secret };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("startTrialSetupAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -261,7 +269,9 @@ export const completeTrialAction = actionClient
 
         return { success: true };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("completeTrialAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -312,7 +322,9 @@ export const changePlanAction = actionClient
 
         return { success: true };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("changePlanAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -376,7 +388,9 @@ export const updateAddonQuantityAction = actionClient
 
         return { success: true };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("updateAddonQuantityAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -399,7 +413,9 @@ export const cancelSubscriptionAction = actionClient
 
         return { success: true };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("cancelSubscriptionAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -464,7 +480,9 @@ export const createBillingPortalSessionAction = actionClient
 
         return { success: true, url: portalSession.url };
       } catch (error) {
-        if (error instanceof ActionError) throw error;
+        if (error instanceof ActionError) {
+          throw error;
+        }
         console.error("createBillingPortalSessionAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
@@ -476,15 +494,5 @@ export const createBillingPortalSessionAction = actionClient
 export const getTeamSubscriptionAction = actionClient
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
-    await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
-
-    const view = await getTeamSubscription(teamId);
-
-    return {
-      planId: view.planId,
-      status: view.status,
-      cancelAtPeriodEnd: view.cancelAtPeriodEnd,
-      needsPaymentAction: view.needsPaymentAction,
-      planExpiresAt: view.planExpiresAt ? view.planExpiresAt.toISOString() : null,
-    };
+    return getTeamBillingSummary(teamId);
   });

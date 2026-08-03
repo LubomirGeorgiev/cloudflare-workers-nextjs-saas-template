@@ -20,8 +20,12 @@ export interface UseTableConfig {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertTable(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("table", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("table", editor)) {
+    return false
+  }
 
   return true
 }
@@ -31,8 +35,12 @@ export function insertTable(
   editor: Editor | null,
   options?: { rows?: number; cols?: number; withHeaderRow?: boolean }
 ): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canInsertTable(editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canInsertTable(editor)) {
+    return false
+  }
 
   try {
     return editor.commands.insertTable({
@@ -52,8 +60,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("table", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("table", editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable) {
     return canInsertTable(editor)
@@ -78,7 +90,9 @@ export function useTable(config?: UseTableConfig) {
   const isActive = editor?.isActive("table") || false
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))
@@ -94,7 +108,9 @@ export function useTable(config?: UseTableConfig) {
   }, [editor, hideWhenUnavailable])
 
   const handleInsert = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = insertTable(editor, { rows, cols, withHeaderRow })
     if (success) {

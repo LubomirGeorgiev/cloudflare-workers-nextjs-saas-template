@@ -5,9 +5,10 @@ import {
   type HashedRecordPayload,
   putHashedRecord,
 } from "@/utils/kv-record";
+import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 
 export const WEBAUTHN_CHALLENGE_TTL_SECONDS = 10 * 60;
-const WEBAUTHN_CHALLENGE_PREFIX = "webauthn-challenge:";
+const WEBAUTHN_CHALLENGE_PREFIX = APP_KV_PREFIXES.webauthnChallenge;
 
 export const WEBAUTHN_CHALLENGE_PURPOSE = {
   AUTHENTICATION: "authentication",

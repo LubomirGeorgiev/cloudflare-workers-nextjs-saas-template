@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 
 import { getTeamBySlug } from "@/lib/teams/teams";
 import { hasTeamMembership } from "@/utils/team-auth";
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 
 // Single authorization point for the /dashboard/teams/[teamSlug] routes: resolves the team
@@ -18,7 +18,7 @@ export const requireTeamAccess = cache(async (teamSlug: string) => {
   // the team so an anonymous request redirects regardless of whether the slug exists — otherwise
   // a redirect-vs-404 difference would leak team existence to signed-out users. Anti-enumeration
   // only requires hiding teams from authenticated non-members, handled by the 404 below.
-  const cookieSession = await getSessionFromCookie();
+  const cookieSession = await getCurrentSession();
   if (!cookieSession) {
     await redirectToSignIn(`/dashboard/teams/${teamSlug}`);
   }

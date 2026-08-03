@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth";
+import { getCurrentSession } from "@/utils/auth";
 import { isBillingEnabled } from "@/flags";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -17,7 +17,7 @@ export default async function SettingsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSessionFromCookie();
+  const session = await getCurrentSession();
 
   if (!session) {
     return redirectToSignIn();

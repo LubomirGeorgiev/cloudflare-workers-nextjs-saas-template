@@ -1,17 +1,7 @@
 "use client";
 
+import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { useRef } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { removeTeamMemberAction } from "@/actions/team-membership-actions";
@@ -41,26 +31,18 @@ export function RemoveMemberButton({
   tooltipText,
 }: RemoveMemberButtonProps) {
   const t = useTranslations("Client.Dashboard.Teams");
-  const tCommon = useTranslations("Client.Common");
   const resolvedTooltipText = tooltipText ?? t("cannotRemoveTooltip");
-  const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
-  const { execute: removeMember, isExecuting } = useAction(removeTeamMemberAction, {
+  const { executeAsync: removeMember } = useAction(removeTeamMemberAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || t("toastRemoveError"));
-      dialogCloseRef.current?.click();
     },
     onSuccess: () => {
       toast.success(t("toastRemoveSuccess"));
       router.refresh();
-      dialogCloseRef.current?.click();
     }
   });
-
-  const handleRemoveMember = () => {
-    removeMember({ teamId, userId });
-  };
 
   // If the button is disabled, wrap it in a tooltip
   if (isDisabled) {
@@ -89,43 +71,25 @@ export function RemoveMemberButton({
   }
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-          />
-        }
-      >
+    <ConfirmDestructiveDialog
+      trigger={
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+        />
+      }
+      triggerLabel={
+        <>
           <TrashIcon className="h-4 w-4" />
           <span className="sr-only">{t("removeMember")}</span>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("removeMemberTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("removeMemberDescription", { name: memberName })}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="mt-4 flex flex-col gap-4 sm:flex-row">
-          <DialogClose
-            ref={dialogCloseRef}
-            render={<Button variant="outline" className="sm:w-auto w-full" />}
-          >
-            {tCommon("cancel")}
-          </DialogClose>
-          <Button
-            variant="destructive"
-            onClick={handleRemoveMember}
-            disabled={isExecuting}
-            className="sm:w-auto w-full"
-          >
-            {isExecuting ? t("removing") : t("removeMember")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+      title={t("removeMemberTitle")}
+      description={t("removeMemberDescription", { name: memberName })}
+      confirmLabel={t("removeMember")}
+      pendingLabel={t("removing")}
+      onConfirm={() => removeMember({ teamId, userId })}
+    />
   );
 }

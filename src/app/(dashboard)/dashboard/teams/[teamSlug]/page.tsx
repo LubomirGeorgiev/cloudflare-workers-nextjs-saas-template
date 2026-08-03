@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+
 import { hasTeamPermission } from "@/utils/team-auth";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/db/schema";
+import { TEAM_PERMISSIONS } from "@/db/schema";
+import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
@@ -18,35 +21,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDate } from "@/utils/format-date";
 import { RemoveMemberButton } from "@/components/teams/remove-member-button";
 import { RevokeInvitationButton } from "@/components/teams/revoke-invitation-button";
+import { TeamApiKeys } from "@/components/teams/team-api-keys";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getLocale, getTranslations } from "next-intl/server";
 
 interface TeamPageProps {
   params: Promise<{
     teamSlug: string;
   }>;
-}
-
-function getMemberRoleLabel({
-  member,
-  t,
-}: {
-  member: { roleId: string; isSystemRole: boolean; roleName: string | null };
-  t: Awaited<ReturnType<typeof getTranslations<"Client.Dashboard.Teams">>>;
-}): string {
-  if (!member.isSystemRole) {
-    return member.roleName ?? t("roleCustom");
-  }
-
-  switch (member.roleId) {
-    case SYSTEM_ROLES_ENUM.OWNER:
-      return t("roleOwner");
-    case SYSTEM_ROLES_ENUM.MEMBER:
-      return t("roleMember");
-    case SYSTEM_ROLES_ENUM.GUEST:
-      return t("roleGuest");
-    default:
-      return member.roleId;
-  }
 }
 
 // TODO Test the removal process
@@ -71,10 +53,11 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
 
   // Independent reads of the same request-cached membership; requireTeamAccess above is the
   // access guard and must stay sequential.
-  const [canInviteMembers, canRemoveMembers, canEditTeamSettings] = await Promise.all([
+  const [canInviteMembers, canRemoveMembers, canEditTeamSettings, canManageApiKeys] = await Promise.all([
     hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS),
     hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS),
     hasTeamPermission(team.id, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS),
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.MANAGE_API_KEYS),
   ]);
 
   const {
@@ -204,7 +187,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                       </TableCell>
                       <TableCell>{member.user.email}</TableCell>
                       <TableCell className="capitalize">
-                        {getMemberRoleLabel({ member, t })}
+                        {formatTeamRoleLabel({ member, translate: t })}
                       </TableCell>
                       <TableCell>
                         {member.joinedAt !== null
@@ -256,7 +239,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                     <TableRow key={invitation.id}>
                       <TableCell>{invitation.email}</TableCell>
                       <TableCell className="capitalize">
-                        {getMemberRoleLabel({ member: invitation, t })}
+                        {formatTeamRoleLabel({ member: invitation, translate: t })}
                       </TableCell>
                       <TableCell>{formatDate(invitation.createdAt, locale)}</TableCell>
                       <TableCell>{formatDate(invitation.expiresAt, locale)}</TableCell>
@@ -275,6 +258,12 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                 </TableBody>
               </Table>
             </div>
+          )}
+
+          {canManageApiKeys && (
+            <Suspense fallback={<Skeleton className="col-span-3 h-48 w-full" />}>
+              <TeamApiKeys teamId={team.id} />
+            </Suspense>
           )}
         </div>
       </div>

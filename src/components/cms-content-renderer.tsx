@@ -4,8 +4,9 @@ import React, { useEffect, type ReactNode } from "react";
 import Image from "next/image";
 import { type JSONContent } from "@tiptap/core";
 import { renderToReactElement } from "@tiptap/static-renderer/pm/react";
-import { getTiptapBaseExtensions, sharedLowlight } from "@/lib/tiptap-base-extensions";
+import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions";
 import { cn } from "@/lib/utils";
+import { HighlightedCode } from "@/components/highlighted-code";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import { AlertBlock } from "@/components/tiptap-node/alert-block/alert-block";
 import {
@@ -16,46 +17,6 @@ import {
 import "@/components/tiptap-templates/simple/cms-content-styles.scss"
 
 const CMS_CONTENT_ROOT_CLASS_NAME = "tiptap ProseMirror";
-
-// Lowlight returns hast nodes; this is the subset needed for React conversion.
-interface LowlightASTNode {
-  type: "text" | "element";
-  value?: string;
-  properties?: {
-    className?: string[];
-  };
-  children?: LowlightASTNode[];
-}
-
-function astToReact(nodes: LowlightASTNode[], key = 0): ReactNode[] {
-  return nodes.map((node, index) => {
-    const nodeKey = `${key}-${index}`;
-
-    if (node.type === "text") {
-      return node.value ?? "";
-    }
-
-    if (node.type === "element") {
-      const className = Array.isArray(node.properties?.className)
-        ? node.properties.className.join(" ")
-        : undefined;
-
-      const children = node.children ? astToReact(node.children, index) : null;
-
-      if (className) {
-        return (
-          <span key={nodeKey} className={className}>
-            {children}
-          </span>
-        );
-      }
-
-      return children;
-    }
-
-    return null;
-  });
-}
 
 interface CodeBlockRendererProps {
   language?: string;
@@ -109,30 +70,11 @@ function CodeBlockRenderer({
     code = extractTextFromChildren(children);
   }
 
-  if (!language) {
-    return (
-      <pre>
-        <code>{code}</code>
-      </pre>
-    );
-  }
-
-  try {
-    const result = sharedLowlight.highlight(language, code);
-    const highlightedContent = astToReact(result.children as LowlightASTNode[]);
-
-    return (
-      <pre>
-        <code className={`language-${language}`}>{highlightedContent}</code>
-      </pre>
-    );
-  } catch {
-    return (
-      <pre>
-        <code className={`language-${language}`}>{code}</code>
-      </pre>
-    );
-  }
+  return (
+    <pre>
+      <HighlightedCode code={code} language={language} />
+    </pre>
+  );
 }
 
 function ImageComponent({

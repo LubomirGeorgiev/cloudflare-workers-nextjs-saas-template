@@ -1,4 +1,4 @@
-import { getSessionFromCookie } from "@/utils/auth"
+import { getCurrentSession } from "@/utils/auth"
 import { NextResponse } from "next/server"
 import { tryCatch } from "@/lib/try-catch"
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit"
@@ -7,7 +7,7 @@ import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants"
 function getSessionResponse({
   session,
 }: {
-  session: Awaited<ReturnType<typeof getSessionFromCookie>>;
+  session: Awaited<ReturnType<typeof getCurrentSession>>;
 }) {
   const headers = new Headers()
   headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
@@ -29,7 +29,7 @@ function getSessionResponse({
 
 export async function GET() {
   return withRateLimit(async () => {
-    const { data: session, error } = await tryCatch(getSessionFromCookie())
+    const { data: session, error } = await tryCatch(getCurrentSession())
 
     if (error) {
       return getSessionResponse({

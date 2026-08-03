@@ -87,7 +87,9 @@ export function deriveYearlyAmount(monthlyAmount: number): number {
 }
 
 export function getYearlyAmount(plan: TeamPlan): number {
-  if (plan.interval === "year") return plan.amount;
+  if (plan.interval === "year") {
+    return plan.amount;
+  }
   return deriveYearlyAmount(plan.amount);
 }
 

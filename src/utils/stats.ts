@@ -9,12 +9,16 @@ export const getGithubStars = cache(async () => {
   }
 
   const match = GITHUB_REPO_URL.match(/github\.com\/([^/]+)\/([^/]+)/);
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
 
   const [, owner, rawRepo] = match;
   const repo = rawRepo?.replace(/\.git$/, "");
 
-  if (!owner || !repo) return null;
+  if (!owner || !repo) {
+    return null;
+  }
 
   return getCachedGithubStars({ owner, repo });
 });
@@ -46,7 +50,9 @@ async function getCachedGithubStars({
       headers,
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return null;
+    }
 
     const data = (await response.json()) as {
       stargazers_count: number;

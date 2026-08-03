@@ -11,6 +11,8 @@ export default function robots(): MetadataRoute.Robots {
         disallow: [
           '/dashboard/',
           '/verify-email',
+          // Authorization endpoints and the consent interstitial: never useful in an index.
+          '/oauth/',
         ],
       },
     ],

@@ -9,11 +9,12 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { DOCS_BASE_PATH, DOCS_SLUG } from "@/lib/cms/docs-config";
+import { searchDocsRoutes, type DocsRouteSearchResult } from "@/lib/cms/docs-route-search";
 import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { tokenizeSearchQuery } from "@/lib/cms/search-tokens";
 
 const DEFAULT_CMS_SEARCH_LIMIT = 8;
-const MAX_SEARCH_TOKENS = 6;
 const CMS_SEARCH_CACHE_TTL = "6 hours";
 const INSERT_CMS_ENTRY_SEARCH_SQL =
   "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)";
@@ -83,12 +84,9 @@ function normalizeSearchBody(content: JSONContent): string {
 }
 
 function buildCmsSearchMatchQuery(query: string): string | null {
-  const tokens = query
-    .toLowerCase()
-    .match(/[a-z0-9]+/g)
-    ?.slice(0, MAX_SEARCH_TOKENS);
+  const tokens = tokenizeSearchQuery(query);
 
-  if (!tokens || tokens.length === 0) {
+  if (tokens.length === 0) {
     return null;
   }
 
@@ -352,15 +350,44 @@ async function getCachedCmsSearchResults({
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
 export type DocsSearchResult = CmsSearchResult;
 
+// Route hits carry no bm25 score to blend with, so the two halves are ordered by match strength
+// rather than by one number: a title or heading hit outranks a CMS body hit, a body-only hit trails
+// it. Route search stays on even where the CMS collection has search disabled — those pages exist
+// either way.
+function mergeDocsSearchResults({
+  entryResults,
+  routeResults,
+  limit,
+}: {
+  entryResults: CmsSearchResult[];
+  routeResults: DocsRouteSearchResult[];
+  limit: number;
+}): DocsSearchResult[] {
+  const strongResults: CmsSearchResult[] = [];
+  const weakResults: CmsSearchResult[] = [];
+
+  for (const { isStrongMatch, ...result } of routeResults) {
+    (isStrongMatch ? strongResults : weakResults).push(result);
+  }
+
+  return [...strongResults, ...entryResults, ...weakResults].slice(0, limit);
+}
+
 export async function searchDocs({
   query,
   limit = DEFAULT_CMS_SEARCH_LIMIT,
   locale,
 }: SearchCmsParams): Promise<DocsSearchResult[]> {
-  return searchCmsCollection({
-    collectionSlug: DOCS_SLUG,
-    query,
-    limit,
-    locale,
-  });
+  // Independent: one reads the in-memory route index, the other the FTS5 table behind its own cache.
+  const [routeResults, entryResults] = await Promise.all([
+    searchDocsRoutes({ query, limit, locale }),
+    searchCmsCollection({
+      collectionSlug: DOCS_SLUG,
+      query,
+      limit,
+      locale,
+    }),
+  ]);
+
+  return mergeDocsSearchResults({ entryResults, routeResults, limit });
 }

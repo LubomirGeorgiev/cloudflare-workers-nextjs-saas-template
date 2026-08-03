@@ -56,7 +56,8 @@ import {
 } from "@/lib/cms/translation-staleness";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 import type { SourceContentHashes } from "@/types/cms";
-import { requiredString, v } from "@/lib/validation";
+import { v } from "@/lib/validation";
+import { idField } from "@/schemas/fields";
 
 export async function createCmsEntry<T extends CollectionsUnion>(
   params: CreateCmsEntryParams<T>
@@ -595,7 +596,7 @@ async function snapshotSourceContentHashes(
 // then re-snapshots the source hashes so the row reads as up to date. Translations are treated as
 // disposable AI output (not hand-tuned), so overwriting is safe; translating only the changed fields avoids re-processing an unchanged body on a title-only edit.
 export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEntry | null> {
-  const { id } = v.parse(v.object({ id: requiredString() }), params);
+  const { id } = v.parse(v.object({ id: idField() }), params);
 
   const { translationEntry, sourceEntry } = await loadTranslationWithSource(id);
 
@@ -652,7 +653,7 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
 export async function markCmsEntryTranslationReviewed(
   params: { id: string }
 ): Promise<CmsEntry | null> {
-  const { id } = v.parse(v.object({ id: requiredString() }), params);
+  const { id } = v.parse(v.object({ id: idField() }), params);
 
   const { translationEntry, sourceEntry } = await loadTranslationWithSource(id);
 

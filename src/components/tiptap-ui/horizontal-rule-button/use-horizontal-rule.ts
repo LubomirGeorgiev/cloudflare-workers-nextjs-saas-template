@@ -17,16 +17,24 @@ export interface UseHorizontalRuleConfig {
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function canInsertHorizontalRule(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("horizontalRule", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("horizontalRule", editor)) {
+    return false
+  }
 
   return editor.can().setHorizontalRule()
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function insertHorizontalRule(editor: Editor | null): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canInsertHorizontalRule(editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canInsertHorizontalRule(editor)) {
+    return false
+  }
 
   try {
     editor.chain().focus().setHorizontalRule().run()
@@ -43,8 +51,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isNodeInSchema("horizontalRule", editor)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isNodeInSchema("horizontalRule", editor)) {
+    return false
+  }
 
   if (hideWhenUnavailable) {
     return canInsertHorizontalRule(editor)
@@ -65,7 +77,9 @@ export function useHorizontalRule(config?: UseHorizontalRuleConfig) {
   const canInsert = canInsertHorizontalRule(editor)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, hideWhenUnavailable }))
@@ -81,7 +95,9 @@ export function useHorizontalRule(config?: UseHorizontalRuleConfig) {
   }, [editor, hideWhenUnavailable])
 
   const handleInsert = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = insertHorizontalRule(editor)
     if (success) {

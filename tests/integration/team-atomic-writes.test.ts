@@ -12,7 +12,7 @@
 // would FAIL if any of the atomic guards regressed.
 //
 // Mocking mirrors team-invitation-lifecycle.test.ts: request-scoped identity is injected because
-// requireVerifiedEmail / getSessionFromCookie read next/headers cookies that don't exist in the
+// requireVerifiedEmail / getCurrentSession read next/headers cookies that don't exist in the
 // Workers test pool. Every DB write, capacity guard, permission check, and unique index runs for
 // real against Miniflare D1.
 
@@ -26,7 +26,7 @@ const { authState, sendInvitationEmailMock } = vi.hoisted(() => ({
 vi.mock("@/utils/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/auth")>()),
   requireVerifiedEmail: async () => authState.current,
-  getSessionFromCookie: async () => authState.current,
+  getCurrentSession: async () => authState.current,
 }));
 
 vi.mock("@/utils/email", async (importOriginal) => ({

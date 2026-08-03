@@ -18,7 +18,9 @@ export function getAuthorDisplayName(
 ): string {
   const fullName = [author.firstName, author.lastName].filter(Boolean).join(" ")
 
-  if (fullName) return fullName
+  if (fullName) {
+    return fullName
+  }
 
   return author.email || unknownLabel
 }
@@ -38,18 +40,26 @@ export function getAuthorRouteParam(author: AuthorUrlIdentity): string {
 }
 
 export function parseAuthorIdFromRouteParam(routeParam: string): string | null {
-  if (!routeParam) return null
+  if (!routeParam) {
+    return null
+  }
 
   // Legacy format: raw ID only.
-  if (!routeParam.includes(AUTHOR_ROUTE_ID_SEPARATOR)) return routeParam
+  if (!routeParam.includes(AUTHOR_ROUTE_ID_SEPARATOR)) {
+    return routeParam
+  }
 
   // Name comes first; extract the ID from the final separator.
   const separatorIndex = routeParam.lastIndexOf(AUTHOR_ROUTE_ID_SEPARATOR)
 
-  if (separatorIndex === -1) return null
+  if (separatorIndex === -1) {
+    return null
+  }
 
   const id = routeParam.slice(separatorIndex + AUTHOR_ROUTE_ID_SEPARATOR.length).trim()
-  if (!id) return null
+  if (!id) {
+    return null
+  }
 
   return id
 }

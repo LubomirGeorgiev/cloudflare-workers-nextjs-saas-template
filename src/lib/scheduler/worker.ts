@@ -23,6 +23,54 @@ function getSecondsUntilRunAt(runAt: string): number {
   return Math.ceil((new Date(runAt).getTime() - Date.now()) / 1000);
 }
 
+// Every maintenance task gets its own settlement: the cron promise is what `waitUntil` keeps the
+// isolate alive for, so one rejection short-circuiting a sibling would cut that sibling's work off
+// mid-flight. Never rejects, which is what makes the `Promise.all`s below safe.
+async function runMaintenanceTask(name: string, run: () => Promise<unknown>): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    console.error(`handleSchedulerCron: ${name} failed`, error);
+  }
+}
+
+// Settle trial reservations abandoned by a crash or ambiguous Stripe failure against Stripe (never
+// a bare TTL delete, which would reopen user-level trial farming). Imported lazily so the sweep's
+// server-only graph never loads on billing-disabled deployments.
+async function runBillingMaintenance(now: Date): Promise<void> {
+  if (!isBillingConfigured()) {
+    return;
+  }
+
+  await runMaintenanceTask("trial reservation recovery sweep", async () => {
+    const { settleStaleTrialReservations } = await import("@/lib/teams/trial-subscription");
+    await settleStaleTrialReservations({ now });
+  });
+}
+
+// OAuth housekeeping: provider GC, stale CIMD mirror pruning, and the renewal touch that keeps
+// verified clients' KV records alive. They are independent, so they settle independently.
+async function runOAuthMaintenance(now: Date): Promise<void> {
+  await runMaintenanceTask("OAuth maintenance import", async () => {
+    const {
+      pruneExpiredUnverifiedCimdOAuthApps,
+      purgeExpiredOAuthData,
+      renewVerifiedOAuthClients,
+    } = await import(
+      "@/lib/oauth/oauth-maintenance"
+    );
+
+    await Promise.all([
+      runMaintenanceTask(
+        "OAuth expired CIMD mirror pruning",
+        () => pruneExpiredUnverifiedCimdOAuthApps(now),
+      ),
+      runMaintenanceTask("OAuth expired data purge", () => purgeExpiredOAuthData(now)),
+      runMaintenanceTask("OAuth verified client renewal", () => renewVerifiedOAuthClients(now)),
+    ]);
+  });
+}
+
 export async function handleSchedulerCron({
   env,
   now = new Date(),
@@ -33,18 +81,9 @@ export async function handleSchedulerCron({
   const queue = env.SCHEDULER_QUEUE;
   const scheduledJobsCount = await dispatchScheduledJobsToQueue({ queue, now });
 
-  // Settle trial reservations abandoned by a crash or ambiguous Stripe failure against
-  // Stripe (never a bare TTL delete, which would reopen user-level trial farming). Isolated
-  // so a Stripe outage cannot break queue dispatch; imported lazily so the sweep's
-  // server-only graph never loads on billing-disabled deployments.
-  if (isBillingConfigured()) {
-    try {
-      const { settleStaleTrialReservations } = await import("@/lib/teams/trial-subscription");
-      await settleStaleTrialReservations({ now });
-    } catch (error) {
-      console.error("handleSchedulerCron: trial reservation recovery sweep failed", error);
-    }
-  }
+  // Error-isolated per task, so the sweeps run concurrently and neither can take the other — or
+  // the queue dispatch above — down with it.
+  await Promise.all([runBillingMaintenance(now), runOAuthMaintenance(now)]);
 
   return scheduledJobsCount;
 }

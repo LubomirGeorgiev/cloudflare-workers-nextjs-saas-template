@@ -87,10 +87,15 @@ function parseArgs(argv) {
   const args = { live: false, dryRun: false, noWrite: false, webhookUrl: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--live") args.live = true;
-    else if (arg === "--dry-run") args.dryRun = true;
-    else if (arg === "--no-write" || arg === "--print-only") args.noWrite = true;
-    else if (arg === "--with-webhook") args.webhookUrl = argv[++i];
+    if (arg === "--live") {
+      args.live = true;
+    } else if (arg === "--dry-run") {
+      args.dryRun = true;
+    } else if (arg === "--no-write" || arg === "--print-only") {
+      args.noWrite = true;
+    } else if (arg === "--with-webhook") {
+      args.webhookUrl = argv[++i];
+    }
     // --write-env accepted for back-compat: writing is now the default, so it's a no-op.
   }
   return args;
@@ -151,14 +156,18 @@ function envVarForAddon(addon, variant) {
 async function findProductByPlanId(stripe, planId) {
   // Products don't support metadata search on all accounts; page through active products.
   for await (const product of stripe.products.list({ active: true, limit: 100 })) {
-    if (product.metadata?.template_plan_id === planId) return product;
+    if (product.metadata?.template_plan_id === planId) {
+      return product;
+    }
   }
   return null;
 }
 
 async function findProductByAddonId(stripe, addonId) {
   for await (const product of stripe.products.list({ active: true, limit: 100 })) {
-    if (product.metadata?.template_addon_id === addonId) return product;
+    if (product.metadata?.template_addon_id === addonId) {
+      return product;
+    }
   }
   return null;
 }
@@ -177,7 +186,9 @@ async function ensureAddonProduct(stripe, addon, { dryRun }) {
   }
 
   console.log(`  + create product "${addon.name}"`);
-  if (dryRun) return { id: `(dry-run:addon-${addon.id})` };
+  if (dryRun) {
+    return { id: `(dry-run:addon-${addon.id})` };
+  }
 
   return stripe.products.create({
     name: addon.name,
@@ -199,7 +210,9 @@ async function ensureProduct(stripe, plan, { dryRun }) {
   }
 
   console.log(`  + create product "${plan.name}"`);
-  if (dryRun) return { id: `(dry-run:${plan.id})` };
+  if (dryRun) {
+    return { id: `(dry-run:${plan.id})` };
+  }
 
   return stripe.products.create({
     name: plan.name,
@@ -222,7 +235,9 @@ async function ensurePrice(stripe, { lookupKey, amount, currency, interval }, pr
   }
 
   console.log(`  + create price ${lookupKey} (${amount} ${currency}/${interval})`);
-  if (dryRun) return { id: `(dry-run:${lookupKey})` };
+  if (dryRun) {
+    return { id: `(dry-run:${lookupKey})` };
+  }
 
   // Prices are immutable — create a new one and transfer the lookup key off the old one.
   const price = await stripe.prices.create({
@@ -275,7 +290,9 @@ async function ensurePortalConfiguration(stripe, { dryRun }) {
   }
 
   console.log("  + create customer portal configuration");
-  if (dryRun) return { id: "(dry-run:portal-config)" };
+  if (dryRun) {
+    return { id: "(dry-run:portal-config)" };
+  }
 
   return stripe.billingPortal.configurations.create({
     features: PORTAL_FEATURES,
@@ -292,7 +309,9 @@ async function ensureWebhook(stripe, url, { dryRun }) {
   }
 
   console.log(`  + create webhook endpoint ${url}`);
-  if (dryRun) return null;
+  if (dryRun) {
+    return null;
+  }
 
   return stripe.webhookEndpoints.create({ url, enabled_events: WEBHOOK_EVENTS });
 }
@@ -318,7 +337,9 @@ async function main() {
 
   const account = await stripe.accounts.retrieve();
   console.log(`Target Stripe account: ${account.id}${isTestKey ? " (test mode)" : " (LIVE)"}`);
-  if (args.dryRun) console.log("Dry run — no changes will be written.\n");
+  if (args.dryRun) {
+    console.log("Dry run — no changes will be written.\n");
+  }
 
   const envEntries = [];
 
@@ -362,8 +383,12 @@ async function main() {
   }
 
   console.log("\n--- .env values ---");
-  for (const [key, value] of envEntries) console.log(`${key}=${value}`);
-  if (webhookSecret) console.log(`STRIPE_WEBHOOK_SECRET=${webhookSecret}`);
+  for (const [key, value] of envEntries) {
+    console.log(`${key}=${value}`);
+  }
+  if (webhookSecret) {
+    console.log(`STRIPE_WEBHOOK_SECRET=${webhookSecret}`);
+  }
 
   console.log("\n--- production secrets (run these) ---");
   console.log("wrangler secret put STRIPE_SECRET_KEY");

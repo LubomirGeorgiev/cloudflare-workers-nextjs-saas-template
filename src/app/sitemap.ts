@@ -1,6 +1,8 @@
 import "server-only"
 import { getCmsCollection, getEntryLocales } from "@/lib/cms/entry"
 import { SITE_URL } from "@/constants"
+import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes"
+import { DOCS_SLUG } from "@/lib/cms/docs-config"
 import type { MetadataRoute } from "next"
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
 import { cmsConfig, type CollectionsUnion, type CmsNavigationKey } from "@/../cms.config"
@@ -144,6 +146,23 @@ async function getNavigationUrls(navigationKey: CmsNavigationKey): Promise<Metad
   }))
 }
 
+// The agent-platform docs pages are app routes, not CMS documents, so they never appear in the
+// navigation tree. They render inside the docs layout, which redirects away when that tree is
+// empty — an install with no docs navigation must not advertise them.
+function getAgentPlatformDocsUrls(hasDocsNavigation: boolean): MetadataRoute.Sitemap {
+  if (!hasDocsNavigation) {
+    return []
+  }
+
+  return INDEXED_DOCS_ROUTES.map(({ pathname, sitemapPriority }) => ({
+    url: `${SITE_URL}${pathname}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: sitemapPriority,
+    alternates: { languages: localizedSitemapAlternates(pathname) },
+  }))
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   "use cache: remote"
   setCacheScope({
@@ -250,8 +269,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]
     : []
 
+  const docsNavigationIndex = navigations.findIndex(
+    (navigation) => navigation.navigationKey === DOCS_SLUG
+  )
+
   return dedupeSitemapUrls([
     ...staticRoutes,
+    ...getAgentPlatformDocsUrls((navigationUrls[docsNavigationIndex]?.length ?? 0) > 0),
     ...blogSitemapUrls,
     ...cmsEntryUrls,
     ...navigationUrls.flat(),

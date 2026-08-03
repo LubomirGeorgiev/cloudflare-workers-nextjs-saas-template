@@ -57,7 +57,9 @@ export const HeadingDropdownMenu = forwardRef<
 
     const handleOpenChange = useCallback(
       (open: boolean) => {
-        if (!editor || !canToggle) return
+        if (!editor || !canToggle) {
+          return
+        }
         setIsOpen(open)
         onOpenChange?.(open)
       },

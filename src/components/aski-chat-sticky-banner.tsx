@@ -27,7 +27,9 @@ export function AskiChatStickyBanner() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
   };
 
-  if (!isHydrated) return null; // Prevent flash of content
+  if (!isHydrated) {
+    return null; // Prevent flash of content
+  }
 
   return (
     <BannerPositioner isCollapsed={isCollapsed}>

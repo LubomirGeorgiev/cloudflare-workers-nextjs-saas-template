@@ -56,12 +56,15 @@ export function canSetTextAlign(
   editor: Editor | null,
   align: TextAlign
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   if (
     !isExtensionAvailable(editor, "textAlign") ||
     isNodeTypeSelected(editor, ["image", "horizontalRule"])
-  )
+  ) {
     return false
+  }
 
   return editor.can().setTextAlign(align)
 }
@@ -80,14 +83,20 @@ export function isTextAlignActive(
   editor: Editor | null,
   align: TextAlign
 ): boolean {
-  if (!editor || !editor.isEditable) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
   return editor.isActive({ textAlign: align })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
-  if (!editor || !editor.isEditable) return false
-  if (!canSetTextAlign(editor, align)) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!canSetTextAlign(editor, align)) {
+    return false
+  }
 
   const chain = editor.chain().focus()
   if (hasSetTextAlign(chain)) {
@@ -105,8 +114,12 @@ export function shouldShowButton(props: {
 }): boolean {
   const { editor, hideWhenUnavailable, align } = props
 
-  if (!editor || !editor.isEditable) return false
-  if (!isExtensionAvailable(editor, "textAlign")) return false
+  if (!editor || !editor.isEditable) {
+    return false
+  }
+  if (!isExtensionAvailable(editor, "textAlign")) {
+    return false
+  }
 
   if (hideWhenUnavailable && !editor.isActive("code")) {
     return canSetTextAlign(editor, align)
@@ -129,7 +142,9 @@ export function useTextAlign(config: UseTextAlignConfig) {
   const isActive = isTextAlignActive(editor, align)
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      return
+    }
 
     const handleSelectionUpdate = () => {
       setIsVisible(shouldShowButton({ editor, align, hideWhenUnavailable }))
@@ -145,7 +160,9 @@ export function useTextAlign(config: UseTextAlignConfig) {
   }, [editor, hideWhenUnavailable, align])
 
   const handleTextAlign = useCallback(() => {
-    if (!editor) return false
+    if (!editor) {
+      return false
+    }
 
     const success = setTextAlign(editor, align)
     if (success) {

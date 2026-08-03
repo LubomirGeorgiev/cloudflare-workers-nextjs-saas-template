@@ -40,7 +40,9 @@ export function useElementRect({
   const [rect, setRect] = useState<RectState>(initialRect)
 
   const getTargetElement = useCallback((): Element | null => {
-    if (!enabled || !isClientSide()) return null
+    if (!enabled || !isClientSide()) {
+      return null
+    }
 
     if (!element) {
       return document.body
@@ -59,7 +61,9 @@ export function useElementRect({
 
   const updateRect = useThrottledCallback(
     () => {
-      if (!enabled || !isClientSide()) return
+      if (!enabled || !isClientSide()) {
+        return
+      }
 
       const targetElement = getTargetElement()
       if (!targetElement) {
@@ -91,7 +95,9 @@ export function useElementRect({
     }
 
     const targetElement = getTargetElement()
-    if (!targetElement) return
+    if (!targetElement) {
+      return
+    }
 
     updateRect()
 
