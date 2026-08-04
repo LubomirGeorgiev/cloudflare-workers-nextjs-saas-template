@@ -53,6 +53,8 @@ worker
 worker-dist
 tmp
 .vitest-attachments
+*.cpuprofile
+metrics/*.html
 
 # Localflare generated files
 .localflare/

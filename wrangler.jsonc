@@ -10,7 +10,7 @@
         "custom_domain": true
       }
     ],
-    "compatibility_date": "2026-07-07",
+    "compatibility_date": "2026-08-03",
     // `global_fetch_strictly_public` is required by the OAuth provider's CIMD support: client_id
     // metadata documents are fetched from the public internet, never looped back into this Worker.
     "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],

@@ -4,7 +4,7 @@ Three separate budgets. Know which one your change spends.
 
 | Budget | What spends it | How to check |
 | --- | --- | --- |
-| **Startup CPU** (400 ms limit) | Modules the entry reaches by *static* import — parsed and evaluated on every cold isolate | Trace static imports from `dist/server/index.js` |
+| **Startup CPU** (400 ms limit) | Modules the entry reaches by *static* import — parsed and evaluated on every cold isolate | `pnpm run check:startup` |
 | **Request CPU** | Work inside a handler | Read the handler |
 | **Upload size** (3 MiB gzip) | Every module in `dist/`, imported or not | `pnpm build && pnpm exec wrangler deploy --dry-run` |
 
@@ -45,4 +45,24 @@ Cheap and worth it for anything touching the entry, a shared service, or a depen
 pnpm build && pnpm exec wrangler deploy --dry-run 2>&1 | grep "Total Upload"
 ```
 
-For the startup budget, walk the static-import closure from `dist/server/index.js` (skip `import(...)` — those are lazy) and total the bytes. Compare against the same number built from `main`; a regression there is paid by every cold request, including ones that never touch your feature. Real startup time in milliseconds is reported by Cloudflare on deploy.
+For the startup budget, `pnpm run check:startup` builds the Worker, evaluates it once locally, and reports bundle size alongside the time the isolate spent active, idle, and in GC:
+
+```
+Bundle: 6326.88 KiB / gzip: 1587.13 KiB
+Local startup profile:
+  Profile window: 157.2 ms
+  Sampled time: 150.1 ms
+  Active: 25.1 ms (including 2.5 ms garbage collection)
+  Idle: 125.0 ms
+  Samples: 21
+```
+
+Only `Active` is comparable across runs — it is CPU actually burned evaluating modules, which is what the 400 ms limit measures. Wall-clock numbers move with the machine, so treat the absolute value as local-only and watch the delta. The run also writes `worker-startup.cpuprofile`; open it in Chrome DevTools or VS Code to see *which* module paid.
+
+Its `Bundle:` line is wrangler bundling the built Worker itself, so it does not match `Total Upload` from a deploy. Compare each against its own history, never against the other.
+
+When a number looks wrong, walk the static-import closure from `dist/server/index.js` (skip `import(...)` — those are lazy) and total the bytes. A regression there is paid by every cold request, including ones that never touch your feature.
+
+## History
+
+Every deploy appends a row to `metrics/`: upload size to `*-deploy-size-history.jsonl`, and the startup profile above to `*-startup-profile-history.jsonl` (sizes in bytes, timings in ms, keyed by `commitSha`/`runId` so the two join). CI runners are noisy — read the trend, not one row, and profile locally to find the cause.

@@ -161,85 +161,33 @@ jobs:
             );
 
       - name: Capture deploy size metrics
+        run: node scripts/record-deploy-size-metrics.mjs deploy-output.log
+
+      # Diagnostics, never a deploy gate: profiling reuses the build the e2e step produced.
+      - name: Profile Worker startup
+        id: startup-profile
+        continue-on-error: true
         run: |
-          node <<'NODE'
-          const fs = require("node:fs");
-          const path = require("node:path");
+          set -o pipefail
+          pnpm exec wrangler check startup -c dist/server/wrangler.json 2>&1 | tee startup-profile-output.log
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-          const log = fs.readFileSync("deploy-output.log", "utf8");
-          const sanitizedLog = log.replace(/\u001b\[[0-9;]*m/g, "");
-          const match = sanitizedLog.match(
-            /Total Upload:\s*([0-9.]+)\s*([KMGT]?i?B)(?:\s*\/\s*|\s+)(?:gzip|gzipped)\s*:\s*([0-9.]+)\s*([KMGT]?i?B)/i
-          );
+      - name: Capture startup profile metrics
+        if: ${{ steps.startup-profile.outcome == 'success' }}
+        continue-on-error: true
+        run: node scripts/record-startup-metrics.mjs startup-profile-output.log
 
-          if (!match) {
-            throw new Error("Could not find deploy size metrics in deploy output.");
-          }
-
-          const [, totalValueRaw, totalUnitRaw, gzipValueRaw, gzipUnitRaw] = match;
-
-          function toBytes(value, unit) {
-            const normalizedUnit = unit.toUpperCase();
-            const base = normalizedUnit.includes("IB") ? 1024 : 1000;
-            const powers = {
-              B: 0,
-              KB: 1,
-              MB: 2,
-              GB: 3,
-              TB: 4,
-              KIB: 1,
-              MIB: 2,
-              GIB: 3,
-              TIB: 4,
-            };
-
-            const power = powers[normalizedUnit];
-            if (power === undefined) {
-              throw new Error(`Unsupported size unit: ${unit}`);
-            }
-
-            return Math.round(Number(value) * base ** power);
-          }
-
-          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
-          const projectName = packageJson.name;
-          const metricsPath = path.join("metrics", `${projectName}-deploy-size-history.jsonl`);
-          const totalBytes = toBytes(totalValueRaw, totalUnitRaw);
-          const gzipBytes = toBytes(gzipValueRaw, gzipUnitRaw);
-          const now = new Date().toISOString();
-          const sha = (process.env.GITHUB_SHA ?? "").slice(0, 5);
-          const runId = process.env.GITHUB_RUN_ID ?? "";
-          const runNumber = process.env.GITHUB_RUN_NUMBER ?? "";
-          const branch = process.env.GITHUB_REF_NAME ?? "";
-
-          fs.mkdirSync(path.dirname(metricsPath), { recursive: true });
-          const line = JSON.stringify({
-            timestamp: now,
-            branch,
-            totalUploadRaw: `${totalValueRaw} ${totalUnitRaw}`,
-            gzipRaw: `${gzipValueRaw} ${gzipUnitRaw}`,
-            totalUploadBytes: totalBytes,
-            gzipBytes,
-            commitSha: sha,
-            runId,
-            runNumber,
-          });
-
-          fs.appendFileSync(metricsPath, `${line}\n`);
-          console.log(
-            `Recorded deploy size metrics for ${projectName}: total=${totalBytes}B gzip=${gzipBytes}B`
-          );
-          NODE
-
-      - name: Commit deploy size metrics
+      - name: Commit metrics
         if: ${{ success() }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add metrics/*-deploy-size-history.jsonl
+          git add metrics
           if git diff --cached --quiet; then
-            echo "No deploy size metrics changes to commit."
+            echo "No metrics changes to commit."
             exit 0
           fi
-          git commit -m "chore: record deploy size metrics [skip ci]"
+          git commit -m "chore: record deploy metrics [skip ci]"
           git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -16,7 +16,9 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "check:vinext": "vinext check",
+    "check:startup": "pnpm build && wrangler check startup -c dist/server/wrangler.json",
     "openapi:generate": "node scripts/generate-openapi.mjs",
+    "metrics:report": "node scripts/render-metrics-report.mjs",
     "typecheck": "tsc --noEmit",
     "deploy": "vinext-cloudflare deploy",
     "preview": "NEXT_PUBLIC_SITE_URL=http://localhost:8787 pnpm build && wrangler dev --port 8787 --host localhost:8787 ${WRANGLER_DEV_ARGS:-}",
@@ -104,8 +106,8 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.45.0",
-    "@cloudflare/vitest-pool-workers": "^0.16.14",
+    "@cloudflare/vite-plugin": "^1.50.0",
+    "@cloudflare/vitest-pool-workers": "^0.20.1",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "@types/lodash.throttle": "^4.1.9",
@@ -131,6 +133,6 @@
     "vinext": "1.0.0-beta.4",
     "vite": "^8.1.5",
     "vitest": "^4.1.10",
-    "wrangler": "^4.114.0"
+    "wrangler": "^4.118.0"
   }
 }
