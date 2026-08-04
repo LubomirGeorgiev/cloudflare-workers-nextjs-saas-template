@@ -15,7 +15,7 @@ export function getStripe() {
   }
 
   stripeInstance = new Stripe(stripeSecretKey, {
-    apiVersion: "2026-06-24.dahlia",
+    apiVersion: "2026-07-29.dahlia",
     typescript: true,
     httpClient: Stripe.createFetchHttpClient()
   });

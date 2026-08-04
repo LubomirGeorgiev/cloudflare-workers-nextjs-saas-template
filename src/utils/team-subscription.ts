@@ -33,7 +33,9 @@ function getSubscriptionPeriodEnd(anchorItem: Stripe.SubscriptionItem | null): D
 
 // Narrows Stripe's recurring interval (day/week/month/year) to the two the app sells.
 function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): BillingInterval | null {
-  const interval = anchorItem?.price?.recurring?.interval;
+  // Stripe types recurring.interval as an open enum (`… | OtherString`), which blocks
+  // literal narrowing; comparing as a plain string restores it.
+  const interval: string | undefined = anchorItem?.price?.recurring?.interval;
   return interval === "month" || interval === "year" ? interval : null;
 }
 
