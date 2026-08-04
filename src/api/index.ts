@@ -12,7 +12,7 @@ import { memberRoutes } from "@/api/routes/members";
 import { meRoutes } from "@/api/routes/me";
 import { teamRoutes } from "@/api/routes/teams";
 import type { ApiApp, ApiEnv } from "@/api/types";
-import { API_V1_BASE_PATH } from "@/constants";
+import { API_OPENAPI_SPEC_METHODS, API_V1_BASE_PATH } from "@/constants";
 
 const OPENAPI_ROUTE = "/openapi.json";
 
@@ -40,13 +40,13 @@ function createApiApp(): ApiApp {
 
   // Registered before the auth middleware on purpose: Hono only applies middleware to routes
   // registered after it, which is what keeps the discovery document publicly readable.
-  // The prebuilt bytes go out verbatim: `c.json` would re-serialize the whole document per request.
-  app.get(OPENAPI_ROUTE, async (c) => {
+  // The same methods the Worker's edge fast path answers, so the two surfaces agree.
+  app.on([...API_OPENAPI_SPEC_METHODS], OPENAPI_ROUTE, async () => {
     // Lazy so this app never statically reaches the document the generator builds *from* this app,
     // and so no other route evaluates those bytes.
-    const { apiDocumentJson } = await import("@/api/generated-document");
+    const { apiDocumentResponse } = await import("@/api/generated-document");
 
-    return c.body(apiDocumentJson, 200, { "content-type": "application/json" });
+    return apiDocumentResponse();
   });
 
   app.use("*", apiAuth);

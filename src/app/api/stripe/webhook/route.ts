@@ -31,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
 
   let event: Stripe.Event;
   try {
-    event = await getStripe().webhooks.constructEventAsync(
+    event = await (await getStripe()).webhooks.constructEventAsync(
       body,
       signature,
       secret,

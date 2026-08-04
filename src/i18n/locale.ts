@@ -4,7 +4,6 @@ import { cookies, headers } from "next/headers";
 
 import { I18N_ENABLED } from "@/constants";
 import { getBearerPrincipal } from "@/lib/api/principal";
-import { getCurrentSession } from "@/utils/auth";
 import {
   DEFAULT_LOCALE,
   ENABLED_LOCALES,
@@ -73,6 +72,11 @@ export async function getUserLocale(): Promise<Locale> {
   if (isSupportedLocale(fromCookie)) {
     return fromCookie;
   }
+
+  // Never a module-scope import: the Worker entry reaches this file through next-intl's request
+  // config, and `@/utils/auth` drags the session/D1 layer — the whole Drizzle schema — onto every
+  // cold isolate. `getBearerPrincipal` stays static; it is type-only against kv-session.
+  const { getCurrentSession } = await import("@/utils/auth");
 
   // Authenticated users fall back to their stored preference before header negotiation.
   const session = await getCurrentSession();

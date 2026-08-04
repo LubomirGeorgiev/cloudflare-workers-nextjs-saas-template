@@ -67,8 +67,8 @@ export interface TrialSubscriptionStripe {
   };
 }
 
-function resolveStripe(stripe?: TrialSubscriptionStripe): TrialSubscriptionStripe {
-  return stripe ?? (getStripe() as unknown as TrialSubscriptionStripe);
+async function resolveStripe(stripe?: TrialSubscriptionStripe): Promise<TrialSubscriptionStripe> {
+  return stripe ?? ((await getStripe()) as unknown as TrialSubscriptionStripe);
 }
 
 // Reservation-derived key so retries of THIS reservation converge on whatever Stripe did:
@@ -103,7 +103,7 @@ function stripeErrorName(error: unknown): string {
 // (reservation released, error rethrown) / ambiguous (reservation retained for recovery).
 export async function completeTrialSubscription(params: CompleteTrialSubscriptionParams): Promise<void> {
   const { teamId, userId, actingUserEmail, planId, interval, setupIntentId, trialDays } = params;
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const db = getDB();
 
   const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
@@ -227,7 +227,7 @@ export async function settleStaleTrialReservations({
   // Injectable for tests; defaults to the shared Stripe client.
   stripe?: TrialSubscriptionStripe;
 } = {}): Promise<number> {
-  const client = resolveStripe(stripe);
+  const client = await resolveStripe(stripe);
   const stale = await findStaleTrialReservations({
     createdBefore: new Date(now.getTime() - STALE_RESERVATION_AGE_MS),
     recoveredBefore: new Date(now.getTime() - RECOVERY_RETRY_INTERVAL_MS),

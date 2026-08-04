@@ -16,8 +16,8 @@ const { searchDocsRoutes } = await import("@/lib/cms/docs-route-search");
 const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 const SEARCH_LIMIT = 8;
 
-function docsNamespace({ locale, namespace }: { locale: Locale; namespace: string }): MessageTree {
-  const client = loadMessages(locale).Client as MessageTree;
+async function docsNamespace({ locale, namespace }: { locale: Locale; namespace: string }): Promise<MessageTree> {
+  const client = (await loadMessages(locale)).Client as MessageTree;
   const docs = client.Docs as MessageTree;
 
   return docs[namespace] as MessageTree;
@@ -47,7 +47,7 @@ describe("docs route search", () => {
 
   test("a title hit is a strong match and carries the page path", async () => {
     const mcpRoute = INDEXED_DOCS_ROUTES.find((route) => route.id === "mcpGuide");
-    const title = docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Mcp" }).title as string;
+    const title = (await docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Mcp" })).title as string;
 
     const [result] = await search({ query: title });
 
@@ -57,7 +57,7 @@ describe("docs route search", () => {
   });
 
   test("matches prose inside a section body, snippeting around the hit", async () => {
-    const auth = docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Auth" });
+    const auth = await docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Auth" });
     const bodyWords = (auth.keysBody as string).split(" ");
     const query = bodyWords.slice(4, 7).join(" ");
 
@@ -68,7 +68,7 @@ describe("docs route search", () => {
   });
 
   test("indexes error codes, which are keys rather than values in the catalog", async () => {
-    const codes = docsNamespace({ locale: DEFAULT_LOCALE, namespace: "ApiErrors" })
+    const codes = (await docsNamespace({ locale: DEFAULT_LOCALE, namespace: "ApiErrors" }))
       .codes as MessageTree;
     const [code] = Object.keys(codes);
 
@@ -78,7 +78,7 @@ describe("docs route search", () => {
   });
 
   test("every query token has to match, like the FTS5 query", async () => {
-    const title = docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Mcp" }).title as string;
+    const title = (await docsNamespace({ locale: DEFAULT_LOCALE, namespace: "Mcp" })).title as string;
 
     await expect(search({ query: `${title} zzzznotinanycatalog` })).resolves.toEqual([]);
   });
@@ -94,7 +94,7 @@ describe("docs route search", () => {
   });
 
   test("searches the active locale's copy", async () => {
-    const translatedTitle = docsNamespace({ locale: NON_DEFAULT_LOCALE, namespace: "Mcp" })
+    const translatedTitle = (await docsNamespace({ locale: NON_DEFAULT_LOCALE, namespace: "Mcp" }))
       .title as string;
 
     const [result] = await search({ query: translatedTitle, locale: NON_DEFAULT_LOCALE });

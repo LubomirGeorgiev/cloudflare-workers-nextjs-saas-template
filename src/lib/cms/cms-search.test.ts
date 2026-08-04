@@ -45,8 +45,8 @@ const CMS_SEARCH_ROW = {
 };
 
 /** The MCP page's own title, so the query stays right whatever a fork renames it to. */
-function mcpTitle(): string {
-  const client = loadMessages(DEFAULT_LOCALE).Client as MessageTree;
+async function mcpTitle(): Promise<string> {
+  const client = (await loadMessages(DEFAULT_LOCALE)).Client as MessageTree;
   const docs = client.Docs as MessageTree;
 
   return (docs.Mcp as MessageTree).title as string;
@@ -166,7 +166,7 @@ describe("CMS search", () => {
 
     const mcpRoute = INDEXED_DOCS_ROUTES.find((route) => route.id === "mcpGuide");
     const results = await searchDocs({
-      query: mcpTitle(),
+      query: await mcpTitle(),
       limit: 3,
       locale: DEFAULT_LOCALE,
     });

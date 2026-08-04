@@ -29,6 +29,9 @@ export const CURRENT_API_KEY_CACHE_VERSION = 2;
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
 export const API_V1_BASE_PATH = "/api/v1";
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
+// The document is a static read, so only the safe methods serve it. Shared by the Hono route and
+// the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.
+export const API_OPENAPI_SPEC_METHODS = ["GET", "HEAD"] as const;
 export const API_DOCS_PATH = "/docs/api";
 // Dereferenceable target of the RFC 9457 `type` member: one anchor per stable error code.
 export const API_ERRORS_DOCS_PATH = `${API_DOCS_PATH}/errors`;
@@ -44,6 +47,9 @@ export const API_VERSION = "1.0.0";
 export const OAUTH_AUTHORIZE_PATH = "/oauth/authorize";
 export const OAUTH_TOKEN_PATH = "/oauth/token";
 export const OAUTH_REGISTER_PATH = "/oauth/register";
+// The only methods issuance throttling charges. Shared by the gate that enforces it and the edge
+// pre-check in `worker-entrypoint.ts`, so widening it can never silently exempt the entrypoint.
+export const OAUTH_ISSUANCE_THROTTLED_METHODS: readonly string[] = ["POST"];
 // RFC 9728. Advertised on every 401 so MCP/OAuth clients can discover the authorization server.
 export const OAUTH_PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource";
 // Template kill-switch for open dynamic client registration (RFC 7591), like I18N_ENABLED.

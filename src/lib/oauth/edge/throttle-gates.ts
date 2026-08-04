@@ -5,6 +5,7 @@ import {
   chargeRateLimit,
   rateLimitProblemOrNull,
 } from "@/api/middleware/rate-limit";
+import { OAUTH_ISSUANCE_THROTTLED_METHODS } from "@/constants";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit-headers";
 import {
   ISSUANCE_FAILURE_LOG,
@@ -26,7 +27,7 @@ export async function getIssuanceThrottleResponse({
   request: Request;
   pathname: string;
 }): Promise<Response | null> {
-  if (request.method !== "POST") {
+  if (!OAUTH_ISSUANCE_THROTTLED_METHODS.includes(request.method)) {
     return null;
   }
 

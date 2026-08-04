@@ -12,7 +12,17 @@ import type { OpenAPIV3_1 } from "openapi-types";
 // the build-time document is exactly what a runtime one would have been.
 
 /** The document as served: answering with these bytes costs no serialization. */
-export const apiDocumentJson: string = documentJson;
+const apiDocumentJson: string = documentJson;
+
+/**
+ * The one response for the document, so the Worker's edge fast path and the Hono route below it
+ * cannot drift apart on status or headers.
+ */
+export function apiDocumentResponse(): Response {
+  return new Response(apiDocumentJson, {
+    headers: { "content-type": "application/json" },
+  });
+}
 
 let parsed: OpenAPIV3_1.Document | null = null;
 

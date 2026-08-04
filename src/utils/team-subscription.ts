@@ -111,7 +111,7 @@ export async function settleRecordedSubscription({
   teamId: string;
   recordedSubscriptionId: string;
 }): Promise<void> {
-  const stripe = getStripe();
+  const stripe = await getStripe();
 
   const existing = await stripe.subscriptions
     .retrieve(recordedSubscriptionId)
@@ -161,7 +161,7 @@ export async function ensureStripeCustomer({
     return team.stripeCustomerId;
   }
 
-  const customer = await getStripe().customers.create({
+  const customer = await (await getStripe()).customers.create({
     email: team.billingEmail ?? actingUserEmail ?? undefined,
     name: team.name,
     metadata: { teamId },
@@ -187,8 +187,8 @@ export async function ensureStripeCustomer({
 }
 
 // Keeps the Stripe customer's display name in step with the team name; a team without a
-// customer yet is a no-op. Async on purpose: callers run it as a post-commit follow-up, so a
-// synchronous getStripe() config throw must surface as a rejection they can catch.
+// customer yet is a no-op. Callers run it as a post-commit follow-up, so every failure —
+// including a missing-key config error — has to surface as a rejection they can catch.
 export async function syncStripeCustomerName({
   stripeCustomerId,
   name,
@@ -200,7 +200,7 @@ export async function syncStripeCustomerName({
     return;
   }
 
-  await getStripe().customers.update(stripeCustomerId, { name });
+  await (await getStripe()).customers.update(stripeCustomerId, { name });
 }
 
 // One free trial per team AND per user: the team stamp stops re-trialing the same team,

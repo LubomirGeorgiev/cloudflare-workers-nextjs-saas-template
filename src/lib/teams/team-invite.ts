@@ -102,7 +102,7 @@ export async function inviteUserToTeam({
   // Email content (not an error): translated here, in the inviter's locale. Must be the
   // request-free translator — this service also runs on the API/MCP path, where next-intl's
   // server API resolves to its client build and throws.
-  const t = getTranslator({ locale: inviterLocale, namespace: "Client.Dashboard.Teams" });
+  const t = await getTranslator({ locale: inviterLocale, namespace: "Client.Dashboard.Teams" });
   const teamName = team.name as string || t("teamFallbackName");
 
   const inviter = {

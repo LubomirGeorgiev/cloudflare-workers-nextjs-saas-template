@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/config";
 import { loadMessages } from "@/i18n/load-messages";
 import type { MessageTree } from "@/i18n/message-catalogs";
 import { operationAnchorId, scopeOfOperation, walkOperations } from "@/lib/api/openapi-walk";
+import { lazyValue, lazyValueByKey } from "@/utils/lazy-value";
 import { hasPrefixMatch, tokenizeSearchQuery, tokenizeSearchText } from "./search-tokens";
 
 // ---------------------------------------------------------------------------
@@ -75,8 +76,10 @@ interface DocumentScore {
   isStrongMatch: boolean;
 }
 
-const routeDocumentsCache = new Map<Locale, DocsRouteSearchDocument[]>();
-let operationDocumentsPromise: Promise<DocsRouteSearchDocument[]> | null = null;
+// Built once per isolate — the route half per locale, the operation half shared; see
+// `lazyValueByKey`/`lazyValue` for the contract.
+const loadRouteDocuments = lazyValueByKey(buildRouteDocuments);
+const loadOperationDocuments = lazyValue(buildOperationDocuments);
 
 function* walkStringLeaves(tree: MessageTree): Generator<[string, string]> {
   for (const [key, value] of Object.entries(tree)) {
@@ -203,8 +206,8 @@ function lastPathSegment(pathname: string): string {
   return pathname.split("/").filter(Boolean).at(-1) ?? pathname;
 }
 
-function buildRouteDocuments(locale: Locale): DocsRouteSearchDocument[] {
-  const docsMessages = loadMessages(locale).Client as MessageTree | undefined;
+async function buildRouteDocuments(locale: Locale): Promise<DocsRouteSearchDocument[]> {
+  const docsMessages = (await loadMessages(locale)).Client as MessageTree | undefined;
   const namespaces = (docsMessages?.Docs ?? {}) as MessageTree;
 
   return INDEXED_DOCS_ROUTES.flatMap((route) => {
@@ -274,18 +277,12 @@ async function buildOperationDocuments(): Promise<DocsRouteSearchDocument[]> {
 }
 
 async function getSearchDocuments(locale: Locale): Promise<DocsRouteSearchDocument[]> {
-  const cachedRoutes = routeDocumentsCache.get(locale);
-  const routes = cachedRoutes ?? buildRouteDocuments(locale);
+  const [routes, operations] = await Promise.all([
+    loadRouteDocuments(locale),
+    loadOperationDocuments(),
+  ]);
 
-  if (!cachedRoutes) {
-    routeDocumentsCache.set(locale, routes);
-  }
-
-  // Memoize the promise, not the result: two concurrent searches in a cold isolate would otherwise
-  // both parse and rebuild the document.
-  operationDocumentsPromise ??= buildOperationDocuments();
-
-  return [...routes, ...(await operationDocumentsPromise)];
+  return [...routes, ...operations];
 }
 
 function scoreDocument({

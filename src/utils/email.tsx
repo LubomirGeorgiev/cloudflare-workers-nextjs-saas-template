@@ -7,7 +7,7 @@ import {
   SITE_DOMAIN,
 } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
-import { MESSAGE_CATALOGS } from "@/i18n/message-catalogs";
+import { loadCatalog } from "@/i18n/message-catalogs";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import {
@@ -19,8 +19,8 @@ import {
 import isProd from "./is-prod";
 
 // The queue consumer has no request context (no cookies/headers), so it can't
-// call getUserLocale()/getTranslations(). Keep catalogs statically registered so
-// the Worker bundle doesn't rely on Vite resolving an aliased variable import.
+// call getUserLocale()/getTranslations(). `loadCatalog` keeps one explicit `import()`
+// per locale, so the Worker bundle never resolves a variable import path.
 async function getEmailTranslator(locale: string) {
   // Resolve against the full catalog, not ENABLED_LOCALES: email language follows
   // the recipient's stored preference and is decoupled from public-route i18n, so a
@@ -29,7 +29,7 @@ async function getEmailTranslator(locale: string) {
     ? (locale as Locale)
     : DEFAULT_LOCALE;
 
-  const messages = MESSAGE_CATALOGS[resolvedLocale];
+  const messages = await loadCatalog(resolvedLocale);
 
   return {
     locale: resolvedLocale,

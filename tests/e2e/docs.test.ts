@@ -20,10 +20,10 @@ import {
   SITE_NAME,
 } from "../../src/constants";
 import { DEFAULT_LOCALE } from "../../src/i18n/config";
-import { MESSAGE_CATALOGS } from "../../src/i18n/message-catalogs";
+import { loadCatalog } from "../../src/i18n/message-catalogs";
 import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
-const defaultMessages = MESSAGE_CATALOGS[DEFAULT_LOCALE];
+const defaultMessages = await loadCatalog(DEFAULT_LOCALE);
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame(SEEDED_DOCS_ENTRY_PATH);

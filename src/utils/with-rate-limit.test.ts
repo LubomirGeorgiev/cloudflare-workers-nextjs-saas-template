@@ -61,6 +61,14 @@ describe("withRateLimit", () => {
     expect(RATE_LIMITS.API_ANON.windowInSeconds).toBe(RATE_LIMITS.API_AUTHED.windowInSeconds);
   });
 
+  // The asymmetry is deliberate, so it must not read as an oversight and get flattened: the authed
+  // bucket is charged on every successful request and keeps its counter write off the response
+  // path, while the anon bucket is the adversarial limit and a failed request can afford to wait.
+  test("defers the counter write only for the bucket on the happy path", () => {
+    expect(RATE_LIMITS.API_AUTHED.deferWrite).toBe(true);
+    expect(RATE_LIMITS.API_ANON).not.toHaveProperty("deferWrite");
+  });
+
   test("passes deferred write configuration to the rate limit checker", async () => {
     getIPMock.mockResolvedValue("203.0.113.10");
     checkRateLimitMock.mockResolvedValue({

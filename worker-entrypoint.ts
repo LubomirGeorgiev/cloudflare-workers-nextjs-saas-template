@@ -6,9 +6,11 @@
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import handler from "vinext/server/fetch-handler";
 import {
+  API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
   MCP_PATH,
+  OAUTH_ISSUANCE_THROTTLED_METHODS,
   OAUTH_REGISTER_PATH,
 } from "./src/constants";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
@@ -21,6 +23,8 @@ import {
 } from "./src/utils/trusted-client-ip";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./src/utils/request-protocol";
 
+const OPENAPI_SPEC_METHODS: ReadonlySet<string> = new Set(API_OPENAPI_SPEC_METHODS);
+
 function handleCustomEdge(pathname: string): Response | null {
   if (pathname === "/_worker/health") {
     return Response.json({ ok: true });
@@ -29,11 +33,11 @@ function handleCustomEdge(pathname: string): Response | null {
   return null;
 }
 
-// The OpenAPI document is deliberately readable without a credential (it is what agent clients
-// and the docs UI discover the API with). The provider rejects every `apiHandlers` request that
-// arrives without a bearer token, so this one path is routed to the Hono app ahead of it.
-function isUnauthenticatedApiPath(pathname: string): boolean {
-  return pathname === API_OPENAPI_SPEC_PATH;
+// The OpenAPI document is deliberately readable without a credential (it is what agent clients and
+// the docs UI discover the API with), and the provider rejects every credential-less `apiHandlers`
+// request — so only the methods the canonical route serves skip it; the rest fall through to it.
+function isOpenApiSpecRequest({ method, pathname }: { method: string; pathname: string }): boolean {
+  return pathname === API_OPENAPI_SPEC_PATH && OPENAPI_SPEC_METHODS.has(method);
 }
 
 // Everything the provider does not claim: the whole Next app, including our own consent page at
@@ -54,6 +58,14 @@ const mcpHandler = {
 const apiHandler = {
   fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
     (await import("./src/api")).apiApp.fetch(request, env, ctx),
+};
+
+// Reaching the document through `apiHandler` would build the whole Hono app — every router and the
+// services behind them, Stripe included — to serve prebuilt bytes. The app keeps its own
+// `/openapi.json` route for when it is mounted directly; both answer with the same producer.
+const openapiHandler = {
+  fetch: async (): Promise<Response> =>
+    (await import("./src/api/generated-document")).apiDocumentResponse(),
 };
 
 // Trailing slash is significant: the library prefix-matches API routes. `/mcp` is an exact
@@ -91,25 +103,32 @@ async function getThrottleGates() {
 
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const { pathname } = new URL(request.url);
+    const url = new URL(request.url);
+    const { pathname } = url;
 
     const early = handleCustomEdge(pathname);
     if (early) {
       return early;
     }
 
-    // Header normalization applies to every branch — including everything behind the OAuth
-    // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
-    const forwarded = withForwardedCfHeaders(request);
-
-    if (isUnauthenticatedApiPath(pathname)) {
-      return apiHandler.fetch(forwarded, env, ctx);
+    // Ahead of the header clone: the document is prebuilt bytes that depend on nothing in the
+    // request, so normalizing headers for it would be pure waste.
+    if (isOpenApiSpecRequest({ method: request.method, pathname })) {
+      return openapiHandler.fetch();
     }
 
-    const throttled = await (await getThrottleGates())
-      .getIssuanceThrottleResponse({ request: forwarded, pathname });
-    if (throttled) {
-      return throttled;
+    // Header normalization applies to every branch below — including everything behind the OAuth
+    // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
+    const forwarded = withForwardedCfHeaders({ request, url });
+
+    // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
+    // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.
+    if (OAUTH_ISSUANCE_THROTTLED_METHODS.includes(request.method)) {
+      const throttled = await (await getThrottleGates())
+        .getIssuanceThrottleResponse({ request: forwarded, pathname });
+      if (throttled) {
+        return throttled;
+      }
     }
 
     // The provider owns /oauth/token, /oauth/register, both discovery documents, and bearer
@@ -147,13 +166,14 @@ const worker = {
   },
 } satisfies ExportedHandler<Env, ScheduledQueueMessage>;
 
-// Only set here (never trusted from the inbound request) to prevent client spoofing.
-function withForwardedCfHeaders(request: Request): Request {
+// Only set here (never trusted from the inbound request) to prevent client spoofing. Takes the
+// already-parsed URL: the caller has one, and parsing is not free on a per-request path.
+function withForwardedCfHeaders({ request, url }: { request: Request; url: URL }): Request {
   const forwarded = new Request(request);
   forwarded.headers.delete(__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER);
   forwarded.headers.set(
     __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER,
-    new URL(request.url).protocol.slice(0, -1),
+    url.protocol.slice(0, -1),
   );
 
   for (const header of __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP) {

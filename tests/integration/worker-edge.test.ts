@@ -5,6 +5,7 @@ import { createExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
   OAUTH_AUTHORIZE_PATH,
@@ -75,17 +76,34 @@ describe("worker edge integration", () => {
     );
   });
 
-  // Machine clients need the contract before they have a credential, so this one path is routed
-  // to the Hono app ahead of the provider rather than being gated behind a bearer token.
-  test("the OpenAPI document stays readable without a credential", async () => {
+  // Machine clients need the contract before they have a credential, so the safe methods on this
+  // one path are answered at the edge rather than being gated behind a bearer token.
+  test.each([...API_OPENAPI_SPEC_METHODS])(
+    "the OpenAPI document stays readable without a credential (%s)",
+    async (method) => {
+      const response = await worker.fetch(
+        new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`, { method }),
+        env as Env,
+        createExecutionContext()
+      );
+
+      expect(innerFetchMock).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("application/json");
+    },
+  );
+
+  // The fast path must not widen the method contract the canonical Hono route publishes: anything
+  // it does not serve falls through to the provider's bearer check, exactly as before.
+  test("a write method on the OpenAPI path falls through to the credential check", async () => {
     const response = await worker.fetch(
-      new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`),
+      new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`, { method: "POST" }),
       env as Env,
       createExecutionContext()
     );
 
     expect(innerFetchMock).not.toHaveBeenCalled();
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(401);
   });
 
   test("the consent page falls through to the Next app handler", async () => {

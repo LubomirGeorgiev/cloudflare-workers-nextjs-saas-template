@@ -78,7 +78,7 @@ export async function handleStripeEvent(
     return;
   }
 
-  const client = stripe ?? (getStripe() as unknown as StripeSubscriptionFetcher);
+  const client = stripe ?? ((await getStripe()) as unknown as StripeSubscriptionFetcher);
 
   // Re-fetch the subscription so we always write Stripe's latest state (source of truth).
   let subscription: Stripe.Subscription;

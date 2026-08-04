@@ -11,23 +11,18 @@ vi.mock("./routing", async () => {
   return { routing: { locales: LOCALES } };
 });
 vi.mock("./message-catalogs", async () => {
-  const { DEFAULT_LOCALE, LOCALES } = await import("./config");
+  const { DEFAULT_LOCALE } = await import("./config");
 
-  return {
-    MESSAGE_CATALOGS: Object.fromEntries(
-      LOCALES.map((locale) => [
-        locale,
-        {
-          Client: {
-            Nav: {
-              home: locale === DEFAULT_LOCALE ? "Default home" : "Localized home",
-              ...(locale === DEFAULT_LOCALE ? { blog: "Default blog" } : {}),
-            },
-          },
-        },
-      ]),
-    ),
-  };
+  const catalogFor = (locale: string) => ({
+    Client: {
+      Nav: {
+        home: locale === DEFAULT_LOCALE ? "Default home" : "Localized home",
+        ...(locale === DEFAULT_LOCALE ? { blog: "Default blog" } : {}),
+      },
+    },
+  });
+
+  return { loadCatalog: async (locale: string) => catalogFor(locale) };
 });
 
 const nonDefaultLocale = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;

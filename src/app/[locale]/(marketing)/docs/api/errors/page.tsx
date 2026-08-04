@@ -7,7 +7,7 @@ import { PROBLEM_CODES, PROBLEM_BY_CODE, type ProblemCode } from "@/lib/api/erro
 import { FIELD_ERROR_CODES } from "@/lib/api/field-errors";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
-import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 import { DocsCrossLinks } from "../../_components/docs-cross-links";
 
 const INTERNAL_ERROR_STATUS = 500;
@@ -78,7 +78,7 @@ export default async function ApiErrorsDocsPage() {
   const problemCodes: CodeMeaning[] = PROBLEM_CODES.map((code: ProblemCode) => ({
     code,
     status: PROBLEM_BY_CODE[code]?.status ?? INTERNAL_ERROR_STATUS,
-    meaning: t(`codes.${code}`, RATE_LIMITS.API_AUTHED),
+    meaning: t(`codes.${code}`, rateLimitDocsValues(RATE_LIMITS.API_AUTHED)),
   }));
 
   // Same discipline for the field-level vocabulary: the published list is the source, so a code

@@ -172,7 +172,9 @@ describe("API rate limit middleware", () => {
         identifier: RATE_LIMITS.API_AUTHED.identifier,
         limit: RATE_LIMITS.API_AUTHED.limit,
         windowInSeconds: RATE_LIMITS.API_AUTHED.windowInSeconds,
-        deferWrite: undefined,
+        // Asserted true rather than read from the constant: the counter write staying off the
+        // happy path is the policy, not a budget a fork is expected to retune.
+        deferWrite: true,
       },
     });
   });

@@ -16,7 +16,7 @@ import { LOCALES, type Locale } from "@/i18n/config";
 import { buildApiReferenceView } from "@/lib/api/reference-model";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { buildAlternates } from "@/utils/i18n-metadata";
-import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 
 import { ApiOperation } from "./_components/api-operation";
 import { EMPTY_STATE_ATTRIBUTES, GROUP_FILTER_ATTRIBUTES } from "./_components/api-reference-dom";
@@ -56,7 +56,7 @@ export default async function ApiReferencePage() {
           <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            {t("rateLimit", RATE_LIMITS.API_AUTHED)}
+            {t("rateLimit", rateLimitDocsValues(RATE_LIMITS.API_AUTHED))}
           </p>
 
           <div className="flex flex-wrap items-center gap-2">

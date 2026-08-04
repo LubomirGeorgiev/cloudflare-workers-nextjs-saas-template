@@ -6,7 +6,7 @@ import { API_AUTH_DOCS_PATH, API_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
 import { API_SCOPES, type ApiScope } from "@/lib/api/scopes";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
-import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 import { DocsCrossLinks } from "../_components/docs-cross-links";
 
 export async function generateMetadata({
@@ -81,7 +81,7 @@ export default async function AuthenticationDocsPage() {
         {
           id: "rate-limits",
           title: t("limitsTitle"),
-          body: t("limitsBody", RATE_LIMITS.API_AUTHED),
+          body: t("limitsBody", rateLimitDocsValues(RATE_LIMITS.API_AUTHED)),
         },
       ]}
     />

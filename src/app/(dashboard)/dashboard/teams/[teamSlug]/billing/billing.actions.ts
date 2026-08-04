@@ -57,7 +57,7 @@ async function requireExistingSubscription(teamId: string) {
   await assertBillingEnabled();
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
 
-  const stripe = getStripe();
+  const stripe = await getStripe();
   const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
 
   if (!team?.stripeSubscriptionId) {
@@ -77,7 +77,7 @@ async function convergeOnWinningCheckout({
   teamId: string;
   losingSubscriptionId: string;
 }) {
-  const stripe = getStripe();
+  const stripe = await getStripe();
 
   await stripe.subscriptions.cancel(losingSubscriptionId).catch((error: unknown) => {
     // Unpaid incomplete subscriptions auto-expire on Stripe's side, so a failed
@@ -107,7 +107,7 @@ export const createSubscriptionAction = actionClient
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
-      const stripe = getStripe();
+      const stripe = await getStripe();
       const db = getDB();
 
       const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
@@ -196,7 +196,7 @@ export const startTrialSetupAction = actionClient
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
-      const stripe = getStripe();
+      const stripe = await getStripe();
 
       const trialDays = await resolveTrialDays({ teamId, planId, userId: session.user.id });
       if (trialDays <= 0) {
@@ -469,7 +469,7 @@ export const createBillingPortalSessionAction = actionClient
         // Stripe falls back to the account's default portal configuration.
         const portalConfigurationId = process.env.STRIPE_PORTAL_CONFIG_ID;
 
-        const portalSession = await getStripe().billingPortal.sessions.create({
+        const portalSession = await (await getStripe()).billingPortal.sessions.create({
           customer: team.stripeCustomerId,
           ...(portalConfigurationId ? { configuration: portalConfigurationId } : {}),
           return_url: `${SITE_URL}/dashboard/teams/${team.slug}/billing`,

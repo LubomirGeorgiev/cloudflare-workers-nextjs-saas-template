@@ -349,9 +349,9 @@ const BAR_MAX_THICKNESS = 24;
 const BAR_GAP = 2;
 const SPARK_POINTS = 12;
 const MOVERS_LIMIT = 8;
-// Cloudflare Workers Paid: 10 MiB compressed bundle, 400ms startup CPU.
+// Cloudflare Workers Paid: 10 MiB compressed bundle, 1s startup CPU (raised from 400ms in Oct 2025).
 const WORKER_GZIP_LIMIT_BYTES = 10 * 1024 * 1024;
-const STARTUP_CPU_LIMIT_MS = 400;
+const STARTUP_CPU_LIMIT_MS = 1000;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const DOT_RADIUS = 4;
@@ -409,7 +409,7 @@ const CHARTS = [
     kind: "line",
     unit: "ms",
     title: "Startup CPU time",
-    subtitle: "Active CPU time in the startup profile window. Cloudflare cuts off at 400ms.",
+    subtitle: "Active CPU time in the startup profile window. Cloudflare cuts off at 1s.",
     series: [
       { key: "startupActiveMs", label: "Active", slot: 1 },
       { key: "startupGcMs", label: "Garbage collection", slot: 2 },
@@ -1308,7 +1308,7 @@ function renderHero() {
   const latestStartup = [...deploys].reverse().find((row) => typeof row.startupActiveMs === "number");
   if (latestStartup) {
     heroRoot.append(meter({
-      label: "Startup CPU vs 400ms budget",
+      label: "Startup CPU vs 1s budget",
       value: latestStartup.startupActiveMs,
       limit: STARTUP_CPU_LIMIT_MS,
       note: formatMs(STARTUP_CPU_LIMIT_MS - latestStartup.startupActiveMs) + " of headroom in the startup budget",

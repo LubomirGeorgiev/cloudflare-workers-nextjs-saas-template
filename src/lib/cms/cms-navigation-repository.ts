@@ -21,6 +21,7 @@ import {
   normalizeCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
 import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
 import { generateSlug } from "@/utils/slugify";
 import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
@@ -166,8 +167,12 @@ function computeNodePath({
   };
 }
 
-function flattenTree(nodes: CmsNavigationTreeNode[]): CmsNavigationTreeNode[] {
-  return nodes.flatMap((node) => [node, ...flattenTree(node.children)]);
+// The one depth-first walk over a navigation tree — exported so callers outside this module
+// (sitemap, llms.txt) filter a flat list instead of hand-rolling a second traversal.
+export function flattenCmsNavigationTree(
+  nodes: CmsNavigationTreeNode[],
+): CmsNavigationTreeNode[] {
+  return nodes.flatMap((node) => [node, ...flattenCmsNavigationTree(node.children)]);
 }
 
 function buildTree({
@@ -210,28 +215,7 @@ function buildTree({
     })
   );
 
-  const roots: CmsNavigationTreeNode[] = [];
-
-  nodeMap.forEach((node) => {
-    if (node.parentId) {
-      const parent = nodeMap.get(node.parentId);
-      if (parent) {
-        parent.children.push(node);
-        return;
-      }
-    }
-
-    roots.push(node);
-  });
-
-  const sortNodes = (nodesToSort: CmsNavigationTreeNode[]) => {
-    nodesToSort.sort((left, right) => left.sortOrder - right.sortOrder);
-    nodesToSort.forEach((node) => sortNodes(node.children));
-  };
-
-  sortNodes(roots);
-
-  return roots;
+  return assembleNavigationTree(nodeMap);
 }
 
 function hydrateMissingResolvedPaths({
@@ -420,7 +404,7 @@ export async function getCmsNavigationRootPath({
     status: CMS_ENTRY_STATUS.PUBLISHED,
   });
 
-  const flatNodes = flattenTree(tree);
+  const flatNodes = flattenCmsNavigationTree(tree);
   return (
     flatNodes.find((node) => node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE)?.resolvedPath ?? null
   );
@@ -434,7 +418,7 @@ export function getCmsNavigationNodeByResolvedPath({
   nodes: CmsNavigationTreeNode[];
 }): CmsNavigationTreeNode | null {
   const normalizedPath = normalizeCmsResolvedPath(path);
-  return flattenTree(nodes).find((node) => node.resolvedPath === normalizedPath) ?? null;
+  return flattenCmsNavigationTree(nodes).find((node) => node.resolvedPath === normalizedPath) ?? null;
 }
 
 // Navigation attaches to the default-locale anchor row's `entryId`, but every locale sibling shares the
@@ -447,7 +431,7 @@ export function getCmsNavigationNodeByEntrySlug({
   slug: string;
   nodes: CmsNavigationTreeNode[];
 }): CmsNavigationTreeNode | null {
-  return flattenTree(nodes).find((node) => node.entry?.slug === slug) ?? null;
+  return flattenCmsNavigationTree(nodes).find((node) => node.entry?.slug === slug) ?? null;
 }
 
 export function getCmsNavigationAncestors({
@@ -457,7 +441,7 @@ export function getCmsNavigationAncestors({
   nodeId: string;
   nodes: CmsNavigationTreeNode[];
 }): CmsNavigationTreeNode[] {
-  const nodesById = new Map(flattenTree(nodes).map((node) => [node.id, node]));
+  const nodesById = new Map(flattenCmsNavigationTree(nodes).map((node) => [node.id, node]));
   const chain = getTreeAncestorChain({
     nodeId,
     nodesById,
@@ -476,7 +460,7 @@ export function getCmsNavigationPrevNext({
   previous: CmsNavigationTreeNode | null;
   next: CmsNavigationTreeNode | null;
 } {
-  const pageNodes = flattenTree(nodes).filter(
+  const pageNodes = flattenCmsNavigationTree(nodes).filter(
     (node) => node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE && node.entry
   );
   const currentIndex = pageNodes.findIndex((node) => node.id === currentNodeId);

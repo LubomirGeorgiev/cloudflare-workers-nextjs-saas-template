@@ -131,9 +131,14 @@ export const RATE_LIMITS = {
     identifier: "api-authed",
     limit: 300,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
+    // Deferred because this bucket is charged on the happy path of every authenticated request,
+    // and awaiting bought less than it cost: a KV write is only immediately visible at the PoP
+    // that made it, so the count is already up to 60s stale everywhere else either way.
+    deferWrite: true,
   },
   // Charged only when a request fails to authenticate, so credential spraying is bounded
-  // by IP without touching legitimate traffic.
+  // by IP without touching legitimate traffic. Deliberately NOT deferred, unlike API_AUTHED:
+  // this is the adversarial limit, and it costs a failed request nothing to await.
   API_ANON: {
     identifier: "api-anon",
     limit: 20,
@@ -162,6 +167,16 @@ export const RATE_LIMITS = {
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
 } as const;
+
+// Docs copy interpolates a bucket's budget, and `t()` values must be scalars — so the published
+// fields are named here rather than handing a whole config to the translator, which breaks the
+// moment a non-scalar knob like `deferWrite` is added.
+export function rateLimitDocsValues(config: RateLimitConfig): {
+  limit: number;
+  windowInSeconds: number;
+} {
+  return { limit: config.limit, windowInSeconds: config.windowInSeconds };
+}
 
 /** What a charged bucket has left, in the terms the `RateLimit-*` response headers state it. */
 export interface RateLimitSnapshot {

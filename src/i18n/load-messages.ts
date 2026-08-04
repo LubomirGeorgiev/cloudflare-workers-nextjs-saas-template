@@ -1,5 +1,6 @@
+import { lazyValueByKey } from "@/utils/lazy-value";
 import { DEFAULT_LOCALE, type Locale } from "./config";
-import { MESSAGE_CATALOGS, type MessageTree } from "./message-catalogs";
+import { loadCatalog, type MessageTree } from "./message-catalogs";
 
 function isMessageTree(value: unknown): value is MessageTree {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -29,29 +30,24 @@ function mergeMessagesWithFallback({
   return merged;
 }
 
-// The catalogs are static module imports, so the merged tree for a given locale never
-// changes within a Worker isolate. Cache it to avoid re-merging the full tree on every
-// request; the isolate is reused across requests, so this runs at most once per locale.
-const mergedMessagesCache = new Map<Locale, MessageTree>();
+// The merged tree for a locale never changes within an isolate, so it is built once per locale and
+// held; see `lazyValueByKey` for the contract.
+//
+// Async because the catalogs are `import()`ed per locale — a statically imported catalog is
+// startup cost on every isolate. Deliberately free of `next-intl/server` and `next/headers`: the
+// API and MCP entrypoints run outside the App Router graph, where importing either one throws.
+export const loadMessages = lazyValueByKey(buildMessages);
 
-// Deliberately free of `next-intl/server` and `next/headers`: the API and MCP entrypoints run
-// outside the App Router graph, where importing either one throws (see `getTranslator`).
-export function loadMessages(locale: Locale): MessageTree {
-  const messages = MESSAGE_CATALOGS[locale];
+// A non-default locale also loads DEFAULT_LOCALE, which the fallback merge needs; the default
+// locale itself loads exactly one catalog.
+async function buildMessages(locale: Locale): Promise<MessageTree> {
+  const messages = await loadCatalog(locale);
   if (locale === DEFAULT_LOCALE) {
     return messages;
   }
 
-  const cached = mergedMessagesCache.get(locale);
-  if (cached) {
-    return cached;
-  }
-
-  const merged = mergeMessagesWithFallback({
-    fallbackMessages: MESSAGE_CATALOGS[DEFAULT_LOCALE],
+  return mergeMessagesWithFallback({
+    fallbackMessages: await loadCatalog(DEFAULT_LOCALE),
     messages,
   });
-  mergedMessagesCache.set(locale, merged);
-
-  return merged;
 }
