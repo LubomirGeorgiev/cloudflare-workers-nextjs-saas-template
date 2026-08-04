@@ -3,6 +3,8 @@ import path from "node:path";
 
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const METRICS_DIR = "metrics";
+// Kept from when sizes were the only metric: renaming it would orphan the recorded history.
+export const HISTORY_SUFFIX = "deploy-size-history";
 const SIZE_UNIT_POWERS = {
   B: 0,
   KB: 1,
@@ -97,17 +99,18 @@ export function parseStartupProfileMetrics(log) {
   });
   const [, bundleValue, bundleUnit, gzipValue, gzipUnit] = bundleMatch;
 
+  // Startup fields share one history row with the deploy sizes, so they carry a prefix.
   return {
-    bundleRaw: `${bundleValue} ${bundleUnit}`,
-    gzipRaw: `${gzipValue} ${gzipUnit}`,
-    bundleBytes: toBytes(bundleValue, bundleUnit),
-    gzipBytes: toBytes(gzipValue, gzipUnit),
-    profileWindowMs: matchDurationMs(sanitizedLog, "Profile window"),
-    sampledMs: matchDurationMs(sanitizedLog, "Sampled time"),
-    activeMs: Number(activeMatch[1]),
-    gcMs: activeMatch[2] === undefined ? null : Number(activeMatch[2]),
-    idleMs: matchDurationMs(sanitizedLog, "Idle"),
-    samples: Number(samplesMatch[1]),
+    startupBundleRaw: `${bundleValue} ${bundleUnit}`,
+    startupGzipRaw: `${gzipValue} ${gzipUnit}`,
+    startupBundleBytes: toBytes(bundleValue, bundleUnit),
+    startupGzipBytes: toBytes(gzipValue, gzipUnit),
+    startupProfileWindowMs: matchDurationMs(sanitizedLog, "Profile window"),
+    startupSampledMs: matchDurationMs(sanitizedLog, "Sampled time"),
+    startupActiveMs: Number(activeMatch[1]),
+    startupGcMs: activeMatch[2] === undefined ? null : Number(activeMatch[2]),
+    startupIdleMs: matchDurationMs(sanitizedLog, "Idle"),
+    startupSamples: Number(samplesMatch[1]),
   };
 }
 
@@ -122,11 +125,11 @@ export function readRunIdentity(env = process.env) {
 }
 
 /**
- * History files are named after the package so a fork records under its own name.
+ * One row per deploy in one history file, named after the package so a fork records under its own name.
  */
-export function appendMetricsEntry({ historySuffix, metrics }) {
+export function appendMetricsEntry({ metrics }) {
   const { name: projectName } = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  const metricsPath = path.join(METRICS_DIR, `${projectName}-${historySuffix}.jsonl`);
+  const metricsPath = path.join(METRICS_DIR, `${projectName}-${HISTORY_SUFFIX}.jsonl`);
   const { timestamp, branch, ...runIdentity } = readRunIdentity();
 
   fs.mkdirSync(path.dirname(metricsPath), { recursive: true });

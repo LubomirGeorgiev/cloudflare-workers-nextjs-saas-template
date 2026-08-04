@@ -2,6 +2,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { HISTORY_SUFFIX } from "./utils/metrics.mjs";
+
 const METRICS_DIR = "metrics";
 const REPORT_SUFFIX = "metrics-report";
 const SHORT_SHA_LENGTH = 5;
@@ -11,17 +13,15 @@ function readProjectName() {
   return JSON.parse(fs.readFileSync("package.json", "utf8")).name;
 }
 
-const DATASETS = [
-  {
-    id: "deploySize",
-    historySuffix: "deploy-size-history",
-    fields: ["totalUploadBytes", "gzipBytes"],
-  },
-  {
-    id: "startup",
-    historySuffix: "startup-profile-history",
-    fields: ["bundleBytes", "gzipBytes", "activeMs", "gcMs", "idleMs", "sampledMs", "samples"],
-  },
+const METRIC_FIELDS = [
+  "totalUploadBytes",
+  "gzipBytes",
+  "startupBundleBytes",
+  "startupGzipBytes",
+  "startupActiveMs",
+  "startupGcMs",
+  "startupIdleMs",
+  "startupSampledMs",
 ];
 
 const RANGES = [
@@ -67,8 +67,8 @@ function readCommitSubjects() {
   return subjects;
 }
 
-function readDataset({ historySuffix, fields }, subjects) {
-  const historyPath = path.join(METRICS_DIR, `${readProjectName()}-${historySuffix}.jsonl`);
+function readHistory(subjects) {
+  const historyPath = path.join(METRICS_DIR, `${readProjectName()}-${HISTORY_SUFFIX}.jsonl`);
 
   if (!fs.existsSync(historyPath)) {
     return [];
@@ -88,7 +88,7 @@ function readDataset({ historySuffix, fields }, subjects) {
         runNumber: entry.runNumber ?? "",
         branch: entry.branch ?? "",
       };
-      for (const field of fields) {
+      for (const field of METRIC_FIELDS) {
         if (typeof entry[field] === "number" && Number.isFinite(entry[field])) {
           row[field] = entry[field];
         }
@@ -358,7 +358,7 @@ const DOT_RADIUS = 4;
 const MARKER_RADIUS = 6;
 const MIN_BRUSH_PX = 8;
 
-const data = JSON.parse(document.getElementById("metrics-data").textContent);
+const history = JSON.parse(document.getElementById("metrics-data").textContent);
 const chartsRoot = document.getElementById("charts");
 const heroRoot = document.getElementById("hero");
 const zoomReset = document.getElementById("zoom-reset");
@@ -368,7 +368,6 @@ let zoom = null;
 const CHARTS = [
   {
     kind: "line",
-    dataset: "deploySize",
     unit: "bytes",
     title: "Worker upload size",
     subtitle: "Bytes uploaded to Cloudflare on every deploy, raw and gzipped.",
@@ -379,7 +378,6 @@ const CHARTS = [
   },
   {
     kind: "delta",
-    dataset: "deploySize",
     unit: "bytes",
     key: "totalUploadBytes",
     title: "Change per deploy",
@@ -387,7 +385,6 @@ const CHARTS = [
   },
   {
     kind: "movers",
-    dataset: "deploySize",
     unit: "bytes",
     key: "totalUploadBytes",
     title: "Biggest movers",
@@ -395,37 +392,33 @@ const CHARTS = [
   },
   {
     kind: "cadence",
-    dataset: "deploySize",
     title: "Deploy cadence",
     subtitle: "Deploys recorded per calendar week.",
   },
   {
     kind: "line",
-    dataset: "startup",
     unit: "bytes",
     title: "Startup bundle size",
     subtitle: "Bundle measured by wrangler check startup, raw and gzipped.",
     series: [
-      { key: "bundleBytes", label: "Bundle", slot: 1 },
-      { key: "gzipBytes", label: "Gzipped", slot: 2 },
+      { key: "startupBundleBytes", label: "Bundle", slot: 1 },
+      { key: "startupGzipBytes", label: "Gzipped", slot: 2 },
     ],
   },
   {
     kind: "line",
-    dataset: "startup",
     unit: "ms",
     title: "Startup CPU time",
     subtitle: "Active CPU time in the startup profile window. Cloudflare cuts off at 400ms.",
     series: [
-      { key: "activeMs", label: "Active", slot: 1 },
-      { key: "gcMs", label: "Garbage collection", slot: 2 },
+      { key: "startupActiveMs", label: "Active", slot: 1 },
+      { key: "startupGcMs", label: "Garbage collection", slot: 2 },
     ],
   },
   {
     kind: "delta",
-    dataset: "startup",
     unit: "ms",
-    key: "activeMs",
+    key: "startupActiveMs",
     title: "Change in startup CPU",
     subtitle: "Active CPU time added or removed by each deploy, against the one before it.",
   },
@@ -1289,9 +1282,8 @@ function meter({ label, value, limit, unit, note }) {
 
 function renderHero() {
   heroRoot.replaceChildren();
-  const deploys = rowsInRange(data.deploySize);
-  const startup = rowsInRange(data.startup);
-  const latest = deploys[deploys.length - 1];
+  const deploys = rowsInRange(history);
+  const latest = [...deploys].reverse().find((row) => typeof row.gzipBytes === "number");
 
   if (!latest) {
     heroRoot.append(el("p", "empty", "No deploy metrics recorded yet."));
@@ -1313,13 +1305,13 @@ function renderHero() {
     note: formatBytes(WORKER_GZIP_LIMIT_BYTES - latest.gzipBytes) + " of headroom under the 10 MiB limit",
   }));
 
-  const latestStartup = [...startup].reverse().find((row) => typeof row.activeMs === "number");
+  const latestStartup = [...deploys].reverse().find((row) => typeof row.startupActiveMs === "number");
   if (latestStartup) {
     heroRoot.append(meter({
       label: "Startup CPU vs 400ms budget",
-      value: latestStartup.activeMs,
+      value: latestStartup.startupActiveMs,
       limit: STARTUP_CPU_LIMIT_MS,
-      note: formatMs(STARTUP_CPU_LIMIT_MS - latestStartup.activeMs) + " of headroom in the startup budget",
+      note: formatMs(STARTUP_CPU_LIMIT_MS - latestStartup.startupActiveMs) + " of headroom in the startup budget",
     }));
   }
 }
@@ -1339,10 +1331,9 @@ function render() {
   if (zoom) {
     zoomReset.textContent = "Reset zoom · " + formatDate(zoom.start) + " – " + formatDate(zoom.end);
   }
-  const cards = CHARTS.map((spec) => {
-    const rows = rowsInRange(data[spec.dataset] ?? []);
-    return rows.length === 0 ? null : RENDERERS[spec.kind](spec, rows);
-  }).filter(Boolean);
+  const rows = rowsInRange(history);
+  const cards = CHARTS.map((spec) => (rows.length === 0 ? null : RENDERERS[spec.kind](spec, rows)))
+    .filter(Boolean);
   chartsRoot.replaceChildren(...cards);
 }
 
@@ -1373,20 +1364,17 @@ render();
 
 const outputPath =
   process.argv[2] ?? path.join(METRICS_DIR, `${readProjectName()}-${REPORT_SUFFIX}.html`);
-const commitSubjects = readCommitSubjects();
-const data = Object.fromEntries(
-  DATASETS.map((dataset) => [dataset.id, readDataset(dataset, commitSubjects)])
-);
+const history = readHistory(readCommitSubjects());
 
-if (Object.values(data).every((rows) => rows.length === 0)) {
+if (history.length === 0) {
   throw new Error(`No metrics history found in ${METRICS_DIR}/. Deploy at least once first.`);
 }
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-fs.writeFileSync(outputPath, renderDocument(data));
+fs.writeFileSync(outputPath, renderDocument(history));
+
+const withStartup = history.filter((row) => typeof row.startupActiveMs === "number").length;
 
 console.log(
-  `Wrote ${outputPath} (${Object.entries(data)
-    .map(([id, rows]) => `${id}: ${rows.length} runs`)
-    .join(", ")}).`
+  `Wrote ${outputPath} (${history.length} deploys, ${withStartup} with startup profiles).`
 );

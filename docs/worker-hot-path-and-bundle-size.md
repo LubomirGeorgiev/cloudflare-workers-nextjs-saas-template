@@ -65,4 +65,6 @@ When a number looks wrong, walk the static-import closure from `dist/server/inde
 
 ## History
 
-Every deploy appends a row to `metrics/`: upload size to `*-deploy-size-history.jsonl`, and the startup profile above to `*-startup-profile-history.jsonl` (sizes in bytes, timings in ms, keyed by `commitSha`/`runId` so the two join). CI runners are noisy — read the trend, not one row, and profile locally to find the cause.
+Every deploy appends one row to `metrics/*-deploy-size-history.jsonl` via `scripts/record-metrics.mjs`: upload sizes at the top level, plus the startup profile above under `startup*` keys when profiling succeeded (sizes in bytes, timings in ms). CI runners are noisy — read the trend, not one row, and profile locally to find the cause.
+
+`pnpm metrics:report` renders that history to `metrics/*-metrics-report.html` — a self-contained page with size, per-deploy change, biggest-mover, cadence, and startup charts. Drag across a time chart to zoom every chart to that window; hovering a point names the commit.

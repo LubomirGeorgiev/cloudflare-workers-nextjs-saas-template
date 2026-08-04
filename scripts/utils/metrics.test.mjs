@@ -59,19 +59,27 @@ describe("parseDeploySizeMetrics", () => {
 });
 
 describe("parseStartupProfileMetrics", () => {
-  it("extracts bundle sizes and profile timings", () => {
+  it("extracts bundle sizes and profile timings under startup-prefixed keys", () => {
     expect(parseStartupProfileMetrics(STARTUP_OUTPUT)).toEqual({
-      bundleRaw: "6326.88 KiB",
-      gzipRaw: "1587.13 KiB",
-      bundleBytes: 6478725,
-      gzipBytes: 1625221,
-      profileWindowMs: 157.2,
-      sampledMs: 150.1,
-      activeMs: 25.1,
-      gcMs: 2.5,
-      idleMs: 125,
-      samples: 21,
+      startupBundleRaw: "6326.88 KiB",
+      startupGzipRaw: "1587.13 KiB",
+      startupBundleBytes: 6478725,
+      startupGzipBytes: 1625221,
+      startupProfileWindowMs: 157.2,
+      startupSampledMs: 150.1,
+      startupActiveMs: 25.1,
+      startupGcMs: 2.5,
+      startupIdleMs: 125,
+      startupSamples: 21,
     });
+  });
+
+  it("keeps startup keys disjoint from the deploy size keys they share a row with", () => {
+    const overlap = Object.keys(parseStartupProfileMetrics(STARTUP_OUTPUT)).filter((key) =>
+      Object.keys(parseDeploySizeMetrics(DEPLOY_OUTPUT)).includes(key)
+    );
+
+    expect(overlap).toEqual([]);
   });
 
   it("records a null gc time when nothing was collected", () => {
@@ -80,7 +88,7 @@ describe("parseStartupProfileMetrics", () => {
       "Active: 25.1 ms"
     );
 
-    expect(parseStartupProfileMetrics(withoutGc).gcMs).toBeNull();
+    expect(parseStartupProfileMetrics(withoutGc).startupGcMs).toBeNull();
   });
 
   it("throws when a timing line is missing", () => {

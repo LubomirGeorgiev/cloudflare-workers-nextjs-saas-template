@@ -160,9 +160,6 @@ jobs:
                 : "Cloudflare CDN cache purge requested"
             );
 
-      - name: Capture deploy size metrics
-        run: node scripts/record-deploy-size-metrics.mjs deploy-output.log
-
       # Diagnostics, never a deploy gate: profiling reuses the build the e2e step produced.
       - name: Profile Worker startup
         id: startup-profile
@@ -174,10 +171,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-      - name: Capture startup profile metrics
-        if: ${{ steps.startup-profile.outcome == 'success' }}
-        continue-on-error: true
-        run: node scripts/record-startup-metrics.mjs startup-profile-output.log
+      # One row per deploy: sizes always, startup timings when the profile above succeeded.
+      - name: Capture deploy metrics
+        run: node scripts/record-metrics.mjs deploy-output.log startup-profile-output.log
 
       - name: Commit metrics
         if: ${{ success() }}
