@@ -97,6 +97,7 @@ Homes: constants → `src/constants.ts` or `src/app/enums.ts`; utilities → `sr
 - Use dynamic loading for non-critical UI when useful. Use `nuqs` for URL search-param state. Declarative JSX, concise conditionals.
 - `src/proxy.ts` runs next-intl on every path `shouldLocalizePathname` accepts; its `config.matcher` only drops framework internals. When adding a new top-level non-public/authed section outside `app/[locale]/` (like `/dashboard`), add its segment to `NON_LOCALIZED_PATH_SEGMENTS` in `src/i18n/localized-paths.ts` — `localized-paths.test.ts` walks `src/app/` and fails if you forget. Public pages need no change.
 - Redirect targets outside `app/[locale]/` (`/markdown/*`, and anything else in that segment list) must use `redirect` from `next/navigation`, never the localized `redirect` from `@/i18n/navigation` — a locale prefix on a non-localized route 404s.
+- `src/app/(admin)/` is deliberately English-only: it is staff tooling, so literal copy there is the convention, not an oversight — do not "fix" it or open findings against it. Everything a customer can reach (marketing, auth, `(dashboard)`, `(settings)`, emails) must go through next-intl with a row in every locale catalog. Shared components used by both, like `src/components/data-table.tsx` and `src/components/ui/*`, follow the customer-facing rule.
 - Tailwind, Shadcn UI, and Base UI, consistent with the existing design system. Responsive, mobile-first, light/dark mode. A `container` class always pairs with `mx-auto`.
 
 ## Authentication
