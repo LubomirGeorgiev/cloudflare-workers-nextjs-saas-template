@@ -53,6 +53,23 @@ export async function redirectToSignIn(returnTo?: string): Promise<never> {
   return redirect({ href, locale });
 }
 
+// Team sections live at /dashboard/teams/[teamSlug]/<section>. Thin nav routes like
+// /dashboard/billing stay team-agnostic by resolving the session's selected team here.
+export async function redirectToSelectedTeamPage(section: string): Promise<never> {
+  const session = await getCurrentSession();
+  if (!session) {
+    return redirectToSignIn(`/dashboard/${section}`);
+  }
+
+  const teams = session.teams ?? [];
+  const selectedTeam = teams.find((team) => team.id === session.selectedTeam) ?? teams[0];
+  if (!selectedTeam) {
+    nextRedirect("/dashboard/teams");
+  }
+
+  return nextRedirect(`/dashboard/teams/${selectedTeam.slug}/${section}` as Route);
+}
+
 export async function redirectAuthenticatedUser({
   redirectPath,
   shouldRedirect,
