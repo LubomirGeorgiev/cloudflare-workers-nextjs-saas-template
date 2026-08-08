@@ -7,7 +7,6 @@ import { ApiKeySecretReveal } from "@/components/api-keys/api-key-secret-reveal"
 import { CreateApiKeyForm } from "@/components/api-keys/create-api-key-form";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 
 // Two disjoint bodies, one dialog: the form until a key exists, then the one-time secret reveal.
 // This component owns only that switch and the open/close lifecycle.
@@ -27,8 +26,8 @@ export function CreateApiKeyDialog({ teamId }: { teamId?: string }) {
       <DialogTrigger render={<Button className="w-full sm:w-auto" />}>
         {t("createButton")}
       </DialogTrigger>
-      {/* The reveal carries the connect guide, which needs the room the form does not. */}
-      <DialogContent className={cn("sm:max-w-lg", createdSecret && "sm:max-w-2xl")}>
+      {/* Both bodies need the room: the two-column scope grid, then the connect guide. */}
+      <DialogContent className="sm:max-w-2xl">
         {createdSecret ? (
           <ApiKeySecretReveal secret={createdSecret} onDone={close} />
         ) : (

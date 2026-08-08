@@ -44,7 +44,7 @@ export function ConsentClient({
   userEmail,
 }: ConsentClientProps) {
   const t = useTranslations("Client.OAuth");
-  const tScopes = useTranslations("Client.OAuth.Scopes");
+  const tScopes = useTranslations("Client.ApiScopes");
   const [isLeaving, setIsLeaving] = useState(false);
 
   const { execute, status } = useAction(decideConsentAction, {

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { revokeApiKeyAction } from "@/actions/api-key-actions";
+import { ApiScopeGrid } from "@/components/api-scope-grid";
 import { CreateApiKeyDialog } from "@/components/api-keys/create-api-key-dialog";
 import { EditApiKeyScopesDialog } from "@/components/api-keys/edit-api-key-scopes-dialog";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
@@ -105,12 +106,9 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {apiKey.scopes.map((scope) => (
-                  <Badge key={scope} variant="secondary" className="font-mono text-xs">
-                    {scope}
-                  </Badge>
-                ))}
+              <CardContent className="border-t pt-4">
+                <p className="text-xs font-medium text-muted-foreground">{t("scopesLabel")}</p>
+                <ApiScopeGrid scopes={apiKey.scopes} className="mt-3" />
               </CardContent>
             </Card>
           ))}

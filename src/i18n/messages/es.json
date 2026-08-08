@@ -4,6 +4,18 @@
       "cancel": "Cancelar",
       "copied": "Copiado"
     },
+    "ApiScopes": {
+      "profile:read": "Leer el perfil, las sesiones y las preferencias de tu cuenta.",
+      "profile:write": "Actualizar el perfil de tu cuenta y revocar tus sesiones.",
+      "teams:read": "Listar los equipos a los que perteneces y leer sus detalles.",
+      "teams:write": "Crear equipos y cambiar los detalles de los equipos.",
+      "members:read": "Listar los miembros de tus equipos.",
+      "members:write": "Cambiar y eliminar miembros de tus equipos.",
+      "invites:write": "Enviar y revocar invitaciones a tus equipos.",
+      "billing:read": "Leer el estado de suscripción y facturación de tus equipos.",
+      "api-keys:read": "Ver las claves de API de tu cuenta y cuándo se usaron por última vez.",
+      "api-keys:write": "Crear y revocar claves de API en tu cuenta."
+    },
     "LocaleSwitcher": {
       "label": "Idioma",
       "change": "Cambiar idioma"
@@ -955,6 +967,9 @@
         "nameLabel": "Nombre",
         "namePlaceholder": "p. ej. Script de despliegue",
         "scopesLabel": "Permisos",
+        "scopesSelectedCount": "{selected} de {total} seleccionados",
+        "selectAllScopes": "Seleccionar todo",
+        "clearAllScopes": "Quitar todo",
         "expiryLabel": "Caduca",
         "expiryNever": "Nunca",
         "expiryDays": "En {days} días",
@@ -991,19 +1006,7 @@
         "errorTeamLimitReached": "Este equipo puede tener como máximo {max} claves de API activas",
         "errorKeyNotFound": "Clave de API no encontrada",
         "errorTeamKeyOtherTeam": "Esta clave solo funciona con el equipo para el que se creó.",
-        "errorTeamKeyAccountOnly": "Esta clave solo funciona con su equipo, no con la configuración de la cuenta.",
-        "Scopes": {
-          "profile:read": "Leer el perfil, las sesiones y las preferencias de tu cuenta.",
-          "profile:write": "Actualizar el perfil de tu cuenta y revocar tus sesiones.",
-          "teams:read": "Listar los equipos a los que perteneces y leer sus detalles.",
-          "teams:write": "Crear equipos y cambiar los datos de los equipos.",
-          "members:read": "Listar los miembros de tus equipos.",
-          "members:write": "Cambiar y eliminar miembros de tus equipos.",
-          "invites:write": "Enviar y revocar invitaciones a tus equipos.",
-          "billing:read": "Leer el estado de suscripción y facturación de tus equipos.",
-          "api-keys:read": "Ver las claves de API de tu cuenta y cuándo se usaron por última vez.",
-          "api-keys:write": "Crear y revocar claves de API en tu cuenta."
-        }
+        "errorTeamKeyAccountOnly": "Esta clave solo funciona con su equipo, no con la configuración de la cuenta."
       },
       "ConnectedApps": {
         "title": "Apps conectadas",
@@ -1086,19 +1089,7 @@
       "toastDecisionError": "No se pudo completar la autorización",
       "errorMissingRedirect": "La aplicación no proporcionó una dirección de redirección, por lo que la solicitud no se puede completar",
       "invalidRequestTitle": "Esta solicitud de autorización no es válida",
-      "invalidRequestDescription": "La aplicación envió un cliente desconocido o una dirección de redirección que no ha registrado. Vuelve a la app e inténtalo de nuevo.",
-      "Scopes": {
-        "profile:read": "Leer el perfil, las sesiones y las preferencias de tu cuenta.",
-        "profile:write": "Actualizar el perfil de tu cuenta y revocar tus sesiones.",
-        "teams:read": "Ver los equipos a los que perteneces y sus detalles.",
-        "teams:write": "Crear equipos y cambiar los detalles de los equipos.",
-        "members:read": "Ver los miembros de tus equipos.",
-        "members:write": "Cambiar y eliminar miembros de tus equipos.",
-        "invites:write": "Enviar y revocar invitaciones a tus equipos.",
-        "billing:read": "Ver el estado de suscripción y facturación de tus equipos.",
-        "api-keys:read": "Ver las claves de API de tu cuenta y cuándo se usaron por última vez.",
-        "api-keys:write": "Crear y revocar claves de API en tu cuenta."
-      }
+      "invalidRequestDescription": "La aplicación envió un cliente desconocido o una dirección de redirección que no ha registrado. Vuelve a la app e inténtalo de nuevo."
     },
     "Mcp": {
       "title": "Conecta un agente de IA",
@@ -1117,6 +1108,16 @@
       "pasteUrl": "Pega esta URL en los ajustes de conectores del cliente.",
       "runCommand": "Ejecuta este comando.",
       "addToFile": "Añade esto a <code>{file}</code>."
+    },
+    "RestApi": {
+      "title": "Llama a la API REST",
+      "description": "La clave también es un token bearer para la API HTTP. Cada operación que puede llamar un agente es un endpoint REST normal, limitado a los mismos permisos.",
+      "baseUrlLabel": "URL base de la API",
+      "snippetHint": "Pruébalo. Devuelve la cuenta a la que pertenece la clave y ya incluye tu nueva clave.",
+      "placeholderNote": "Sustituye {placeholder} por una clave creada arriba.",
+      "copySnippet": "Copiar",
+      "referenceLink": "Ver la referencia de la API",
+      "specLink": "Documento OpenAPI"
     },
     "Admin": {
       "OAuthApps": {

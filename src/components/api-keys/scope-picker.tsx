@@ -3,6 +3,7 @@
 import { Check } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "@/components/ui/button";
 import { FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { API_SCOPES, API_SCOPE_NAMES, type ApiScope } from "@/lib/api/scopes";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ export function ScopePicker({
   onChange: (scopes: ApiScope[]) => void;
 }) {
   const t = useTranslations("Client.Settings.ApiKeys");
-  const tScopes = useTranslations("Client.Settings.ApiKeys.Scopes");
+  const tScopes = useTranslations("Client.ApiScopes");
 
   // Scope copy is translated where a catalog entry exists; forks that add their own scopes fall
   // back to the machine-facing description that also feeds the docs and consent screens.
@@ -36,10 +37,32 @@ export function ScopePicker({
     );
   }
 
+  // One control, both directions: the label follows what pressing it would do.
+  const areAllSelected = selectedScopes.length === API_SCOPE_NAMES.length;
+
   return (
     <FormItem>
-      <FormLabel>{t("scopesLabel")}</FormLabel>
-      <div className="grid max-h-64 gap-2 overflow-y-auto rounded-md border p-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <FormLabel>{t("scopesLabel")}</FormLabel>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {t("scopesSelectedCount", {
+              selected: selectedScopes.length,
+              total: API_SCOPE_NAMES.length,
+            })}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => onChange(areAllSelected ? [] : [...API_SCOPE_NAMES])}
+          >
+            {areAllSelected ? t("clearAllScopes") : t("selectAllScopes")}
+          </Button>
+        </div>
+      </div>
+      <div className="grid max-h-[24rem] gap-2 overflow-y-auto rounded-md border p-2 sm:grid-cols-2">
         {API_SCOPE_NAMES.map((scope) => (
           <ScopeToggle
             key={scope}

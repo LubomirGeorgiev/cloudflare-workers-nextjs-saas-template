@@ -28,7 +28,7 @@ export async function generateMetadata({
 // OpenAPI document; the descriptions reuse the settings catalog, with the same fallback the
 // create-key dialog uses for scopes a fork added without translating them.
 async function ScopeTable({ caption }: { caption: string }) {
-  const tScopes = await getTranslations("Client.Settings.ApiKeys.Scopes");
+  const tScopes = await getTranslations("Client.ApiScopes");
   const scopes = Object.keys(API_SCOPES) as ApiScope[];
 
   function describe(scope: ApiScope): string {

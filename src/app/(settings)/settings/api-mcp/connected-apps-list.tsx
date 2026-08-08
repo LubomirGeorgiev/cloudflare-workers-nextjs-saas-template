@@ -6,34 +6,18 @@ import { useAction } from "next-safe-action/hooks";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { ApiScopeGrid } from "@/components/api-scope-grid";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { isApiScope } from "@/lib/api/scopes";
 import type { ConnectedApp } from "@/lib/oauth/connected-apps";
 import { formatDate } from "@/utils/format-date";
 import { revokeConnectedAppAction } from "./api-mcp.actions";
 
-// Scopes read `resource:action`; brightening the action is what a user scans for when deciding
-// whether a grant is safe. Unknown shapes (no colon) render whole.
-function ScopeToken({ scope }: { scope: string }) {
-  const separator = scope.lastIndexOf(":");
-
-  return (
-    <span className="font-mono text-[11px] leading-none text-muted-foreground/70">
-      {separator === -1 ? scope : scope.slice(0, separator + 1)}
-      {separator === -1 ? null : (
-        <span className="font-medium text-foreground/70">{scope.slice(separator + 1)}</span>
-      )}
-    </span>
-  );
-}
-
 export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
   const t = useTranslations("Client.Settings.ConnectedApps");
-  const tScopes = useTranslations("Client.OAuth.Scopes");
   const locale = useLocale();
   const router = useRouter();
 
@@ -46,12 +30,6 @@ export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
       router.refresh();
     },
   });
-
-  // A grant can outlive the scope it was issued with (a fork may drop one), so an unknown name
-  // still renders — as itself — rather than blowing up the page.
-  function describeScope(scope: string): string {
-    return isApiScope(scope) && tScopes.has(scope) ? tScopes(scope) : scope;
-  }
 
   return (
     <div className="space-y-6">
@@ -105,14 +83,7 @@ export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
               </CardHeader>
               <CardContent className="border-t pt-4">
                 <p className="text-xs font-medium text-muted-foreground">{t("scopesLabel")}</p>
-                <ul className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {app.scopes.map((scope) => (
-                    <li key={scope} className="flex flex-col gap-1">
-                      <ScopeToken scope={scope} />
-                      <span className="text-sm leading-snug">{describeScope(scope)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <ApiScopeGrid scopes={app.scopes} className="mt-3" />
               </CardContent>
             </Card>
           ))}

@@ -77,7 +77,7 @@ export function EditApiKeyScopesDialog({ apiKey }: { apiKey: ApiKeySummary }) {
       <DialogTrigger render={<Button size="sm" variant="outline" className="w-full sm:w-auto" />}>
         {t("editScopes")}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("editScopesDialogTitle")}</DialogTitle>
           <DialogDescription>{t("editScopesDialogDescription")}</DialogDescription>

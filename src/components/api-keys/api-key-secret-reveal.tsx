@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Bot, Check, Copy } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { RestApiQuickstart } from "@/components/api-keys/rest-api-quickstart";
 import { ConnectAgentGuide } from "@/components/mcp/connect-agent-guide";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 
 /**
@@ -20,6 +22,7 @@ import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 export function ApiKeySecretReveal({ secret, onDone }: { secret: string; onDone: () => void }) {
   const t = useTranslations("Client.Settings.ApiKeys");
   const tCommon = useTranslations("Client.Common");
+  const tMcp = useTranslations("Client.Mcp");
   const { copy, hasCopied } = useCopyToClipboard();
 
   return (
@@ -34,8 +37,16 @@ export function ApiKeySecretReveal({ secret, onDone }: { secret: string; onDone:
       </div>
 
       {/* The only place a real secret is ever interpolated into a snippet. */}
-      <div className="max-h-[45vh] overflow-y-auto pr-1">
-        <ConnectAgentGuide apiKey={secret} defaultAuthFlavor="api-key" />
+      <div className="max-h-[45vh] space-y-6 overflow-y-auto pr-1">
+        <RestApiQuickstart apiKey={secret} />
+        <Separator />
+        <div className="space-y-3">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <Bot className="h-4 w-4 text-muted-foreground" />
+            {tMcp("title")}
+          </p>
+          <ConnectAgentGuide apiKey={secret} defaultAuthFlavor="api-key" />
+        </div>
       </div>
 
       <DialogFooter className="mt-4">

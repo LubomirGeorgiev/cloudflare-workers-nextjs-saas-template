@@ -4,6 +4,18 @@
       "cancel": "Cancel",
       "copied": "Copied"
     },
+    "ApiScopes": {
+      "profile:read": "Read your account profile, sessions, and preferences.",
+      "profile:write": "Update your account profile and revoke your sessions.",
+      "teams:read": "List the teams you belong to and read their details.",
+      "teams:write": "Create teams and change team details.",
+      "members:read": "List the members of your teams.",
+      "members:write": "Change and remove members of your teams.",
+      "invites:write": "Send and revoke invitations to your teams.",
+      "billing:read": "Read the subscription and billing status of your teams.",
+      "api-keys:read": "List the API keys on your account and when they were last used.",
+      "api-keys:write": "Create and revoke API keys on your account."
+    },
     "LocaleSwitcher": {
       "label": "Language",
       "change": "Change language"
@@ -955,6 +967,9 @@
         "nameLabel": "Name",
         "namePlaceholder": "e.g. Deployment script",
         "scopesLabel": "Scopes",
+        "scopesSelectedCount": "{selected} of {total} selected",
+        "selectAllScopes": "Select all",
+        "clearAllScopes": "Clear all",
         "expiryLabel": "Expires",
         "expiryNever": "Never",
         "expiryDays": "In {days} days",
@@ -991,19 +1006,7 @@
         "errorTeamLimitReached": "This team can have at most {max} active API keys",
         "errorKeyNotFound": "API key not found",
         "errorTeamKeyOtherTeam": "This key only works with the team it was created for.",
-        "errorTeamKeyAccountOnly": "This key only works with its team, not with account-level settings.",
-        "Scopes": {
-          "profile:read": "Read your account profile, sessions, and preferences.",
-          "profile:write": "Update your account profile and revoke your sessions.",
-          "teams:read": "List the teams you belong to and read their details.",
-          "teams:write": "Create teams and change team details.",
-          "members:read": "List the members of your teams.",
-          "members:write": "Change and remove members of your teams.",
-          "invites:write": "Send and revoke invitations to your teams.",
-          "billing:read": "Read the subscription and billing status of your teams.",
-          "api-keys:read": "List the API keys on your account and when they were last used.",
-          "api-keys:write": "Create and revoke API keys on your account."
-        }
+        "errorTeamKeyAccountOnly": "This key only works with its team, not with account-level settings."
       },
       "ConnectedApps": {
         "title": "Connected apps",
@@ -1086,19 +1089,7 @@
       "toastDecisionError": "Could not complete the authorization",
       "errorMissingRedirect": "The app did not provide a redirect address, so the request cannot be completed",
       "invalidRequestTitle": "This authorization request is not valid",
-      "invalidRequestDescription": "The application sent an unknown client or a redirect address it has not registered. Go back to the app and start again.",
-      "Scopes": {
-        "profile:read": "Read your account profile, sessions, and preferences.",
-        "profile:write": "Update your account profile and revoke your sessions.",
-        "teams:read": "List the teams you belong to and read their details.",
-        "teams:write": "Create teams and change team details.",
-        "members:read": "List the members of your teams.",
-        "members:write": "Change and remove members of your teams.",
-        "invites:write": "Send and revoke invitations to your teams.",
-        "billing:read": "Read the subscription and billing status of your teams.",
-        "api-keys:read": "List the API keys on your account and when they were last used.",
-        "api-keys:write": "Create and revoke API keys on your account."
-      }
+      "invalidRequestDescription": "The application sent an unknown client or a redirect address it has not registered. Go back to the app and start again."
     },
     "Mcp": {
       "title": "Connect an AI agent",
@@ -1117,6 +1108,16 @@
       "pasteUrl": "Paste this URL into the client's connector settings.",
       "runCommand": "Run this command.",
       "addToFile": "Add this to <code>{file}</code>."
+    },
+    "RestApi": {
+      "title": "Call the REST API",
+      "description": "The key is a bearer token for the HTTP API too. Every operation an agent can call is a plain REST endpoint, limited to the same scopes.",
+      "baseUrlLabel": "API base URL",
+      "snippetHint": "Try it. This returns the account the key belongs to, and already contains your new key.",
+      "placeholderNote": "Replace {placeholder} with a key created above.",
+      "copySnippet": "Copy",
+      "referenceLink": "Browse the API reference",
+      "specLink": "OpenAPI document"
     },
     "Admin": {
       "OAuthApps": {
