@@ -1,11 +1,13 @@
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
+import { AuthorizationError } from "@cloudflare/workers-oauth-provider";
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
 import { afterEach, expect, test, vi } from "vitest";
 
 import {
   OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+  OAUTH_AUTHORIZE_PATH,
   OAUTH_CLIENT_REGISTRATION_TTL_SECONDS,
   OAUTH_OPEN_DCR_ENABLED,
   OAUTH_REFRESH_TOKEN_TTL_SECONDS,
@@ -116,13 +118,25 @@ test("discovery and configuration keep OAuth storage on finite lifetimes", async
   expect(metadata.response_modes_supported).toEqual(["query"]);
   expect(metadata.grant_types_supported).toEqual(["authorization_code", "refresh_token"]);
 
-  await expect(
-    getOAuthHelpers().parseAuthRequest(
-      new Request(
-        `${ORIGIN}/oauth/authorize?response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`,
-      ),
+  // A resolvable client is a precondition: client_id and the registered redirect URI are validated
+  // before response_type, so CIMD stands one up without leaving a client KV record behind.
+  const clientId = `https://client.example.org/${uniqueId("implicit")}.json`;
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+    client_id: clientId,
+    client_name: "Implicit Flow Probe",
+    redirect_uris: [REDIRECT_URI],
+    token_endpoint_auth_method: "none",
+  })));
+
+  const implicitRequest = getOAuthHelpers().parseAuthRequest(
+    new Request(
+      `${ORIGIN}${OAUTH_AUTHORIZE_PATH}?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`,
     ),
-  ).rejects.toThrow("implicit grant flow is not enabled");
+  );
+
+  // Assert the RFC error code, not the prose: `description` is wire copy the library rewords.
+  await expect(implicitRequest).rejects.toBeInstanceOf(AuthorizationError);
+  await expect(implicitRequest).rejects.toMatchObject({ code: "unsupported_response_type" });
 });
 
 test("a CIMD lookup fetches metadata without creating a client KV record", async () => {

@@ -6,8 +6,11 @@ import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME, GOOGLE_OAUTH_STATE_COOKIE_NAME } from "@/constants";
 import { cookies } from "next/headers";
-import { getGoogleSSOClient } from "@/lib/sso/google-sso";
-import { decodeIdToken } from "arctic";
+import {
+  parseGoogleIdToken,
+  validateGoogleAuthorizationCode,
+  type GoogleIdTokenClaims,
+} from "@/lib/sso/google-sso";
 import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
 import { userTable } from "@/db/schema";
@@ -15,27 +18,6 @@ import { canSignUp, createAndStoreSession } from "@/utils/auth";
 import { isGoogleSSOEnabled } from "@/flags";
 import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
-
-type GoogleSSOResponse = {
-  // JWT issuer, usually https://accounts.google.com.
-  iss: string
-  // OAuth client id authorized for this token.
-  azp: string
-  // Intended OAuth client id audience.
-  aud: string
-  // Stable Google user id.
-  sub: string
-  email: string
-  email_verified: boolean
-  // Access token hash from the ID token.
-  at_hash: string
-  name: string
-  picture: string
-  given_name: string
-  family_name: string
-  iat: number
-  exp: number
-}
 
 export const googleSSOCallbackAction = actionClient
   .inputSchema(googleSSOCallbackSchema)
@@ -58,16 +40,24 @@ export const googleSSOCallbackAction = actionClient
         throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorInvalidState" });
       }
 
-      let tokens;
+      let idToken: string;
       try {
-        const google = getGoogleSSOClient();
-        tokens = await google.validateAuthorizationCode(input.code, cookieCodeVerifier);
+        idToken = await validateGoogleAuthorizationCode({
+          code: input.code,
+          codeVerifier: cookieCodeVerifier,
+        });
       } catch (error) {
         console.error("Google OAuth callback: Error validating authorization code", error);
         throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorInvalidCode" });
       }
 
-      const claims = decodeIdToken(tokens.idToken()) as GoogleSSOResponse;
+      let claims: GoogleIdTokenClaims;
+      try {
+        claims = parseGoogleIdToken(idToken);
+      } catch (error) {
+        console.error("Google OAuth callback: Rejected ID token", error);
+        throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorInvalidIdToken" });
+      }
 
       const googleAccountId = claims.sub;
       const avatarUrl = claims.picture;

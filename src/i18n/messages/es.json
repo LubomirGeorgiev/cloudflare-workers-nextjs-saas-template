@@ -204,7 +204,8 @@
         "errorNotEnabled": "El inicio de sesión con Google no está habilitado",
         "errorMissingCookies": "Faltan cookies requeridas",
         "errorInvalidState": "Parámetro de estado no válido",
-        "errorInvalidCode": "Código de autorización no válido"
+        "errorInvalidCode": "Código de autorización no válido",
+        "errorInvalidIdToken": "Token de inicio de sesión de Google no válido"
       }
     },
     "Docs": {

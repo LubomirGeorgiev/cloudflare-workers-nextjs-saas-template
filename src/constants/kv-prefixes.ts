@@ -20,8 +20,9 @@ export const APP_KV_PREFIXES = {
 } as const;
 
 /**
- * Owned by `@cloudflare/workers-oauth-provider` — never read or write these from app code, and
- * re-audit the library's key usage (including its `list()` prefixes) on every upgrade.
+ * Owned by `@cloudflare/workers-oauth-provider` — never read or write these from app code.
+ * `kv-prefixes.test.ts` scans the installed bundle and fails if an upgrade adds a key space, so the
+ * per-upgrade re-audit is automated rather than remembered.
  */
 export const OAUTH_RESERVED_KV_PREFIXES = [
   "client:",

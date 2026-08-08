@@ -2,8 +2,7 @@ import { getCurrentSession } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { redirect as nextRedirect } from "next/navigation";
 import { redirect } from "@/i18n/navigation";
-import { generateState, generateCodeVerifier } from "arctic";
-import { getGoogleSSOClient } from "@/lib/sso/google-sso";
+import { createGoogleAuthorizationURL, generateCodeVerifier, generateState } from "@/lib/sso/google-sso";
 import { cookies } from "next/headers";
 import {
   GOOGLE_OAUTH_STATE_COOKIE_NAME,
@@ -37,9 +36,7 @@ export async function GET() {
       const state = generateState();
       const codeVerifier = generateCodeVerifier();
 
-      const google = getGoogleSSOClient();
-
-      ssoRedirectUrl = google.createAuthorizationURL(state, codeVerifier, ["openid", "profile", "email"]);
+      ssoRedirectUrl = await createGoogleAuthorizationURL({ state, codeVerifier });
 
       const secure = await shouldUseSecureCookies();
       const cookieOptions = {

@@ -204,7 +204,8 @@
         "errorNotEnabled": "Google SSO is not enabled",
         "errorMissingCookies": "Missing required cookies",
         "errorInvalidState": "Invalid state parameter",
-        "errorInvalidCode": "Invalid authorization code"
+        "errorInvalidCode": "Invalid authorization code",
+        "errorInvalidIdToken": "Invalid Google sign in token"
       }
     },
     "Docs": {
