@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@atlaskit/pragmatic-drag-and-drop": "^1.8.1",
-    "@base-ui/react": "^1.6.0",
+    "@base-ui/react": "^1.7.0",
     "@cloudflare/workers-oauth-provider": "^0.8.2",
     "@floating-ui/react": "^0.27.16",
     "@hono/standard-validator": "^0.2.3",

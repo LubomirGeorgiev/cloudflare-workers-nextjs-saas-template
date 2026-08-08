@@ -2,6 +2,7 @@
 
 import NextLink from "next/link"
 import type { Route } from 'next'
+import type { MouseEventHandler } from "react"
 import { useTranslations } from "next-intl"
 import { ComponentIcon, Menu } from 'lucide-react'
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { DOCS_BASE_PATH } from "@/lib/cms/docs-config"
 import { ROLES_ENUM } from "@/app/enums"
 import { Link, usePathname } from "@/i18n/navigation"
 import LocaleSwitcher from "@/components/locale-switcher"
+import { useNavigateAfterClose } from "@/hooks/use-navigate-after-close"
 
 type NavItem = {
   labelKey: "home" | "blog" | "docs" | "settings" | "dashboard" | "adminPanel";
@@ -29,10 +31,13 @@ interface NavigationProps {
   hasDocsPages: boolean;
 }
 
-const ActionButtons = () => {
+interface ActionButtonsProps {
+  onNavigate?: MouseEventHandler<HTMLAnchorElement>;
+}
+
+const ActionButtons = ({ onNavigate }: ActionButtonsProps) => {
   const t = useTranslations("Client.Nav")
   const { session, isLoading } = useSessionStore()
-  const { setIsOpen } = useNavStore()
 
   if (isLoading) {
     return <Skeleton className="h-10 w-[80px] bg-primary" />
@@ -47,7 +52,7 @@ const ActionButtons = () => {
       href="/sign-in"
       prefetch={false}
       className={buttonVariants()}
-      onClick={() => setIsOpen(false)}
+      onClick={onNavigate}
     >
       {t("signIn")}
     </Link>
@@ -62,6 +67,7 @@ export function Navigation({
   const { session, isLoading } = useSessionStore()
   const { isOpen, setIsOpen } = useNavStore()
   const pathname = usePathname()
+  const { onNavigate, onOpenChangeComplete } = useNavigateAfterClose(() => setIsOpen(false))
   const isAdmin = session?.user?.role === ROLES_ENUM.ADMIN
 
   const docsPath = DOCS_BASE_PATH as Route
@@ -133,7 +139,11 @@ export function Navigation({
             <ActionButtons />
           </div>
           <div className="md:hidden flex items-center">
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <Sheet
+              open={isOpen}
+              onOpenChange={setIsOpen}
+              onOpenChangeComplete={onOpenChangeComplete}
+            >
               <SheetTrigger
                 render={<Button variant="ghost" size="icon" className="p-6" />}
               >
@@ -162,7 +172,7 @@ export function Navigation({
                                 "block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 no-underline transition-colors relative",
                                 isActiveLink(item.href) && "text-foreground"
                               )}
-                              onClick={() => setIsOpen(false)}
+                              onClick={onNavigate}
                             >
                               {t(item.labelKey)}
                             </ItemLink>
@@ -170,7 +180,7 @@ export function Navigation({
                         })}
                         <div className="flex items-center gap-3 px-3 pt-4">
                           <LocaleSwitcher />
-                          <ActionButtons />
+                          <ActionButtons onNavigate={onNavigate} />
                         </div>
                       </>
                     )}
