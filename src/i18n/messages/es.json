@@ -959,8 +959,8 @@
       },
       "ApiKeys": {
         "title": "Claves de API",
-        "description": "Las claves permiten que aplicaciones, scripts y agentes de IA actúen en tu nombre, limitados a los permisos que concedas.",
-        "teamDescription": "Las claves permiten que aplicaciones, scripts y agentes de IA actúen sobre este equipo, limitados a los permisos que concedas. Una clave de equipo solo funciona con este equipo, nunca con tu cuenta ni con tus otros equipos.",
+        "description": "Las claves permiten que aplicaciones, scripts y agentes de IA actúen en tu nombre, limitados a los permisos que concedas. Consulta la <link>referencia de la API</link> para ver todos los endpoints que pueden llamar.",
+        "teamDescription": "Las claves permiten que aplicaciones, scripts y agentes de IA actúen sobre este equipo, limitados a los permisos que concedas. Una clave de equipo solo funciona con este equipo, nunca con tu cuenta ni con tus otros equipos. Consulta la <link>referencia de la API</link> para ver todos los endpoints que pueden llamar.",
         "createButton": "Crear clave",
         "createDialogTitle": "Crear una clave de API",
         "createDialogDescription": "El secreto se muestra una sola vez, justo después de crearlo.",

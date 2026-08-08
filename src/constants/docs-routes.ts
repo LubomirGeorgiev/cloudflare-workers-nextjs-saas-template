@@ -12,7 +12,7 @@ import { DOCS_LLMS_TXT_PATH } from "@/lib/cms/docs-config";
 // navigation tree. The sidebar chrome, the mobile nav, the sitemap, and llms.txt all read this one
 // list. Data only — icons live with the (client) renderer, prose with each machine surface.
 //
-// Order encodes narrative → reference → machine endpoint: the CMS tree renders above this list, so
+// Order encodes reference → guides → machine endpoint: the CMS tree renders above this list, so
 // these are what a reader reaches after the guides, ending with the surfaces only agents open.
 // ---------------------------------------------------------------------------
 
@@ -59,14 +59,6 @@ export interface DocsRouteDescriptor {
 /** Sidebar order. */
 const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
   {
-    id: DOCS_ROUTE_IDS.AUTH_GUIDE,
-    sectionId: DOCS_ROUTE_SECTION_IDS.API,
-    pathname: API_AUTH_DOCS_PATH,
-    labelKey: "authGuide",
-    isLocalized: true,
-    sitemapPriority: 0.7,
-  },
-  {
     id: DOCS_ROUTE_IDS.API_REFERENCE,
     sectionId: DOCS_ROUTE_SECTION_IDS.API,
     pathname: API_DOCS_PATH,
@@ -82,6 +74,14 @@ const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
     parentId: DOCS_ROUTE_IDS.API_REFERENCE,
     isLocalized: true,
     sitemapPriority: 0.5,
+  },
+  {
+    id: DOCS_ROUTE_IDS.AUTH_GUIDE,
+    sectionId: DOCS_ROUTE_SECTION_IDS.API,
+    pathname: API_AUTH_DOCS_PATH,
+    labelKey: "authGuide",
+    isLocalized: true,
+    sitemapPriority: 0.7,
   },
   {
     id: DOCS_ROUTE_IDS.MCP_GUIDE,

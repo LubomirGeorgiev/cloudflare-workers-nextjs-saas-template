@@ -15,7 +15,9 @@ import { EmptyStateCard } from "@/components/empty-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { API_KEY_CACHE_TTL_SECONDS } from "@/constants";
+import { API_DOCS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
+// The reference lives under `app/[locale]`, so it needs the locale-prefixing Link.
+import { Link } from "@/i18n/navigation";
 import type { ApiKeySummary } from "@/lib/api-keys/api-keys";
 import { formatApiKeyHint } from "@/utils/api-key-format";
 import { formatDate } from "@/utils/format-date";
@@ -48,7 +50,18 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
           <h2 className="text-lg font-semibold">{t("title")}</h2>
           {/* A team key is confined to its team, so the personal copy would over-promise here. */}
           <p className="text-sm text-muted-foreground">
-            {t(teamId ? "teamDescription" : "description")}
+            {t.rich(teamId ? "teamDescription" : "description", {
+              link: (chunks) => (
+                <Link
+                  href={API_DOCS_PATH}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-4"
+                >
+                  {chunks}
+                </Link>
+              ),
+            })}
           </p>
         </div>
 

@@ -959,8 +959,8 @@
       },
       "ApiKeys": {
         "title": "API keys",
-        "description": "Keys let apps, scripts, and AI agents act on your behalf, limited to the scopes you grant.",
-        "teamDescription": "Keys let apps, scripts, and AI agents act on this team, limited to the scopes you grant. A team key works only with this team, never with your account or your other teams.",
+        "description": "Keys let apps, scripts, and AI agents act on your behalf, limited to the scopes you grant. See the <link>API reference</link> for every endpoint they can call.",
+        "teamDescription": "Keys let apps, scripts, and AI agents act on this team, limited to the scopes you grant. A team key works only with this team, never with your account or your other teams. See the <link>API reference</link> for every endpoint they can call.",
         "createButton": "Create key",
         "createDialogTitle": "Create an API key",
         "createDialogDescription": "The secret is shown once, right after it is created.",
