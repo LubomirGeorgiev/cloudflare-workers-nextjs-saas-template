@@ -10,7 +10,7 @@ This file states the rules. The reasoning, file maps, and procedures behind them
 | [docs/extending-api-and-mcp.md](docs/extending-api-and-mcp.md) | Adding endpoints, scopes, or tools in a fork |
 | [docs/database-and-migrations.md](docs/database-and-migrations.md) | Changing `src/db/schema.ts`, generating a migration, or merging upstream ones |
 | [docs/worker-hot-path-and-bundle-size.md](docs/worker-hot-path-and-bundle-size.md) | Adding imports to the Worker entrypoint or another hot path |
-| [docs/page-caching.md](docs/page-caching.md) | Adding or changing `export const revalidate` on a public page, or touching how OpenGraph cards are cached |
+| [docs/page-caching.md](docs/page-caching.md) | Adding or changing `export const revalidate` on a public page |
 | [docs/cursor-cloud-environment.md](docs/cursor-cloud-environment.md) | Running the app or the E2E suite in Cursor Cloud |
 
 ## Project Context
