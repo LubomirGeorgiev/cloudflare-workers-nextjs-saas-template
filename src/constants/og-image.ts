@@ -13,7 +13,8 @@ export const OG_IMAGE_SIZE = { width: 1200, height: 630 } as const
 export const OG_IMAGE_CONTENT_TYPE = "image/png"
 
 // Rasterizing through satori + resvg costs real Worker CPU, so let the CDN absorb repeat hits.
-// Not immutable: a CMS title edit has to be able to reach the card.
+// Not immutable: a CMS title edit has to be able to reach the card. The query string is stripped
+// from the cache key first, or it would be free to enumerate — see docs/page-caching.md.
 export const OG_IMAGE_CACHE_CONTROL =
   "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800"
 

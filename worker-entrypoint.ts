@@ -13,6 +13,7 @@ import {
   OAUTH_ISSUANCE_THROTTLED_METHODS,
   OAUTH_REGISTER_PATH,
 } from "./src/constants";
+import { serveOgImageFromCache } from "./src/lib/og/og-cache";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
@@ -120,6 +121,19 @@ const worker = {
     // Header normalization applies to every branch below — including everything behind the OAuth
     // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
     const forwarded = withForwardedCfHeaders({ request, url });
+
+    // Ahead of the provider because no card route sits under the paths it claims, and because the
+    // whole point is that a repeat hit costs a cache read instead of a render. The query string is
+    // dropped from the key — see src/lib/og/og-cache.ts for why enumerating it was free.
+    const card = await serveOgImageFromCache({
+      request: forwarded,
+      url,
+      ctx,
+      render: (original) => nextAppHandler.fetch(original, env, ctx),
+    });
+    if (card) {
+      return card;
+    }
 
     // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
     // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.

@@ -26,7 +26,12 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "worker-entrypoint.ts",
       "src/constants.ts",
       "src/constants/oauth.ts",
+      "src/constants/og-image.ts",
       "src/lib/api/scopes.ts",
+      // The entry answers OG cards from the colo cache before the provider runs. Therefore this
+      // module and the two leaf modules it imports cannot sit behind an `import()`.
+      "src/lib/og/og-cache.ts",
+      "src/lib/og/og-paths.ts",
       "src/lib/oauth/provider-config.ts",
       "src/utils/api-key-format.ts",
       "src/utils/cf-context-fields.ts",
