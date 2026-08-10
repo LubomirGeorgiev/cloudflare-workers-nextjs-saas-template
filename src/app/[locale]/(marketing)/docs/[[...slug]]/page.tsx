@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import type { Route } from "next";
 import type { JSONContent } from "@tiptap/core";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 
 import { CopyDocsMarkdownButton } from "@/app/[locale]/(marketing)/docs/_components/copy-docs-markdown-button";
 import { DocsArticleBody } from "@/app/[locale]/(marketing)/docs/_components/docs-article-body";
@@ -19,15 +19,11 @@ import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getEntryLocales } from "@/lib/cms/entry";
 import {
   getCmsNavigationAncestors,
-  getCmsNavigationNodeByResolvedPath,
   getCmsNavigationPrevNext,
-  getCmsNavigationRedirectByPath,
-  getCmsNavigationRootPath,
-  getCmsNavigationTree,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
-import { resolveDocsPage } from "@/lib/cms/resolve-docs-page";
+import { resolveCurrentDocsPage } from "@/lib/cms/resolve-current-docs-page";
 import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } from "@/i18n/config";
@@ -60,36 +56,19 @@ function getNavigationItemDescription(node: CmsNavigationTreeNode): string | nul
   return node.entry.seoDescription || null;
 }
 
-// Wires the pure `resolveDocsPage` resolver to the CMS navigation repository,
-// kept out of the resolver module so it stays free of the repository's
-// top-level `getDB`/drizzle import.
-async function resolveCurrentDocsPage(slugParts: string[] | undefined, locale: Locale) {
-  const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
-
-  return resolveDocsPage({
-    slugParts,
-    locale,
-    defaultLocale: DEFAULT_LOCALE,
-    docsBasePath: docsNavigation.basePath,
-    getNavigationTree: ({ locale: treeLocale }) =>
-      getCmsNavigationTree({ navigationKey: DOCS_SLUG, locale: treeLocale }),
-    getNavigationRedirectByPath: ({ path }) =>
-      getCmsNavigationRedirectByPath({ navigationKey: DOCS_SLUG, path }),
-    getNavigationRootPath: () => getCmsNavigationRootPath({ navigationKey: DOCS_SLUG }),
-    getNodeByResolvedPath: getCmsNavigationNodeByResolvedPath,
-  });
-}
-
 const resolveCachedDocsPage = cache(async (slugCacheKey: string, locale: Locale) => {
   const slugParts = JSON.parse(slugCacheKey) as string[];
   return resolveCurrentDocsPage(slugParts.length > 0 ? slugParts : undefined, locale);
 });
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: DocsPageProps): Promise<Metadata> {
   const { locale, slug } = await params;
-  const tMeta = await getTranslations({ locale, namespace: "Client.Docs.meta" });
+  const tMeta = await getTranslator({ locale, namespace: "Client.Docs.meta" });
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
@@ -143,7 +122,8 @@ export async function generateMetadata({
 
   if (result.type !== "page") {
     return {
-      title: tMeta("fallbackTitle"),
+      title: tMeta("title"),
+      description: tMeta("description"),
     };
   }
 
@@ -202,10 +182,10 @@ export async function generateMetadata({
 }
 
 export default async function DocsPage({ params }: DocsPageProps) {
-  const t = await getTranslations("Client.Docs.Page");
-  const tPagination = await getTranslations("Client.Pagination");
-  const tCrumb = await getTranslations("Breadcrumb");
   const { locale, slug } = await params;
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Page" });
+  const tPagination = await getTranslator({ locale, namespace: "Client.Pagination" });
+  const tCrumb = await getTranslator({ locale, namespace: "Breadcrumb" });
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
@@ -514,7 +494,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                   {t("onThisPage")}
                 </p>
-                <DocsOnThisPageNav nodes={tableOfContentsTree} />
+                <DocsOnThisPageNav nodes={tableOfContentsTree} locale={locale} />
               </div>
             </aside>
           ) : null}

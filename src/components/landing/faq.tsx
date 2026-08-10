@@ -5,7 +5,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { GITHUB_REPO_URL } from "@/constants";
-import { useTranslations } from "next-intl";
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config";
+
+type FaqTranslator = Awaited<ReturnType<typeof getTranslator<"Landing.Faq">>>;
 
 const FAQ_KEYS = [
   "isFree",
@@ -19,8 +22,8 @@ const FAQ_KEYS = [
   "contribute",
 ] as const;
 
-export function FAQ() {
-  const t = useTranslations("Client.Landing.Faq");
+export async function FAQ({ locale }: { locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Landing.Faq" });
 
   return (
     <section className="border-t border-border bg-card/40 py-24 sm:py-32">
@@ -45,7 +48,7 @@ export function FAQ() {
               </AccordionTrigger>
               <AccordionContent>
                 <div className="prose prose-sm dark:prose-invert w-full max-w-none text-muted-foreground prose-a:text-edge">
-                  <FaqAnswer faqKey={key} />
+                  <FaqAnswer faqKey={key} t={t} />
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -56,9 +59,7 @@ export function FAQ() {
   );
 }
 
-function FaqAnswer({ faqKey }: { faqKey: (typeof FAQ_KEYS)[number] }) {
-  const t = useTranslations("Client.Landing.Faq");
-
+function FaqAnswer({ faqKey, t }: { faqKey: (typeof FAQ_KEYS)[number]; t: FaqTranslator }) {
   const richLink = {
     link: (chunks: React.ReactNode) => (
       <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">

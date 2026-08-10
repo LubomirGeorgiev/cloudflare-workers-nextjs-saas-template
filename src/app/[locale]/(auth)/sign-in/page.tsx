@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import SignInClientPage from "./sign-in.client";
 import { getSafeRedirectPath, redirectAuthenticatedUser } from "@/utils/auth-redirect";
 import { LOCALES, type Locale } from "@/i18n/config";
@@ -11,7 +11,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Auth.SignIn.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Auth.SignIn.meta" });
 
   return {
     title: t("title"),

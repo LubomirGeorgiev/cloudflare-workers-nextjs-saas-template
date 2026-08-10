@@ -23,7 +23,7 @@ function resolveLocalePrefixMode(
   return prefix ?? "always";
 }
 
-function localizedPathname({ pathname, locale }: { pathname: string; locale: Locale }): string {
+export function localizedPathname({ pathname, locale }: { pathname: string; locale: Locale }): string {
   const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const mode = resolveLocalePrefixMode(routing.localePrefix);
   const needsPrefix = mode === "never"

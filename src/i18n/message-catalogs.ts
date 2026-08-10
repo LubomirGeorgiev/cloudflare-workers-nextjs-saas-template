@@ -8,7 +8,7 @@ export interface MessageTree {
 }
 
 /** Catalog shape, anchored to the default locale. `typeof import()` is a type, never a load. */
-type MessageCatalog = typeof import("./messages/en.json");
+export type MessageCatalog = typeof import("./messages/en.json");
 
 // One `import()` per locale, never a static import: a statically imported catalog is evaluated on
 // every cold isolate whether or not the request serves that language, and each is ~66 KiB.

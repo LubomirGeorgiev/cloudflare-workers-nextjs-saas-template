@@ -1,5 +1,6 @@
 import Image from "next/image"
-import { getLocale, getTranslations } from "next-intl/server"
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config"
 import { Link } from "@/i18n/navigation"
 import { formatDate } from "@/utils/format-date"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,13 +12,13 @@ import { getAuthorDisplayName } from "@/utils/blog-author-url"
 
 type BlogCardProps = {
   entry: CmsCollectionListItem
+  locale: Locale
   showTags?: boolean
   showAuthor?: boolean
 }
 
-export async function BlogCard({ entry, showTags = true, showAuthor = true }: BlogCardProps) {
-  const locale = await getLocale()
-  const t = await getTranslations("Blog.AuthorDetail")
+export async function BlogCard({ entry, locale, showTags = true, showAuthor = true }: BlogCardProps) {
+  const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const author = entry.createdByUser
   const authorName = author
     ? getAuthorDisplayName(author, t("unknownAuthor"))

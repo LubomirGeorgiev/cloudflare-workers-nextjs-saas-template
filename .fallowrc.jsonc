@@ -4,7 +4,10 @@
     // Optional peers hono-openapi resolves by name: the first converts Valibot schemas when the
     // build-time generator runs, the second validates requests at runtime.
     "@valibot/to-json-schema",
-    "@hono/standard-validator"
+    "@hono/standard-validator",
+    // Rasterizer for the favicon entries. Imported, but only by `scripts/generate-logo-assets.mjs`,
+    // which fallow reads as production code and so rejects the devDependency it is.
+    "sharp"
   ],
   // Loaded by path, not by import: the vite plugin in tools/ spawns the generator, which aliases
   // these stubs into the module graph it builds.

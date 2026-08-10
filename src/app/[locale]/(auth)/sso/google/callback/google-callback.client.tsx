@@ -8,14 +8,15 @@ import { useAction } from "next-safe-action/hooks";
 import { googleSSOCallbackAction } from "./google-callback.action";
 import { googleSSOCallbackSchema } from "@/schemas/google-sso-callback.schema";
 import { Spinner } from "@/components/ui/spinner";
-import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
+import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
 import { useTranslations } from "next-intl";
 
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
+  const navigateAfterAuth = useNavigateAfterAuth();
   const searchParams = useSearchParams();
   const code = searchParams.get("code");
   const state = searchParams.get("state");
@@ -35,7 +36,7 @@ export default function GoogleCallbackClientComponent() {
     onSuccess: () => {
       dismissLoadingToast();
       toast.success(t("toastSignInSuccess"));
-      window.location.href = REDIRECT_AFTER_SIGN_IN;
+      navigateAfterAuth();
     },
   });
   const error = result.serverError;

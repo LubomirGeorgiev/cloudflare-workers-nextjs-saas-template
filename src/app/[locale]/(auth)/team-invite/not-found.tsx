@@ -1,11 +1,14 @@
+"use client";
+
+// Keep "use client" — tools/oxlint-rules/no-implicit-locale-translations.js explains why not-found needs it.
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 
-export default async function NotFound() {
-  const t = await getTranslations("Client.Auth.TeamInvite");
+export default function NotFound() {
+  const t = useTranslations("Client.Auth.TeamInvite");
 
   return (
     <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">

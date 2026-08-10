@@ -1,7 +1,7 @@
 import "server-only"
+import { getTranslator } from "@/i18n/translator";
 import { Link, redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getTranslations } from "next-intl/server"
 import { getCmsTags } from "@/lib/cms/tags"
 import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
@@ -11,13 +11,16 @@ import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Blog.Tags.meta" });
+  const t = await getTranslator({ locale, namespace: "Blog.Tags.meta" });
   const title = t("title");
   const description = t("description");
 
@@ -47,9 +50,9 @@ export default async function BlogTagsPage({
 }: {
   params: Promise<{ locale: Locale }>;
 }) {
-  const t = await getTranslations("Blog.Tags")
-  const tCommon = await getTranslations("Blog.Common")
   const { locale } = await params
+  const t = await getTranslator({ locale, namespace: "Blog.Tags" })
+  const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
   const tags = await getCmsTags({ locale })
 
   // Only show tags that have entries, most-published topics first

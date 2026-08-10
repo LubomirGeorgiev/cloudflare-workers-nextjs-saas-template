@@ -14,7 +14,7 @@ import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 // inheriting) because the root layout cannot see the [locale] param during
 // static generation.
 export async function buildSiteOpenGraph(locale: Locale): Promise<Metadata["openGraph"]> {
-  const t = await getTranslations({ locale, namespace: "Client.Landing.meta" });
+  const t = await getTranslations({ locale, namespace: "Landing.meta" });
 
   return {
     type: "website",

@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 
 import {
   Table,

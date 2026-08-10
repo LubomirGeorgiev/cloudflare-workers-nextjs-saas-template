@@ -2,6 +2,7 @@ import { buildDocsLlmsTxtContent } from "@/lib/cms/build-docs-llms-txt";
 import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { SITE_URL } from "@/constants";
+import { DOCS_LLMS_TXT_CACHE_CONTROL } from "@/constants/cache-control";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 
 async function getCachedDocsLlmsTxtBody(): Promise<string | null> {
@@ -35,7 +36,7 @@ export async function GET() {
   return new Response(body, {
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "cache-control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      "cache-control": DOCS_LLMS_TXT_CACHE_CONTROL,
     },
   });
 }

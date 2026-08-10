@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
 
 import type { ParameterView, SchemaFieldView } from "@/lib/api/reference-model";
 import { cn } from "@/lib/utils";
@@ -7,12 +6,12 @@ import { cn } from "@/lib/utils";
 // One row per documented field. Rows, not a table: a schema nests, and an indented row reads as
 // nesting where a table cell does not. Type names, constraints, and enum values are contract
 // vocabulary and stay untranslated — only the requiredness chips are localized, resolved once per
-// list rather than per row.
+// operation by the caller rather than per row.
 
 /** Matches MAX_FIELD_DEPTH in the view model; deeper shapes only appear in the JSON example. */
 const INDENT_BY_DEPTH = ["pl-0", "pl-4", "pl-8"] as const;
 
-interface FieldRowLabels {
+export interface FieldRowLabels {
   required: string;
   optional: string;
   nullable: string;
@@ -116,25 +115,19 @@ function FieldRow({
   );
 }
 
-async function fieldRowLabels(): Promise<FieldRowLabels> {
-  const t = await getTranslations("Client.Docs.ApiReference");
-
-  return { required: t("required"), optional: t("optional"), nullable: t("nullable") };
-}
-
 function FieldList({ children }: { children: ReactNode }) {
   return <div className="rounded-lg border border-border/70 bg-background/60 px-4">{children}</div>;
 }
 
-export async function ApiSchemaFields({
+export function ApiSchemaFields({
   fields,
   variant,
+  labels,
 }: {
   fields: SchemaFieldView[];
   variant: FieldRowVariant;
+  labels: FieldRowLabels;
 }) {
-  const labels = await fieldRowLabels();
-
   return (
     <FieldList>
       {fields.map((field) => (
@@ -160,9 +153,13 @@ function toFieldView(parameter: ParameterView): SchemaFieldView {
   };
 }
 
-export async function ApiParameterFields({ parameters }: { parameters: ParameterView[] }) {
-  const labels = await fieldRowLabels();
-
+export function ApiParameterFields({
+  parameters,
+  labels,
+}: {
+  parameters: ParameterView[];
+  labels: FieldRowLabels;
+}) {
   return (
     <FieldList>
       {parameters.map(toFieldView).map((field) => (

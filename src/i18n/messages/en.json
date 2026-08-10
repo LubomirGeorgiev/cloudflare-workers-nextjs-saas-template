@@ -222,7 +222,8 @@
     },
     "Docs": {
       "meta": {
-        "fallbackTitle": "Docs",
+        "title": "Docs",
+        "description": "Guides and reference for setting up, building, and deploying the app.",
         "groupDescriptionWithPreview": "{group} docs: {previews}.",
         "groupDescription": "Browse documentation in {group}.",
         "pageDescription": "Documentation for {title}",
@@ -383,60 +384,6 @@
       }
     },
     "Landing": {
-      "meta": {
-        "title": "SaaS Template",
-        "description": "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
-      },
-      "Hero": {
-        "titleLine1": "Ship your SaaS",
-        "titleLine2": "to the",
-        "titleEdge": "edge",
-        "description": "A complete, production-ready starter for building SaaS apps on Cloudflare Workers. Auth, database, billing, email, and admin tooling are already wired up — clone it and deploy globally in minutes.",
-        "starOnGithub": "Star on GitHub",
-        "tryLiveDemo": "Try the live demo"
-      },
-      "Stack": {
-        "heading": "// the whole stack, already assembled",
-        "cloudflarePlatform": "Cloudflare platform",
-        "appFramework": "App framework"
-      },
-      "Features": {
-        "eyebrow": "// what's in the box",
-        "heading": "Skip the boilerplate. Build the product.",
-        "description": "Every undifferentiated part of a SaaS is already here and tested. Open the repo and start writing the code that only your product needs.",
-        "auth": {
-          "name": "Authentication, solved",
-          "description": "Email and password sign-in, sign-up, password reset, and sessions on Lucia Auth — plus passkeys and Google OAuth."
-        },
-        "data": {
-          "name": "Database & email",
-          "description": "Drizzle ORM over Cloudflare D1, KV-backed sessions, and transactional email sent straight from the Worker."
-        },
-        "edge": {
-          "name": "Deployed to the edge",
-          "description": "Ship to Cloudflare Workers and serve from 330+ cities with zero cold starts. One command pushes to production."
-        },
-        "runtime": {
-          "name": "Modern runtime",
-          "description": "Next.js App Router and React Server Components running on Vinext and Vite for an instant dev loop."
-        },
-        "billing": {
-          "name": "Billing built in",
-          "description": "Per-team Stripe subscriptions with an embedded Payment Element are wired up, so you can charge customers without starting from scratch."
-        },
-        "ui": {
-          "name": "A real design system",
-          "description": "Tailwind CSS with Shadcn and Base UI components, dark mode, and responsive layouts ready to extend."
-        },
-        "teams": {
-          "name": "Teams & admin",
-          "description": "Multi-tenant teams, role-based access, and an admin panel for managing users and content out of the box."
-        },
-        "dx": {
-          "name": "Developer experience",
-          "description": "TypeScript end to end, Oxlint, a CMS for blog and docs, and GitHub Actions deployment you don't have to write."
-        }
-      },
       "Cta": {
         "titleLine1": "One command to clone.",
         "titleLine2": "Yours to ship.",
@@ -445,87 +392,6 @@
         "copyAriaLabel": "Copy clone command",
         "starOnGithub": "Star on GitHub",
         "exploreDemo": "Explore the demo"
-      },
-      "Faq": {
-        "eyebrow": "// faq",
-        "heading": "Questions, answered",
-        "description": "Still curious? The README covers everything else, and issues are always open.",
-        "isFree": {
-          "question": "Is this template really free?",
-          "answer": "Yes, this template is completely free and <link>open source</link>! You can use it for both personal and commercial projects without any licensing fees. You can fork, copy, modify, and distribute it as you see fit without any restrictions and attribution."
-        },
-        "featuresIncluded": {
-          "question": "What features are included?",
-          "intro": "The template includes a comprehensive set of features:",
-          "item1": "Authentication with email/password and forgot password flow",
-          "item2": "Database integration with Drizzle ORM and Cloudflare D1",
-          "item3": "Email service powered by Cloudflare Email Service",
-          "item4": "Modern UI components from Shadcn UI and Tailwind CSS",
-          "item5": "Form validations and error handling",
-          "item6": "Dark mode support",
-          "item7": "Responsive design",
-          "item8": "TypeScript throughout the codebase",
-          "item9": "Automated deployments with GitHub Actions",
-          "item10": "Captcha integration with Turnstile",
-          "item11": "SEO optimization with Next.js",
-          "item12": "And countless other features..."
-        },
-        "techStack": {
-          "question": "What's the tech stack?",
-          "intro": "The template uses modern and reliable technologies:",
-          "item1": "Next.js App Router with React Server Components through Vinext and Vite",
-          "item2": "TypeScript for type safety",
-          "item3": "Tailwind CSS and Shadcn UI for styling",
-          "item4": "DrizzleORM with Cloudflare D1 for database",
-          "item5": "Lucia Auth for authentication",
-          "item6": "Cloudflare Workers for serverless deployment",
-          "item7": "Cloudflare KV for session storage",
-          "item8": "Cloudflare Email Service for transactional email"
-        },
-        "deploy": {
-          "question": "How do I deploy my application?",
-          "intro": "Deployment is automated with GitHub Actions. You'll need to:",
-          "item1": "Create Cloudflare D1 and KV namespaces",
-          "item2": "Onboard your sending domain in Cloudflare Email Service",
-          "item3": "Enable Cloudflare Images for image optimization",
-          "item4": "Configure Turnstile for captcha",
-          "item5": "Add your Cloudflare API token to GitHub secrets",
-          "item6": "Push to the main branch",
-          "outro": "The deployment process is fully documented in the <link>GitHub repository</link>."
-        },
-        "gettingStarted": {
-          "question": "What do I need to get started?",
-          "paragraph1": "You'll need a Cloudflare account (free tier is fine), Node.js installed locally, and basic knowledge of React and TypeScript. The template includes detailed documentation to guide you through the setup.",
-          "paragraph2": "You can also check out the <link>documentation</link> for more information."
-        },
-        "roadmap": {
-          "question": "What are the upcoming features?",
-          "intro": "We have an exciting roadmap ahead! Planned features include:",
-          "item1": "Multi-language support (i18n)",
-          "item2": "Billing and payment processing",
-          "item3": "Admin dashboard",
-          "item4": "Email verification on sign up",
-          "item5": "Notifications system",
-          "item6": "Webhooks support",
-          "item7": "Team collaboration features",
-          "item8": "Real-time updates",
-          "item9": "Analytics dashboard"
-        },
-        "emailTemplates": {
-          "question": "How are email templates handled?",
-          "answer": "Transactional email templates are rendered by the app and sent through Cloudflare Email Service from the Worker."
-        },
-        "customize": {
-          "question": "How do I customize the template?",
-          "intro": "Before deploying to production, you should:",
-          "item1": "Update project details in <code>src/constants.ts</code>",
-          "item2": "Modify the footer in <code>src/components/footer.tsx</code>",
-          "item3": "Optionally update the color palette in <code>src/app/globals.css</code>"
-        },
-        "contribute": {
-          "question": "How can I contribute?",
-          "answer": "Contributions are welcome! Feel free to open issues, submit pull requests, or help improve the documentation on <link>GitHub</link>. The project follows standard open source contribution guidelines."
-        }
       },
       "DeployTerminal": {
         "windowTitle": "~/your-saas — deploy"
@@ -1209,6 +1075,150 @@
         "toastRemoveTeamSuccess": "User removed from the team",
         "toastRemoveTeamError": "Failed to remove the user from the team"
       }
+    },
+    "Blog": {
+      "PostNotFound": {
+        "title": "Blog Post Not Found",
+        "description": "The blog post you're looking for doesn't exist or has been removed.",
+        "backToBlog": "Back to Blog"
+      }
+    }
+  },
+  "Landing": {
+    "meta": {
+      "title": "SaaS Template",
+      "description": "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
+    },
+    "Hero": {
+      "titleLine1": "Ship your SaaS",
+      "titleLine2": "to the",
+      "titleEdge": "edge",
+      "description": "A complete, production-ready starter for building SaaS apps on Cloudflare Workers. Auth, database, billing, email, and admin tooling are already wired up — clone it and deploy globally in minutes.",
+      "starOnGithub": "Star on GitHub",
+      "tryLiveDemo": "Try the live demo"
+    },
+    "Stack": {
+      "heading": "// the whole stack, already assembled",
+      "cloudflarePlatform": "Cloudflare platform",
+      "appFramework": "App framework"
+    },
+    "Features": {
+      "eyebrow": "// what's in the box",
+      "heading": "Skip the boilerplate. Build the product.",
+      "description": "Every undifferentiated part of a SaaS is already here and tested. Open the repo and start writing the code that only your product needs.",
+      "auth": {
+        "name": "Authentication, solved",
+        "description": "Email and password sign-in, sign-up, password reset, and sessions on Lucia Auth — plus passkeys and Google OAuth."
+      },
+      "data": {
+        "name": "Database & email",
+        "description": "Drizzle ORM over Cloudflare D1, KV-backed sessions, and transactional email sent straight from the Worker."
+      },
+      "edge": {
+        "name": "Deployed to the edge",
+        "description": "Ship to Cloudflare Workers and serve from 330+ cities with zero cold starts. One command pushes to production."
+      },
+      "runtime": {
+        "name": "Modern runtime",
+        "description": "Next.js App Router and React Server Components running on Vinext and Vite for an instant dev loop."
+      },
+      "billing": {
+        "name": "Billing built in",
+        "description": "Per-team Stripe subscriptions with an embedded Payment Element are wired up, so you can charge customers without starting from scratch."
+      },
+      "ui": {
+        "name": "A real design system",
+        "description": "Tailwind CSS with Shadcn and Base UI components, dark mode, and responsive layouts ready to extend."
+      },
+      "teams": {
+        "name": "Teams & admin",
+        "description": "Multi-tenant teams, role-based access, and an admin panel for managing users and content out of the box."
+      },
+      "dx": {
+        "name": "Developer experience",
+        "description": "TypeScript end to end, Oxlint, a CMS for blog and docs, and GitHub Actions deployment you don't have to write."
+      }
+    },
+    "Faq": {
+      "eyebrow": "// faq",
+      "heading": "Questions, answered",
+      "description": "Still curious? The README covers everything else, and issues are always open.",
+      "isFree": {
+        "question": "Is this template really free?",
+        "answer": "Yes, this template is completely free and <link>open source</link>! You can use it for both personal and commercial projects without any licensing fees. You can fork, copy, modify, and distribute it as you see fit without any restrictions and attribution."
+      },
+      "featuresIncluded": {
+        "question": "What features are included?",
+        "intro": "The template includes a comprehensive set of features:",
+        "item1": "Authentication with email/password and forgot password flow",
+        "item2": "Database integration with Drizzle ORM and Cloudflare D1",
+        "item3": "Email service powered by Cloudflare Email Service",
+        "item4": "Modern UI components from Shadcn UI and Tailwind CSS",
+        "item5": "Form validations and error handling",
+        "item6": "Dark mode support",
+        "item7": "Responsive design",
+        "item8": "TypeScript throughout the codebase",
+        "item9": "Automated deployments with GitHub Actions",
+        "item10": "Captcha integration with Turnstile",
+        "item11": "SEO optimization with Next.js",
+        "item12": "And countless other features..."
+      },
+      "techStack": {
+        "question": "What's the tech stack?",
+        "intro": "The template uses modern and reliable technologies:",
+        "item1": "Next.js App Router with React Server Components through Vinext and Vite",
+        "item2": "TypeScript for type safety",
+        "item3": "Tailwind CSS and Shadcn UI for styling",
+        "item4": "DrizzleORM with Cloudflare D1 for database",
+        "item5": "Lucia Auth for authentication",
+        "item6": "Cloudflare Workers for serverless deployment",
+        "item7": "Cloudflare KV for session storage",
+        "item8": "Cloudflare Email Service for transactional email"
+      },
+      "deploy": {
+        "question": "How do I deploy my application?",
+        "intro": "Deployment is automated with GitHub Actions. You'll need to:",
+        "item1": "Create Cloudflare D1 and KV namespaces",
+        "item2": "Onboard your sending domain in Cloudflare Email Service",
+        "item3": "Enable Cloudflare Images for image optimization",
+        "item4": "Configure Turnstile for captcha",
+        "item5": "Add your Cloudflare API token to GitHub secrets",
+        "item6": "Push to the main branch",
+        "outro": "The deployment process is fully documented in the <link>GitHub repository</link>."
+      },
+      "gettingStarted": {
+        "question": "What do I need to get started?",
+        "paragraph1": "You'll need a Cloudflare account (free tier is fine), Node.js installed locally, and basic knowledge of React and TypeScript. The template includes detailed documentation to guide you through the setup.",
+        "paragraph2": "You can also check out the <link>documentation</link> for more information."
+      },
+      "roadmap": {
+        "question": "What are the upcoming features?",
+        "intro": "We have an exciting roadmap ahead! Planned features include:",
+        "item1": "Multi-language support (i18n)",
+        "item2": "Billing and payment processing",
+        "item3": "Admin dashboard",
+        "item4": "Email verification on sign up",
+        "item5": "Notifications system",
+        "item6": "Webhooks support",
+        "item7": "Team collaboration features",
+        "item8": "Real-time updates",
+        "item9": "Analytics dashboard"
+      },
+      "emailTemplates": {
+        "question": "How are email templates handled?",
+        "answer": "Transactional email templates are rendered by the app and sent through Cloudflare Email Service from the Worker."
+      },
+      "customize": {
+        "question": "How do I customize the template?",
+        "intro": "Before deploying to production, you should:",
+        "item1": "Update project details in <code>src/constants.ts</code>",
+        "item2": "Modify the footer in <code>src/components/footer.tsx</code>",
+        "item3": "Optionally update the color palette in <code>src/app/globals.css</code>"
+      },
+      "contribute": {
+        "question": "How can I contribute?",
+        "answer": "Contributions are welcome! Feel free to open issues, submit pull requests, or help improve the documentation on <link>GitHub</link>. The project follows standard open source contribution guidelines."
+      }
     }
   },
   "Legal": {
@@ -1300,11 +1310,6 @@
       "browseByAuthors": "Browse by Authors",
       "empty": "No blog posts published yet."
     },
-    "PostNotFound": {
-      "title": "Blog Post Not Found",
-      "description": "The blog post you're looking for doesn't exist or has been removed.",
-      "backToBlog": "Back to Blog"
-    },
     "Post": {
       "backToBlog": "← Back to Blog",
       "updated": "Updated: {date}",
@@ -1352,6 +1357,15 @@
   "Breadcrumb": {
     "home": "Home",
     "blog": "Blog"
+  },
+  "OgImage": {
+    "blog": "Blog",
+    "docs": "Documentation",
+    "apiReference": "API Reference",
+    "legal": "Legal",
+    "account": "Account",
+    "tags": "Topics",
+    "authors": "Authors"
   },
   "Emails": {
     "Common": {

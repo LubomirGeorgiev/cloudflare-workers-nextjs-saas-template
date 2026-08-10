@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getTranslations } from "next-intl/server";
 
 import { SITE_URL } from "@/constants";
+import { DOCS_SEARCH_CACHE_CONTROL } from "@/constants/cache-control";
 import { searchDocs } from "@/lib/cms/cms-search";
 import { docsSearchQuerySchema } from "@/schemas/docs-search.schema";
 import { v } from "@/lib/validation";
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
       },
       {
         headers: {
-          "cache-control": "public, s-maxage=300, stale-while-revalidate=3600",
+          "cache-control": DOCS_SEARCH_CACHE_CONTROL,
         },
       }
     );

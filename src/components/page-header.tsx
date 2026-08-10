@@ -7,15 +7,17 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Link } from "@/i18n/navigation"
+import type { Route } from "next"
 import React from "react"
 
-interface BreadcrumbItem {
-  href: string
+interface PageHeaderCrumb {
+  href: Route
   label: string
 }
 
 interface PageHeaderProps {
-  items: BreadcrumbItem[]
+  items: PageHeaderCrumb[]
 }
 
 export function PageHeader({ items }: PageHeaderProps) {
@@ -29,7 +31,9 @@ export function PageHeader({ items }: PageHeaderProps) {
             {items.map((item, index) => (
               <React.Fragment key={item.href}>
                 <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href={item.href}>
+                  {/* `render` swaps the default bare `<a>` for the localized `Link`, so a
+                      breadcrumb click is a soft navigation instead of a full document load. */}
+                  <BreadcrumbLink render={<Link href={item.href} />}>
                     {item.label}
                   </BreadcrumbLink>
                 </BreadcrumbItem>

@@ -9,7 +9,10 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config";
+
+type FeaturesTranslator = Awaited<ReturnType<typeof getTranslator<"Landing.Features">>>;
 
 interface Feature {
   tag: string;
@@ -28,8 +31,8 @@ const features: Feature[] = [
   { tag: "dx", key: "dx", icon: TerminalSquare },
 ];
 
-export function Features() {
-  const t = useTranslations("Client.Landing.Features");
+export async function Features({ locale }: { locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Landing.Features" });
   return (
     <section className="bg-background py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -47,7 +50,7 @@ export function Features() {
 
         <div className="mt-16 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {features.map((feature) => (
-            <FeatureCard key={feature.key} feature={feature} />
+            <FeatureCard key={feature.key} feature={feature} t={t} />
           ))}
         </div>
       </div>
@@ -55,8 +58,7 @@ export function Features() {
   );
 }
 
-function FeatureCard({ feature }: { feature: Feature }) {
-  const t = useTranslations("Client.Landing.Features");
+function FeatureCard({ feature, t }: { feature: Feature; t: FeaturesTranslator }) {
   const Icon = feature.icon;
   return (
     <div className="group relative bg-card p-6 transition-colors hover:bg-accent/40">

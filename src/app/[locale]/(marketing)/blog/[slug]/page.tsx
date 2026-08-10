@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation"
+import { getTranslator } from "@/i18n/translator";
 import { Link, redirect as redirectLocalized } from "@/i18n/navigation"
 import { cache } from "react"
-import { getTranslations } from "next-intl/server"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
 import type { Route } from "next"
@@ -76,11 +76,14 @@ const getCachedBlogMarkdownEntryBySlug = cache(async (slug: string) => {
   })
 })
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {
   const { locale, slug } = await params
-  const tNotFound = await getTranslations({ locale, namespace: "Blog.PostNotFound" })
+  const tNotFound = await getTranslator({ locale, namespace: "Client.Blog.PostNotFound" })
 
   const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
   if (slugForMarkdown !== undefined) {
@@ -188,8 +191,8 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { locale, slug } = await params
-  const t = await getTranslations("Blog.Post")
-  const tCrumb = await getTranslations("Breadcrumb")
+  const t = await getTranslator({ locale, namespace: "Blog.Post" })
+  const tCrumb = await getTranslator({ locale, namespace: "Breadcrumb" })
 
   const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
   if (slugForMarkdown !== undefined) {
@@ -238,7 +241,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { entry, isFallback } = resolved
 
   const author = entry.createdByUser
-  const tAuthor = await getTranslations("Blog.AuthorDetail")
+  const tAuthor = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const authorName = author
     ? getAuthorDisplayName(author, tAuthor("unknownAuthor"))
     : tAuthor("unknownAuthor")

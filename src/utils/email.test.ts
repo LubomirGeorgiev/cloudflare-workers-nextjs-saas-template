@@ -1,8 +1,33 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { SITE_NAME, SITE_URL } from "@/constants";
+import { EMAIL_LOGO } from "@/constants/logo";
+import { LOGO_VERSION } from "@/constants/logo-version";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import { CATALOG_LOADERS, loadCatalog } from "@/i18n/message-catalogs";
-import { EMAIL_TEMPLATE_TYPES } from "@/lib/scheduler/jobs";
+import { EMAIL_TEMPLATE_TYPES, type EmailSendJobPayload } from "@/lib/scheduler/jobs";
+
+/** One payload per template, so the shared header is covered for every email the app sends. */
+const LOGO_HEADER_PAYLOADS: EmailSendJobPayload[] = [
+  {
+    to: "user@example.com",
+    template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+    locale: DEFAULT_LOCALE,
+    data: { resetToken: "reset-token", username: "Ana" },
+  },
+  {
+    to: "user@example.com",
+    template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+    locale: DEFAULT_LOCALE,
+    data: { verificationToken: "verify-token", username: "Ana" },
+  },
+  {
+    to: "user@example.com",
+    template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+    locale: DEFAULT_LOCALE,
+    data: { invitationToken: "invite-token", inviterName: "Ana", teamName: "Acme" },
+  },
+];
 
 const { getCloudflareContextMock } = vi.hoisted(() => ({
   getCloudflareContextMock: vi.fn(),
@@ -49,6 +74,24 @@ describe("transactional email", () => {
     expect(renderedEmail.html).not.toContain("<script>alert");
     expect(renderedEmail.text).toContain("<script>alert('x')</script>");
     expect(renderedEmail.text).toContain("/team-invite?token=invite-token");
+  });
+
+  // Every template shares one builder, so the mark either reaches all three inboxes or none.
+  // The dimensions are asserted because Outlook lays the message out before the image arrives.
+  test.each(LOGO_HEADER_PAYLOADS)("puts the rasterized logo in the $template header", async (payload) => {
+    const renderedEmail = await renderTransactionalEmail(payload);
+
+    // One URL for every recipient — the `?v=` stamp only moves when `pnpm logo:generate` runs.
+    expect(renderedEmail.html).toContain(
+      `src="${SITE_URL}${EMAIL_LOGO.pathname}?v=${LOGO_VERSION}"`,
+    );
+    // Alt text stays the product name in every locale — it is all a blocked-image reader gets.
+    expect(renderedEmail.html).toContain(`alt="${SITE_NAME}"`);
+    expect(renderedEmail.html).toContain(
+      `width="${EMAIL_LOGO.width}" height="${EMAIL_LOGO.height}"`,
+    );
+    // A hosted PNG, never SVG or a data URI: clients strip both.
+    expect(renderedEmail.html).not.toContain("data:image");
   });
 
   test("renders the password reset email in Spanish when the payload locale is es", async () => {

@@ -3,7 +3,8 @@ import { GITHUB_REPO_URL } from "@/constants";
 import { Link } from "@/i18n/navigation";
 import { Suspense } from "react";
 import { ArrowRight, Star } from "lucide-react";
-import { useTranslations } from "next-intl";
+import type { Locale } from "@/i18n/config";
+import { getTranslator } from "@/i18n/translator";
 import { DeployTerminal } from "@/components/landing/deploy-terminal";
 import {
   GithubStarsBadge,
@@ -11,8 +12,8 @@ import {
 } from "@/components/github-stars-badge";
 import { cn } from "@/lib/utils";
 
-export function Hero() {
-  const t = useTranslations("Client.Landing.Hero");
+export async function Hero({ locale }: { locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Landing.Hero" });
   return (
     <section className="relative isolate overflow-hidden bg-background">
       <div
@@ -27,7 +28,7 @@ export function Hero() {
       <div className="mx-auto grid max-w-7xl items-center gap-12 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:px-8 lg:pb-32 lg:pt-28">
         <div>
           <Suspense fallback={<GithubStarsBadgeFallback />}>
-            <GithubStarsBadge />
+            <GithubStarsBadge locale={locale} />
           </Suspense>
 
           <h1 className="mt-6 font-display text-5xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-6xl lg:text-7xl">

@@ -1,6 +1,6 @@
 import { lazyValueByKey } from "@/utils/lazy-value";
 import { DEFAULT_LOCALE, type Locale } from "./config";
-import { loadCatalog, type MessageTree } from "./message-catalogs";
+import { loadCatalog, type MessageCatalog, type MessageTree } from "./message-catalogs";
 
 function isMessageTree(value: unknown): value is MessageTree {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -9,13 +9,13 @@ function isMessageTree(value: unknown): value is MessageTree {
 // Deep-merge the default-locale catalog under the active one so keys missing from a translation fall back
 // to DEFAULT_LOCALE instead of rendering the raw key path. next-intl has no built-in cross-locale fallback;
 // this is the recommended pattern. Active-locale values always win; recursion only descends when both sides are subtrees.
-function mergeMessagesWithFallback({
+function mergeMessagesWithFallback<Catalog extends MessageTree>({
   fallbackMessages,
   messages,
 }: {
-  fallbackMessages: MessageTree;
+  fallbackMessages: Catalog;
   messages: MessageTree;
-}): MessageTree {
+}): Catalog {
   const merged: MessageTree = { ...fallbackMessages };
 
   for (const [key, value] of Object.entries(messages)) {
@@ -27,7 +27,9 @@ function mergeMessagesWithFallback({
         : value;
   }
 
-  return merged;
+  // The fallback catalog seeds every key and the loop only replaces values, so the merged tree
+  // still has the catalog's shape — which the index-signature walk above cannot express.
+  return merged as Catalog;
 }
 
 // The merged tree for a locale never changes within an isolate, so it is built once per locale and
@@ -40,7 +42,7 @@ export const loadMessages = lazyValueByKey(buildMessages);
 
 // A non-default locale also loads DEFAULT_LOCALE, which the fallback merge needs; the default
 // locale itself loads exactly one catalog.
-async function buildMessages(locale: Locale): Promise<MessageTree> {
+async function buildMessages(locale: Locale): Promise<MessageCatalog> {
   const messages = await loadCatalog(locale);
   if (locale === DEFAULT_LOCALE) {
     return messages;

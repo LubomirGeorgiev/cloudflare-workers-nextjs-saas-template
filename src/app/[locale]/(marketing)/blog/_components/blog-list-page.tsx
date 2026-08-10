@@ -1,9 +1,9 @@
 import "server-only"
+import { getTranslator } from "@/i18n/translator";
 import { Link, redirect } from "@/i18n/navigation"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import type { Blog, WithContext } from "schema-dts"
-import { getTranslations } from "next-intl/server"
 import { Tag, Users } from "lucide-react"
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/entry"
 import { BlogCard } from "@/components/blog-card"
@@ -24,7 +24,7 @@ interface BlogListPageProps {
 
 export async function getBlogListPageMetadata({ page, locale }: { page: number; locale: Locale }): Promise<Metadata> {
   const isFirstPage = page === 1
-  const t = await getTranslations({ locale, namespace: "Blog.ListPage.meta" })
+  const t = await getTranslator({ locale, namespace: "Blog.ListPage.meta" })
   const title = isFirstPage ? t("title") : t("titleWithPage", { page })
   const description = t("description")
   const pagePath = getBlogPagePath({ page })
@@ -51,7 +51,7 @@ export async function getBlogListPageMetadata({ page, locale }: { page: number; 
 }
 
 export async function BlogListPage({ page, locale }: BlogListPageProps) {
-  const t = await getTranslations("Blog.ListPage")
+  const t = await getTranslator({ locale, namespace: "Blog.ListPage" })
   const offset = (page - 1) * BLOG_POSTS_PER_PAGE
 
   const [blogEntries, totalCount] = await Promise.all([
@@ -169,7 +169,7 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
           <>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {blogEntries.map((entry) => (
-                <BlogCard key={entry.id} entry={entry} />
+                <BlogCard key={entry.id} locale={locale} entry={entry} />
               ))}
             </div>
 

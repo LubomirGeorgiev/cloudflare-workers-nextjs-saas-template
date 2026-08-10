@@ -222,7 +222,8 @@
     },
     "Docs": {
       "meta": {
-        "fallbackTitle": "Documentación",
+        "title": "Documentación",
+        "description": "Guías y referencia para configurar, desarrollar y desplegar la aplicación.",
         "groupDescriptionWithPreview": "Documentación de {group}: {previews}.",
         "groupDescription": "Explora la documentación de {group}.",
         "pageDescription": "Documentación de {title}",
@@ -383,60 +384,6 @@
       }
     },
     "Landing": {
-      "meta": {
-        "title": "Plantilla SaaS",
-        "description": "Una plantilla SaaS moderna creada con Next.js 15 y Cloudflare Workers, diseñada para escalar y rendir al máximo."
-      },
-      "Hero": {
-        "titleLine1": "Lleva tu SaaS",
-        "titleLine2": "hasta el",
-        "titleEdge": "edge",
-        "description": "Un starter completo y listo para producción para crear aplicaciones SaaS en Cloudflare Workers. Autenticación, base de datos, facturación, correo y herramientas de administración ya están integradas — clónalo y despliega a nivel global en minutos.",
-        "starOnGithub": "Danos una estrella en GitHub",
-        "tryLiveDemo": "Prueba la demo en vivo"
-      },
-      "Stack": {
-        "heading": "// todo el stack, ya montado",
-        "cloudflarePlatform": "Plataforma Cloudflare",
-        "appFramework": "Framework de la app"
-      },
-      "Features": {
-        "eyebrow": "// qué incluye",
-        "heading": "Olvídate del código repetitivo. Construye el producto.",
-        "description": "Cada parte no diferenciadora de un SaaS ya está aquí y probada. Abre el repositorio y empieza a escribir el código que solo tu producto necesita.",
-        "auth": {
-          "name": "Autenticación resuelta",
-          "description": "Inicio y registro con correo y contraseña, restablecimiento de contraseña y sesiones con Lucia Auth — además de passkeys y OAuth de Google."
-        },
-        "data": {
-          "name": "Base de datos y correo",
-          "description": "Drizzle ORM sobre Cloudflare D1, sesiones respaldadas por KV y correo transaccional enviado directamente desde el Worker."
-        },
-        "edge": {
-          "name": "Desplegado en el edge",
-          "description": "Publica en Cloudflare Workers y sirve desde más de 330 ciudades sin arranques en frío. Un solo comando lo lleva a producción."
-        },
-        "runtime": {
-          "name": "Runtime moderno",
-          "description": "Next.js App Router y React Server Components ejecutándose sobre Vinext y Vite para un ciclo de desarrollo instantáneo."
-        },
-        "billing": {
-          "name": "Facturación incluida",
-          "description": "Las suscripciones de Stripe por equipo con un Payment Element integrado ya están listas, para que puedas cobrar a tus clientes sin empezar de cero."
-        },
-        "ui": {
-          "name": "Un sistema de diseño real",
-          "description": "Tailwind CSS con componentes de Shadcn y Base UI, modo oscuro y diseños responsivos listos para ampliar."
-        },
-        "teams": {
-          "name": "Equipos y administración",
-          "description": "Equipos multiinquilino, control de acceso por roles y un panel de administración para gestionar usuarios y contenido desde el primer momento."
-        },
-        "dx": {
-          "name": "Experiencia de desarrollo",
-          "description": "TypeScript de principio a fin, Oxlint, un CMS para blog y documentación, y despliegues con GitHub Actions que no tendrás que escribir."
-        }
-      },
       "Cta": {
         "titleLine1": "Un comando para clonarlo.",
         "titleLine2": "Tuyo para lanzarlo.",
@@ -445,87 +392,6 @@
         "copyAriaLabel": "Copiar comando de clonación",
         "starOnGithub": "Danos una estrella en GitHub",
         "exploreDemo": "Explora la demo"
-      },
-      "Faq": {
-        "eyebrow": "// preguntas frecuentes",
-        "heading": "Preguntas resueltas",
-        "description": "¿Sigues con dudas? El README cubre todo lo demás, y los issues siempre están abiertos.",
-        "isFree": {
-          "question": "¿Esta plantilla es realmente gratis?",
-          "answer": "Sí, esta plantilla es completamente gratuita y de <link>código abierto</link>. Puedes usarla tanto en proyectos personales como comerciales sin ningún costo de licencia. Puedes bifurcarla, copiarla, modificarla y distribuirla como quieras, sin restricciones ni necesidad de atribución."
-        },
-        "featuresIncluded": {
-          "question": "¿Qué funcionalidades incluye?",
-          "intro": "La plantilla incluye un conjunto completo de funcionalidades:",
-          "item1": "Autenticación con correo y contraseña, y flujo de recuperación de contraseña",
-          "item2": "Integración de base de datos con Drizzle ORM y Cloudflare D1",
-          "item3": "Servicio de correo impulsado por Cloudflare Email Service",
-          "item4": "Componentes de interfaz modernos de Shadcn UI y Tailwind CSS",
-          "item5": "Validación de formularios y manejo de errores",
-          "item6": "Soporte para modo oscuro",
-          "item7": "Diseño responsivo",
-          "item8": "TypeScript en toda la base de código",
-          "item9": "Despliegues automatizados con GitHub Actions",
-          "item10": "Integración de captcha con Turnstile",
-          "item11": "Optimización SEO con Next.js",
-          "item12": "Y muchas otras funcionalidades más..."
-        },
-        "techStack": {
-          "question": "¿Cuál es el stack tecnológico?",
-          "intro": "La plantilla utiliza tecnologías modernas y fiables:",
-          "item1": "Next.js App Router con React Server Components a través de Vinext y Vite",
-          "item2": "TypeScript para seguridad de tipos",
-          "item3": "Tailwind CSS y Shadcn UI para el estilo",
-          "item4": "DrizzleORM con Cloudflare D1 para la base de datos",
-          "item5": "Lucia Auth para la autenticación",
-          "item6": "Cloudflare Workers para el despliegue sin servidor",
-          "item7": "Cloudflare KV para el almacenamiento de sesiones",
-          "item8": "Cloudflare Email Service para correo transaccional"
-        },
-        "deploy": {
-          "question": "¿Cómo despliego mi aplicación?",
-          "intro": "El despliegue está automatizado con GitHub Actions. Necesitarás:",
-          "item1": "Crear los namespaces de Cloudflare D1 y KV",
-          "item2": "Configurar tu dominio de envío en Cloudflare Email Service",
-          "item3": "Habilitar Cloudflare Images para la optimización de imágenes",
-          "item4": "Configurar Turnstile para el captcha",
-          "item5": "Añadir tu token de API de Cloudflare a los secretos de GitHub",
-          "item6": "Hacer push a la rama main",
-          "outro": "El proceso de despliegue está totalmente documentado en el <link>repositorio de GitHub</link>."
-        },
-        "gettingStarted": {
-          "question": "¿Qué necesito para empezar?",
-          "paragraph1": "Necesitarás una cuenta de Cloudflare (el plan gratuito es suficiente), Node.js instalado localmente y conocimientos básicos de React y TypeScript. La plantilla incluye documentación detallada para guiarte durante la configuración.",
-          "paragraph2": "También puedes consultar la <link>documentación</link> para más información."
-        },
-        "roadmap": {
-          "question": "¿Cuáles son las próximas funcionalidades?",
-          "intro": "Tenemos una hoja de ruta muy interesante por delante. Las funcionalidades planeadas incluyen:",
-          "item1": "Soporte multi-idioma (i18n)",
-          "item2": "Facturación y procesamiento de pagos",
-          "item3": "Panel de administración",
-          "item4": "Verificación de correo al registrarse",
-          "item5": "Sistema de notificaciones",
-          "item6": "Soporte para webhooks",
-          "item7": "Funcionalidades de colaboración en equipo",
-          "item8": "Actualizaciones en tiempo real",
-          "item9": "Panel de análisis"
-        },
-        "emailTemplates": {
-          "question": "¿Cómo se gestionan las plantillas de correo?",
-          "answer": "Las plantillas de correo transaccional son renderizadas por la aplicación y enviadas a través de Cloudflare Email Service desde el Worker."
-        },
-        "customize": {
-          "question": "¿Cómo personalizo la plantilla?",
-          "intro": "Antes de desplegar a producción, deberías:",
-          "item1": "Actualizar los detalles del proyecto en <code>src/constants.ts</code>",
-          "item2": "Modificar el pie de página en <code>src/components/footer.tsx</code>",
-          "item3": "Opcionalmente, actualizar la paleta de colores en <code>src/app/globals.css</code>"
-        },
-        "contribute": {
-          "question": "¿Cómo puedo contribuir?",
-          "answer": "¡Las contribuciones son bienvenidas! No dudes en abrir issues, enviar pull requests o ayudar a mejorar la documentación en <link>GitHub</link>. El proyecto sigue las guías estándar de contribución de código abierto."
-        }
       },
       "DeployTerminal": {
         "windowTitle": "~/your-saas — deploy"
@@ -1209,6 +1075,150 @@
         "toastRemoveTeamSuccess": "Usuario eliminado del equipo",
         "toastRemoveTeamError": "No se pudo eliminar al usuario del equipo"
       }
+    },
+    "Blog": {
+      "PostNotFound": {
+        "title": "Entrada no encontrada",
+        "description": "La entrada del blog que buscas no existe o ha sido eliminada.",
+        "backToBlog": "Volver al blog"
+      }
+    }
+  },
+  "Landing": {
+    "meta": {
+      "title": "Plantilla SaaS",
+      "description": "Una plantilla SaaS moderna creada con Next.js 15 y Cloudflare Workers, diseñada para escalar y rendir al máximo."
+    },
+    "Hero": {
+      "titleLine1": "Lleva tu SaaS",
+      "titleLine2": "hasta el",
+      "titleEdge": "edge",
+      "description": "Un starter completo y listo para producción para crear aplicaciones SaaS en Cloudflare Workers. Autenticación, base de datos, facturación, correo y herramientas de administración ya están integradas — clónalo y despliega a nivel global en minutos.",
+      "starOnGithub": "Danos una estrella en GitHub",
+      "tryLiveDemo": "Prueba la demo en vivo"
+    },
+    "Stack": {
+      "heading": "// todo el stack, ya montado",
+      "cloudflarePlatform": "Plataforma Cloudflare",
+      "appFramework": "Framework de la app"
+    },
+    "Features": {
+      "eyebrow": "// qué incluye",
+      "heading": "Olvídate del código repetitivo. Construye el producto.",
+      "description": "Cada parte no diferenciadora de un SaaS ya está aquí y probada. Abre el repositorio y empieza a escribir el código que solo tu producto necesita.",
+      "auth": {
+        "name": "Autenticación resuelta",
+        "description": "Inicio y registro con correo y contraseña, restablecimiento de contraseña y sesiones con Lucia Auth — además de passkeys y OAuth de Google."
+      },
+      "data": {
+        "name": "Base de datos y correo",
+        "description": "Drizzle ORM sobre Cloudflare D1, sesiones respaldadas por KV y correo transaccional enviado directamente desde el Worker."
+      },
+      "edge": {
+        "name": "Desplegado en el edge",
+        "description": "Publica en Cloudflare Workers y sirve desde más de 330 ciudades sin arranques en frío. Un solo comando lo lleva a producción."
+      },
+      "runtime": {
+        "name": "Runtime moderno",
+        "description": "Next.js App Router y React Server Components ejecutándose sobre Vinext y Vite para un ciclo de desarrollo instantáneo."
+      },
+      "billing": {
+        "name": "Facturación incluida",
+        "description": "Las suscripciones de Stripe por equipo con un Payment Element integrado ya están listas, para que puedas cobrar a tus clientes sin empezar de cero."
+      },
+      "ui": {
+        "name": "Un sistema de diseño real",
+        "description": "Tailwind CSS con componentes de Shadcn y Base UI, modo oscuro y diseños responsivos listos para ampliar."
+      },
+      "teams": {
+        "name": "Equipos y administración",
+        "description": "Equipos multiinquilino, control de acceso por roles y un panel de administración para gestionar usuarios y contenido desde el primer momento."
+      },
+      "dx": {
+        "name": "Experiencia de desarrollo",
+        "description": "TypeScript de principio a fin, Oxlint, un CMS para blog y documentación, y despliegues con GitHub Actions que no tendrás que escribir."
+      }
+    },
+    "Faq": {
+      "eyebrow": "// preguntas frecuentes",
+      "heading": "Preguntas resueltas",
+      "description": "¿Sigues con dudas? El README cubre todo lo demás, y los issues siempre están abiertos.",
+      "isFree": {
+        "question": "¿Esta plantilla es realmente gratis?",
+        "answer": "Sí, esta plantilla es completamente gratuita y de <link>código abierto</link>. Puedes usarla tanto en proyectos personales como comerciales sin ningún costo de licencia. Puedes bifurcarla, copiarla, modificarla y distribuirla como quieras, sin restricciones ni necesidad de atribución."
+      },
+      "featuresIncluded": {
+        "question": "¿Qué funcionalidades incluye?",
+        "intro": "La plantilla incluye un conjunto completo de funcionalidades:",
+        "item1": "Autenticación con correo y contraseña, y flujo de recuperación de contraseña",
+        "item2": "Integración de base de datos con Drizzle ORM y Cloudflare D1",
+        "item3": "Servicio de correo impulsado por Cloudflare Email Service",
+        "item4": "Componentes de interfaz modernos de Shadcn UI y Tailwind CSS",
+        "item5": "Validación de formularios y manejo de errores",
+        "item6": "Soporte para modo oscuro",
+        "item7": "Diseño responsivo",
+        "item8": "TypeScript en toda la base de código",
+        "item9": "Despliegues automatizados con GitHub Actions",
+        "item10": "Integración de captcha con Turnstile",
+        "item11": "Optimización SEO con Next.js",
+        "item12": "Y muchas otras funcionalidades más..."
+      },
+      "techStack": {
+        "question": "¿Cuál es el stack tecnológico?",
+        "intro": "La plantilla utiliza tecnologías modernas y fiables:",
+        "item1": "Next.js App Router con React Server Components a través de Vinext y Vite",
+        "item2": "TypeScript para seguridad de tipos",
+        "item3": "Tailwind CSS y Shadcn UI para el estilo",
+        "item4": "DrizzleORM con Cloudflare D1 para la base de datos",
+        "item5": "Lucia Auth para la autenticación",
+        "item6": "Cloudflare Workers para el despliegue sin servidor",
+        "item7": "Cloudflare KV para el almacenamiento de sesiones",
+        "item8": "Cloudflare Email Service para correo transaccional"
+      },
+      "deploy": {
+        "question": "¿Cómo despliego mi aplicación?",
+        "intro": "El despliegue está automatizado con GitHub Actions. Necesitarás:",
+        "item1": "Crear los namespaces de Cloudflare D1 y KV",
+        "item2": "Configurar tu dominio de envío en Cloudflare Email Service",
+        "item3": "Habilitar Cloudflare Images para la optimización de imágenes",
+        "item4": "Configurar Turnstile para el captcha",
+        "item5": "Añadir tu token de API de Cloudflare a los secretos de GitHub",
+        "item6": "Hacer push a la rama main",
+        "outro": "El proceso de despliegue está totalmente documentado en el <link>repositorio de GitHub</link>."
+      },
+      "gettingStarted": {
+        "question": "¿Qué necesito para empezar?",
+        "paragraph1": "Necesitarás una cuenta de Cloudflare (el plan gratuito es suficiente), Node.js instalado localmente y conocimientos básicos de React y TypeScript. La plantilla incluye documentación detallada para guiarte durante la configuración.",
+        "paragraph2": "También puedes consultar la <link>documentación</link> para más información."
+      },
+      "roadmap": {
+        "question": "¿Cuáles son las próximas funcionalidades?",
+        "intro": "Tenemos una hoja de ruta muy interesante por delante. Las funcionalidades planeadas incluyen:",
+        "item1": "Soporte multi-idioma (i18n)",
+        "item2": "Facturación y procesamiento de pagos",
+        "item3": "Panel de administración",
+        "item4": "Verificación de correo al registrarse",
+        "item5": "Sistema de notificaciones",
+        "item6": "Soporte para webhooks",
+        "item7": "Funcionalidades de colaboración en equipo",
+        "item8": "Actualizaciones en tiempo real",
+        "item9": "Panel de análisis"
+      },
+      "emailTemplates": {
+        "question": "¿Cómo se gestionan las plantillas de correo?",
+        "answer": "Las plantillas de correo transaccional son renderizadas por la aplicación y enviadas a través de Cloudflare Email Service desde el Worker."
+      },
+      "customize": {
+        "question": "¿Cómo personalizo la plantilla?",
+        "intro": "Antes de desplegar a producción, deberías:",
+        "item1": "Actualizar los detalles del proyecto en <code>src/constants.ts</code>",
+        "item2": "Modificar el pie de página en <code>src/components/footer.tsx</code>",
+        "item3": "Opcionalmente, actualizar la paleta de colores en <code>src/app/globals.css</code>"
+      },
+      "contribute": {
+        "question": "¿Cómo puedo contribuir?",
+        "answer": "¡Las contribuciones son bienvenidas! No dudes en abrir issues, enviar pull requests o ayudar a mejorar la documentación en <link>GitHub</link>. El proyecto sigue las guías estándar de contribución de código abierto."
+      }
     }
   },
   "Legal": {
@@ -1300,11 +1310,6 @@
       "browseByAuthors": "Explorar por autores",
       "empty": "Todavía no se ha publicado ninguna entrada del blog."
     },
-    "PostNotFound": {
-      "title": "Entrada no encontrada",
-      "description": "La entrada del blog que buscas no existe o ha sido eliminada.",
-      "backToBlog": "Volver al blog"
-    },
     "Post": {
       "backToBlog": "← Volver al blog",
       "updated": "Actualizado: {date}",
@@ -1352,6 +1357,15 @@
   "Breadcrumb": {
     "home": "Inicio",
     "blog": "Blog"
+  },
+  "OgImage": {
+    "blog": "Blog",
+    "docs": "Documentación",
+    "apiReference": "Referencia de la API",
+    "legal": "Legal",
+    "account": "Cuenta",
+    "tags": "Temas",
+    "authors": "Autores"
   },
   "Emails": {
     "Common": {

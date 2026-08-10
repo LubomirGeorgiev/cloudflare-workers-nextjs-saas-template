@@ -1,8 +1,8 @@
 import "server-only"
+import { getTranslator } from "@/i18n/translator";
 import { notFound } from "next/navigation"
 import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getTranslations } from "next-intl/server"
 import { getCmsCollection } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { getCmsTags } from "@/lib/cms/tags"
@@ -22,11 +22,14 @@ type TagPageProps = {
   }>
 }
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: TagPageProps): Promise<Metadata> {
   const { locale, slug } = await params
-  const tMeta = await getTranslations({ locale, namespace: "Blog.TagDetail.meta" })
+  const tMeta = await getTranslator({ locale, namespace: "Blog.TagDetail.meta" })
   const tags = await getCmsTags({ locale })
   const tag = tags.find(t => t.slug === slug)
 
@@ -61,9 +64,9 @@ export async function generateMetadata({
 }
 
 export default async function TagPage({ params }: TagPageProps) {
-  const t = await getTranslations("Blog.TagDetail")
-  const tCommon = await getTranslations("Blog.Common")
   const { locale, slug } = await params
+  const t = await getTranslator({ locale, namespace: "Blog.TagDetail" })
+  const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
 
   const tags = await getCmsTags({ locale })
   const tag = tags.find(t => t.slug === slug)
@@ -157,7 +160,7 @@ export default async function TagPage({ params }: TagPageProps) {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {blogEntries.map((entry) => (
-              <BlogCard key={entry.id} entry={entry} showTags={false} />
+              <BlogCard key={entry.id} locale={locale} entry={entry} showTags={false} />
             ))}
           </div>
         )}

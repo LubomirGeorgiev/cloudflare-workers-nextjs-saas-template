@@ -2,13 +2,12 @@ import "server-only";
 
 import type { Route } from "next";
 import { headers } from "next/headers";
-import { redirect as nextRedirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 
-import { REDIRECT_AFTER_SIGN_IN, SITE_URL } from "@/constants";
+import { REDIRECT_AFTER_SIGN_IN, SITE_URL, TEAMS_DASHBOARD_PATH } from "@/constants";
 import { redirect } from "@/i18n/navigation";
-import { getCurrentSession } from "@/utils/auth";
-import type { SessionValidationResult } from "@/types";
+import { getCurrentSession, requireAdmin } from "@/utils/auth";
+import type { CurrentSession, SessionValidationResult } from "@/types";
 
 interface RedirectAuthenticatedUserParams {
   redirectPath: Route;
@@ -42,15 +41,26 @@ export function getSafeRedirectPath({
   }
 }
 
-// Authed sections (`/dashboard`, `/settings`) live outside `[locale]`, so plain
-// `redirect("/sign-in")` drops the active locale prefix. Builds the `redirect`
-// query param itself — the sign-in page only honors `?redirect=`.
+// Every page lives under `[locale]`, so a plain `redirect` would drop the active locale prefix.
+// Builds the `redirect` query param itself — the sign-in page only honors `?redirect=`.
 export async function redirectToSignIn(returnTo?: string): Promise<never> {
   const locale = await getLocale();
   const href = returnTo
     ? `/sign-in?redirect=${encodeURIComponent(returnTo)}`
     : "/sign-in";
   return redirect({ href, locale });
+}
+
+// Admin pages take the non-throwing guard and redirect home instead: a thrown ActionError
+// would render as a 500, not as "this area is for admins".
+export async function requireAdminOrRedirectHome(): Promise<CurrentSession> {
+  const session = await requireAdmin({ doNotThrowError: true });
+
+  if (!session) {
+    return redirect({ href: "/", locale: await getLocale() });
+  }
+
+  return session;
 }
 
 // Team sections live at /dashboard/teams/[teamSlug]/<section>. Thin nav routes like
@@ -61,13 +71,14 @@ export async function redirectToSelectedTeamPage(section: string): Promise<never
     return redirectToSignIn(`/dashboard/${section}`);
   }
 
+  const locale = await getLocale();
   const teams = session.teams ?? [];
   const selectedTeam = teams.find((team) => team.id === session.selectedTeam) ?? teams[0];
   if (!selectedTeam) {
-    nextRedirect("/dashboard/teams");
+    redirect({ href: TEAMS_DASHBOARD_PATH, locale });
   }
 
-  return nextRedirect(`/dashboard/teams/${selectedTeam.slug}/${section}` as Route);
+  return redirect({ href: `${TEAMS_DASHBOARD_PATH}/${selectedTeam.slug}/${section}`, locale });
 }
 
 export async function redirectAuthenticatedUser({
@@ -84,8 +95,7 @@ export async function redirectAuthenticatedUser({
   const isServerActionRequest = requestHeaders.has("next-action") || isRscRequest;
 
   if (session && !isServerActionRequest && (!shouldRedirect || shouldRedirect(session))) {
-    // Destination is typically `/dashboard` (outside `[locale]`); keep unprefixed.
-    return nextRedirect(redirectPath);
+    return redirect({ href: redirectPath, locale: await getLocale() });
   }
 
   return session;

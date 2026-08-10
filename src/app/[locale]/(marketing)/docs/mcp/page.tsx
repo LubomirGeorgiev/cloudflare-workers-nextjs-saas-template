@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 
 import { DocsProsePage } from "@/app/[locale]/(marketing)/docs/_components/docs-prose-section";
 import { ConnectAgentGuide } from "@/components/mcp/connect-agent-guide";
@@ -8,13 +8,16 @@ import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
 import { DocsCrossLinks } from "../_components/docs-cross-links";
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Docs.Mcp.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Mcp.meta" });
 
   return {
     title: t("title"),
@@ -23,11 +26,17 @@ export async function generateMetadata({
   };
 }
 
-export default async function McpDocsPage() {
-  const t = await getTranslations("Client.Docs.Mcp");
+export default async function McpDocsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Mcp" });
 
   return (
     <DocsProsePage
+      locale={locale}
       title={t("title")}
       description={t("description")}
       headerAside={

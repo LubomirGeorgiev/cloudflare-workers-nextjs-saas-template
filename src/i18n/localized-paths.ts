@@ -5,14 +5,7 @@
 // Top-level URL segments served outside `app/[locale]`. Anything here must reach its
 // route untouched; a locale rewrite would 404 it. Paths a Worker handler intercepts
 // before Next (`/mcp`, `/api/v1`) never reach the proxy and do not belong here.
-export const NON_LOCALIZED_PATH_SEGMENTS = [
-  "api",
-  "markdown",
-  "dashboard",
-  "settings",
-  "admin",
-  "oauth",
-] as const;
+export const NON_LOCALIZED_PATH_SEGMENTS = ["api", "markdown"] as const;
 
 // Segments serving both localized pages and root-level routes (`/docs/*` pages under
 // `[locale]`, `/docs/llms.txt` at the app root). They must stay out of the list above;

@@ -10,8 +10,7 @@ import {
 } from "@/components/ui/card";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
-import { useRouter as useLocaleRouter } from "@/i18n/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { forgotPasswordAction } from "./forgot-password.action";
 import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
@@ -31,9 +30,6 @@ type ForgotPasswordSchema = v.InferOutput<typeof forgotPasswordSchema>;
 export default function ForgotPasswordClientComponent() {
   const { session } = useSessionStore()
   const { isTurnstileEnabled } = usePublicAuthFeatureState()
-  // `localeRouter` keeps the locale prefix for `[locale]` routes; plain `router`
-  // targets unprefixed authed routes like `/settings`.
-  const localeRouter = useLocaleRouter();
   const router = useRouter();
   const t = useTranslations("Client.Auth.ForgotPassword");
   const tCommon = useTranslations("Client.Auth.Common");
@@ -77,7 +73,7 @@ export default function ForgotPasswordClientComponent() {
         title={t("checkEmailTitle")}
         description={t("checkEmailDescription")}
         actionLabel={tCommon("backToLogin")}
-        onAction={() => localeRouter.push("/sign-in")}
+        onAction={() => router.push("/sign-in")}
       />
     );
   }
@@ -150,7 +146,7 @@ export default function ForgotPasswordClientComponent() {
             type="button"
             variant="link"
             className="w-full"
-            onClick={() => localeRouter.push("/sign-in")}
+            onClick={() => router.push("/sign-in")}
           >
             {tCommon("backToLogin")}
           </Button>

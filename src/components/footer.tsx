@@ -1,7 +1,9 @@
 import { Link } from "@/i18n/navigation";
 import { SiX as XIcon, SiGithub as GithubIcon } from '@icons-pack/react-simple-icons'
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config";
 import { AskiChatLogo } from "@/components/aski-chat-logo";
+import { LogoLockup } from "@/components/logo";
 import ThemeSwitch from "@/components/theme-switch";
 import LocaleSwitcher from "@/components/locale-switcher";
 import { GITHUB_REPO_URL, SITE_NAME } from "@/constants";
@@ -11,9 +13,10 @@ import {
 } from "@/components/github-stars-badge";
 import { Suspense } from "react";
 
-export async function Footer() {
-  const t = await getTranslations("Footer");
-  const tGithub = await getTranslations("Client.GithubStars");
+export async function Footer({ params }: { params: Promise<{ locale: Locale }> }) {
+  const { locale } = await params;
+  const t = await getTranslator({ locale, namespace: "Footer" });
+  const tGithub = await getTranslator({ locale, namespace: "Client.GithubStars" });
 
   return (
     <footer className="border-t dark:bg-muted/30 bg-muted/60 shadow">
@@ -79,14 +82,23 @@ export async function Footer() {
           {/* Copyright - Optimized for mobile */}
           <div className="mt-6 pt-6 md:mt-8 md:pt-8 border-t">
             <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between md:gap-4">
-              <p className="text-sm text-muted-foreground text-center md:text-left">
-                © {new Date().getFullYear()} {SITE_NAME}. {t("allRightsReserved")}
-              </p>
+              <div className="flex flex-col items-center gap-2 md:items-start">
+                <Link
+                  href="/"
+                  prefetch={false}
+                  className="text-foreground transition-colors hover:text-primary"
+                >
+                  <LogoLockup />
+                </Link>
+                <p className="text-sm text-muted-foreground text-center md:text-left">
+                  © {new Date().getFullYear()} {SITE_NAME}. {t("allRightsReserved")}
+                </p>
+              </div>
 
               <div className="flex flex-col md:flex-row items-center gap-4 md:space-x-4">
                 {GITHUB_REPO_URL && (
                   <Suspense fallback={<GithubStarsBadgeFallback size="sm" />}>
-                    <GithubStarsBadge size="sm" />
+                    <GithubStarsBadge size="sm" locale={locale} />
                   </Suspense>
                 )}
 

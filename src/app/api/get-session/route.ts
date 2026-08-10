@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { tryCatch } from "@/lib/try-catch"
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit"
 import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants"
+import { SESSION_NO_STORE_CACHE_CONTROL } from "@/constants/cache-control"
 
 function getSessionResponse({
   session,
@@ -10,7 +11,7 @@ function getSessionResponse({
   session: Awaited<ReturnType<typeof getCurrentSession>>;
 }) {
   const headers = new Headers()
-  headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
+  headers.set("Cache-Control", SESSION_NO_STORE_CACHE_CONTROL)
   headers.set("Pragma", "no-cache")
   headers.set("Expires", "0")
 

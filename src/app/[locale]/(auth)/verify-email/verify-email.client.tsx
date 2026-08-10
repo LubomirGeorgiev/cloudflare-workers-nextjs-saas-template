@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useRouter as useLocaleRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { verifyEmailAction } from "./verify-email.action";
@@ -16,7 +16,6 @@ import { useTranslations } from "next-intl";
 
 export default function VerifyEmailClientComponent() {
   const router = useRouter();
-  const localeRouter = useLocaleRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const hasCalledVerification = useRef(false);
@@ -50,7 +49,7 @@ export default function VerifyEmailClientComponent() {
         handleVerification(result.output);
       } else {
         toast.error(t("toastInvalidToken"));
-        localeRouter.push("/sign-in");
+        router.push("/sign-in");
       }
     }
   }, [token]);
@@ -72,7 +71,7 @@ export default function VerifyEmailClientComponent() {
         title={t("failedTitle")}
         description={error?.message || t("failedDescription")}
         actionLabel={tCommon("backToSignIn")}
-        onAction={() => localeRouter.push("/sign-in")}
+        onAction={() => router.push("/sign-in")}
       />
     );
   }
@@ -83,7 +82,7 @@ export default function VerifyEmailClientComponent() {
         title={t("invalidLinkTitle")}
         description={t("invalidLinkDescription")}
         actionLabel={tCommon("backToSignIn")}
-        onAction={() => localeRouter.push("/sign-in")}
+        onAction={() => router.push("/sign-in")}
       />
     );
   }

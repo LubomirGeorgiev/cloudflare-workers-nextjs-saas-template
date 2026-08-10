@@ -18,7 +18,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 import { useSessionStore } from "@/state/session"
 import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"

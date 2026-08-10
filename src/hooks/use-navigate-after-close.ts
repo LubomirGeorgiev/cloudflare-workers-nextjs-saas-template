@@ -65,8 +65,8 @@ export function useNavigateAfterClose(close: () => void): NavigateAfterClose {
     event.preventDefault()
 
     // Queue the *resolved* href off the DOM rather than the typed route: it already
-    // carries the locale prefix for localized links and none for app routes, so one
-    // plain `useRouter` serves both. Typed-route checking ends at this boundary.
+    // carries whatever locale prefix the link rendered, so the plain `useRouter` must
+    // not prefix it a second time. Typed-route checking ends at this boundary.
     const targetUrl = new URL(event.currentTarget.href)
     pendingHrefRef.current = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
     fallbackTimerRef.current = setTimeout(flush, NAVIGATION_FALLBACK_DELAY_MS)

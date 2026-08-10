@@ -1,4 +1,5 @@
-import { useTranslations } from "next-intl";
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config";
 
 const PLATFORM = [
   "Workers",
@@ -19,8 +20,8 @@ const FRAMEWORK = [
   "Stripe",
 ];
 
-export function Stack() {
-  const t = useTranslations("Client.Landing.Stack");
+export async function Stack({ locale }: { locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Landing.Stack" });
   return (
     <section className="border-y border-border bg-card/40">
       <div className="mx-auto max-w-7xl px-6 py-12 lg:px-8">

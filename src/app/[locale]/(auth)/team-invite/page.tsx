@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { getCurrentSession } from "@/utils/auth";
 import { redirect } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import TeamInviteClientComponent from "./team-invite.client";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
@@ -12,7 +12,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Auth.TeamInvite.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Auth.TeamInvite.meta" });
 
   return {
     title: t("title"),

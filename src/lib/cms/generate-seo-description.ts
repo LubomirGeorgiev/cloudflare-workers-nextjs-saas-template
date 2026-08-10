@@ -40,7 +40,7 @@ export async function generateSeoDescription({
 
     const languageName = LOCALE_LABELS[locale];
     // Default-locale catalog, not the request locale: AI prompt context should be deterministic.
-    const siteSeoDescription = (await loadCatalog(DEFAULT_LOCALE)).Client.Landing.meta.description;
+    const siteSeoDescription = (await loadCatalog(DEFAULT_LOCALE)).Landing.meta.description;
 
     const prompt = `Generate a concise SEO meta description (maximum ${CMS_SEO_DESCRIPTION_MAX_LENGTH} characters) for a ${collectionSlug} entry with the following title and content preview:
 

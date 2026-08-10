@@ -1,6 +1,8 @@
 import "server-only";
 
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
+
+import type { Locale } from "@/i18n/config";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,9 +15,8 @@ import { DocsSearch } from "./docs-search";
 import { DocsSidebar } from "./docs-sidebar";
 import { MobileDocsNav } from "./mobile-docs-nav";
 
-export async function DocsNavigationChrome() {
-  const t = await getTranslations("Client.Docs.Navigation");
-  const locale = await getLocale();
+export async function DocsNavigationChrome({ locale }: { locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Navigation" });
   // Locale-scoped tree: PAGE nodes untranslated in the active locale are
   // pruned out by `getCmsNavigationTree` (see cms-navigation-repository.ts),
   // so the sidebar naturally shows only translated entries for that locale.

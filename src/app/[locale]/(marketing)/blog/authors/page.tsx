@@ -1,7 +1,7 @@
 import "server-only"
+import { getTranslator } from "@/i18n/translator";
 import { Link, redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getTranslations } from "next-intl/server"
 import { getCmsCollection } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,13 +15,16 @@ import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Blog.Authors.meta" });
+  const t = await getTranslator({ locale, namespace: "Blog.Authors.meta" });
   const title = t("title");
   const description = t("description");
 
@@ -51,11 +54,11 @@ export default async function BlogAuthorsPage({
 }: {
   params: Promise<{ locale: Locale }>;
 }) {
-  const t = await getTranslations("Blog.Authors")
-  const tAuthor = await getTranslations("Blog.AuthorDetail")
-  const tCommon = await getTranslations("Blog.Common")
-  const unknownAuthor = tAuthor("unknownAuthor")
   const { locale } = await params
+  const t = await getTranslator({ locale, namespace: "Blog.Authors" })
+  const tAuthor = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
+  const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
+  const unknownAuthor = tAuthor("unknownAuthor")
 
   const blogEntries = await getCmsCollection({
     collectionSlug: 'blog',

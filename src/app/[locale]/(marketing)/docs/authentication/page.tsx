@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 
 import { DocsProsePage } from "@/app/[locale]/(marketing)/docs/_components/docs-prose-section";
 import { API_AUTH_DOCS_PATH, API_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
@@ -9,13 +9,16 @@ import { buildAlternates } from "@/utils/i18n-metadata";
 import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 import { DocsCrossLinks } from "../_components/docs-cross-links";
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Docs.Auth.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Auth.meta" });
 
   return {
     title: t("title"),
@@ -27,8 +30,8 @@ export async function generateMetadata({
 // Scope names come from the catalog so this page can never drift from the consent screen or the
 // OpenAPI document; the descriptions reuse the settings catalog, with the same fallback the
 // create-key dialog uses for scopes a fork added without translating them.
-async function ScopeTable({ caption }: { caption: string }) {
-  const tScopes = await getTranslations("Client.ApiScopes");
+async function ScopeTable({ caption, locale }: { caption: string; locale: Locale }) {
+  const tScopes = await getTranslator({ locale, namespace: "Client.ApiScopes" });
   const scopes = Object.keys(API_SCOPES) as ApiScope[];
 
   function describe(scope: ApiScope): string {
@@ -52,11 +55,17 @@ async function ScopeTable({ caption }: { caption: string }) {
   );
 }
 
-export default async function AuthenticationDocsPage() {
-  const t = await getTranslations("Client.Docs.Auth");
+export default async function AuthenticationDocsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Auth" });
 
   return (
     <DocsProsePage
+      locale={locale}
       title={t("title")}
       description={t("description")}
       headerAside={
@@ -75,7 +84,7 @@ export default async function AuthenticationDocsPage() {
           id: "scopes",
           title: t("scopesTitle"),
           body: t("scopesBody"),
-          children: <ScopeTable caption={t("scopesTitle")} />,
+          children: <ScopeTable locale={locale} caption={t("scopesTitle")} />,
         },
         { id: "revocation", title: t("revocationTitle"), body: t("revocationBody") },
         {

@@ -1,6 +1,5 @@
 import { getCurrentSession } from "@/utils/auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { redirect as nextRedirect } from "next/navigation";
 import { redirect } from "@/i18n/navigation";
 import { createGoogleAuthorizationURL, generateCodeVerifier, generateState } from "@/lib/sso/google-sso";
 import { cookies } from "next/headers";
@@ -26,8 +25,7 @@ export async function GET() {
     const session = await getCurrentSession()
 
     if (session) {
-      // Dashboard lives outside `[locale]`; keep next/navigation redirect.
-      return nextRedirect(REDIRECT_AFTER_SIGN_IN)
+      return redirect({ href: REDIRECT_AFTER_SIGN_IN, locale })
     }
 
     let ssoRedirectUrl: null | URL = null

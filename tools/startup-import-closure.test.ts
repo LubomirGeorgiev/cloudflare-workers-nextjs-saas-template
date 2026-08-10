@@ -44,6 +44,9 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/i18n/config.ts",
       "src/i18n/localized-paths.ts",
       "src/i18n/routing.ts",
+      // One import-free regex: the proxy strips Set-Cookie from OG cards on every request, so it
+      // cannot sit behind an `import()`.
+      "src/lib/og/og-paths.ts",
     ],
   },
   // next-intl's request config is reached from the proxy above, so its tail is startup cost too.
@@ -72,7 +75,17 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
   },
   {
     entry: "src/app/robots.ts",
-    closure: ["src/app/robots.ts", "src/constants.ts", "src/constants/oauth.ts"],
+    closure: [
+      "src/app/robots.ts",
+      "src/constants.ts",
+      "src/constants/oauth.ts",
+      // Protected routes live under `app/[locale]`, so robots.txt needs one rule per served locale
+      // and reaches the canonical prefix helper. `config`/`routing` are already on the proxy's
+      // closure, so `i18n-urls.ts` is the only module this actually adds to a cold isolate.
+      "src/i18n/config.ts",
+      "src/i18n/routing.ts",
+      "src/utils/i18n-urls.ts",
+    ],
   },
 ];
 

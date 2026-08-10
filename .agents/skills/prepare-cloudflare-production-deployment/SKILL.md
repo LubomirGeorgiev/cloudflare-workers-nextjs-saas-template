@@ -13,7 +13,7 @@ Never print secret values. Ask for missing secret values instead of inventing pl
 
 ## Preflight
 
-1. Read `wrangler.jsonc`, `package.json`, `.github/workflows/deploy.yml`, `src/constants.ts`, `src/app/layout.tsx`, `src/components/footer.tsx`, `AGENTS.md`, and `cms.config.ts` when relevant.
+1. Read `wrangler.jsonc`, `package.json`, `.github/workflows/deploy.yml`, `src/constants.ts`, `src/utils/root-metadata.ts`, `src/components/footer.tsx`, `AGENTS.md`, and `cms.config.ts` when relevant.
 2. Check GitHub auth, then complete the `MCP availability gate` before any Cloudflare mutation:
 
 ```bash
@@ -33,7 +33,7 @@ Report the Cloudflare account id/name/email from MCP and the GitHub account/repo
    - `AGENTS.md` has the project specification for AI coding agents.
    - `src/components/footer.tsx` has project links and details.
    - `src/app/globals.css` color palette has been reviewed.
-   - `src/app/layout.tsx` metadata has project details.
+   - `src/utils/root-metadata.ts` metadata has project details; both root layouts read it.
    - The `meta` titles and descriptions in every locale catalog under `src/i18n/messages/*.json` (for example `Client.Landing.meta`, plus the auth, legal, and blog `meta` blocks) still default to template copy. Explicitly ask the user for the production titles and descriptions, and help them update these values in all locale catalogs, not only `en.json`.
    - `cms.config.ts` has been reviewed and updated if needed.
 

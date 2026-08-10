@@ -10,6 +10,7 @@ This file states the rules. The reasoning, file maps, and procedures behind them
 | [docs/extending-api-and-mcp.md](docs/extending-api-and-mcp.md) | Adding endpoints, scopes, or tools in a fork |
 | [docs/database-and-migrations.md](docs/database-and-migrations.md) | Changing `src/db/schema.ts`, generating a migration, or merging upstream ones |
 | [docs/worker-hot-path-and-bundle-size.md](docs/worker-hot-path-and-bundle-size.md) | Adding imports to the Worker entrypoint or another hot path |
+| [docs/page-caching.md](docs/page-caching.md) | Adding or changing `export const revalidate` on a public page |
 | [docs/cursor-cloud-environment.md](docs/cursor-cloud-environment.md) | Running the app or the E2E suite in Cursor Cloud |
 
 ## Project Context
@@ -95,9 +96,11 @@ Homes: constants → `src/constants.ts` or `src/app/enums.ts`; utilities → `sr
 - Use React.cache (`cache` from `react`) for reusable server-side read functions that may run multiple times in one RSC render/request — especially request-scoped auth/session/config/database reads. Never wrap mutations, server actions, route handlers, or functions whose result must change within the same request.
 - Layout or shell chrome needing independent async server data: move it into a small server wrapper behind a local `Suspense` fallback. Only make an entire layout async when it must block for auth, redirects, request-scoped data, or decisions affecting the whole route.
 - Use dynamic loading for non-critical UI when useful. Use `nuqs` for URL search-param state. Declarative JSX, concise conditionals.
-- `src/proxy.ts` runs next-intl on every path `shouldLocalizePathname` accepts; its `config.matcher` only drops framework internals. When adding a new top-level non-public/authed section outside `app/[locale]/` (like `/dashboard`), add its segment to `NON_LOCALIZED_PATH_SEGMENTS` in `src/i18n/localized-paths.ts` — `localized-paths.test.ts` walks `src/app/` and fails if you forget. Public pages need no change.
-- Redirect targets outside `app/[locale]/` (`/markdown/*`, and anything else in that segment list) must use `redirect` from `next/navigation`, never the localized `redirect` from `@/i18n/navigation` — a locale prefix on a non-localized route 404s.
-- `src/app/(admin)/` is deliberately English-only: it is staff tooling, so literal copy there is the convention, not an oversight — do not "fix" it or open findings against it. Everything a customer can reach (marketing, auth, `(dashboard)`, `(settings)`, emails) must go through next-intl with a row in every locale catalog. Shared components used by both, like `src/components/data-table.tsx` and `src/components/ui/*`, follow the customer-facing rule.
+- One root layout: `src/app/[locale]/layout.tsx`. It renders `RootShell` and `buildRootMetadata` from `src/utils/root-metadata.ts`, takes the locale from the URL segment, and is the only place an `<html>` element may appear. `app/layout.tsx` must never exist — a layout above `[locale]` cannot see the segment, so it would have to read request headers and no page could be cached. A second root would also make every crossing a full document load, tearing down the DOM and killing any toast raised just before it.
+- The signed-in app lives under that root, in `src/app/[locale]/(app)/` — `(admin)`, `(dashboard)`, `(settings)`, and the OAuth consent page. Those routes are session-gated and therefore uncacheable anyway, so `getLocale`/`getTranslations` are allowed there and the `no-implicit-locale-translations` rule exempts the `(app)` subtree. Keep cacheable pages out of it.
+- `src/proxy.ts` runs next-intl on every path `shouldLocalizePathname` accepts; its `config.matcher` only drops framework internals. Almost nothing belongs outside `app/[locale]/` now: only machine endpoints (`/api/*`, `/markdown/*`) do, and each needs its segment in `NON_LOCALIZED_PATH_SEGMENTS` in `src/i18n/localized-paths.ts` — `localized-paths.test.ts` walks `src/app/` and fails if you forget.
+- Every page route is localized, so `redirect`, `Link`, and `useRouter` come from `@/i18n/navigation`, never from `next/navigation`. Only a target in `NON_LOCALIZED_PATH_SEGMENTS` uses plain `next/navigation` — a locale prefix on one of those 404s. `notFound` and a refresh-only `useRouter` are locale-agnostic and stay on `next/navigation`.
+- `src/app/[locale]/(app)/(admin)/` is deliberately English-only: it is staff tooling, so literal copy there is the convention, not an oversight — do not "fix" it or open findings against it. Everything a customer can reach (marketing, auth, `(app)/(dashboard)`, `(app)/(settings)`, emails) must go through next-intl with a row in every locale catalog. Shared components used by both, like `src/components/data-table.tsx` and `src/components/ui/*`, follow the customer-facing rule.
 - Tailwind, Shadcn UI, and Base UI, consistent with the existing design system. Responsive, mobile-first, light/dark mode. A `container` class always pairs with `mx-auto`.
 
 ## Authentication
@@ -198,14 +201,14 @@ export type MySchema = v.InferOutput<typeof mySchema>;
 ### Server Actions
 
 - All form-handling server actions use `actionClient` from `src/lib/safe-action.ts` with `.inputSchema(schema)`.
-- Authenticated actions: follow `src/app/(settings)/settings/settings.actions.ts` (`requireVerifiedEmail`, `withRateLimit`, `revalidatePath` cache invalidation).
-- More complex authed actions that also invalidate CMS/KV caches: see `deleteCmsMediaAction`/`updateCmsMediaAction` in `src/app/(admin)/admin/_actions/cms-media-actions.ts`.
+- Authenticated actions: follow `src/app/[locale]/(app)/(settings)/settings/settings.actions.ts` (`requireVerifiedEmail`, `withRateLimit`, `revalidatePath` cache invalidation).
+- More complex authed actions that also invalidate CMS/KV caches: see `deleteCmsMediaAction`/`updateCmsMediaAction` in `src/app/[locale]/(app)/(admin)/admin/_actions/cms-media-actions.ts`.
 
 ### Client Forms
 
 Use `react-hook-form` with `valibotResolver(schema)`, `useAction` from `next-safe-action/hooks` to call actions, and toast notifications for loading/success/error.
 
-Reference implementation: action `src/app/(auth)/sign-up/sign-up.actions.ts`, form `src/app/(auth)/sign-up/sign-up.client.tsx`, schema `src/schemas/signup.schema.ts`.
+Reference implementation: action `src/app/[locale]/(auth)/sign-up/sign-up.actions.ts`, form `src/app/[locale]/(auth)/sign-up/sign-up.client.tsx`, schema `src/schemas/signup.schema.ts`.
 
 ## Cursor Cloud specific instructions
 

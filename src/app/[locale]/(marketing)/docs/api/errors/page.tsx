@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 
 import { DocsProsePage } from "@/app/[locale]/(marketing)/docs/_components/docs-prose-section";
 import { API_DOCS_PATH, API_ERRORS_DOCS_PATH } from "@/constants";
@@ -19,8 +19,8 @@ interface CodeMeaning {
   meaning: string;
 }
 
-async function CodesTable({ rows, withStatus }: { rows: CodeMeaning[]; withStatus: boolean }) {
-  const t = await getTranslations("Client.Docs.ApiErrors");
+async function CodesTable({ rows, withStatus, locale }: { rows: CodeMeaning[]; withStatus: boolean; locale: Locale }) {
+  const t = await getTranslator({ locale, namespace: "Client.Docs.ApiErrors" });
 
   return (
     <div className="overflow-x-auto rounded-md border">
@@ -51,13 +51,16 @@ async function CodesTable({ rows, withStatus }: { rows: CodeMeaning[]; withStatu
   );
 }
 
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Docs.ApiErrors.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Docs.ApiErrors.meta" });
 
   return {
     title: t("title"),
@@ -70,8 +73,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function ApiErrorsDocsPage() {
-  const t = await getTranslations("Client.Docs.ApiErrors");
+export default async function ApiErrorsDocsPage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslator({ locale, namespace: "Client.Docs.ApiErrors" });
 
   // Derived from the mapper's own registry, so a new code cannot ship undocumented; the literal
   // union still forces a type-checked catalog entry per code, and the status comes from the mapper.
@@ -90,6 +98,7 @@ export default async function ApiErrorsDocsPage() {
 
   return (
     <DocsProsePage
+      locale={locale}
       title={t("title")}
       description={t("description")}
       headerAside={
@@ -101,13 +110,13 @@ export default async function ApiErrorsDocsPage() {
           id: "codes",
           title: t("codesTitle"),
           body: t("codesBody"),
-          children: <CodesTable rows={problemCodes} withStatus />,
+          children: <CodesTable locale={locale} rows={problemCodes} withStatus />,
         },
         {
           id: "fields",
           title: t("fieldsTitle"),
           body: t("fieldsBody"),
-          children: <CodesTable rows={fieldCodes} withStatus={false} />,
+          children: <CodesTable locale={locale} rows={fieldCodes} withStatus={false} />,
         },
         { id: "retries", title: t("retryTitle"), body: t("retryBody") },
       ]}

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { redirect } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import VerifyEmailClientComponent from "./verify-email.client";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { redirectAuthenticatedUser } from "@/utils/auth-redirect";
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Auth.VerifyEmail.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Auth.VerifyEmail.meta" });
 
   return {
     title: t("title"),

@@ -1,9 +1,12 @@
 import { Metadata } from "next";
 import { buttonVariants } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
+
+// Cached for a day — see docs/page-caching.md.
+export const revalidate = 86400;
 
 export async function generateMetadata({
   params,
@@ -11,7 +14,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Legal.Terms.meta" });
+  const t = await getTranslator({ locale, namespace: "Legal.Terms.meta" });
 
   return {
     title: t("title"),
@@ -28,7 +31,7 @@ export default async function TermsPage({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const t = await getTranslations("Legal.Terms");
+  const t = await getTranslator({ locale, namespace: "Legal.Terms" });
 
   return (
     <>

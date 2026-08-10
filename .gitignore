@@ -58,3 +58,6 @@ metrics/*.html
 
 # Localflare generated files
 .localflare/
+
+# `pnpm email:preview` output
+.email-preview/

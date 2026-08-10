@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
+
+import type { Locale } from "@/i18n/config";
 
 import { DocsOnThisPageNav } from "@/app/[locale]/(marketing)/docs/_components/docs-on-this-page-nav";
 import type { TableOfContentsNode } from "@/lib/cms/table-of-contents-tree";
@@ -36,13 +38,15 @@ export async function DocsProsePage({
   description,
   headerAside,
   sections,
+  locale,
 }: {
   title: string;
   description: string;
   headerAside?: ReactNode;
   sections: DocsProseSectionSpec[];
+  locale: Locale;
 }) {
-  const t = await getTranslations("Client.Docs.Page");
+  const t = await getTranslator({ locale, namespace: "Client.Docs.Page" });
   // Built from the same list that renders the sections, so the TOC can never drift from the page.
   const tableOfContents: TableOfContentsNode[] = sections.map((section) => ({
     id: section.id,
@@ -72,7 +76,7 @@ export async function DocsProsePage({
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 {t("onThisPage")}
               </p>
-              <DocsOnThisPageNav nodes={tableOfContents} />
+              <DocsOnThisPageNav nodes={tableOfContents} locale={locale} />
             </div>
           </aside>
         ) : null}

@@ -1,10 +1,13 @@
+"use client";
+
+// Keep "use client" — tools/oxlint-rules/no-implicit-locale-translations.js explains why not-found needs it.
 import { Link } from "@/i18n/navigation"
-import { getTranslations } from "next-intl/server"
+import { useTranslations } from "next-intl";
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-export default async function BlogPostNotFound() {
-  const t = await getTranslations("Blog.PostNotFound")
+export default function BlogPostNotFound() {
+  const t = useTranslations("Client.Blog.PostNotFound")
 
   return (
     <div className="relative isolate mx-auto max-w-3xl overflow-hidden py-24 sm:py-32">

@@ -1,3 +1,5 @@
+"use client";
+
 import { buttonVariants } from "@/components/ui/button"
 import { getPathname } from "@/i18n/navigation";
 import { usePublicAuthFeatureState } from "@/state/public-config";

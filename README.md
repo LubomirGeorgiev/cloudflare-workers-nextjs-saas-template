@@ -309,9 +309,11 @@ Bindings worth knowing about when you fork:
 2. Update the `name` field in `package.json` to your project name so generated metrics and package metadata identify the reused template correctly
 3. Update `AGENTS.md` with your project specification so that AI coding agents can give you better suggestions
 4. Update the footer in `src/components/footer.tsx` with your project details and links
-5. Optional: Update the color palette in `src/app/globals.css`
-6. Update the metadata in `src/app/layout.tsx` with your project details
-7. Update `cms.config.ts` if necessary
+5. **Replace the logo** — the template ships a placeholder mark (three cascading planes in the marketing amber). It appears in the header, the footer lockup, every generated OpenGraph card, and the favicon. `src/constants/logo.ts` is the only source: swap the two gradient stops to rebrand it in place, or edit `LOGO_PLANE_PATHS` to replace the artwork. Then run `pnpm logo:generate` to rewrite the three static copies, `src/app/icon.svg`, `src/app/favicon.ico`, and `public/logo.svg`. `pnpm run test:unit` fails while a copy is stale
+6. **Update the OpenGraph card colors** in the `COLORS` map at the top of `src/lib/og/og-image.tsx`. These are literal hex mirrors of the dark-theme tokens in `globals.css`, duplicated because satori resolves neither CSS variables nor `oklch()` — so restyling the app does **not** restyle the social cards, and they will keep shipping the template's amber until you change them here too
+7. Optional: Update the color palette in `src/app/globals.css`
+8. Update the metadata in `src/utils/root-metadata.ts` (`authors`, `creator`, the Twitter handle) with your project details — the root layout, `src/app/[locale]/layout.tsx`, reads it
+9. Update `cms.config.ts` if necessary
 
 ## Production deployment
 

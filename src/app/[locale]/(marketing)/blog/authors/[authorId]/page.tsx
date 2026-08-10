@@ -1,10 +1,10 @@
 import "server-only"
+import { getTranslator } from "@/i18n/translator";
 import { cache } from "react"
 import { notFound } from "next/navigation"
 import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getTranslations } from "next-intl/server"
-import { getCmsCollection } from "@/lib/cms/entry"
+import { getBlogEntriesWithAuthors, resolveBlogAuthor } from "@/lib/cms/resolve-blog-author"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
@@ -28,20 +28,20 @@ type AuthorPageProps = {
   }>
 }
 
+// `includeTags` because the cards below render tag pills; the OG card asks for the author alone.
 const getCachedBlogEntriesWithAuthors = cache(async (locale: Locale) => {
-  return getCmsCollection({
-    collectionSlug: "blog",
-    includeRelations: { createdByUser: true, tags: true },
-    locale,
-  })
+  return getBlogEntriesWithAuthors({ locale, includeTags: true })
 })
+
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
   const { locale, authorId: authorRouteParam } = await params
-  const t = await getTranslations({ locale, namespace: "Blog.AuthorDetail.meta" })
-  const tDetail = await getTranslations({ locale, namespace: "Blog.AuthorDetail" })
+  const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail.meta" })
+  const tDetail = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
 
   if (!parsedAuthorId) {
@@ -50,19 +50,18 @@ export async function generateMetadata({
     }
   }
 
-  const blogEntries = await getCachedBlogEntriesWithAuthors(locale)
+  const resolved = resolveBlogAuthor({
+    entries: await getCachedBlogEntriesWithAuthors(locale),
+    authorRouteParam,
+  })
 
-  const authorEntries = blogEntries.filter(
-    entry => entry.createdByUser?.id === parsedAuthorId
-  )
-
-  if (authorEntries.length === 0) {
+  if (!resolved) {
     return {
       title: t("notFound"),
     }
   }
 
-  const author = authorEntries[0].createdByUser!
+  const { author } = resolved
   const authorName = getAuthorDisplayName(author, tDetail("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
 
@@ -103,9 +102,10 @@ export async function generateMetadata({
 }
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
-  const t = await getTranslations("Blog.AuthorDetail")
-  const tCommon = await getTranslations("Blog.Common")
   const { locale, authorId: authorRouteParam } = await params
+  const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
+  const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
+  // Ahead of the empty-blog redirect below on purpose: a malformed param must 404, not go home.
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
 
   if (!parsedAuthorId) {
@@ -120,15 +120,13 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     redirect({ href: "/", locale })
   }
 
-  const authorEntries = blogEntries.filter(
-    entry => entry.createdByUser?.id === parsedAuthorId
-  )
+  const resolved = resolveBlogAuthor({ entries: blogEntries, authorRouteParam })
 
-  if (authorEntries.length === 0) {
+  if (!resolved) {
     notFound()
   }
 
-  const author = authorEntries[0].createdByUser!
+  const { author, entries: authorEntries } = resolved
   const authorName = getAuthorDisplayName(author, t("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
 
@@ -183,7 +181,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {authorEntries.map((entry) => (
-            <BlogCard key={entry.id} entry={entry} showAuthor={false} />
+            <BlogCard key={entry.id} locale={locale} entry={entry} showAuthor={false} />
           ))}
         </div>
       </div>

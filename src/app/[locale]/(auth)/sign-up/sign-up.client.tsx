@@ -23,8 +23,8 @@ import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { KeyIcon } from 'lucide-react'
 import { usePublicAuthFeatureState } from "@/state/public-config";
-import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
+import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
 import { useTranslations } from "next-intl";
 
 interface SignUpClientProps {
@@ -35,6 +35,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
   const { isTurnstileEnabled } = usePublicAuthFeatureState();
   const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const navigateAfterAuth = useNavigateAfterAuth();
   const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
   const t = useTranslations("Client.Auth.SignUp");
   const tCommon = useTranslations("Client.Auth.Common");
@@ -50,7 +51,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     onSuccess: () => {
       dismissLoadingToast()
       toast.success(t("toastAccountCreated"))
-      window.location.href = redirectPath || REDIRECT_AFTER_SIGN_IN
+      navigateAfterAuth(redirectPath)
     }
   })
 
@@ -63,7 +64,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     onSuccess: () => {
       dismissLoadingToast()
       toast.success(t("toastAccountCreated"))
-      window.location.href = redirectPath || REDIRECT_AFTER_SIGN_IN
+      navigateAfterAuth(redirectPath)
     }
   })
 

@@ -17,7 +17,14 @@ import { DEFAULT_LOCALE } from "./config";
 
 const SRC_DIR = fileURLToPath(new URL("..", import.meta.url));
 
-const TRANSLATOR_FACTORIES = ["useTranslations", "getTranslations", "createTranslator"];
+// `getTranslator` is this repo's request-context-free wrapper (src/i18n/translator.ts) and the
+// mandated one in every server file; without it here the scanner cannot see those keys at all.
+const TRANSLATOR_FACTORIES = [
+  "useTranslations",
+  "getTranslations",
+  "createTranslator",
+  "getTranslator",
+];
 
 function keyPaths(obj: unknown, prefix = ""): string[] {
   if (obj === null || typeof obj !== "object") {

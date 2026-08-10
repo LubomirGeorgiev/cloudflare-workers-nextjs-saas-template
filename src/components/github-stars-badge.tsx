@@ -1,6 +1,7 @@
 import { SiGithub as GithubIcon } from "@icons-pack/react-simple-icons";
 import { ArrowRight, Star } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
+import type { Locale } from "@/i18n/config";
 import { GITHUB_REPO_URL } from "@/constants";
 import { getGithubStars } from "@/utils/stats";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,9 @@ type BadgeSize = "sm" | "lg";
 interface GithubStarsBadgeProps {
   size?: BadgeSize;
   className?: string;
+  // Passed in rather than read from the request: `getLocale()` resolves through `headers()`, which
+  // marks the whole page render dynamic. See src/app/[locale]/layout.tsx.
+  locale: Locale;
 }
 
 const SIZES = {
@@ -42,11 +46,10 @@ const SIZES = {
 const PILL_BASE =
   "group inline-flex items-center rounded-full border border-edge/40 bg-edge/10 shadow-lg shadow-edge/10 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-edge/70 hover:bg-edge/20 hover:shadow-xl hover:shadow-edge/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-edge focus-visible:ring-offset-2 focus-visible:ring-offset-background active:translate-y-0 active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
-export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBadgeProps) {
-  const [stars, t, locale] = await Promise.all([
+export async function GithubStarsBadge({ size = "lg", className, locale }: GithubStarsBadgeProps) {
+  const [stars, t] = await Promise.all([
     getGithubStars(),
-    getTranslations("Client.GithubStars"),
-    getLocale(),
+    getTranslator({ locale, namespace: "Client.GithubStars" }),
   ]);
   const s = SIZES[size];
 
@@ -107,7 +110,10 @@ export async function GithubStarsBadge({ size = "lg", className }: GithubStarsBa
 
 // Skeletons only — no copy — so the Suspense fallback never flashes English
 // text on non-default locales (same rationale as DocsNavigationChromeFallback).
-export function GithubStarsBadgeFallback({ size = "lg", className }: GithubStarsBadgeProps) {
+export function GithubStarsBadgeFallback({
+  size = "lg",
+  className,
+}: Omit<GithubStarsBadgeProps, "locale">) {
   const s = SIZES[size];
 
   return (

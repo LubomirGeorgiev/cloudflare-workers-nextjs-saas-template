@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import useSignOut from "@/hooks/useSignOut"
-import { useRouter } from "next/navigation"
+import { useRouter } from "@/i18n/navigation"
 import { useSessionStore } from "@/state/session"
 import { useTheme } from "next-themes"
 import { useLocale, useTranslations } from "next-intl"

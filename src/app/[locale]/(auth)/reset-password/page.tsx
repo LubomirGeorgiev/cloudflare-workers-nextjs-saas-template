@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
 import ResetPasswordClientComponent from "./reset-password.client";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { LOCALES, type Locale } from "@/i18n/config";
@@ -13,7 +13,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Auth.ResetPassword.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Auth.ResetPassword.meta" });
 
   return {
     title: t("title"),

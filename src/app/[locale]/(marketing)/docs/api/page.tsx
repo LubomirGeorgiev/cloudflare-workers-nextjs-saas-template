@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { getTranslations } from "next-intl/server";
+import { getTranslator } from "@/i18n/translator";
+
 
 import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,15 +15,27 @@ import {
 } from "@/constants";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildApiReferenceView } from "@/lib/api/reference-model";
+import { cn } from "@/lib/utils";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { buildAlternates } from "@/utils/i18n-metadata";
 import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 
-import { ApiOperation } from "./_components/api-operation";
+import { ApiOperation, buildApiOperationLabels } from "./_components/api-operation";
 import { EMPTY_STATE_ATTRIBUTES, GROUP_FILTER_ATTRIBUTES } from "./_components/api-reference-dom";
 import { ApiReferenceFilter } from "./_components/api-reference-filter";
 import { ApiReferenceIndex } from "./_components/api-reference-index";
 import { DocsCrossLinks } from "../_components/docs-cross-links";
+
+// Below xl the filter bar spans the content, so a plain rule ends at the page edge. From xl the
+// endpoint index sits beside it and the rule would stop mid-canvas, so it fades into the gutter.
+const FILTER_BAR_RULE = cn(
+  "border-b xl:border-b-0",
+  "xl:after:pointer-events-none xl:after:absolute xl:after:inset-x-0 xl:after:bottom-0 xl:after:h-px",
+  "xl:after:bg-linear-to-r xl:after:from-border xl:after:from-70% xl:after:to-transparent",
+);
+
+// Cached for an hour — see docs/page-caching.md.
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -30,7 +43,7 @@ export async function generateMetadata({
   params: Promise<{ locale: Locale }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "Client.Docs.ApiReference.meta" });
+  const t = await getTranslator({ locale, namespace: "Client.Docs.ApiReference.meta" });
 
   return {
     title: t("title"),
@@ -39,8 +52,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function ApiReferencePage() {
-  const t = await getTranslations("Client.Docs.ApiReference");
+export default async function ApiReferencePage({
+  params,
+}: {
+  params: Promise<{ locale: Locale }>;
+}) {
+  const { locale } = await params;
+  const t = await getTranslator({ locale, namespace: "Client.Docs.ApiReference" });
+  // Every operation renders the same strings, so the page owns the one label set for all of them.
+  const operationLabels = buildApiOperationLabels(t);
   const document = apiDocument();
   // The MCP derivation owns which operations become tools and what they are called; the view model
   // only labels them, so the mapping is passed in rather than reached for from the docs layer.
@@ -91,7 +111,12 @@ export default async function ApiReferencePage() {
 
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="min-w-0">
-            <div className="sticky top-0 z-10 -mx-4 mb-8 border-b bg-background/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:-mx-8 lg:px-8">
+            <div
+              className={cn(
+                "sticky top-0 z-10 -mx-4 mb-8 bg-background/95 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:-mx-8 lg:px-8",
+                FILTER_BAR_RULE,
+              )}
+            >
               <ApiReferenceFilter methods={view.methods} total={view.operationCount} />
             </div>
 
@@ -102,7 +127,11 @@ export default async function ApiReferencePage() {
 
                   <div className="space-y-4">
                     {group.operations.map((operation) => (
-                      <ApiOperation key={operation.operationId} operation={operation} />
+                      <ApiOperation
+                        key={operation.operationId}
+                        operation={operation}
+                        labels={operationLabels}
+                      />
                     ))}
                   </div>
                 </section>

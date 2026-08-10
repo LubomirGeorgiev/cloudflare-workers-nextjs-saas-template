@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useRouter as useLocaleRouter } from "@/i18n/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { acceptTeamInviteAction } from "./team-invite.action";
@@ -14,7 +14,6 @@ import { useTranslations } from "next-intl";
 
 export default function TeamInviteClientComponent() {
   const router = useRouter();
-  const localeRouter = useLocaleRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const hasCalledAcceptInvite = useRef(false);
@@ -59,7 +58,7 @@ export default function TeamInviteClientComponent() {
         handleAcceptInvite(result.output);
       } else {
         toast.error(t("toastInvalidToken"));
-        localeRouter.push("/sign-in");
+        router.push("/sign-in");
       }
     }
   }, [token]);

@@ -34,6 +34,13 @@ const DEFAULT_IGNORE_EXPORTS = [
   "middleware",
 ]
 
+// Next's image metadata convention reads these from the route file itself. Scoped to those
+// filenames because `alt` and `size` are ordinary names anywhere else, and a global exemption
+// would hide every unused `export const size` in the repo.
+const IMAGE_METADATA_FILE_PATTERN =
+  /(?:^|\/)(?:opengraph-image|twitter-image|icon|apple-icon)\d*\.[^/]+$/
+const IMAGE_METADATA_EXPORTS = new Set(["alt", "size", "contentType", "generateImageMetadata"])
+
 const DEFAULT_IGNORE_FILE_PATTERNS = [
   String.raw`(?:^|/)node_modules/`,
   String.raw`(?:^|/)(?:next-env|worker-configuration)\.d\.ts$`,
@@ -83,8 +90,12 @@ function getRuleOptions(rawOptions) {
   }
 }
 
-function shouldIgnoreExport(name, options) {
+function shouldIgnoreExport(name, filePath, options) {
   if (options.ignoreExports.has(name)) {
+    return true
+  }
+
+  if (IMAGE_METADATA_EXPORTS.has(name) && IMAGE_METADATA_FILE_PATTERN.test(filePath)) {
     return true
   }
 
@@ -174,7 +185,7 @@ function mergeExportKind(currentKind, nextKind) {
 }
 
 function addExport(exportsByFile, fileName, name, kind, options) {
-  if (shouldIgnoreExport(name, options)) {
+  if (shouldIgnoreExport(name, fileName, options)) {
     return
   }
 

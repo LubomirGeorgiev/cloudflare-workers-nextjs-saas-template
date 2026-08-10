@@ -1,7 +1,7 @@
 import { getBlogPagePath } from "@/lib/blog-routing"
+import { getTranslator } from "@/i18n/translator";
 import { getPathname } from "@/i18n/navigation"
 import type { Locale } from "@/i18n/config"
-import { getTranslations } from "next-intl/server"
 import {
   Pagination,
   PaginationContent,
@@ -19,7 +19,7 @@ interface BlogPaginationServerProps {
 }
 
 export async function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
-  const t = await getTranslations({ locale, namespace: "Client.Pagination" });
+  const t = await getTranslator({ locale, namespace: "Client.Pagination" });
   // `PaginationLink` renders a plain `<a href>`, so the href must already carry
   // any active locale prefix or pagination can drop the visitor's locale.
   const pageHref = (page: number) => getPathname({ href: getBlogPagePath({ page }), locale })

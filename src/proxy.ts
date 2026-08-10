@@ -5,6 +5,7 @@ import { I18N_ENABLED } from "@/constants";
 import { LOCALES } from "@/i18n/config";
 import { shouldLocalizePathname } from "@/i18n/localized-paths";
 import { routing } from "@/i18n/routing";
+import { isOgImageRequest } from "@/lib/og/og-paths";
 
 const intlMiddleware = createMiddleware(routing);
 
@@ -25,7 +26,18 @@ export default function proxy(request: NextRequest) {
     }
   }
 
-  return intlMiddleware(request);
+  const response = intlMiddleware(request);
+
+  // An OG card is a public image whose locale is already in its path, so the locale cookie buys it
+  // nothing — and Cloudflare BYPASSes the cache for any response carrying Set-Cookie. Social
+  // crawlers never send cookies back, so without this every crawl re-renders (satori + resvg).
+  // Safe as a blanket delete only because no other cookie is set on these routes, and because a
+  // page URL shaped like a card (`/blog/opengraph-image-launch`) is excluded by the request itself.
+  if (isOgImageRequest({ pathname: request.nextUrl.pathname, headers: request.headers })) {
+    response.headers.delete("set-cookie");
+  }
+
+  return response;
 }
 
 // Checks the full LOCALES catalog, not just the enabled set, so paths for

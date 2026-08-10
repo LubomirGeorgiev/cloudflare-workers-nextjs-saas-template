@@ -34,6 +34,7 @@
     "project/no-object-params-in-react-cache": "error",
     "project/no-next-link-in-translatable-pages": "error",
     "project/client-translations-under-client-namespace": "error",
+    "project/no-implicit-locale-translations": "error",
     "array-callback-return": "error",
     "curly": ["error", "all"],
     "eqeqeq": "error",

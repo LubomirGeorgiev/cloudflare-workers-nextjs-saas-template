@@ -1,18 +1,95 @@
 import { LinkIcon } from "lucide-react";
-import { getTranslations } from "next-intl/server";
 
 import { ApiCodeBlock } from "./api-code-block";
 import { ApiJsonPreview } from "./api-json-preview";
-import { ApiParameterFields, ApiSchemaFields } from "./api-schema-fields";
+import { ApiParameterFields, ApiSchemaFields, type FieldRowLabels } from "./api-schema-fields";
 import { filterAttributes, methodStyle } from "./api-reference-dom";
 import { API_AUTH_DOCS_PATH, API_ERRORS_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
 import { Link } from "@/i18n/navigation";
+import type { getTranslator } from "@/i18n/translator";
 import type { OperationView, ResponseView } from "@/lib/api/reference-model";
 import { cn } from "@/lib/utils";
 
 // One fully server-rendered operation. Every documented failure shares the RFC 9457 problem shape,
 // so the error statuses collapse into one collapsed block instead of repeating that schema five
-// times per endpoint.
+// times per endpoint. The page builds one label set with `buildApiOperationLabels` and hands it to
+// every operation, so this whole subtree renders synchronously and the strings resolve once.
+
+type ApiReferenceTranslator = Awaited<
+  ReturnType<typeof getTranslator<"Client.Docs.ApiReference">>
+>;
+
+interface CodeBlockLabels {
+  example: string;
+  copyExample: string;
+}
+
+interface OperationBadgeLabels {
+  scope: string;
+  mcpTool: string;
+  operationId: string;
+}
+
+interface ErrorResponsesLabels extends CodeBlockLabels {
+  heading: string;
+  expand: string;
+  /** Rich text with a link to the shared error reference, so it arrives already rendered. */
+  hint: React.ReactNode;
+}
+
+interface ApiOperationLabels {
+  code: CodeBlockLabels;
+  fields: FieldRowLabels;
+  errors: ErrorResponsesLabels;
+  badges: OperationBadgeLabels;
+  parameters: string;
+  requestBody: string;
+  request: string;
+  copyRequest: string;
+  response: string;
+  /** Takes the operation summary, so the one label serves every operation on the page. */
+  anchor: (summary: string) => string;
+}
+
+/** Resolves every string an operation renders. Call once per page, not once per operation. */
+export function buildApiOperationLabels(t: ApiReferenceTranslator): ApiOperationLabels {
+  const code: CodeBlockLabels = {
+    example: t("exampleLabel"),
+    copyExample: t("copyExample"),
+  };
+
+  return {
+    code,
+    fields: {
+      required: t("required"),
+      optional: t("optional"),
+      nullable: t("nullable"),
+    },
+    errors: {
+      ...code,
+      heading: t("errorResponsesLabel"),
+      expand: t("expandLabel"),
+      hint: t.rich("errorResponsesHint", {
+        errors: (chunks) => (
+          <Link href={API_ERRORS_DOCS_PATH} className="underline underline-offset-4">
+            {chunks}
+          </Link>
+        ),
+      }),
+    },
+    badges: {
+      scope: t("scopeLabel"),
+      mcpTool: t("mcpToolLabel"),
+      operationId: t("operationIdLabel"),
+    },
+    parameters: t("parametersLabel"),
+    requestBody: t("requestBodyLabel"),
+    request: t("requestLabel"),
+    copyRequest: t("copyRequest"),
+    response: t("responseLabel"),
+    anchor: (summary) => t("anchorLabel", { operation: summary }),
+  };
+}
 
 export function ApiMethodBadge({ method, className }: { method: string; className?: string }) {
   return (
@@ -45,9 +122,15 @@ function OperationSection({
   );
 }
 
-async function SuccessResponse({ response }: { response: ResponseView }) {
-  const t = await getTranslations("Client.Docs.ApiReference");
-
+function SuccessResponse({
+  response,
+  labels,
+  fieldLabels,
+}: {
+  response: ResponseView;
+  labels: CodeBlockLabels;
+  fieldLabels: FieldRowLabels;
+}) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-2">
@@ -63,14 +146,14 @@ async function SuccessResponse({ response }: { response: ResponseView }) {
       </div>
 
       {response.schema && response.schema.fields.length > 0 ? (
-        <ApiSchemaFields fields={response.schema.fields} variant="response" />
+        <ApiSchemaFields fields={response.schema.fields} variant="response" labels={fieldLabels} />
       ) : null}
 
       {response.schema ? (
         <ApiCodeBlock
-          label={t("exampleLabel")}
+          label={labels.example}
           copyValue={JSON.stringify(response.schema.example, null, 2)}
-          copyLabel={t("copyExample")}
+          copyLabel={labels.copyExample}
         >
           <ApiJsonPreview value={response.schema.example} />
         </ApiCodeBlock>
@@ -79,14 +162,18 @@ async function SuccessResponse({ response }: { response: ResponseView }) {
   );
 }
 
-async function ErrorResponses({ operation }: { operation: OperationView }) {
-  const t = await getTranslations("Client.Docs.ApiReference");
-
+function ErrorResponses({
+  operation,
+  labels,
+}: {
+  operation: OperationView;
+  labels: ErrorResponsesLabels;
+}) {
   return (
     <details className="group rounded-lg border border-border/70 bg-background/60">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
         <span className="flex flex-wrap items-center gap-2">
-          {t("errorResponsesLabel")}
+          {labels.heading}
           {operation.errorResponses.map((response) => (
             <span key={response.status} className="font-mono text-[11px] text-muted-foreground/70">
               {response.status}
@@ -94,20 +181,12 @@ async function ErrorResponses({ operation }: { operation: OperationView }) {
           ))}
         </span>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60 group-open:hidden">
-          {t("expandLabel")}
+          {labels.expand}
         </span>
       </summary>
 
       <div className="space-y-3 border-t border-border/60 px-4 py-3">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {t.rich("errorResponsesHint", {
-            errors: (chunks) => (
-              <Link href={API_ERRORS_DOCS_PATH} className="underline underline-offset-4">
-                {chunks}
-              </Link>
-            ),
-          })}
-        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{labels.hint}</p>
 
         <dl className="space-y-1.5">
           {operation.errorResponses.map((response) => (
@@ -120,9 +199,9 @@ async function ErrorResponses({ operation }: { operation: OperationView }) {
 
         {operation.errorExample ? (
           <ApiCodeBlock
-            label={t("exampleLabel")}
+            label={labels.example}
             copyValue={JSON.stringify(operation.errorExample, null, 2)}
-            copyLabel={t("copyExample")}
+            copyLabel={labels.copyExample}
           >
             <ApiJsonPreview value={operation.errorExample} />
           </ApiCodeBlock>
@@ -136,9 +215,13 @@ const BADGE_CLASS_NAME =
   "inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2.5 py-1";
 
 /** What the operation costs a credential and what an agent calls it: scope, MCP tool, operationId. */
-async function OperationBadges({ operation }: { operation: OperationView }) {
-  const t = await getTranslations("Client.Docs.ApiReference");
-
+function OperationBadges({
+  operation,
+  labels,
+}: {
+  operation: OperationView;
+  labels: OperationBadgeLabels;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
       {operation.scope ? (
@@ -147,7 +230,7 @@ async function OperationBadges({ operation }: { operation: OperationView }) {
           title={operation.scopeDescription ?? undefined}
           className={cn(BADGE_CLASS_NAME, "transition-colors hover:border-border hover:bg-muted/40")}
         >
-          <span className="text-muted-foreground">{t("scopeLabel")}</span>
+          <span className="text-muted-foreground">{labels.scope}</span>
           <code className="font-mono font-medium text-foreground">{operation.scope}</code>
         </Link>
       ) : null}
@@ -157,22 +240,26 @@ async function OperationBadges({ operation }: { operation: OperationView }) {
           href={MCP_DOCS_PATH}
           className={cn(BADGE_CLASS_NAME, "transition-colors hover:border-border hover:bg-muted/40")}
         >
-          <span className="text-muted-foreground">{t("mcpToolLabel")}</span>
+          <span className="text-muted-foreground">{labels.mcpTool}</span>
           <code className="font-mono font-medium text-foreground">{operation.mcpToolName}</code>
         </Link>
       ) : null}
 
       <span className={BADGE_CLASS_NAME}>
-        <span className="text-muted-foreground">{t("operationIdLabel")}</span>
+        <span className="text-muted-foreground">{labels.operationId}</span>
         <code className="font-mono font-medium text-foreground">{operation.operationId}</code>
       </span>
     </div>
   );
 }
 
-export async function ApiOperation({ operation }: { operation: OperationView }) {
-  const t = await getTranslations("Client.Docs.ApiReference");
-
+export function ApiOperation({
+  operation,
+  labels,
+}: {
+  operation: OperationView;
+  labels: ApiOperationLabels;
+}) {
   return (
     <article
       id={operation.anchorId}
@@ -190,7 +277,7 @@ export async function ApiOperation({ operation }: { operation: OperationView }) 
         </code>
         <a
           href={`#${operation.anchorId}`}
-          aria-label={t("anchorLabel", { operation: operation.summary })}
+          aria-label={labels.anchor(operation.summary)}
           className="text-muted-foreground/60 transition-colors hover:text-foreground"
         >
           <LinkIcon className="h-3.5 w-3.5" />
@@ -207,27 +294,31 @@ export async function ApiOperation({ operation }: { operation: OperationView }) 
           ) : null}
         </div>
 
-        <OperationBadges operation={operation} />
+        <OperationBadges operation={operation} labels={labels.badges} />
 
         {operation.parameters.length > 0 ? (
-          <OperationSection title={t("parametersLabel")}>
-            <ApiParameterFields parameters={operation.parameters} />
+          <OperationSection title={labels.parameters}>
+            <ApiParameterFields parameters={operation.parameters} labels={labels.fields} />
           </OperationSection>
         ) : null}
 
         {operation.requestBody ? (
-          <OperationSection title={t("requestBodyLabel")}>
+          <OperationSection title={labels.requestBody}>
             {operation.requestBody.fields.length > 0 ? (
-              <ApiSchemaFields fields={operation.requestBody.fields} variant="request" />
+              <ApiSchemaFields
+                fields={operation.requestBody.fields}
+                variant="request"
+                labels={labels.fields}
+              />
             ) : null}
           </OperationSection>
         ) : null}
 
-        <OperationSection title={t("requestLabel")}>
+        <OperationSection title={labels.request}>
           <ApiCodeBlock
             label="curl"
             copyValue={operation.curl}
-            copyLabel={t("copyRequest")}
+            copyLabel={labels.copyRequest}
           >
             <pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed text-foreground/90">
               <code>{operation.curl}</code>
@@ -236,16 +327,23 @@ export async function ApiOperation({ operation }: { operation: OperationView }) 
         </OperationSection>
 
         {operation.successResponses.length > 0 ? (
-          <OperationSection title={t("responseLabel")}>
+          <OperationSection title={labels.response}>
             <div className="space-y-4">
               {operation.successResponses.map((response) => (
-                <SuccessResponse key={response.status} response={response} />
+                <SuccessResponse
+                  key={response.status}
+                  response={response}
+                  labels={labels.code}
+                  fieldLabels={labels.fields}
+                />
               ))}
             </div>
           </OperationSection>
         ) : null}
 
-        {operation.errorResponses.length > 0 ? <ErrorResponses operation={operation} /> : null}
+        {operation.errorResponses.length > 0 ? (
+          <ErrorResponses operation={operation} labels={labels.errors} />
+        ) : null}
       </div>
     </article>
   );

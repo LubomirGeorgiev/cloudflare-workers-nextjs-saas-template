@@ -18,7 +18,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import Link from "next/link"
+import { Link } from "@/i18n/navigation"
 import type { Route } from "next"
 import { useTranslations } from "next-intl"
 import type { NavItem, NavMainItem } from "./app-sidebar-data"

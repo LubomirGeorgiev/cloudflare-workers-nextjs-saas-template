@@ -18,10 +18,11 @@ import { KeyIcon } from "lucide-react";
 import {
   generateAuthenticationOptionsAction,
   verifyAuthenticationAction,
-} from "@/app/(settings)/settings/security/passkey-settings.actions";
+} from "@/app/[locale]/(app)/(settings)/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { signInAction } from "./sign-in.action";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
+import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
 import { useTranslations } from "next-intl";
 
 interface SignInClientProps {
@@ -33,6 +34,7 @@ interface PasskeyAuthenticationButtonProps {
 }
 
 function PasskeyAuthenticationButton({ redirectPath }: PasskeyAuthenticationButtonProps) {
+  const navigateAfterAuth = useNavigateAfterAuth();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
   const t = useTranslations("Client.Auth.SignIn");
@@ -52,7 +54,7 @@ function PasskeyAuthenticationButton({ redirectPath }: PasskeyAuthenticationButt
     onSuccess: () => {
       dismissLoadingToast();
       toast.success(t("toastAuthSuccess"));
-      window.location.href = redirectPath;
+      navigateAfterAuth(redirectPath);
     },
   });
 
@@ -101,6 +103,7 @@ function PasskeyAuthenticationButton({ redirectPath }: PasskeyAuthenticationButt
 }
 
 const SignInPage = ({ redirectPath }: SignInClientProps) => {
+  const navigateAfterAuth = useNavigateAfterAuth();
   const { dismissLoadingToast, showLoadingToast } = useManagedLoadingToast();
   const t = useTranslations("Client.Auth.SignIn");
   const tCommon = useTranslations("Client.Auth.Common");
@@ -124,7 +127,7 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
     onSuccess: () => {
       dismissLoadingToast();
       toast.success(t("toastSignInSuccess"));
-      window.location.href = redirectPath;
+      navigateAfterAuth(redirectPath);
     },
   });
 

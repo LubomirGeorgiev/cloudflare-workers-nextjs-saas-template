@@ -1,3 +1,6 @@
+"use client";
+
+// Keep "use client" — tools/oxlint-rules/no-implicit-locale-translations.js explains why not-found needs it.
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -7,10 +10,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 
-export default async function ResetPasswordNotFound() {
-  const t = await getTranslations("Client.Auth.ResetPassword");
+export default function ResetPasswordNotFound() {
+  const t = useTranslations("Client.Auth.ResetPassword");
 
   return (
     <div className="container mx-auto px-4 flex items-center justify-center min-h-screen">
