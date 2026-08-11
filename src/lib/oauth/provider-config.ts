@@ -27,6 +27,10 @@ export const oauthCoreOptions = {
   // without any stored registration. Requires the global_fetch_strictly_public compat flag.
   clientIdMetadataDocumentEnabled: true,
   scopesSupported: [...API_SCOPE_NAMES],
+  // Advertised in RFC 9728 protected resource metadata, which is a *separate* list from
+  // `scopesSupported` above. MCP clients that discover us through the bearer challenge read the
+  // scope catalog from here; omit it and they send no `scope` at all and consent to nothing.
+  resourceMetadata: { scopes_supported: [...API_SCOPE_NAMES] },
   allowPlainPKCE: false,
   accessTokenTTL: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
   refreshTokenTTL: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
