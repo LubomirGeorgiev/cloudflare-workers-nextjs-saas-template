@@ -4,7 +4,6 @@ import { drizzle } from "drizzle-orm/d1";
 import { cache } from "react";
 import { env as workerEnv } from "cloudflare:workers";
 
-import { shouldLogD1Queries } from "./logging";
 import { relations } from "./schema";
 
 export const getDB = cache(() => {
@@ -14,6 +13,6 @@ export const getDB = cache(() => {
 
   return drizzle(workerEnv.NEXT_TAG_CACHE_D1, {
     relations,
-    logger: shouldLogD1Queries({ appTestMode: workerEnv.APP_TEST_MODE as string | undefined }),
+    logger: process.env.NODE_ENV === "development",
   });
 });

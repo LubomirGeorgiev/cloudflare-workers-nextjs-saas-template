@@ -14,7 +14,7 @@ import {
   OAUTH_REGISTER_PATH,
 } from "@/constants";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
-import { __INTERNAL_CF_CONTEXT_FIELDS } from "@/utils/cf-context-fields";
+import { __INTERNAL_CF_CONTEXT_FIELDS, decodeCfHeaderValue } from "@/utils/cf-context-fields";
 import {
   __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
   __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
@@ -195,6 +195,32 @@ describe("worker edge integration", () => {
       }
       expect(body.headers[header] ?? null).toBeNull();
     }
+  });
+
+  test("non-ASCII Cloudflare context values forward as ASCII and decode back", async () => {
+    const city = "São Francisco de Assis";
+    const request = new Request("https://example.com/sign-up");
+
+    Object.defineProperty(request, "cf", {
+      configurable: true,
+      value: { city, timezone: "America/Sao_Paulo" },
+    });
+
+    const response = await worker.fetch(
+      request,
+      env as Env,
+      createExecutionContext()
+    );
+    const body = await response.json() as {
+      headers: Record<string, string | null>;
+    };
+
+    const forwarded = body.headers["__INTERNAL_CF_IPCITY"] ?? "";
+    expect([...forwarded].every((char) => char.charCodeAt(0) < 128)).toBe(true);
+    expect(decodeCfHeaderValue(forwarded)).toBe(city);
+    expect(decodeCfHeaderValue(body.headers["__INTERNAL_CF_TIMEZONE"] ?? "")).toBe(
+      "America/Sao_Paulo"
+    );
   });
 
   test("forwards HTTP as the trusted request protocol for local previews", async () => {

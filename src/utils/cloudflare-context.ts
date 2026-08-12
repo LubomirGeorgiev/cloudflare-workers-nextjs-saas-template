@@ -4,7 +4,11 @@ import { env as workerEnv } from "cloudflare:workers";
 import { headers } from "next/headers";
 import { cache } from "react";
 
-import { __INTERNAL_CF_CONTEXT_FIELDS, type CloudflareRequestContext } from "./cf-context-fields";
+import {
+  __INTERNAL_CF_CONTEXT_FIELDS,
+  decodeCfHeaderValue,
+  type CloudflareRequestContext,
+} from "./cf-context-fields";
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Utility modules intentionally expose shared app/tooling contracts.
 export interface CloudflareContext {
@@ -31,10 +35,12 @@ function getRequestContextFromHeaders(headersList: Headers): CloudflareRequestCo
   for (const row of __INTERNAL_CF_CONTEXT_FIELDS) {
     const { key, header } = row;
     const valueKind = "valueKind" in row ? row.valueKind : undefined;
-    const value = headersList.get(header);
-    if (!value) {
+    const raw = headersList.get(header);
+    if (!raw) {
       continue;
     }
+
+    const value = decodeCfHeaderValue(raw);
 
     if (valueKind === "boolean") {
       const parsed = parseCfBooleanHeader(value);

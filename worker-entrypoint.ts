@@ -16,7 +16,7 @@ import {
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
-import { __INTERNAL_CF_CONTEXT_FIELDS } from "./src/utils/cf-context-fields";
+import { __INTERNAL_CF_CONTEXT_FIELDS, encodeCfHeaderValue } from "./src/utils/cf-context-fields";
 import {
   __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
   __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
@@ -197,7 +197,7 @@ function withForwardedCfHeaders({ request, url }: { request: Request; url: URL }
   for (const { key, header } of __INTERNAL_CF_CONTEXT_FIELDS) {
     const value = cf[key];
     if (value !== undefined && value !== null && value !== "") {
-      forwarded.headers.set(header, String(value));
+      forwarded.headers.set(header, encodeCfHeaderValue(String(value)));
     }
   }
 

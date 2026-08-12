@@ -23,6 +23,20 @@ export const __INTERNAL_CF_CONTEXT_FIELDS = [
 // oxlint-disable-next-line project/no-unused-module-exports -- Utility modules intentionally expose shared app/tooling contracts.
 export type CfContextKey = (typeof __INTERNAL_CF_CONTEXT_FIELDS)[number]["key"];
 
+// Geo values carry non-ASCII characters ("São Francisco de Assis"). workerd forwards them as UTF-8
+// bytes but warns on every request, so percent-encode on write and decode on read.
+export function encodeCfHeaderValue(value: string): string {
+  return encodeURIComponent(value);
+}
+
+export function decodeCfHeaderValue(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export type CloudflareRequestContext = {
   [Field in (typeof __INTERNAL_CF_CONTEXT_FIELDS)[number] as Field["key"]]?: Field extends { valueKind: "boolean" }
     ? boolean
