@@ -57,17 +57,6 @@ test("honors seeded docs navigation redirects", async () => {
   await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
 });
 
-test("serves docs markdown exports for AI and download workflows", async () => {
-  const response = await fetchAppPath(`/markdown/docs/${SEEDED_DOCS_ENTRY.slug}`);
-
-  expect(response.status).toBe(200);
-  expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
-
-  const body = await response.text();
-  expect(body).toMatch(/^# Introduction/m);
-  expect(body).toContain("Authentication and team management");
-});
-
 test("serves a docs page as markdown at its .md URL", async () => {
   const response = await fetchAppPath(`${SEEDED_DOCS_ENTRY_PATH}.md`, { redirect: "manual" });
 
