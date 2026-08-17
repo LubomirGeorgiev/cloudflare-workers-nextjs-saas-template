@@ -5,15 +5,23 @@ import { ApiJsonPreview } from "./api-json-preview";
 import { ApiParameterFields, ApiSchemaFields, type FieldRowLabels } from "./api-schema-fields";
 import { filterAttributes, methodStyle } from "./api-reference-dom";
 import { API_AUTH_DOCS_PATH, API_ERRORS_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
+import {
+  MARKDOWN_DIRECTIVE_ATTRIBUTE,
+  MARKDOWN_DIRECTIVES,
+} from "@/constants/markdown-directives";
 import { Link } from "@/i18n/navigation";
 import type { getTranslator } from "@/i18n/translator";
 import type { OperationView, ResponseView } from "@/lib/api/reference-model";
 import { cn } from "@/lib/utils";
 
-// One fully server-rendered operation. Every documented failure shares the RFC 9457 problem shape,
-// so the error statuses collapse into one collapsed block instead of repeating that schema five
-// times per endpoint. The page builds one label set with `buildApiOperationLabels` and hands it to
-// every operation, so this whole subtree renders synchronously and the strings resolve once.
+const SKIP_IN_MARKDOWN = {
+  [MARKDOWN_DIRECTIVE_ATTRIBUTE]: MARKDOWN_DIRECTIVES.skip,
+};
+
+// One fully server-rendered operation. The documented failure statuses collapse into one block
+// here; the RFC 9457 problem shape they all share is documented once on the errors page. The page
+// builds one label set with `buildApiOperationLabels` and hands it to every operation, so this
+// whole subtree renders synchronously and the strings resolve once.
 
 type ApiReferenceTranslator = Awaited<
   ReturnType<typeof getTranslator<"Client.Docs.ApiReference">>
@@ -30,7 +38,7 @@ interface OperationBadgeLabels {
   operationId: string;
 }
 
-interface ErrorResponsesLabels extends CodeBlockLabels {
+interface ErrorResponsesLabels {
   heading: string;
   expand: string;
   /** Rich text with a link to the shared error reference, so it arrives already rendered. */
@@ -66,7 +74,6 @@ export function buildApiOperationLabels(t: ApiReferenceTranslator): ApiOperation
       nullable: t("nullable"),
     },
     errors: {
-      ...code,
       heading: t("errorResponsesLabel"),
       expand: t("expandLabel"),
       hint: t.rich("errorResponsesHint", {
@@ -139,9 +146,9 @@ function SuccessResponse({
         </span>
         <span className="text-xs text-muted-foreground">{response.description}</span>
         {response.schema ? (
-          <span className="font-mono text-[11px] text-muted-foreground/70">
-            {response.schema.typeLabel}
-          </span>
+          <code className="font-mono text-[11px] text-muted-foreground/70">
+            {response.schema.contentType} {response.schema.typeLabel}
+          </code>
         ) : null}
       </div>
 
@@ -180,12 +187,15 @@ function ErrorResponses({
             </span>
           ))}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground/60 group-open:hidden">
+        <span
+          {...SKIP_IN_MARKDOWN}
+          className="text-[10px] uppercase tracking-wide text-muted-foreground/60 group-open:hidden"
+        >
           {labels.expand}
         </span>
       </summary>
 
-      <div className="space-y-3 border-t border-border/60 px-4 py-3">
+      <div {...SKIP_IN_MARKDOWN} className="space-y-3 border-t border-border/60 px-4 py-3">
         <p className="text-xs leading-relaxed text-muted-foreground">{labels.hint}</p>
 
         <dl className="space-y-1.5">
@@ -196,16 +206,6 @@ function ErrorResponses({
             </div>
           ))}
         </dl>
-
-        {operation.errorExample ? (
-          <ApiCodeBlock
-            label={labels.example}
-            copyValue={JSON.stringify(operation.errorExample, null, 2)}
-            copyLabel={labels.copyExample}
-          >
-            <ApiJsonPreview value={operation.errorExample} />
-          </ApiCodeBlock>
-        ) : null}
       </div>
     </details>
   );
@@ -276,6 +276,7 @@ export function ApiOperation({
           {operation.path}
         </code>
         <a
+          {...SKIP_IN_MARKDOWN}
           href={`#${operation.anchorId}`}
           aria-label={labels.anchor(operation.summary)}
           className="text-muted-foreground/60 transition-colors hover:text-foreground"
@@ -304,6 +305,9 @@ export function ApiOperation({
 
         {operation.requestBody ? (
           <OperationSection title={labels.requestBody}>
+            <p className="text-[11px] text-muted-foreground">
+              <code className="font-mono">{operation.requestBody.contentType}</code>
+            </p>
             {operation.requestBody.fields.length > 0 ? (
               <ApiSchemaFields
                 fields={operation.requestBody.fields}

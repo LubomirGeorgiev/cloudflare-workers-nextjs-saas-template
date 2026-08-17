@@ -171,7 +171,7 @@ describe("buildApiReferenceView", () => {
 
     const fields = operation.successResponses[0].schema?.fields ?? [];
 
-    expect(fields.map((field) => [field.name, field.typeLabel, field.nullable])).toEqual([
+    expect(fields.map((field) => [field.label, field.typeLabel, field.nullable])).toEqual([
       ["label", "string", true],
       ["count", "integer", true],
       ["either", "string | number", false],
@@ -223,6 +223,72 @@ describe("buildApiReferenceView", () => {
     });
   });
 
+  test("const values, numeric bounds, maps, and media types stay exact", () => {
+    const operation = only({
+      "/api/v1/widgets": {
+        post: {
+          ...LIST_WIDGETS,
+          operationId: "createWidget",
+          requestBody: jsonBody({
+            type: "object",
+            properties: {
+              expiresInDays: { type: "integer", minimum: 1, maximum: 365 },
+              maximumOnly: { type: "integer", maximum: -1.5 },
+              // An example on the bound itself would fail its own schema, so it steps off it.
+              afterZero: { type: "integer", exclusiveMinimum: 0 },
+              ratio: { type: "number", exclusiveMaximum: 1 },
+              addons: {
+                type: "object",
+                propertyNames: { type: "string" },
+                additionalProperties: { type: "number" },
+              },
+              metadata: { type: "object", additionalProperties: true },
+              kinds: { type: "array", items: { type: "string" }, const: ["a"] },
+            },
+          }),
+          responses: {
+            201: jsonResponse({
+              type: "object",
+              properties: { success: { const: true } },
+              required: ["success"],
+            }),
+          },
+        },
+      },
+    });
+
+    expect(operation.requestBody?.contentType).toBe("application/json");
+    expect(operation.requestBody?.fields.map((field) => [field.key, field.typeLabel])).toEqual([
+      ["expiresInDays", "integer"],
+      ["maximumOnly", "integer"],
+      ["afterZero", "integer"],
+      ["ratio", "number"],
+      ["addons", "object<string, number>"],
+      ["metadata", "object<string, unknown>"],
+      // A stated type outranks a const value, so this stays an array label rather than `array`.
+      ["kinds", "string[]"],
+    ]);
+    expect(operation.requestBody?.example).toEqual({
+      expiresInDays: 1,
+      maximumOnly: -2,
+      afterZero: 1,
+      ratio: 0,
+      addons: { key: 0 },
+      // The label promises entries, so the open map illustrates one.
+      metadata: { key: "string" },
+      kinds: ["a"],
+    });
+
+    const success = operation.successResponses[0];
+    expect(success.schema?.contentType).toBe("application/json");
+    expect(success.schema?.fields[0]).toMatchObject({
+      key: "success",
+      typeLabel: "boolean",
+      constraints: ["const: true"],
+    });
+    expect(success.schema?.example).toEqual({ success: true });
+  });
+
   test("responses split by status class, and the shared failure shape is kept once", () => {
     const operation = only({
       "/api/v1/widgets": {
@@ -234,7 +300,10 @@ describe("buildApiReferenceView", () => {
               description: "gone",
               content: {
                 "application/problem+json": {
-                  schema: { type: "object", properties: { code: { type: "string" } } },
+                  schema: {
+                    type: "object",
+                    properties: { code: { type: "string" }, status: { type: "number" } },
+                  },
                 },
               },
             },
@@ -246,7 +315,7 @@ describe("buildApiReferenceView", () => {
     expect(operation.successResponses.map((response) => response.status)).toEqual(["200"]);
     expect(operation.errorResponses.map((response) => response.status)).toEqual(["404"]);
     // Declared under problem+json, so a JSON-only reader would have dropped the schema entirely.
-    expect(operation.errorExample).toEqual({ code: "string" });
+    expect(operation.errorResponses[0].schema?.contentType).toBe("application/problem+json");
   });
 
   test("path and query parameters keep their location and requiredness", () => {
@@ -315,6 +384,7 @@ describe("buildCurlSnippet", () => {
         method: "POST",
         url: "https://example.com/api/v1/widgets",
         bodyExample: { name: "string" },
+        contentType: "application/json",
       }),
     ).toBe(
       [
@@ -324,5 +394,18 @@ describe("buildCurlSnippet", () => {
         `  -d '${JSON.stringify({ name: "string" }, null, 2)}'`,
       ].join("\n"),
     );
+  });
+
+  // A body declared under another media type must not be sent as JSON.
+  test("the content-type header follows the media type the body was declared under", () => {
+    const snippet = buildCurlSnippet({
+      method: "PATCH",
+      url: "https://example.com/api/v1/widgets/1",
+      bodyExample: { name: "string" },
+      contentType: "application/merge-patch+json",
+    });
+
+    expect(snippet).toContain('-H "Content-Type: application/merge-patch+json"');
+    expect(snippet).not.toContain("Content-Type: application/json");
   });
 });

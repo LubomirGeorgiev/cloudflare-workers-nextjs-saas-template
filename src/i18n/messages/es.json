@@ -246,6 +246,9 @@
       "ApiReference": {
         "title": "Referencia de la API",
         "description": "Todos los endpoints de la API REST pública, generados a partir de los mismos esquemas que valida el servidor. Autentícate con una clave de API desde tus ajustes o con un token de acceso OAuth.",
+        "agentGuidance": "Agentes de IA: la versión Markdown de esta página, en la misma ruta con el sufijo .md, lista los endpoints para llamadas REST directas. Usa el documento OpenAPI para generar herramientas y clientes, y validar esquemas con exactitud. Usa MCP en {mcpPath} cuando el cliente lo admita.",
+        "oauthFlow": "OAuth 2.1 usa el flujo de código de autorización con PKCE. Envía a los usuarios a {authorizationPath}. Intercambia el código en {tokenPath}.",
+        "wireFormat": "Envía una clave de API o un token de acceso OAuth como Authorization: Bearer TOKEN. Los cuerpos de petición usan {jsonContentType}. Los errores usan {problemJsonContentType}. Decide según code y lee detail antes de la siguiente acción.",
         "rateLimit": "Las peticiones autenticadas a la API están limitadas a {limit} peticiones por cada {windowInSeconds} segundos y credencial. Cada respuesta incluye RateLimit-Limit, RateLimit-Remaining y RateLimit-Reset (segundos hasta que se reinicia la ventana); una respuesta 429 incluye además retry-after.",
         "specLink": "Abrir el documento OpenAPI",
         "authLink": "Cómo funciona la autenticación",

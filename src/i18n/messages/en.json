@@ -246,6 +246,9 @@
       "ApiReference": {
         "title": "API reference",
         "description": "Every endpoint of the public REST API, generated from the same schemas the server validates with. Authenticate with an API key from your settings, or with an OAuth access token.",
+        "agentGuidance": "AI agents: the Markdown version of this page, at the same path with a .md suffix, lists the endpoints for direct REST calls. Use the OpenAPI document for tool generation, client generation, and exact schema validation. Use MCP at {mcpPath} when your client supports it.",
+        "oauthFlow": "OAuth 2.1 uses the authorization code flow with PKCE. Send users to {authorizationPath}. Exchange the code at {tokenPath}.",
+        "wireFormat": "Send an API key or OAuth access token as Authorization: Bearer TOKEN. Request bodies use {jsonContentType}. Errors use {problemJsonContentType}. Branch on code and read detail before the next action.",
         "rateLimit": "Authenticated API requests are limited to {limit} requests per {windowInSeconds} seconds per credential. Every response carries RateLimit-Limit, RateLimit-Remaining, and RateLimit-Reset (seconds until the window resets); a 429 also includes retry-after.",
         "specLink": "Open the OpenAPI document",
         "authLink": "How authentication works",

@@ -156,6 +156,19 @@ test("serves static docs and legal pages as markdown", async () => {
       parseMarkdownPagePath(mdPath),
     );
 
+    // Conversion invariants only. What the schema renders for a given field is unit-tested in
+    // `src/lib/api/reference-model.test.ts` and `_components/api-schema-fields.test.ts`, so no
+    // assertion here may name an endpoint, a field, or a scope this template happens to ship.
+    if (mdPath === `${API_DOCS_PATH}.md`) {
+      expect(body).toContain(
+        defaultMessages.Client.Docs.ApiReference.agentGuidance.replace("{mcpPath}", MCP_PATH),
+      );
+      // `PROBLEM_JSON_CONTENT_TYPE` pulls in `cloudflare:workers` through the rate limiter, which
+      // this plain-Node runner cannot resolve, so the media type is restated rather than imported.
+      expect(body).toContain("application/problem+json");
+      expect(body).not.toContain("[](#operation-");
+    }
+
     if (mdPath === "/index.md") {
       // The hero `<h1>` spans two lines with a `<br>`; the frame heading joins them into one.
       expect(topHeadings[0]).toContain(defaultMessages.Landing.Hero.titleLine2);

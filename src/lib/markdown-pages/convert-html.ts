@@ -20,6 +20,19 @@ const REMOVED_TAGS = new Set([
   "template",
 ]);
 const HEADING_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6"]);
+/** Tags whose text the serializer runs together when two of them sit side by side. */
+const INLINE_TAGS = new Set([
+  "a",
+  "abbr",
+  "b",
+  "code",
+  "em",
+  "i",
+  "kbd",
+  "small",
+  "span",
+  "strong",
+]);
 const BLOCK_CONTENT_TAGS = new Set([
   "article",
   "aside",
@@ -255,13 +268,16 @@ function filterElement({
   ];
 }
 
-function areAdjacentLinks(previous: ElementContent | undefined, next: ElementContent): boolean {
+function areAdjacentInlineElements(
+  previous: ElementContent | undefined,
+  next: ElementContent,
+): boolean {
   return Boolean(
     previous &&
     isElement(previous) &&
-    previous.tagName === "a" &&
+    INLINE_TAGS.has(previous.tagName) &&
     isElement(next) &&
-    next.tagName === "a",
+    INLINE_TAGS.has(next.tagName),
   );
 }
 
@@ -278,9 +294,10 @@ function filterContent(children: ElementContent[], parentTagName?: string): Elem
 
     const nextChildren = filterElement({ element: child, parentTagName });
 
-    // JSX often renders adjacent action links with no text node between them. Keep the links
-    // separate so Markdown parsers do not read `)[` as one malformed inline sequence.
-    if (nextChildren[0] && areAdjacentLinks(filtered.at(-1), nextChildren[0])) {
+    // Adjacent inline elements in JSX carry no text node between them, so the serializer would
+    // concatenate their text. Compare against what actually landed: an unwrap emits many nodes and
+    // a dropped element emits none.
+    if (nextChildren[0] && areAdjacentInlineElements(filtered.at(-1), nextChildren[0])) {
       filtered.push({ type: "text", value: " " });
     }
 

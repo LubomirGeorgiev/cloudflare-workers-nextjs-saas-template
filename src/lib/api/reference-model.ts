@@ -23,6 +23,10 @@ const MAX_FIELD_DEPTH = 3;
 const MAX_EXAMPLE_DEPTH = 6;
 const UNKNOWN_TYPE_LABEL = "unknown";
 const ARRAY_ITEM_KEY_SUFFIX = "[]";
+/** The single entry a map-shaped object (`additionalProperties`) is illustrated with. */
+const ADDITIONAL_PROPERTY_EXAMPLE_KEY = "key";
+/** `typeof` results a literal is labelled by directly; anything else is unknown. */
+const LITERAL_TYPE_LABELS = ["boolean", "number", "object", "string"] as const;
 
 /** operationId -> the name the operation is advertised under to agents. */
 type McpToolNames = ReadonlyMap<string, string>;
@@ -50,10 +54,20 @@ const NUMERIC_CONSTRAINT_KEYS = [
   "maxItems",
 ] as const;
 
+// Ordered: the first bound a schema states decides the example. An exclusive bound is itself an
+// invalid value, so `step` moves one off it.
+const NUMERIC_EXAMPLE_BOUNDS = [
+  { key: "minimum", round: Math.ceil, step: 0 },
+  { key: "exclusiveMinimum", round: Math.floor, step: 1 },
+  { key: "maximum", round: Math.floor, step: 0 },
+  { key: "exclusiveMaximum", round: Math.ceil, step: -1 },
+] as const;
+
 export interface SchemaFieldView {
-  /** Dotted path, unique within one schema: `role.name`, `scopes[]`. */
+  /** React identity, unique within one rendered list; never rendered. */
   key: string;
-  name: string;
+  /** The token the row shows: a body field's dotted path, `role.name`, `scopes[]`. */
+  label: string;
   /** Nesting level, for indentation only. */
   depth: number;
   typeLabel: string;
@@ -68,6 +82,7 @@ export interface SchemaFieldView {
 interface SchemaView {
   /** Label for the payload as a whole: `object`, `object[]`, `string`. */
   typeLabel: string;
+  contentType: string;
   fields: SchemaFieldView[];
   example: unknown;
 }
@@ -106,8 +121,6 @@ export interface OperationView {
   requestBody: SchemaView | null;
   successResponses: ResponseView[];
   errorResponses: ResponseView[];
-  /** Shape every documented failure shares; rendered once instead of per status. */
-  errorExample: unknown;
   curl: string;
   /** Lowercased haystack the client-side filter matches its tokens against. */
   searchText: string;
@@ -191,6 +204,29 @@ function resolveSchema(input: unknown): ResolvedSchema {
   };
 }
 
+function literalTypeLabel(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  const literalType = typeof value;
+  return LITERAL_TYPE_LABELS.some((label) => label === literalType)
+    ? literalType
+    : UNKNOWN_TYPE_LABEL;
+}
+
+function additionalPropertiesTypeLabel(schema: Record<string, unknown>): string | null {
+  const additionalProperties = asSchemaObject(schema.additionalProperties);
+  if (additionalProperties) {
+    return `object<string, ${typeLabelFor(additionalProperties)}>`;
+  }
+
+  return schema.additionalProperties === true ? "object<string, unknown>" : null;
+}
+
 function typeLabelFor(input: unknown): string {
   const { schema, unionLabels } = resolveSchema(input);
 
@@ -201,8 +237,17 @@ function typeLabelFor(input: unknown): string {
     return UNKNOWN_TYPE_LABEL;
   }
 
+  // Before the const branch: a typed array with a const value still reads as `T[]`, not `array`.
   if (schema.type === "array") {
     return `${typeLabelFor(schema.items)}${ARRAY_ITEM_KEY_SUFFIX}`;
+  }
+
+  if (schema.const !== undefined) {
+    return literalTypeLabel(schema.const);
+  }
+
+  if (schema.type === "object") {
+    return additionalPropertiesTypeLabel(schema) ?? "object";
   }
 
   return typeof schema.type === "string" ? schema.type : UNKNOWN_TYPE_LABEL;
@@ -239,6 +284,9 @@ function constraintsFor(schema: Record<string, unknown>): string[] {
   if (schema.default !== undefined) {
     constraints.push(`default: ${JSON.stringify(schema.default)}`);
   }
+  if (schema.const !== undefined) {
+    constraints.push(`const: ${JSON.stringify(schema.const)}`);
+  }
 
   return constraints;
 }
@@ -269,9 +317,11 @@ function toFieldView({
 }): SchemaFieldView {
   const { schema: field, nullable, unionLabels } = resolveSchema(rawField);
 
+  const path = `${prefix}${name}`;
+
   return {
-    key: `${prefix}${name}`,
-    name,
+    key: path,
+    label: path,
     depth,
     typeLabel: unionLabels.length > 1 ? unionLabels.join(" | ") : typeLabelFor(rawField),
     required: isRequired,
@@ -322,7 +372,21 @@ function collectFields({
   }
 }
 
-/** The value a leaf field shows in an example: a stated one wins, then an enum, then a placeholder. */
+/** The number a numeric leaf shows in an example: the first stated bound, kept inside its own schema. */
+function numericExample(schema: Record<string, unknown>): number {
+  const isInteger = schema.type === "integer";
+
+  for (const { key, round, step } of NUMERIC_EXAMPLE_BOUNDS) {
+    const bound = schema[key];
+
+    if (typeof bound === "number") {
+      return isInteger ? round(bound) + step : bound + step;
+    }
+  }
+
+  return 0;
+}
+
 function scalarExample({
   schema,
   nullable,
@@ -331,7 +395,7 @@ function scalarExample({
   nullable: boolean;
 }): unknown {
   if (schema.type === "number" || schema.type === "integer") {
-    return 0;
+    return numericExample(schema);
   }
   if (schema.type === "boolean") {
     return true;
@@ -346,11 +410,46 @@ function scalarExample({
   return nullable ? null : "string";
 }
 
+function objectExample({
+  schema,
+  depth,
+}: {
+  schema: Record<string, unknown>;
+  depth: number;
+}): Record<string, unknown> {
+  const properties = asSchemaObject(schema.properties);
+  if (properties) {
+    return Object.fromEntries(
+      Object.entries(properties).map(([name, field]) => [
+        name,
+        buildExample({ input: field, depth: depth + 1 }),
+      ]),
+    );
+  }
+
+  const additionalProperties = asSchemaObject(schema.additionalProperties);
+  if (additionalProperties) {
+    return {
+      [ADDITIONAL_PROPERTY_EXAMPLE_KEY]: buildExample({
+        input: additionalProperties,
+        depth: depth + 1,
+      }),
+    };
+  }
+
+  // `additionalProperties: true` is labelled `object<string, unknown>`, so the example must show
+  // an entry too, or the label and the example would disagree.
+  return schema.additionalProperties === true ? { [ADDITIONAL_PROPERTY_EXAMPLE_KEY]: "string" } : {};
+}
+
 function buildExample({ input, depth }: { input: unknown; depth: number }): unknown {
   const { schema, nullable } = resolveSchema(input);
 
   if (!schema || depth > MAX_EXAMPLE_DEPTH) {
     return null;
+  }
+  if (schema.const !== undefined) {
+    return schema.const;
   }
   if (schema.default !== undefined) {
     return schema.default;
@@ -369,22 +468,19 @@ function buildExample({ input, depth }: { input: unknown; depth: number }): unkn
   }
 
   if (schema.type === "object") {
-    const properties = asSchemaObject(schema.properties);
-
-    return properties
-      ? Object.fromEntries(
-          Object.entries(properties).map(([name, field]) => [
-            name,
-            buildExample({ input: field, depth: depth + 1 }),
-          ]),
-        )
-      : {};
+    return objectExample({ schema, depth });
   }
 
   return scalarExample({ schema, nullable });
 }
 
-function buildSchemaView(input: unknown): SchemaView | null {
+function buildSchemaView({
+  input,
+  contentType,
+}: {
+  input: unknown;
+  contentType: string;
+}): SchemaView | null {
   const { schema } = resolveSchema(input);
   if (!schema) {
     return null;
@@ -399,9 +495,23 @@ function buildSchemaView(input: unknown): SchemaView | null {
 
   return {
     typeLabel: typeLabelFor(schema),
+    contentType,
     fields,
     example: buildExample({ input: schema, depth: 0 }),
   };
+}
+
+// The "else first key" arm is what keeps `application/problem+json` responses: the JSON media type
+// alone would drop every error schema.
+function preferredMediaType(content: Record<string, unknown> | undefined): string | null {
+  if (!content) {
+    return null;
+  }
+  if (content[JSON_CONTENT_TYPE]) {
+    return JSON_CONTENT_TYPE;
+  }
+
+  return Object.keys(content)[0] ?? null;
 }
 
 function requestBodyView(operation: OpenAPIV3_1.OperationObject): SchemaView | null {
@@ -410,7 +520,11 @@ function requestBodyView(operation: OpenAPIV3_1.OperationObject): SchemaView | n
     return null;
   }
 
-  return buildSchemaView(body.content?.[JSON_CONTENT_TYPE]?.schema);
+  const contentType = preferredMediaType(body.content);
+
+  return contentType
+    ? buildSchemaView({ input: body.content?.[contentType]?.schema, contentType })
+    : null;
 }
 
 function responseViews(operation: OpenAPIV3_1.OperationObject): ResponseView[] {
@@ -419,16 +533,16 @@ function responseViews(operation: OpenAPIV3_1.OperationObject): ResponseView[] {
       return [];
     }
 
-    // The problem responses are declared under `application/problem+json`, so the JSON media type
-    // alone would drop every error schema.
     const content = response.content;
-    const mediaType = Object.keys(content ?? {})[0];
+    const mediaType = preferredMediaType(content);
 
     return [
       {
         status,
         description: response.description ?? "",
-        schema: mediaType ? buildSchemaView(content?.[mediaType]?.schema) : null,
+        schema: mediaType
+          ? buildSchemaView({ input: content?.[mediaType]?.schema, contentType: mediaType })
+          : null,
       },
     ];
   });
@@ -438,10 +552,12 @@ export function buildCurlSnippet({
   method,
   url,
   bodyExample,
+  contentType,
 }: {
   method: string;
   url: string;
   bodyExample: unknown;
+  contentType: string;
 }): string {
   const lines = [
     method === "GET" ? `curl "${url}"` : `curl -X ${method} "${url}"`,
@@ -449,7 +565,7 @@ export function buildCurlSnippet({
   ];
 
   if (bodyExample !== undefined && bodyExample !== null) {
-    lines.push(`  -H "Content-Type: application/json"`);
+    lines.push(`  -H "Content-Type: ${contentType}"`);
     lines.push(`  -d '${JSON.stringify(bodyExample, null, 2)}'`);
   }
 
@@ -543,11 +659,11 @@ function toOperationView({
     requestBody,
     successResponses,
     errorResponses,
-    errorExample: errorResponses[0]?.schema?.example ?? null,
     curl: buildCurlSnippet({
       method: upperMethod,
       url: `${serverUrl}${path}`,
       bodyExample: requestBody?.example,
+      contentType: requestBody?.contentType ?? JSON_CONTENT_TYPE,
     }),
     searchText: buildSearchText({ operation, method: upperMethod, path, parameters, requestBody }),
   };

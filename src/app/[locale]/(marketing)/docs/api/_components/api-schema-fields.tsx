@@ -68,7 +68,8 @@ function EnumValues({ values }: { values: string[] }) {
   }
 
   return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
+    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      <span className="font-mono text-[10px] text-muted-foreground">enum:</span>
       {values.map((value) => (
         <FieldChip key={value} className="bg-primary/5 text-foreground/70">
           {value}
@@ -87,7 +88,7 @@ function FieldRow({
   labels: FieldRowLabels;
   variant: FieldRowVariant;
 }) {
-  const { name, typeLabel, nullable, description, constraints, enumValues, depth } = field;
+  const { label, typeLabel, nullable, description, constraints, enumValues, depth } = field;
 
   return (
     <div
@@ -97,8 +98,8 @@ function FieldRow({
       )}
     >
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <code className="font-mono text-xs font-medium text-foreground">{name}</code>
-        <span className="font-mono text-[11px] text-muted-foreground">{typeLabel}</span>
+        <code className="font-mono text-xs font-medium text-foreground">{label}</code>
+        <code className="font-mono text-[11px] text-muted-foreground">{typeLabel}</code>
         <RequirementLabel field={field} labels={labels} variant={variant} />
         {nullable ? <FieldChip>{labels.nullable}</FieldChip> : null}
         {constraints.map((constraint) => (
@@ -140,8 +141,10 @@ export function ApiSchemaFields({
 /** A parameter is a field with a location, so it renders as one rather than as a second row type. */
 function toFieldView(parameter: ParameterView): SchemaFieldView {
   return {
+    // Two locations may carry the same name, so identity is composite while the row shows the
+    // bare name — that name is what the caller sends.
     key: `${parameter.location}-${parameter.name}`,
-    name: parameter.name,
+    label: parameter.name,
     depth: 0,
     typeLabel: parameter.typeLabel,
     required: parameter.required,

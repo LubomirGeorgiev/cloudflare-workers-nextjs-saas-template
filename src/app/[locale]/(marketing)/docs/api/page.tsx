@@ -12,8 +12,13 @@ import {
   API_ERRORS_DOCS_PATH,
   API_OPENAPI_SPEC_PATH,
   MCP_DOCS_PATH,
+  MCP_PATH,
+  OAUTH_AUTHORIZE_PATH,
+  OAUTH_TOKEN_PATH,
 } from "@/constants";
 import { LOCALES, type Locale } from "@/i18n/config";
+import { PROBLEM_JSON_CONTENT_TYPE } from "@/lib/api/errors";
+import { JSON_CONTENT_TYPE } from "@/lib/api/openapi-walk";
 import { buildApiReferenceView } from "@/lib/api/reference-model";
 import { cn } from "@/lib/utils";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
@@ -75,6 +80,21 @@ export default async function ApiReferencePage({
         <header className="mb-8 space-y-4">
           <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {t("agentGuidance", { mcpPath: MCP_PATH })}
+          </p>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {t("oauthFlow", {
+              authorizationPath: OAUTH_AUTHORIZE_PATH,
+              tokenPath: OAUTH_TOKEN_PATH,
+            })}
+          </p>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            {t("wireFormat", {
+              jsonContentType: JSON_CONTENT_TYPE,
+              problemJsonContentType: PROBLEM_JSON_CONTENT_TYPE,
+            })}
+          </p>
           <p className="max-w-2xl text-sm text-muted-foreground">
             {t("rateLimit", rateLimitDocsValues(RATE_LIMITS.API_AUTHED))}
           </p>

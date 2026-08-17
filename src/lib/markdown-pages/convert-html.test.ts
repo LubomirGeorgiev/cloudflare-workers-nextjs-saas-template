@@ -213,6 +213,71 @@ describe("convertHtmlToMarkdown", () => {
     expect(markdown).not.toContain("Page chrome");
   });
 
+  // JSX writes no text node between sibling inline elements, so the serializer would run their
+  // text together. The converter owns the spacing so no component has to carry a `{" "}` literal.
+  test("separates adjacent inline elements of every kind", async () => {
+    const markdown = await convertHtmlToMarkdown({
+      html: page({
+        head: `<title>${documentTitle("Reference")}</title>`,
+        body: `
+          <main>
+            <h1>Reference</h1>
+            <p><code>profile:read</code><code>profile:write</code></p>
+            <p><span>Scope</span><code>team:read</code></p>
+            <p><strong>Bold</strong><em>Italic</em></p>
+            <p><code>kept</code><button>Copy</button></p>
+          </main>
+        `,
+      }),
+      sourceUrl: "https://example.com/reference",
+    });
+
+    expect(markdown).toContain("`profile:read` `profile:write`");
+    expect(markdown).toContain("Scope `team:read`");
+    expect(markdown).toContain("**Bold** *Italic*");
+    // A dropped element emits nothing, so it must not leave a trailing space behind.
+    expect(markdown).toContain("`kept`\n");
+    expect(markdown).not.toContain("`kept` \n");
+  });
+
+  test("keeps exactly one space when the HTML already separates two inline elements", async () => {
+    const markdown = await convertHtmlToMarkdown({
+      html: page({
+        head: `<title>${documentTitle("Reference")}</title>`,
+        body: `
+          <main>
+            <h1>Reference</h1>
+            <p><code>first</code> <code>second</code></p>
+          </main>
+        `,
+      }),
+      sourceUrl: "https://example.com/reference",
+    });
+
+    expect(markdown).toContain("`first` `second`");
+    expect(markdown).not.toContain("`first`  `second`");
+  });
+
+  test("leaves adjacent block elements alone", async () => {
+    const markdown = await convertHtmlToMarkdown({
+      html: page({
+        head: `<title>${documentTitle("Reference")}</title>`,
+        body: `
+          <main>
+            <h1>Reference</h1>
+            <div>First block</div><div>Second block</div>
+            <ul><li>First item</li><li>Second item</li></ul>
+          </main>
+        `,
+      }),
+      sourceUrl: "https://example.com/reference",
+    });
+
+    expect(markdown).toContain("First block\n\nSecond block");
+    expect(markdown).toContain("- First item\n- Second item");
+    expect(markdown).not.toContain("First block Second block");
+  });
+
   test("uses the full main when a list has multiple article cards", async () => {
     const markdown = await convertHtmlToMarkdown({
       html: page({
