@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
-import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime";
+import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
 
 export default defineConfig({
   plugins: [rejectNextRuntimeInternals()],

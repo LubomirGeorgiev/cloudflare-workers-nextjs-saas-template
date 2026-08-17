@@ -6,10 +6,10 @@ import tailwindcss from "@tailwindcss/vite";
 import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
-import { VINEXT_CACHE_PREFIX } from "./src/constants/kv-prefixes";
-import { analyzeBundle } from "./tools/vite-bundle-analyzer";
-import { openApiDocument } from "./tools/openapi-document";
-import { getSchedulerQueueName } from "./tools/wrangler-config";
+import { VINEXT_CACHE_PREFIX } from "./src/constants/kv-prefixes.ts";
+import { analyzeBundle } from "./tools/vite-bundle-analyzer.ts";
+import { openApiDocument } from "./tools/openapi-document.ts";
+import { getSchedulerQueueName } from "./tools/wrangler-config.ts";
 
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
@@ -34,6 +34,7 @@ export default defineConfig({
       // IntlContext instances ("context ... was not found"). Excluding keeps one.
       "next-intl",
       "use-intl",
+      "lucide-react",
       // TODO Check if future version of @base-ui are optimized for Vite and remove from this list
       "@base-ui/react",
       "@base-ui/utils",

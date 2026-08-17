@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 import { getE2ERuntimeEnv } from "./tests/e2e/e2e-environment.mjs";
-import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime";
+import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
 
 export default defineConfig({
   plugins: [rejectNextRuntimeInternals()],

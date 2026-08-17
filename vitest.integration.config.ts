@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
-import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime";
-import { openApiDocument } from "./tools/openapi-document";
+import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
+import { openApiDocument } from "./tools/openapi-document.ts";
 
 function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
   const migrationsDirectory = fileURLToPath(new URL(`${migrationsPath}/`, import.meta.url));
