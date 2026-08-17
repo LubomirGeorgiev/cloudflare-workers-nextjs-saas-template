@@ -33,6 +33,10 @@ function handleCustomEdge(pathname: string): Response | null {
   return null;
 }
 
+function isMarkdownPageRequest({ method, pathname }: { method: string; pathname: string }): boolean {
+  return (method === "GET" || method === "HEAD") && pathname.toLowerCase().endsWith(".md");
+}
+
 // The OpenAPI document is deliberately readable without a credential (it is what agent clients and
 // the docs UI discover the API with), and the provider rejects every credential-less `apiHandlers`
 // request — so only the methods the canonical route serves skip it; the rest fall through to it.
@@ -120,6 +124,18 @@ const worker = {
     // Header normalization applies to every branch below — including everything behind the OAuth
     // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
     const forwarded = withForwardedCfHeaders({ request, url });
+
+    if (isMarkdownPageRequest({ method: request.method, pathname })) {
+      const markdownResponse = await (await import("./src/lib/markdown-pages")).handleMarkdownRequest({
+        request: forwarded,
+        env,
+        ctx,
+        render: nextAppHandler.fetch,
+      });
+      if (markdownResponse) {
+        return markdownResponse;
+      }
+    }
 
     // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
     // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.

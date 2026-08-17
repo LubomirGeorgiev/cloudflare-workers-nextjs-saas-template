@@ -1,6 +1,3 @@
-import { type CollectionsUnion } from "@/../cms.config";
-import { SITE_URL } from "@/constants";
-
 export function normalizeCmsResolvedPath(path: string | null | undefined): string {
   const normalized = (path ?? "")
     .trim()
@@ -20,33 +17,4 @@ export function buildCmsResolvedPath({
 }): string {
   const normalizedSegments = segments.filter(Boolean).join("/");
   return normalizeCmsResolvedPath(`${basePath}/${normalizedSegments}`);
-}
-
-export function buildCmsEntryMarkdownPath({
-  collectionSlug,
-  slug,
-  download = false,
-}: {
-  collectionSlug: CollectionsUnion;
-  slug: string;
-  download?: boolean;
-}): string {
-  const path = `/markdown/${collectionSlug}/${slug}`;
-  return download ? `${path}?download` : path;
-}
-
-export function buildAbsoluteCmsEntryMarkdownUrl({
-  collectionSlug,
-  slug,
-  download = false,
-}: {
-  collectionSlug: CollectionsUnion;
-  slug: string;
-  download?: boolean;
-}): string {
-  return `${SITE_URL}${buildCmsEntryMarkdownPath({
-    collectionSlug,
-    slug,
-    download,
-  })}`;
 }

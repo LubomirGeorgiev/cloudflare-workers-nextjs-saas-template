@@ -9,6 +9,17 @@
 export const DOCS_LLMS_TXT_CACHE_CONTROL =
   "public, s-maxage=3600, stale-while-revalidate=86400";
 
+// CMS Markdown changes only on publish. Keep a stale copy available while the next copy loads.
+export const CMS_MARKDOWN_CACHE_CONTROL =
+  "public, s-maxage=3600, stale-while-revalidate=86400";
+
+// Page Markdown is converted from the rendered page and a CMS publish purges its KV copy, so this
+// TTL is only the backstop. One value for the shared header and the KV `expirationTtl`; the stale
+// window lets a shared cache serve the old copy while the next conversion runs.
+export const MARKDOWN_PAGE_CACHE_TTL_SECONDS = 3600;
+export const MARKDOWN_PAGE_CACHE_CONTROL =
+  `public, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}, stale-while-revalidate=86400`;
+
 // Short shared TTL: search hits repeat across visitors, but a new doc should surface quickly.
 export const DOCS_SEARCH_CACHE_CONTROL =
   "public, s-maxage=300, stale-while-revalidate=3600";

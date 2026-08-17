@@ -12,6 +12,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import type { CollectionsUnion } from "@/../cms.config";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
+import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import {
   cmsMediaBucketKeySchema,
@@ -252,6 +253,15 @@ export const updateCmsMediaAction = actionClient
         }
 
         await Promise.all(invalidationPromises);
+
+        // Alt text and image dimensions are part of the converted `.md` body, so one purge per
+        // action (not per entry) drops the stale KV copies of every affected page.
+        await purgeCmsEntryMarkdownPages({
+          entries: entriesToInvalidate.map(({ collectionSlug, slug }) => ({
+            collection: collectionSlug,
+            slug,
+          })),
+        });
       }
     }
 

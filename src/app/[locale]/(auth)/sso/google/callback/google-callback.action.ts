@@ -14,7 +14,7 @@ import {
 import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
 import { userTable } from "@/db/schema";
-import { canSignUp, createAndStoreSession } from "@/utils/auth";
+import { createAndStoreSession } from "@/utils/auth";
 import { isGoogleSSOEnabled } from "@/flags";
 import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
@@ -62,8 +62,6 @@ export const googleSSOCallbackAction = actionClient
       const googleAccountId = claims.sub;
       const avatarUrl = claims.picture;
       const email = claims.email;
-
-      await canSignUp({ email, skipDisposableEmailCheck: true });
 
       const db = getDB();
 

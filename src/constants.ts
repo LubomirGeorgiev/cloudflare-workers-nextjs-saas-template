@@ -28,6 +28,7 @@ export const CURRENT_API_KEY_CACHE_VERSION = 2;
 // Public machine API (Hono app in `src/api/`). The base path is edge-routed in
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
 export const API_V1_BASE_PATH = "/api/v1";
+export const LLMS_TXT_PATH = "/llms.txt";
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
 // The document is a static read, so only the safe methods serve it. Shared by the Hono route and
 // the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.

@@ -13,7 +13,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 
 // Request-scoped identity is injected here: requireVerifiedEmail/getCurrentSession normally read
 // next/headers cookies, which don't exist in the Workers test pool. Everything else in the module
-// (canSignUp is a no-op outside prod, permission checks, DB writes) runs for real.
+// Permission checks and DB writes run for real.
 const { authState, sendInvitationEmailMock } = vi.hoisted(() => ({
   authState: { current: null as unknown },
   sendInvitationEmailMock: vi.fn(async () => {}),

@@ -105,10 +105,10 @@ describe("actionErrorToProblem status mapping", () => {
 
   test("passes through legacy inline ActionError messages unchanged", () => {
     const problem = actionErrorToProblem({
-      error: new ActionError("PRECONDITION_FAILED", "Disposable email addresses are not allowed"),
+      error: new ActionError("PRECONDITION_FAILED", "Account setup cannot continue"),
     }).body;
 
-    expect(problem.detail).toBe("Disposable email addresses are not allowed");
+    expect(problem.detail).toBe("Account setup cannot continue");
   });
 
   test("derives the problem type URI from the site constants", () => {

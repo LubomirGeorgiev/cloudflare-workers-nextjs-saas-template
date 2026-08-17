@@ -2,6 +2,8 @@ import { describe, expect, test, vi } from "vitest";
 import type { JSONContent } from "@tiptap/core";
 
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
+import type { GetCmsCollectionResult } from "@/lib/cms/entry";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
 const { getCmsEntryBySlugMock, setCacheScopeMock } = vi.hoisted(() => ({
   getCmsEntryBySlugMock: vi.fn(),
@@ -23,10 +25,12 @@ vi.mock("@/utils/cache", () => ({
 }));
 
 const { buildDocsEntryArtifacts, getCachedDocsEntryArtifacts } = await import("./docs-entry-artifacts");
+const { buildCmsEntryMarkdown } = await import("./build-cms-entry-markdown-response");
 
 // A non-default locale proves the lookup forwards the requested locale rather than defaulting,
 // derived from config so it survives locale renames; single-locale forks fall back harmlessly.
 const TRANSLATION_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) ?? DEFAULT_LOCALE;
+const SOURCE_PATHNAME = "/docs/getting-started/introduction";
 
 describe("docs entry artifacts", () => {
   const content: JSONContent = {
@@ -49,8 +53,31 @@ describe("docs entry artifacts", () => {
     ],
   };
 
-  test("builds reusable markdown and table-of-contents artifacts", () => {
-    const artifacts = buildDocsEntryArtifacts(content);
+  function docsEntry(): GetCmsCollectionResult {
+    return {
+      collection: "docs",
+      content,
+      createdAt: new Date("2026-08-01T10:00:00.000Z"),
+      createdByUser: {
+        id: "author-1",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        email: "ada@example.com",
+      },
+      locale: DEFAULT_LOCALE,
+      seoDescription: "Start here.",
+      slug: "introduction",
+      tags: [{ tag: { id: "tag-1", name: "Guides", slug: "guides" } }],
+      title: "Introduction",
+      updatedAt: new Date("2026-08-02T10:00:00.000Z"),
+    } as unknown as GetCmsCollectionResult;
+  }
+
+  test("builds the framed markdown and the table-of-contents artifacts", () => {
+    const artifacts = buildDocsEntryArtifacts({
+      entry: docsEntry(),
+      sourceUrl: "https://example.com/docs/getting-started/introduction",
+    });
 
     expect(artifacts.tableOfContents).toEqual([
       { id: "getting-started", level: 2, text: "Getting Started" },
@@ -71,31 +98,55 @@ describe("docs entry artifacts", () => {
         ],
       },
     ]);
-    expect(artifacts.markdown).toContain("Getting Started");
-    expect(artifacts.markdown).toContain("Install the template.");
+    // The golden document of the copy button, framed exactly like `GET <path>.md`.
+    expect(artifacts.markdown).toBe(
+      "# Introduction\n\nStart here.\n\n"
+      + "Source: https://example.com/docs/getting-started/introduction\n"
+      + "Author: Ada Lovelace\nPublished: 2026-08-01\nUpdated: 2026-08-02\nTags: Guides\n\n"
+      + "## Getting Started\n\nInstall the template.\n\n### Configure Cloudflare\n",
+    );
   });
 
-  test("loads content inside the cached function", async () => {
-    getCmsEntryBySlugMock.mockResolvedValue({
-      content,
-    });
+  test("copies the same bytes the Markdown route serves", () => {
+    const entry = docsEntry();
+    const sourceUrl = "https://example.com/docs/getting-started/introduction";
+
+    expect(buildDocsEntryArtifacts({ entry, sourceUrl }).markdown).toBe(
+      buildCmsEntryMarkdown({ entry, sourceUrl }),
+    );
+  });
+
+  test("loads the entry with the frame relations inside the cached function", async () => {
+    const entry = docsEntry();
+    getCmsEntryBySlugMock.mockResolvedValue(entry);
 
     const artifacts = await getCachedDocsEntryArtifacts({
       collectionSlug: "docs",
-      slug: "getting-started",
       locale: TRANSLATION_LOCALE,
+      slug: "introduction",
+      sourcePathname: SOURCE_PATHNAME,
     });
 
     expect(getCmsEntryBySlugMock).toHaveBeenCalledWith({
       collectionSlug: "docs",
-      slug: "getting-started",
+      includeRelations: { createdByUser: true, tags: true },
+      slug: "introduction",
       locale: TRANSLATION_LOCALE,
       status: "published",
     });
     expect(setCacheScopeMock).toHaveBeenCalledWith({
-      tags: ["cms-entry-docs-getting-started"],
+      tags: ["cms-entry-docs-introduction"],
       ttl: "8 hours",
     });
-    expect(artifacts?.markdown).toContain("Getting Started");
+    // The `Source:` line follows the entry's own locale, exactly as the Markdown route builds it.
+    expect(artifacts?.markdown).toBe(
+      buildCmsEntryMarkdown({
+        entry,
+        sourceUrl: absoluteLocalizedUrl({
+          pathname: SOURCE_PATHNAME,
+          locale: DEFAULT_LOCALE,
+        }),
+      }),
+    );
   });
 });

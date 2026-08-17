@@ -1,3 +1,9 @@
+/** Key space of the Vinext data cache adapter, configured in `vite.config.ts`. */
+export const VINEXT_CACHE_PREFIX = "vinext-cache";
+
+/** Key space of the rendered-page Markdown cache: `md-page:<build id>:<pathname>`. */
+export const MARKDOWN_PAGE_CACHE_PREFIX = "md-page:";
+
 /**
  * Every key space app code owns in NEXT_INC_CACHE_KV, in one place.
  *
@@ -7,7 +13,8 @@
  * instead of asserting against a hand-copied list that can silently fall behind.
  */
 export const APP_KV_PREFIXES = {
-  vinextCache: "vinext-cache",
+  vinextCache: VINEXT_CACHE_PREFIX,
+  markdownPage: MARKDOWN_PAGE_CACHE_PREFIX,
   session: "session:",
   rateLimit: "rate-limit:",
   webauthnChallenge: "webauthn-challenge:",

@@ -6,16 +6,21 @@ import tailwindcss from "@tailwindcss/vite";
 import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
 import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
-import { VINEXT_CACHE_PREFIX } from "./src/constants/vinext-cache";
+import { VINEXT_CACHE_PREFIX } from "./src/constants/kv-prefixes";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer";
 import { openApiDocument } from "./tools/openapi-document";
 import { getSchedulerQueueName } from "./tools/wrangler-config";
 
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
+const MARKDOWN_BUILD_ID =
+  process.env.GITHUB_SHA?.trim() ||
+  process.env.CF_PAGES_COMMIT_SHA?.trim() ||
+  Date.now().toString(36);
 
 export default defineConfig({
   define: {
+    __MARKDOWN_BUILD_ID__: JSON.stringify(MARKDOWN_BUILD_ID),
     __SCHEDULER_QUEUE_NAME__: JSON.stringify(getSchedulerQueueName()),
   },
   optimizeDeps: {

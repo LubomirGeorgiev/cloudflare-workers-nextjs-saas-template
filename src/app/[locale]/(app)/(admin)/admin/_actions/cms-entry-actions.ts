@@ -101,7 +101,7 @@ export const createCmsEntryAction = actionClient
       createdBy: session.userId,
     });
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: input.collection as CollectionsUnion,
       entryId: newEntry.id,
       slugs: [newEntry.slug],
@@ -123,7 +123,7 @@ export const updateCmsEntryAction = actionClient
       throw new ActionError("NOT_FOUND", "Entry not found");
     }
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: updatedEntry.collection as CollectionsUnion,
       entryId: updatedEntry.id,
       slugs: [previousEntry?.slug, updatedEntry.slug].filter((slug): slug is string => Boolean(slug)),
@@ -139,7 +139,7 @@ export const deleteCmsEntryAction = actionClient
 
     const deletedEntry = await deleteCmsEntry({ id: input.id });
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: deletedEntry.collection as CollectionsUnion,
       entryId: deletedEntry.id,
       slugs: [deletedEntry.slug],
@@ -166,7 +166,7 @@ export const createTranslationAction = actionClient
       autoTranslate: input.autoTranslate,
     });
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: input.collection as CollectionsUnion,
       entryId: newEntry.id,
       slugs: [newEntry.slug],
@@ -189,7 +189,7 @@ export const retranslateTranslationAction = actionClient
       throw new ActionError("NOT_FOUND", "Entry not found");
     }
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: updated.collection as CollectionsUnion,
       entryId: updated.id,
       slugs: [updated.slug],
@@ -211,7 +211,7 @@ export const markTranslationReviewedAction = actionClient
       throw new ActionError("NOT_FOUND", "Entry not found");
     }
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: updated.collection as CollectionsUnion,
       entryId: updated.id,
       slugs: [updated.slug],

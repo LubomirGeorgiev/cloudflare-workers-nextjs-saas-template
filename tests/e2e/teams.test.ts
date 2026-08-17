@@ -218,7 +218,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
     teamId,
   });
 
-  await navigateAppFrame(expectedTeamPathname);
+  await navigateAppFrame(expectedTeamPathname, { waitForHydration: true });
   await expectAppText("Pending Team Invitations", { exact: true });
   await expectAppText(inviteeEmail, { exact: true });
   await expectAppText("Expires", { exact: true });
@@ -272,6 +272,7 @@ test.skipIf(planWithMostSeats.seats < 2)("invites a member through the modal and
   const inviteeEmail = `ui-invitee-${uniqueSuffix()}@example.com`;
 
   await grantTeamSeatHeadroom({ teamId, planId: planWithMostSeats.id });
+  await navigateAppFrame(teamPathname, { waitForHydration: true });
 
   await clickAppRole("button", "Invite Members");
   await fillAppPlaceholder("colleague@example.com", inviteeEmail);

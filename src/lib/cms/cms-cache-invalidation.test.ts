@@ -1,12 +1,19 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { collectionSlugs } from "@/../cms.config";
+import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
+import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { DOCS_SLUG } from "@/lib/cms/docs-config";
+
 const {
   getDBMock,
   invalidateCmsSearchCacheMock,
+  purgeMarkdownPageCacheMock,
   revalidateCacheTagMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
   invalidateCmsSearchCacheMock: vi.fn(),
+  purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
   revalidateCacheTagMock: vi.fn(),
 }));
 
@@ -19,6 +26,12 @@ vi.mock("@/db", () => ({
 vi.mock("@/lib/cms/cms-search", () => ({
   invalidateCmsSearchCache: invalidateCmsSearchCacheMock,
   isCollectionSearchEnabled: (collectionSlug: string) => collectionSlug === "docs",
+}));
+
+// The KV sweep itself needs a Worker binding; its locale matrix is asserted in
+// `cms-entry-revalidation.test.ts`, so here we only prove this call site reaches it.
+vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
+  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
 }));
 
 vi.mock("@/utils/cache", () => ({
@@ -38,7 +51,15 @@ vi.mock("@/utils/cache", () => ({
 const {
   invalidateAllCmsCaches,
   invalidateAllCmsCollectionCaches,
+  invalidateCmsNavigationCachesForCollection,
 } = await import("./cms-cache-invalidation");
+
+/** The docs pages served by the `.md` page branch, so their KV copies hold the CMS sidebar. */
+const DOCS_ROUTE_PAGE_PATHNAMES = INDEXED_DOCS_ROUTES.map(({ pathname }) => pathname);
+
+const COLLECTIONS_WITHOUT_NAVIGATION = collectionSlugs.filter(
+  (collectionSlug) => !getCmsCollectionNavigationKey(collectionSlug),
+);
 
 describe("CMS cache invalidation", () => {
   afterEach(() => {
@@ -85,4 +106,25 @@ describe("CMS cache invalidation", () => {
     expect(revalidateCacheTagMock).toHaveBeenCalledWith("cms-collection-blog");
     expect(revalidateCacheTagMock).toHaveBeenCalledWith("cms-collection-docs");
   });
+
+  test("a docs navigation change purges the page Markdown cache of the docs app routes", async () => {
+    await invalidateCmsNavigationCachesForCollection({ collectionSlug: DOCS_SLUG });
+
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledTimes(1);
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
+      pathnames: DOCS_ROUTE_PAGE_PATHNAMES,
+    });
+  });
+
+  // Skipped in a fork where every collection owns a navigation: there is then nothing to over-purge.
+  test.skipIf(COLLECTIONS_WITHOUT_NAVIGATION.length === 0)(
+    "a collection that owns no navigation purges no page Markdown",
+    async () => {
+      for (const collectionSlug of COLLECTIONS_WITHOUT_NAVIGATION) {
+        await invalidateCmsNavigationCachesForCollection({ collectionSlug });
+      }
+
+      expect(purgeMarkdownPageCacheMock).not.toHaveBeenCalled();
+    },
+  );
 });

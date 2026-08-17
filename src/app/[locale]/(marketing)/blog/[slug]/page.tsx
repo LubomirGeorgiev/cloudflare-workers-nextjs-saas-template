@@ -1,10 +1,9 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import { getTranslator } from "@/i18n/translator";
 import { Link, redirect as redirectLocalized } from "@/i18n/navigation"
 import { cache } from "react"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
-import type { Route } from "next"
 import { getCmsEntryBySlug, getEntryLocales } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { resolveLocalizedEntry } from "@/lib/cms/resolve-localized-entry"
@@ -31,22 +30,12 @@ import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-u
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree"
 import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents"
-import { buildCmsEntryMarkdownPath } from "@/lib/cms/cms-paths"
 
 type BlogPostPageProps = {
   params: Promise<{
     locale: Locale
     slug: string
   }>
-}
-
-function blogSlugWithoutMdSuffix(slug: string): string | undefined {
-  if (!slug.toLowerCase().endsWith(".md")) {
-    return undefined
-  }
-
-  const base = slug.slice(0, -".md".length)
-  return base || undefined
 }
 
 const getCachedBlogEntryBySlug = cache(async (slug: string, locale: Locale) => {
@@ -69,13 +58,6 @@ const getCachedResolvedBlogEntry = cache(async (slug: string, locale: Locale) =>
   })
 })
 
-const getCachedBlogMarkdownEntryBySlug = cache(async (slug: string) => {
-  return getCmsEntryBySlug({
-    collectionSlug: "blog",
-    slug,
-  })
-})
-
 // Cached for an hour — see docs/page-caching.md.
 export const revalidate = 3600;
 
@@ -84,28 +66,6 @@ export async function generateMetadata({
 }: BlogPostPageProps): Promise<Metadata> {
   const { locale, slug } = await params
   const tNotFound = await getTranslator({ locale, namespace: "Client.Blog.PostNotFound" })
-
-  const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
-  if (slugForMarkdown !== undefined) {
-    const mdEntry = await getCachedBlogMarkdownEntryBySlug(slugForMarkdown)
-    if (mdEntry) {
-      redirect(
-        buildCmsEntryMarkdownPath({
-          collectionSlug: "blog",
-          slug: slugForMarkdown,
-        }) as Route
-      )
-    }
-
-    const mdPageNumber = getValidPageNumber({ value: slugForMarkdown })
-    if (mdPageNumber) {
-      redirectLocalized({ href: getBlogPagePath({ page: mdPageNumber }), locale })
-    }
-
-    return {
-      title: tNotFound("title"),
-    }
-  }
 
   const validPageNumber = getValidPageNumber({ value: slug })
 
@@ -193,30 +153,6 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { locale, slug } = await params
   const t = await getTranslator({ locale, namespace: "Blog.Post" })
   const tCrumb = await getTranslator({ locale, namespace: "Breadcrumb" })
-
-  const slugForMarkdown = blogSlugWithoutMdSuffix(slug)
-  if (slugForMarkdown !== undefined) {
-    const mdEntry = await getCachedBlogMarkdownEntryBySlug(slugForMarkdown)
-    if (mdEntry) {
-      redirect(
-        buildCmsEntryMarkdownPath({
-          collectionSlug: "blog",
-          slug: slugForMarkdown,
-        }) as Route
-      )
-    }
-
-    const mdPageNumber = getValidPageNumber({ value: slugForMarkdown })
-    if (mdPageNumber) {
-      redirectLocalized({ href: getBlogPagePath({ page: mdPageNumber }), locale })
-    }
-
-    if (!(await hasPublishedBlogPosts())) {
-      redirectLocalized({ href: "/", locale })
-    }
-
-    notFound()
-  }
 
   const validPageNumber = getValidPageNumber({ value: slug })
 

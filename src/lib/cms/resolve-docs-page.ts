@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { CollectionsUnion } from "@/../cms.config";
 import { buildCmsResolvedPath } from "@/lib/cms/cms-paths";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
@@ -13,7 +12,6 @@ interface CmsNavigationRedirectResult {
 
 type ResolveDocsPageResult =
   | { type: "redirect"; path: string; permanent: boolean }
-  | { type: "markdown-redirect"; collectionSlug: CollectionsUnion; slug: string }
   | { type: "not-found" }
   | { type: "group"; node: CmsNavigationTreeNode; navigationTree: CmsNavigationTreeNode[] }
   | {
@@ -43,20 +41,6 @@ interface ResolveDocsPageParams {
   }) => CmsNavigationTreeNode | null;
 }
 
-function stripMdSuffixFromSlugParts(slugParts: string[]): string[] | undefined {
-  const last = slugParts[slugParts.length - 1]!;
-  if (!last.toLowerCase().endsWith(".md")) {
-    return undefined;
-  }
-
-  const base = last.slice(0, -".md".length);
-  if (!base) {
-    return undefined;
-  }
-
-  return [...slugParts.slice(0, -1), base];
-}
-
 // `path` on every "redirect" result below is locale-agnostic (e.g. "/docs/foo").
 // Callers must resolve it through `@/i18n/navigation`'s localized redirects so the
 // active locale prefix is preserved rather than dropped.
@@ -80,10 +64,6 @@ export async function resolveDocsPage({
     };
   }
 
-  const mdStrippedSegments = stripMdSuffixFromSlugParts(slugParts);
-  const segmentsForResolve = mdStrippedSegments ?? slugParts;
-  const isMarkdownSuffixRequest = mdStrippedSegments !== undefined;
-
   const navigationTree = await getNavigationTree({ locale });
 
   if (navigationTree.length === 0) {
@@ -96,7 +76,7 @@ export async function resolveDocsPage({
 
   const resolvedPath = buildCmsResolvedPath({
     basePath: docsBasePath,
-    segments: segmentsForResolve,
+    segments: slugParts,
   });
   const node = getNodeByResolvedPath({
     path: resolvedPath,
@@ -115,14 +95,6 @@ export async function resolveDocsPage({
       });
 
       if (defaultLocaleNode?.entry) {
-        if (isMarkdownSuffixRequest) {
-          return {
-            type: "markdown-redirect",
-            collectionSlug: defaultLocaleNode.entry.collection,
-            slug: defaultLocaleNode.entry.slug,
-          };
-        }
-
         return {
           type: "page",
           node: defaultLocaleNode,
@@ -158,14 +130,6 @@ export async function resolveDocsPage({
   if (!node.entry) {
     return {
       type: "not-found",
-    };
-  }
-
-  if (isMarkdownSuffixRequest) {
-    return {
-      type: "markdown-redirect",
-      collectionSlug: node.entry.collection,
-      slug: node.entry.slug,
     };
   }
 

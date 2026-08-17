@@ -6,6 +6,7 @@ import { formatDate } from "@/utils/format-date"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
+import { MARKDOWN_DIRECTIVES } from "@/constants/markdown-directives"
 import type { CmsCollectionListItem } from "@/lib/cms/entry"
 import { getValidDateOrNow } from "@/utils/cms-entry-dates"
 import { getAuthorDisplayName } from "@/utils/blog-author-url"
@@ -76,7 +77,12 @@ export async function BlogCard({ entry, locale, showTags = true, showAuthor = tr
           {showAuthor && author && (
             <div className="mt-auto pt-5">
               <div className="flex items-center gap-2.5 border-t pt-4">
-                <Avatar className="h-7 w-7 flex-shrink-0">
+                {/* The name next to it is the author; the initials would only repeat it. */}
+                <Avatar
+                  aria-hidden
+                  data-markdown={MARKDOWN_DIRECTIVES.skip}
+                  className="h-7 w-7 flex-shrink-0"
+                >
                   {author.avatar && <AvatarImage src={author.avatar} alt={authorName} />}
                   <AvatarFallback className="text-xs">
                     {getInitials(authorName)}

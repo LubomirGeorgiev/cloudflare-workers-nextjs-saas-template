@@ -42,7 +42,7 @@ export const revertCmsEntryVersionAction = actionClient
       versionId: input.versionId,
     });
 
-    revalidateCmsEntryPaths({
+    await revalidateCmsEntryPaths({
       collection: updatedEntry.collection as CollectionsUnion,
       entryId: updatedEntry.id,
       slugs: [previousEntry?.slug, updatedEntry.slug].filter((slug): slug is string => Boolean(slug)),

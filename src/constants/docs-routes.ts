@@ -3,9 +3,10 @@ import {
   API_DOCS_PATH,
   API_ERRORS_DOCS_PATH,
   API_OPENAPI_SPEC_PATH,
+  LLMS_TXT_PATH,
   MCP_DOCS_PATH,
 } from "@/constants";
-import { DOCS_LLMS_TXT_PATH } from "@/lib/cms/docs-config";
+import type { TranslatorNamespace } from "@/i18n/translator";
 
 // ---------------------------------------------------------------------------
 // The docs entries that are app routes rather than CMS documents, so they can never come from the
@@ -42,7 +43,7 @@ const DOCS_ROUTE_SECTION_LABEL_KEYS: Record<DocsRouteSectionId, string> = {
   [DOCS_ROUTE_SECTION_IDS.MACHINE]: "machineSection",
 };
 
-export interface DocsRouteDescriptor {
+interface DocsRouteBase {
   id: DocsRouteId;
   sectionId: DocsRouteSectionId;
   pathname: string;
@@ -50,19 +51,34 @@ export interface DocsRouteDescriptor {
   labelKey: string;
   /** Rendered indented under its parent in the sidebar. */
   parentId?: DocsRouteId;
-  /** False for machine endpoints served at a single non-localized URL, like llms.txt. */
-  isLocalized: boolean;
-  /** Sitemap priority; omitted for entries that are not indexable pages. */
-  sitemapPriority?: number;
 }
 
-/** Sidebar order. */
-const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
+/** A page a reader opens. Both indexing fields are required, so no page can drop out silently. */
+export interface DocsPageRoute extends DocsRouteBase {
+  isLocalized: true;
+  /** Sitemap priority. */
+  sitemapPriority: number;
+  /** Namespace whose meta title and description also describe this route to agents. */
+  metaNamespace: TranslatorNamespace;
+}
+
+/** A machine endpoint served at a single non-localized URL, like llms.txt. Never indexed. */
+interface DocsMachineRoute extends DocsRouteBase {
+  isLocalized: false;
+  sitemapPriority?: never;
+  metaNamespace?: never;
+}
+
+export type DocsRouteDescriptor = DocsPageRoute | DocsMachineRoute;
+
+/** Sidebar order. Exported for the co-located test that guards the page/machine split. */
+export const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
   {
     id: DOCS_ROUTE_IDS.API_REFERENCE,
     sectionId: DOCS_ROUTE_SECTION_IDS.API,
     pathname: API_DOCS_PATH,
     labelKey: "apiReference",
+    metaNamespace: "Client.Docs.ApiReference.meta",
     isLocalized: true,
     sitemapPriority: 0.7,
   },
@@ -71,6 +87,7 @@ const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
     sectionId: DOCS_ROUTE_SECTION_IDS.API,
     pathname: API_ERRORS_DOCS_PATH,
     labelKey: "apiErrors",
+    metaNamespace: "Client.Docs.ApiErrors.meta",
     parentId: DOCS_ROUTE_IDS.API_REFERENCE,
     isLocalized: true,
     sitemapPriority: 0.5,
@@ -80,6 +97,7 @@ const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
     sectionId: DOCS_ROUTE_SECTION_IDS.API,
     pathname: API_AUTH_DOCS_PATH,
     labelKey: "authGuide",
+    metaNamespace: "Client.Docs.Auth.meta",
     isLocalized: true,
     sitemapPriority: 0.7,
   },
@@ -88,13 +106,14 @@ const DOCS_ROUTES: readonly DocsRouteDescriptor[] = [
     sectionId: DOCS_ROUTE_SECTION_IDS.API,
     pathname: MCP_DOCS_PATH,
     labelKey: "mcpGuide",
+    metaNamespace: "Client.Docs.Mcp.meta",
     isLocalized: true,
     sitemapPriority: 0.7,
   },
   {
     id: DOCS_ROUTE_IDS.LLMS_TXT,
     sectionId: DOCS_ROUTE_SECTION_IDS.MACHINE,
-    pathname: DOCS_LLMS_TXT_PATH,
+    pathname: LLMS_TXT_PATH,
     labelKey: "llmsTxt",
     isLocalized: false,
   },
@@ -129,9 +148,14 @@ export const DOCS_ROUTE_SECTIONS: readonly DocsRouteSection[] = Object.values(
   };
 });
 
-type IndexedDocsRoute = DocsRouteDescriptor & { sitemapPriority: number };
+function isDocsPageRoute(route: DocsRouteDescriptor): route is DocsPageRoute {
+  return route.isLocalized;
+}
 
-/** The subset a crawler and an agent should see listed: real pages, not machine endpoints. */
-export const INDEXED_DOCS_ROUTES: readonly IndexedDocsRoute[] = DOCS_ROUTES.filter(
-  (route): route is IndexedDocsRoute => route.sitemapPriority !== undefined
-);
+/**
+ * The subset a crawler and an agent should see listed: real pages, not machine endpoints. It feeds
+ * the sitemap, docs search, llms.txt, and the `.md` allowlist. The split reads the route kind, not
+ * which fields happen to be set, so a fork's new page route fails the build until both are there.
+ */
+export const INDEXED_DOCS_ROUTES: readonly DocsPageRoute[] =
+  DOCS_ROUTES.filter(isDocsPageRoute);

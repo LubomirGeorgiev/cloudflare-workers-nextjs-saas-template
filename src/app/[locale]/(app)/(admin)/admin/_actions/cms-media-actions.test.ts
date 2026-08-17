@@ -3,16 +3,23 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 const {
   getDBMock,
   invalidateEntryAndCollectionMock,
+  purgeMarkdownPageCacheMock,
   requireAdminMock,
   syncCmsEntrySearchMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
   invalidateEntryAndCollectionMock: vi.fn(),
+  purgeMarkdownPageCacheMock: vi.fn(),
   requireAdminMock: vi.fn(),
   syncCmsEntrySearchMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+
+// The KV sweep needs a Worker binding and is asserted in `cms-entry-revalidation.test.ts`.
+vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
+  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
+}));
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
@@ -163,5 +170,7 @@ describe("CMS media actions", () => {
       collectionSlug: "docs",
       slug: "intro",
     });
+    // One sweep per action, not per affected entry.
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledTimes(1);
   });
 });

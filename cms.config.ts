@@ -64,6 +64,13 @@ export type CmsNavigationKey = keyof typeof cmsConfig.navigations;
 
 // oxlint-disable-next-line project/no-unused-module-exports -- CMS config exports are consumed by tooling and extension points.
 export const collectionSlugs = Object.keys(cmsConfig.collections) as [CollectionsUnion, ...CollectionsUnion[]];
+
+// Guard raw route and input strings with this instead of casting. `Object.hasOwn`, not `in`:
+// `"constructor" in cmsConfig.collections` is true, so `in` would accept an inherited name.
+export function isCollectionSlug(value: string): value is CollectionsUnion {
+  return Object.hasOwn(cmsConfig.collections, value);
+}
+
 export const collectionSchema = v.picklist(collectionSlugs);
 export const cmsNavigationKeys = Object.keys(cmsConfig.navigations) as [
   CmsNavigationKey,

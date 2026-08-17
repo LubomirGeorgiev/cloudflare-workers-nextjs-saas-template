@@ -13,6 +13,7 @@ import { cmsEntryTable, cmsEntryTagTable, cmsTagTable } from "@/db/schema";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import { CACHE_TAGS, revalidateCacheTag } from "@/utils/cache";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import {
   invalidateCmsSearchCache,
   isCollectionSearchEnabled,
@@ -107,6 +108,8 @@ export async function invalidateCmsNavigationCachesForCollection({
     CACHE_TAGS.cmsNavigation(navigationKey),
     CACHE_TAGS.cmsRedirect(navigationKey),
   ]);
+
+  await purgeDocsNavigationMarkdownPages();
 
   if (isCollectionSearchEnabled(collectionSlug)) {
     await invalidateCmsSearchCache(collectionSlug);

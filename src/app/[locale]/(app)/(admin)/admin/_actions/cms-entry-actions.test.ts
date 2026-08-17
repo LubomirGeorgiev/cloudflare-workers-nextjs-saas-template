@@ -39,6 +39,11 @@ vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
 
+// The KV sweep needs a Worker binding and is asserted in `cms-entry-revalidation.test.ts`.
+vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
+  purgeMarkdownPageCache: vi.fn(),
+}));
+
 vi.mock("@/utils/auth", () => ({
   requireAdmin: requireAdminMock,
 }));

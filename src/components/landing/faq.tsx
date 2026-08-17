@@ -5,6 +5,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { GITHUB_REPO_URL } from "@/constants";
+import { MARKDOWN_DIRECTIVES } from "@/constants/markdown-directives";
 import { getTranslator } from "@/i18n/translator";
 import type { Locale } from "@/i18n/config";
 
@@ -40,10 +41,16 @@ export async function FAQ({ locale }: { locale: Locale }) {
           </p>
         </div>
 
-        <Accordion type="single" collapsible className="w-full">
+        {/* `hiddenUntilFound` keeps every answer in the DOM, so find-in-page reaches a closed one
+            and so does the `.md` copy of this page. */}
+        <Accordion type="single" collapsible hiddenUntilFound className="w-full">
           {FAQ_KEYS.map((key, index) => (
             <AccordionItem key={key} value={`item-${index}`} className="border-border">
-              <AccordionTrigger className="text-left font-display text-base font-medium">
+              {/* The trigger label is the question itself, not a page action. */}
+              <AccordionTrigger
+                data-markdown={MARKDOWN_DIRECTIVES.unwrap}
+                className="text-left font-display text-base font-medium"
+              >
                 {t(`${key}.question`)}
               </AccordionTrigger>
               <AccordionContent>

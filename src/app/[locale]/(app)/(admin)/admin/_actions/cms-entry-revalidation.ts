@@ -2,10 +2,12 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 
-import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
+import { type CollectionsUnion } from "@/../cms.config";
+import { ENABLED_LOCALES } from "@/i18n/config";
+import { cmsEntryPagePath, purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
+import { localizedPagePathname } from "@/lib/markdown-pages/page-paths";
 
-export function revalidateCmsEntryPaths({
+export async function revalidateCmsEntryPaths({
   collection,
   entryId,
   slugs,
@@ -15,7 +17,7 @@ export function revalidateCmsEntryPaths({
   entryId: string;
   slugs: string[];
   includeCreatePath?: boolean;
-}) {
+}): Promise<void> {
   revalidatePath("/admin/cms");
   revalidatePath(`/admin/cms/${collection}`);
   revalidatePath(`/admin/cms/${collection}/${entryId}`);
@@ -24,18 +26,19 @@ export function revalidateCmsEntryPaths({
     revalidatePath(`/admin/cms/${collection}/new`);
   }
 
-  const collectionConfig = cmsConfig.collections[collection];
-  const previewUrlBuilder = "previewUrl" in collectionConfig ? collectionConfig.previewUrl : undefined;
+  const entries = Array.from(new Set(slugs.filter(Boolean))).map((slug) => ({ collection, slug }));
 
-  if (!previewUrlBuilder) {
-    return;
-  }
+  for (const entry of entries) {
+    const pathname = cmsEntryPagePath(entry);
 
-  for (const slug of new Set(slugs.filter(Boolean))) {
-    const path = previewUrlBuilder(slug);
+    if (!pathname) {
+      continue;
+    }
 
     for (const locale of ENABLED_LOCALES) {
-      revalidatePath(locale === DEFAULT_LOCALE ? path : `/${locale}${path}`);
+      revalidatePath(localizedPagePathname({ locale, pathname }));
     }
   }
+
+  await purgeCmsEntryMarkdownPages({ entries });
 }

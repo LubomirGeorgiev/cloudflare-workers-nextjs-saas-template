@@ -115,12 +115,10 @@ describe("shouldLocalizePathname", () => {
     expect(pathnames.filter(shouldLocalizePathname)).toEqual([]);
   });
 
-  // `.md` resolves to a /markdown/* redirect on the page itself, so it has to be
-  // rewritten onto a locale first — unlike every other dotted path.
-  test("localizes .md page requests regardless of case", () => {
-    expect(shouldLocalizePathname("/docs/core-concepts/billing.md")).toBe(true);
-    expect(shouldLocalizePathname("/blog/some-post.MD")).toBe(true);
-    expect(shouldLocalizePathname("/es/docs/core-concepts/billing.md")).toBe(true);
+  test("does not localize .md page requests handled by the Worker", () => {
+    expect(shouldLocalizePathname("/docs/core-concepts/billing.md")).toBe(false);
+    expect(shouldLocalizePathname("/blog/some-post.MD")).toBe(false);
+    expect(shouldLocalizePathname("/es/docs/core-concepts/billing.md")).toBe(false);
   });
 
   test("does not localize .md under a non-localized segment", () => {

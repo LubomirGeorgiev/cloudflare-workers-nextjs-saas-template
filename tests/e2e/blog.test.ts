@@ -1,9 +1,10 @@
-import { test } from "vitest";
+import { expect, test } from "vitest";
 import {
   expectAppPathname,
   expectAppRole,
   expectAppText,
   expectNoAppText,
+  fetchAppPath,
   loadAppFrame,
 } from "./app-frame";
 import { SEEDED_BLOG_ENTRY, SEEDED_BLOG_ENTRY_PATH } from "./seed-fixtures";
@@ -25,6 +26,14 @@ test("renders a full seeded blog article with author, tags, and rich content", a
   await expectAppText("TypeScript", { exact: true });
   await expectAppText("Build Your First Next.js 15 Page", { exact: true });
   await expectAppText("Starter Project Checklist", { exact: true });
+});
+
+test("serves a blog article as markdown at its .md URL", async () => {
+  const response = await fetchAppPath(`${SEEDED_BLOG_ENTRY_PATH}.md`);
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
+  await expect(response.text()).resolves.toContain("Build Your First Next.js 15 Page");
 });
 
 test("routes numbered blog pages to the correct paginated result set", async () => {

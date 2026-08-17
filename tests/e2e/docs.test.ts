@@ -15,15 +15,24 @@ import {
   API_DOCS_PATH,
   API_ERRORS_DOCS_PATH,
   API_OPENAPI_SPEC_PATH,
+  LLMS_TXT_PATH,
   MCP_DOCS_PATH,
   MCP_PATH,
   SITE_NAME,
 } from "../../src/constants";
 import { DEFAULT_LOCALE } from "../../src/i18n/config";
 import { loadCatalog } from "../../src/i18n/message-catalogs";
+import { parseMarkdownPagePath } from "../../src/lib/markdown-pages/page-paths";
 import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 const defaultMessages = await loadCatalog(DEFAULT_LOCALE);
+
+/** Every question the landing accordion renders, read from the catalog rather than restated here. */
+function faqQuestions(messages: typeof defaultMessages): string[] {
+  return Object.values(messages.Landing.Faq).flatMap((entry) =>
+    typeof entry === "object" && "question" in entry ? [entry.question] : [],
+  );
+}
 
 test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame(SEEDED_DOCS_ENTRY_PATH);
@@ -59,19 +68,30 @@ test("serves docs markdown exports for AI and download workflows", async () => {
   expect(body).toContain("Authentication and team management");
 });
 
-// Guards the proxy matcher: a dotted pathname must still reach the docs page so
-// its `.md` suffix resolves, rather than being excluded as a static asset.
-test("redirects a docs page requested with a .md suffix to its markdown export", async () => {
+test("serves a docs page as markdown at its .md URL", async () => {
   const response = await fetchAppPath(`${SEEDED_DOCS_ENTRY_PATH}.md`, { redirect: "manual" });
 
-  expect(response.status).toBe(307);
-  // Base only resolves a possibly-relative Location header; it is never asserted on.
+  expect(response.status).toBe(200);
+  expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
+  await expect(response.text()).resolves.toContain("Authentication and team management");
+});
+
+test("redirects an old docs .md path to its current .md URL", async () => {
+  const response = await fetchAppPath("/docs/getting-started/setup.md", { redirect: "manual" });
+
+  expect(response.status).toBe(301);
   const location = new URL(response.headers.get("location") ?? "", "http://localhost");
-  expect(location.pathname).toBe(`/markdown/docs/${SEEDED_DOCS_ENTRY.slug}`);
+  expect(location.pathname).toBe(`${SEEDED_DOCS_ENTRY_PATH}.md`);
+});
+
+test("does not render a docs group as a markdown page", async () => {
+  const response = await fetchAppPath(`/docs/${SEEDED_DOCS_ENTRY.categorySlug}.md`);
+
+  expect(response.status).toBe(404);
 });
 
 test("serves llms.txt from the docs navigation tree", async () => {
-  const response = await fetchAppPath("/docs/llms.txt");
+  const response = await fetchAppPath(LLMS_TXT_PATH);
 
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toMatch(/^text\/plain\b/);
@@ -81,20 +101,87 @@ test("serves llms.txt from the docs navigation tree", async () => {
   expect(body).toMatch(/^## Documentation$/m);
   expect(body).toMatch(/^## Search API$/m);
   expect(body).toMatch(/GET https?:\/\/\S+\/api\/docs\/search\?q=authentication&limit=8/);
-  expect(body).toMatch(/^- \[Introduction\]\(https?:\/\/[^)]+\/markdown\/docs\/introduction\): /m);
+  expect(body).toMatch(
+    new RegExp(`^- \\[Introduction\\]\\(https?://[^)]+${SEEDED_DOCS_ENTRY_PATH}\\.md\\): `, "m"),
+  );
+});
+
+test("redirects the old docs llms.txt URL to the root file", async () => {
+  const response = await fetchAppPath("/docs/llms.txt", { redirect: "manual" });
+
+  expect(response.status).toBe(301);
+  const location = new URL(response.headers.get("location") ?? "", "http://localhost");
+  expect(location.pathname).toBe(LLMS_TXT_PATH);
 });
 
 // The two surfaces an agent can act on rather than only read. Origins differ between the preview
 // and a deployment, so only the paths are asserted.
 test("points agents at the OpenAPI document and the MCP endpoint from llms.txt", async () => {
-  const response = await fetchAppPath("/docs/llms.txt");
+  const response = await fetchAppPath(LLMS_TXT_PATH);
   const body = await response.text();
 
   expect(body).toMatch(/^## API and MCP$/m);
   expect(body).toContain(API_OPENAPI_SPEC_PATH);
   expect(body).toMatch(new RegExp(`https?://[^\\s\`]+${MCP_PATH}\``));
   expect(body).toContain(API_AUTH_DOCS_PATH);
+  expect(body).toContain(`${API_AUTH_DOCS_PATH}.md`);
   expect(body).toContain(MCP_DOCS_PATH);
+});
+
+test("lists static Markdown pages before the documentation in llms.txt", async () => {
+  const response = await fetchAppPath(LLMS_TXT_PATH);
+  const body = await response.text();
+
+  expect(body).toContain("/index.md");
+  expect(body).toContain("/privacy.md");
+  expect(body).toContain("/terms.md");
+  expect(body.indexOf("## Site pages")).toBeLessThan(body.indexOf("## Documentation"));
+});
+
+// The frame heading must be the page `<h1>`, never the document `<title>`: the root layout template
+// suffixes that title with the site name, so sourcing it there gave two H1 lines, one branded.
+test("serves static docs and legal pages as markdown", async () => {
+  const pages = [
+    { mdPath: `${API_DOCS_PATH}.md`, heading: defaultMessages.Client.Docs.ApiReference.title },
+    { mdPath: "/terms.md", heading: defaultMessages.Legal.Terms.title },
+    { mdPath: "/privacy.md", heading: defaultMessages.Legal.Privacy.title },
+    { mdPath: "/index.md", heading: defaultMessages.Landing.Hero.titleLine1 },
+  ];
+
+  for (const { mdPath, heading } of pages) {
+    const response = await fetchAppPath(mdPath);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
+
+    const body = await response.text();
+    const topHeadings = body.split("\n").filter((line) => line.startsWith("# "));
+
+    expect(topHeadings).toHaveLength(1);
+    expect(topHeadings[0]).toContain(heading);
+    expect(topHeadings[0].endsWith(` - ${SITE_NAME}`)).toBe(false);
+
+    const source = body.split("\n").find((line) => line.startsWith("Source: "));
+    expect(source).toBeDefined();
+    expect(new URL(source!.slice("Source: ".length)).pathname).toBe(
+      parseMarkdownPagePath(mdPath),
+    );
+
+    if (mdPath === "/index.md") {
+      // The hero `<h1>` spans two lines with a `<br>`; the frame heading joins them into one.
+      expect(topHeadings[0]).toContain(defaultMessages.Landing.Hero.titleLine2);
+
+      // The conversion contract, not the marketing copy of the day: a component that declares its
+      // label as content with `data-markdown` keeps it, and a plain page action never appears.
+      for (const question of faqQuestions(defaultMessages)) {
+        expect(body).toContain(`### ${question}`);
+      }
+
+      expect(body).toContain(defaultMessages.Landing.Faq.isFree.answer.split("<link>")[0]);
+      expect(body).not.toContain(defaultMessages.Client.Landing.Cta.copy);
+      expect(body).not.toContain("<!--");
+    }
+  }
 });
 
 test("renders the agent platform docs pages that are app routes", async () => {

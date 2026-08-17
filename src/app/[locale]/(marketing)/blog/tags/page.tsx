@@ -119,7 +119,7 @@ export default async function BlogTagsPage({
                   className="absolute inset-x-0 top-0 h-px scale-x-0 bg-edge transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
                 />
                 <div className="flex items-center justify-between gap-4">
-                  <span className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     {/* The dot carries each tag's CMS-assigned color, matching its badges elsewhere. */}
                     {/* The ring keeps dots whose CMS color matches the card background visible. */}
                     {tag.color && (
@@ -129,10 +129,10 @@ export default async function BlogTagsPage({
                         style={{ backgroundColor: tag.color }}
                       />
                     )}
-                    <span className="truncate font-display text-lg font-semibold text-foreground transition-colors group-hover:text-edge">
+                    <h2 className="truncate font-display text-lg font-semibold text-foreground transition-colors group-hover:text-edge">
                       {tag.name}
-                    </span>
-                  </span>
+                    </h2>
+                  </div>
                   <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
                     {tCommon("postCount", { count: tag.entryCount })}
                   </span>

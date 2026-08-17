@@ -590,7 +590,6 @@
         "errorCannotAssignPermissions": "No puedes asignar un rol con permisos que no tienes",
         "errorMembershipNotFound": "Membresía del equipo no encontrada",
         "errorCannotRemoveOwner": "No se puede eliminar al propietario del equipo",
-        "errorInvalidEmail": "Dirección de correo electrónico no válida o desechable",
         "errorTeamNotFound": "Equipo no encontrado",
         "errorAlreadyMember": "El usuario ya es miembro de este equipo",
         "errorUserJoinLimit": "Este usuario ha alcanzado el límite de {max} equipos a los que puede unirse.",

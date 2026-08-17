@@ -10,6 +10,7 @@ import {
   invalidateEntryAndCollection,
   getKnownCmsCollectionSlug,
 } from "@/lib/cms/cms-cache-invalidation";
+import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 import { deleteScheduledJobs, scheduleJob } from "@/lib/scheduler/scheduler";
@@ -77,9 +78,17 @@ export async function publishScheduledCmsEntryIfDue({
     content: updatedEntry.content as JSONContent,
   });
 
+  const collectionSlug = getKnownCmsCollectionSlug(updatedEntry.collection);
+
   await invalidateEntryAndCollection({
-    collectionSlug: getKnownCmsCollectionSlug(updatedEntry.collection),
+    collectionSlug,
     slug: updatedEntry.slug,
+  });
+
+  // The queue consumer has no App Router request scope, so `revalidateCmsEntryPaths` is out of
+  // reach. A KV delete is not, and without it a timer-driven publish serves the pre-publish `.md`.
+  await purgeCmsEntryMarkdownPages({
+    entries: [{ collection: collectionSlug, slug: updatedEntry.slug }],
   });
 
   return updatedEntry;

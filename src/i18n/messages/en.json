@@ -590,7 +590,6 @@
         "errorCannotAssignPermissions": "You cannot assign a role with permissions you do not have",
         "errorMembershipNotFound": "Team membership not found",
         "errorCannotRemoveOwner": "Cannot remove the team owner",
-        "errorInvalidEmail": "Invalid or disposable email address",
         "errorTeamNotFound": "Team not found",
         "errorAlreadyMember": "User is already a member of this team",
         "errorUserJoinLimit": "This user has reached the limit of {max} teams they can join.",

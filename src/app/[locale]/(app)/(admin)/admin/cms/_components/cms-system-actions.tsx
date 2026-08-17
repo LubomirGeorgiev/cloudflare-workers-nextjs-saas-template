@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { VINEXT_CACHE_PREFIX } from "@/constants/vinext-cache";
+import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { cn } from "@/lib/utils";
 
 type ActionKey =
@@ -86,12 +86,12 @@ const GLOBAL_ACTIONS = [
     icon: Trash2,
     title: "Purge Vinext KV Cache",
     description:
-      "Deletes every Vinext data-cache key in KV. Cached fetch / use-cache entries rebuild on demand.",
+      "Deletes every Vinext data-cache and Markdown page-cache key in KV. Cache entries rebuild on demand.",
     variant: "destructive" as const,
     confirm: {
       input: { type: "purge-vinext-kv-cache" } satisfies CmsSystemActionInput,
-      title: "Purge the entire Vinext KV cache?",
-      description: `This permanently deletes every KV key matching ${VINEXT_CACHE_PREFIX}*. Cached pages and data will be rebuilt as they are requested.`,
+      title: "Purge the Vinext and Markdown KV caches?",
+      description: `This permanently deletes every KV key matching ${VINEXT_CACHE_PREFIX}* or ${MARKDOWN_PAGE_CACHE_PREFIX}*. Cached pages and data will be rebuilt as they are requested.`,
       destructive: true,
     },
   },

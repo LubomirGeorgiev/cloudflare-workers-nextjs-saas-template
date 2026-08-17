@@ -13,7 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DOCS_LLMS_TXT_PATH } from "@/lib/cms/docs-config";
+import { LLMS_TXT_PATH } from "@/constants";
 
 interface CopyDocsMarkdownButtonProps {
   markdown: string;
@@ -67,7 +67,7 @@ export function CopyDocsMarkdownButton({
                 {t("openAsMarkdown")}
             </DropdownMenuItem>
             <DropdownMenuItem
-              render={<a target="_blank" rel="noreferrer" href={DOCS_LLMS_TXT_PATH} />}
+              render={<a target="_blank" rel="noreferrer" href={LLMS_TXT_PATH} />}
             >
                 <Bot className="h-4 w-4" />
                 {/* "llms.txt" is a filename/protocol constant, intentionally not localized */}

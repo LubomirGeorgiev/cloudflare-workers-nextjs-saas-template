@@ -5,6 +5,7 @@ import {
   DOCS_SEARCH_CACHE_CONTROL,
   SESSION_NO_STORE_CACHE_CONTROL,
 } from "../../src/constants/cache-control";
+import { LLMS_TXT_PATH } from "../../src/constants";
 import { OG_IMAGE_CACHE_CONTROL, OG_IMAGE_CONTENT_TYPE } from "../../src/constants/og-image";
 import { LOCALE_COOKIE_NAME } from "../../src/i18n/config";
 import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
@@ -114,8 +115,8 @@ test("sets the locale cookie on a normal page request", async () => {
   expect(getSetCookies(response).join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
 });
 
-test("serves the docs llms.txt export with its shared cache policy", async () => {
-  const response = await fetchAppPath("/docs/llms.txt");
+test("serves the root llms.txt export with its shared cache policy", async () => {
+  const response = await fetchAppPath(LLMS_TXT_PATH);
 
   expect(response.status).toBe(200);
   expectCachePolicy(response, DOCS_LLMS_TXT_CACHE_CONTROL);

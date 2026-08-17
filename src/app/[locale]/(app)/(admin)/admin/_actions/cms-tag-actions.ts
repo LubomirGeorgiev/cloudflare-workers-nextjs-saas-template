@@ -17,21 +17,34 @@ import {
   createCmsTagTranslationActionSchema,
   updateCmsTagActionSchema,
 } from "@/schemas/cms-tag.schema";
-import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
+import { ENABLED_LOCALES } from "@/i18n/config";
+import { purgeMarkdownPageCache } from "@/lib/markdown-pages/purge-page-cache";
+import { localizedPagePathname } from "@/lib/markdown-pages/page-paths";
+
+const CMS_TAGS_PAGE_PATH = "/blog/tags";
+
+/** The unprefixed public tag pages a tag mutation changes; both consumers below fan out over locales. */
+function cmsTagPagePaths(slug?: string): string[] {
+  return slug ? [CMS_TAGS_PAGE_PATH, `${CMS_TAGS_PAGE_PATH}/${slug}`] : [CMS_TAGS_PAGE_PATH];
+}
 
 // A tag mutation can change the admin list and every served locale's public tag pages (localized names live
 // on /blog/tags and /blog/tags/[slug]). Public pages are locale-prefixed "as-needed": the default locale is
 // unprefixed, others prefixed. With i18n disabled this collapses to the unprefixed paths only.
-function revalidateCmsTagPaths(slug?: string) {
+async function revalidateCmsTagPaths(slug?: string): Promise<void> {
   revalidatePath("/admin/cms/tags");
 
+  const pathnames = cmsTagPagePaths(slug);
+
   for (const locale of ENABLED_LOCALES) {
-    const prefix = locale === DEFAULT_LOCALE ? "" : `/${locale}`;
-    revalidatePath(`${prefix}/blog/tags`);
-    if (slug) {
-      revalidatePath(`${prefix}/blog/tags/${slug}`);
+    for (const pathname of pathnames) {
+      revalidatePath(localizedPagePathname({ locale, pathname }));
     }
   }
+
+  // `revalidatePath` reaches only the App Router cache. The converted `.md` twins of these pages
+  // live in KV, so without this they serve the pre-mutation body until their TTL expires.
+  await purgeMarkdownPageCache({ pathnames });
 }
 
 export const listCmsTagsAction = actionClient
@@ -58,7 +71,7 @@ export const createCmsTagAction = actionClient
       createdBy: session.userId,
     });
 
-    revalidateCmsTagPaths(newTag.slug);
+    await revalidateCmsTagPaths(newTag.slug);
 
     return newTag;
   });
@@ -80,7 +93,7 @@ export const updateCmsTagAction = actionClient
       throw new ActionError("NOT_FOUND", "Tag not found");
     }
 
-    revalidateCmsTagPaths(updatedTag.slug);
+    await revalidateCmsTagPaths(updatedTag.slug);
 
     return updatedTag;
   });
@@ -92,7 +105,7 @@ export const deleteCmsTagAction = actionClient
 
     const deletedTag = await deleteCmsTag(input.id);
 
-    revalidateCmsTagPaths(deletedTag?.slug);
+    await revalidateCmsTagPaths(deletedTag?.slug);
 
     return { success: true };
   });
@@ -114,7 +127,7 @@ export const createTagTranslationAction = actionClient
       autoTranslate: input.autoTranslate,
     });
 
-    revalidateCmsTagPaths(newTag.slug);
+    await revalidateCmsTagPaths(newTag.slug);
 
     return newTag;
   });

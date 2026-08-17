@@ -6,7 +6,7 @@ import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { cookies, headers } from "next/headers";
-import { createAndStoreSession, canSignUp } from "@/utils/auth";
+import { createAndStoreSession } from "@/utils/auth";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -43,8 +43,6 @@ export const startPasskeyRegistrationAction = actionClient
         }
 
         const db = getDB();
-
-        await canSignUp({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
           where: { email: input.email },

@@ -4,7 +4,7 @@ import { cache as workersCache, env as workerEnv } from "cloudflare:workers";
 import { revalidatePath } from "next/cache";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { VINEXT_CACHE_PREFIX } from "@/constants/vinext-cache";
+import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { ActionError } from "@/lib/action-error";
 import { invalidateAllCmsCaches } from "@/lib/cms/cms-cache-invalidation";
 import {
@@ -15,6 +15,8 @@ import {
 import { actionClient } from "@/lib/safe-action";
 import { cmsSystemActionSchema } from "@/schemas/cms-system.schema";
 import { requireAdmin } from "@/utils/auth";
+
+const PURGEABLE_KV_CACHE_PREFIXES = [VINEXT_CACHE_PREFIX, MARKDOWN_PAGE_CACHE_PREFIX] as const;
 
 function getSearchableCollections(): CollectionsUnion[] {
   return Object.entries(cmsConfig.collections)
@@ -34,25 +36,40 @@ function getVinextCache(): KVNamespace {
 
 function formatDeletedKeyMessage(deletedKeyCount: number): string {
   const keyLabel = deletedKeyCount === 1 ? "key" : "keys";
-  return `Deleted ${deletedKeyCount} Vinext cache ${keyLabel}`;
+  return `Deleted ${deletedKeyCount} Vinext and Markdown cache ${keyLabel}`;
 }
 
-async function purgeVinextKvCache(): Promise<{ deletedKeyCount: number; message: string }> {
-  const cache = getVinextCache();
-
+async function deleteKvKeysByPrefix({
+  cache,
+  prefix,
+}: {
+  cache: KVNamespace;
+  prefix: string;
+}): Promise<number> {
   let cursor: string | undefined;
   let deletedKeyCount = 0;
 
   do {
     const page = await cache.list({
       cursor,
-      prefix: VINEXT_CACHE_PREFIX,
+      prefix,
     });
 
     await Promise.all(page.keys.map(({ name }) => cache.delete(name)));
     deletedKeyCount += page.keys.length;
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+
+  return deletedKeyCount;
+}
+
+async function purgeKvPageCaches(): Promise<{ deletedKeyCount: number; message: string }> {
+  const cache = getVinextCache();
+  let deletedKeyCount = 0;
+
+  for (const prefix of PURGEABLE_KV_CACHE_PREFIXES) {
+    deletedKeyCount += await deleteKvKeysByPrefix({ cache, prefix });
+  }
 
   return {
     deletedKeyCount,
@@ -132,7 +149,7 @@ export const runCmsSystemAction = actionClient
       }
 
       case "purge-vinext-kv-cache": {
-        const result = await purgeVinextKvCache();
+        const result = await purgeKvPageCaches();
         return {
           success: true,
           message: result.message,

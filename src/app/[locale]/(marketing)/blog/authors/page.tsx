@@ -5,6 +5,7 @@ import type { Metadata } from "next"
 import { getCmsCollection } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MARKDOWN_DIRECTIVES } from "@/constants/markdown-directives"
 import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getInitials } from "@/utils/name-initials"
 import { BlogBackLink } from "@/components/blog-back-link"
@@ -161,7 +162,12 @@ export default async function BlogAuthorsPage({
                   className="absolute inset-x-0 top-0 h-px scale-x-0 bg-edge transition-transform duration-300 group-hover:scale-x-100 motion-reduce:transition-none"
                 />
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-12 w-12 ring-1 ring-border">
+                  {/* The name next to it is the author; the initials would only repeat it. */}
+                  <Avatar
+                    aria-hidden
+                    data-markdown={MARKDOWN_DIRECTIVES.skip}
+                    className="h-12 w-12 ring-1 ring-border"
+                  >
                     {author.avatar && <AvatarImage src={author.avatar} alt={getAuthorDisplayName(author, unknownAuthor)} />}
                     <AvatarFallback>
                       {getInitials(getAuthorDisplayName(author, unknownAuthor))}

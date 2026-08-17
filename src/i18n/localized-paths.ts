@@ -5,18 +5,16 @@
 // Top-level URL segments served outside `app/[locale]`. Anything here must reach its
 // route untouched; a locale rewrite would 404 it. Paths a Worker handler intercepts
 // before Next (`/mcp`, `/api/v1`) never reach the proxy and do not belong here.
-export const NON_LOCALIZED_PATH_SEGMENTS = ["api", "markdown"] as const;
+export const NON_LOCALIZED_PATH_SEGMENTS = ["api", "llms.txt", "markdown"] as const;
 
 // Segments serving both localized pages and root-level routes (`/docs/*` pages under
 // `[locale]`, `/docs/llms.txt` at the app root). They must stay out of the list above;
-// the extension rule below is what separates the two halves.
+// the dotted-segment rule below is what separates the two halves.
 export const MIXED_LOCALIZATION_PATH_SEGMENTS = ["docs"] as const;
 
 // A dotted final segment means a static asset or a machine endpoint (`/robots.txt`,
-// `/sitemap.xml`, `/docs/llms.txt`) — never a localized page.
-// Exception: docs and blog pages resolve a `.md` suffix to a `/markdown/*` redirect,
-// so those URLs have to reach the localized page to be resolved at all.
-const LOCALIZED_FILE_EXTENSIONS = [".md"] as const;
+// `/sitemap.xml`, `/docs/llms.txt`) — never a localized page. The Worker handles
+// `.md` page requests before they can reach this function.
 
 export function shouldLocalizePathname(pathname: string): boolean {
   const segments = pathname.split("/").filter(Boolean);
@@ -27,8 +25,7 @@ export function shouldLocalizePathname(pathname: string): boolean {
   }
 
   if (segments.some((segment) => segment.includes("."))) {
-    const lowerPathname = pathname.toLowerCase();
-    return LOCALIZED_FILE_EXTENSIONS.some((extension) => lowerPathname.endsWith(extension));
+    return false;
   }
 
   return true;

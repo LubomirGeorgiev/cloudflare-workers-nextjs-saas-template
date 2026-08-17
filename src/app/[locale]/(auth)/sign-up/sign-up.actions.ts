@@ -6,7 +6,7 @@ import { getDB } from "@/db"
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
-import { createAndStoreSession, canSignUp } from "@/utils/auth";
+import { createAndStoreSession } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -31,8 +31,6 @@ export const signUpAction = actionClient
             throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Auth.Common.errorCaptcha" })
           }
         }
-
-        await canSignUp({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
           where: { email: input.email },

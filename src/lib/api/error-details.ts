@@ -47,7 +47,6 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
     "`change_member_roles` permission.",
   "Client.Dashboard.Teams.errorCannotAssignPermissions":
     "That role grants permissions you do not hold yourself, which would be an escalation.",
-  "Client.Dashboard.Teams.errorInvalidEmail": "That email address was rejected as an invitee.",
   "Client.Dashboard.Teams.errorInvitationNotFound":
     "No pending invitation exists with that id; it may already have been accepted or revoked.",
   "Client.Dashboard.Teams.errorInvitationExpired": "That invitation has expired.",

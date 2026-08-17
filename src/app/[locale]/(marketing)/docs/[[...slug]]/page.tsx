@@ -1,6 +1,6 @@
 import { type Metadata } from "next";
 import { cache } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { Route } from "next";
 import type { JSONContent } from "@tiptap/core";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -10,10 +10,7 @@ import { CopyDocsMarkdownButton } from "@/app/[locale]/(marketing)/docs/_compone
 import { DocsArticleBody } from "@/app/[locale]/(marketing)/docs/_components/docs-article-body";
 import { DocsOnThisPageNav } from "@/app/[locale]/(marketing)/docs/_components/docs-on-this-page-nav";
 import { SITE_URL } from "@/constants";
-import {
-  buildAbsoluteCmsEntryMarkdownUrl,
-  buildCmsEntryMarkdownPath,
-} from "@/lib/cms/cms-paths";
+import { buildAbsoluteMarkdownPageUrl } from "@/lib/markdown-pages/page-paths";
 import { getCachedDocsEntryArtifacts } from "@/lib/cms/docs-entry-artifacts";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getEntryLocales } from "@/lib/cms/entry";
@@ -71,17 +68,6 @@ export async function generateMetadata({
   const tMeta = await getTranslator({ locale, namespace: "Client.Docs.meta" });
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
-
-  if (result.type === "markdown-redirect") {
-    // Unlocalized on purpose: `/markdown/*` is served outside `app/[locale]`, so a
-    // locale prefix here 404s. The markdown route resolves the locale itself.
-    redirect(
-      buildCmsEntryMarkdownPath({
-        collectionSlug: result.collectionSlug,
-        slug: result.slug,
-      }) as Route
-    );
-  }
 
   if (result.type === "redirect") {
     // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
@@ -189,17 +175,6 @@ export default async function DocsPage({ params }: DocsPageProps) {
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
-
-  if (result.type === "markdown-redirect") {
-    // Unlocalized on purpose: `/markdown/*` is served outside `app/[locale]`, so a
-    // locale prefix here 404s. The markdown route resolves the locale itself.
-    redirect(
-      buildCmsEntryMarkdownPath({
-        collectionSlug: result.collectionSlug,
-        slug: result.slug,
-      }) as Route
-    );
-  }
 
   if (result.type === "redirect") {
     // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
@@ -361,6 +336,8 @@ export default async function DocsPage({ params }: DocsPageProps) {
     // Use the resolved entry's own locale (not the URL locale) so the TOC matches
     // the rendered body — including untranslated docs that fall back to DEFAULT_LOCALE.
     locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
+    // The same path `GET <path>.md` frames as `Source:`, so both surfaces copy the same document.
+    sourcePathname: node.resolvedPath ?? docsBasePath,
   });
 
   if (!artifacts) {
@@ -381,13 +358,11 @@ export default async function DocsPage({ params }: DocsPageProps) {
     ? getNavigationItemDescription(previous)
     : null;
   const nextSeoDescription = next ? getNavigationItemDescription(next) : null;
-  const markdownApiUrl = buildAbsoluteCmsEntryMarkdownUrl({
-    collectionSlug: entry.collection,
-    slug: entry.slug,
+  const markdownApiUrl = buildAbsoluteMarkdownPageUrl({
+    pathname: node.resolvedPath ?? docsBasePath,
   });
-  const markdownDownloadUrl = buildAbsoluteCmsEntryMarkdownUrl({
-    collectionSlug: entry.collection,
-    slug: entry.slug,
+  const markdownDownloadUrl = buildAbsoluteMarkdownPageUrl({
+    pathname: node.resolvedPath ?? docsBasePath,
     download: true,
   });
 

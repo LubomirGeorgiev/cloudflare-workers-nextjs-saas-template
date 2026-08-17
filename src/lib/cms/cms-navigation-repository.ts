@@ -21,6 +21,7 @@ import {
   normalizeCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
 import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
 import { generateSlug } from "@/utils/slugify";
@@ -79,6 +80,8 @@ async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): P
     revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey)),
     revalidateCacheTag(CACHE_TAGS.SITEMAP),
   ]);
+
+  await purgeDocsNavigationMarkdownPages();
 
   if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
     await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));

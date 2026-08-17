@@ -1,7 +1,6 @@
 import "server-only";
 import { getDB } from "@/db";
 import { TEAM_PERMISSIONS, teamInvitationTable } from "@/db/schema";
-import { canSignUp } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { eq } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
@@ -52,15 +51,6 @@ export async function inviteUserToTeam({
   }
 
   const email = normalizeEmail(rawEmail);
-
-  try {
-    await canSignUp({ email });
-  } catch (error) {
-    if (error instanceof ActionError) {
-      throw error;
-    }
-    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorInvalidEmail" });
-  }
 
   const db = getDB();
   const invitationRole = await resolveInvitationRole({

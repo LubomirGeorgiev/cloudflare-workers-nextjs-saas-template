@@ -1,8 +1,8 @@
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 
 import { env } from "cloudflare:workers";
-import { createExecutionContext } from "cloudflare:test";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   API_OPENAPI_SPEC_METHODS,
@@ -12,8 +12,15 @@ import {
   OAUTH_OPEN_DCR_ENABLED,
   OAUTH_PROTECTED_RESOURCE_PATH,
   OAUTH_REGISTER_PATH,
+  SITE_NAME,
 } from "@/constants";
+import { MARKDOWN_PAGE_CACHE_CONTROL } from "@/constants/cache-control";
+import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
+import {
+  MARKDOWN_UNAVAILABLE_CODE,
+  MARKDOWN_UNAVAILABLE_STATUS,
+} from "@/lib/markdown-pages/serve-page";
 import { __INTERNAL_CF_CONTEXT_FIELDS, decodeCfHeaderValue } from "@/utils/cf-context-fields";
 import {
   __INTERNAL_CLIENT_IP_HEADERS_TO_STRIP,
@@ -22,6 +29,10 @@ import {
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
+
+// The Vite `define` that injects this is not applied under the test config, so the test supplies
+// the value the way `src/lib/scheduler/admin.test.ts` supplies the scheduler queue name.
+const MARKDOWN_BUILD_ID = "test-build-id";
 
 vi.mock("vinext/server/fetch-handler", () => ({
   default: {
@@ -33,6 +44,7 @@ const { default: worker } = await import("../../worker-entrypoint");
 
 describe("worker edge integration", () => {
   beforeEach(() => {
+    vi.stubGlobal("__MARKDOWN_BUILD_ID__", MARKDOWN_BUILD_ID);
     innerFetchMock.mockReset();
     innerFetchMock.mockImplementation(async (request: Request) => {
       const headers = Object.fromEntries(
@@ -49,6 +61,10 @@ describe("worker edge integration", () => {
     });
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test("health endpoint short-circuits before the Vinext app handler", async () => {
     const response = await worker.fetch(
       new Request("https://example.com/_worker/health"),
@@ -58,6 +74,96 @@ describe("worker edge integration", () => {
 
     await expect(response.json()).resolves.toEqual({ ok: true });
     expect(innerFetchMock).not.toHaveBeenCalled();
+  });
+
+  test("forwards a CMS .md URL to the Markdown route without a redirect", async () => {
+    innerFetchMock.mockImplementationOnce(async (request: Request) => {
+      return new Response(`# ${new URL(request.url).pathname}\n`, {
+        headers: { "content-type": "text/markdown; charset=utf-8" },
+      });
+    });
+
+    const response = await worker.fetch(
+      new Request("https://example.com/docs/core-concepts/billing.md"),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+    await expect(response.text()).resolves.toBe("# /markdown/docs/core-concepts/billing\n");
+  });
+
+  test("renders a public JSX page as Markdown and caches it in KV", async () => {
+    // Derived, not literal: the key space and the build id are the two things under test.
+    const cacheKey = `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:/terms`;
+    await env.NEXT_INC_CACHE_KV.delete(cacheKey);
+    innerFetchMock.mockImplementationOnce(async (request: Request) => {
+      expect(new URL(request.url).pathname).toBe("/terms");
+      expect(request.headers.get("accept-language")).toBe("en");
+      expect(request.headers.get("cookie")).toBeNull();
+      return new Response(
+        `<html><head><title>Terms - ${SITE_NAME}</title><meta name="description" content="Terms summary"></head><body><main><h1>Terms</h1><p>Page body</p></main></body></html>`,
+        {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cdn-cache-control": "max-age=86400, stale-while-revalidate=60",
+          },
+        },
+      );
+    });
+
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(
+      new Request("https://example.com/terms.md"),
+      env as Env,
+      ctx,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    // Our own TTL, not the page's: the rendered page above advertises a different CDN max-age.
+    expect(response.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
+
+    const body = await response.text();
+    expect(body.split("\n")[0]).toBe("# Terms");
+    expect(body).toContain("Page body");
+
+    // The KV write is now a `waitUntil` task, so it settles after the response.
+    await waitOnExecutionContext(ctx);
+    expect(await env.NEXT_INC_CACHE_KV.get(cacheKey)).not.toBeNull();
+  });
+
+  // A `.md` URL promises Markdown. A page the converter cannot frame still rendered, so it is
+  // neither a 500 nor a 404: it is a 406, and HTML must never leave under this URL.
+  test("answers 406 with a problem document when the page cannot be converted", async () => {
+    const cacheKey = `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:/privacy`;
+    await env.NEXT_INC_CACHE_KV.delete(cacheKey);
+    const html = "<html><head><title>Privacy</title></head><body><p>No main element</p></body></html>";
+    innerFetchMock.mockImplementationOnce(async () => {
+      return new Response(html, {
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    });
+
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(
+      new Request("https://example.com/privacy.md"),
+      env as Env,
+      ctx,
+    );
+
+    expect(response.status).toBe(MARKDOWN_UNAVAILABLE_STATUS);
+    expect(response.headers.get("content-type")).toBe("application/problem+json");
+    // The next deploy may convert the same page, so no shared cache may keep the refusal.
+    expect(response.headers.get("cache-control")).toBe("no-store");
+
+    const body = await response.json() as { code: string; status: number };
+    expect(body.code).toBe(MARKDOWN_UNAVAILABLE_CODE);
+    expect(body.status).toBe(MARKDOWN_UNAVAILABLE_STATUS);
+
+    await waitOnExecutionContext(ctx);
+    expect(await env.NEXT_INC_CACHE_KV.get(cacheKey)).toBeNull();
   });
 
   // The public API now sits behind the OAuth provider, which rejects credential-less requests

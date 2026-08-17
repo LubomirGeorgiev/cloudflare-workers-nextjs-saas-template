@@ -120,7 +120,7 @@ code and stay untranslated; only the chrome around them is localized.
 
 Both registries live in `src/constants/kv-prefixes.ts`. App code owns `apikey:`, `apikey-user:`,
 `oauthgrant:`, and `oauthgrant-user:` alongside the pre-existing `session:`, `rate-limit:`,
-`webauthn-challenge:`, `password-reset:`, `email-verification:`, and `vinext-cache*`.
+`webauthn-challenge:`, `password-reset:`, `email-verification:`, `md-page:`, and `vinext-cache*`.
 
 `OAUTH_RESERVED_KV_PREFIXES` (`client:`, `grant:`, `token:`, `enterprise-jti:`) belongs to
 `@cloudflare/workers-oauth-provider` — never read or write those from app code. `OAUTH_KV` is a
@@ -175,6 +175,6 @@ The pages above — and every operation inside `/docs/api` — are matched in me
 a route (it would get indexed on every deployed fork); it lives at
 [`extending-api-and-mcp.md`](extending-api-and-mcp.md).
 
-A change to the public surface should also be reflected in `src/lib/cms/build-docs-llms-txt.ts` and
+A change to the public surface should also be reflected in `src/lib/cms/build-llms-txt.ts` and
 `src/app/sitemap.ts`. Migration discipline for `api_key` and `oauth_app` is unchanged: the same
 no-DB-defaults, nullable-column, one-migration-per-PR rules as every other table.

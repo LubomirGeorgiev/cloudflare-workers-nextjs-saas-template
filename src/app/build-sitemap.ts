@@ -1,7 +1,8 @@
 import "server-only"
-import { getCmsCollection, getEntryLocales } from "@/lib/cms/entry"
-import { SITE_URL } from "@/constants"
+import { getCmsCollection, getEntryLocalesForSlugs } from "@/lib/cms/entry"
+import { CMS_MAX_SLUGS_PER_LOOKUP, SITE_URL } from "@/constants"
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes"
+import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-routes"
 import { DOCS_SLUG } from "@/lib/cms/docs-config"
 import type { MetadataRoute } from "next"
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
@@ -32,20 +33,13 @@ interface NavigationPageNode {
   entry: NonNullable<CmsNavigationTreeNode["entry"]>
 }
 
+interface EntryLocaleTarget {
+  collectionSlug: CollectionsUnion
+  slug: string
+}
+
 // Static/listing routes advertise every locale. CMS routes advertise only real
 // translations because fallback renders use default-locale content and are `noindex`.
-const STATIC_SITEMAP_ROUTES: readonly LocalizedSitemapRoute[] = [
-  { pathname: "/", changeFrequency: "daily", priority: 1 },
-  { pathname: "/privacy", changeFrequency: "monthly", priority: 0.3 },
-  { pathname: "/terms", changeFrequency: "monthly", priority: 0.3 },
-]
-
-const BLOG_LISTING_ROUTES: readonly LocalizedSitemapRoute[] = [
-  { pathname: "/blog", changeFrequency: "daily", priority: 0.8 },
-  { pathname: "/blog/tags", changeFrequency: "weekly", priority: 0.6 },
-  { pathname: "/blog/authors", changeFrequency: "weekly", priority: 0.6 },
-]
-
 const BLOG_FACET_CHANGE_FREQUENCY: SitemapChangeFrequency = "weekly"
 const BLOG_FACET_PRIORITY = 0.5
 const CMS_ENTRY_CHANGE_FREQUENCY: SitemapChangeFrequency = "weekly"
@@ -78,6 +72,38 @@ function localizedSitemapEntry({
 
 function sitemapEntryTimestamp(entry: SitemapEntry): number {
   return entry.lastModified instanceof Date ? entry.lastModified.getTime() : 0
+}
+
+async function getLocalesByEntry(
+  targets: EntryLocaleTarget[]
+): Promise<Map<CollectionsUnion, Map<string, string[]>>> {
+  const slugsByCollection = new Map<CollectionsUnion, Set<string>>()
+
+  targets.forEach(({ collectionSlug, slug }) => {
+    const slugs = slugsByCollection.get(collectionSlug) ?? new Set<string>()
+    slugs.add(slug)
+    slugsByCollection.set(collectionSlug, slugs)
+  })
+
+  const localesByCollection = new Map<CollectionsUnion, Map<string, string[]>>()
+
+  for (const [collectionSlug, slugSet] of slugsByCollection) {
+    const slugs = Array.from(slugSet)
+    const localesBySlug = new Map<string, string[]>()
+
+    for (let index = 0; index < slugs.length; index += CMS_MAX_SLUGS_PER_LOOKUP) {
+      const batch = await getEntryLocalesForSlugs({
+        collectionSlug,
+        slugs: slugs.slice(index, index + CMS_MAX_SLUGS_PER_LOOKUP),
+      })
+
+      batch.forEach((locales, slug) => localesBySlug.set(slug, Array.from(locales)))
+    }
+
+    localesByCollection.set(collectionSlug, localesBySlug)
+  }
+
+  return localesByCollection
 }
 
 // The single dedupe pass for every source — the builders below emit raw lists and never dedupe.
@@ -152,29 +178,25 @@ async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
     sitemapCollections.map(([collectionSlug]) => getCmsCollection({ collectionSlug }))
   )
 
-  // Batched per-collection so the N `getEntryLocales` lookups for one collection's
-  // entries run concurrently rather than serially; `getEntryLocales` itself is
-  // `"use cache: remote"`-backed, so repeat sitemap builds hit cache rather than D1.
-  const entryLocalesByCollection = await Promise.all(
-    sitemapCollections.map(([collectionSlug], collectionIndex) =>
-      Promise.all(
-        (collectionEntries[collectionIndex] ?? []).map(entry =>
-          getEntryLocales({ collectionSlug, slug: entry.slug })
-        )
-      )
+  const entryLocalesByCollection = await getLocalesByEntry(
+    sitemapCollections.flatMap(([collectionSlug], collectionIndex) =>
+      (collectionEntries[collectionIndex] ?? []).map(entry => ({
+        collectionSlug,
+        slug: entry.slug,
+      }))
     )
   )
 
-  return sitemapCollections.flatMap(([__collectionSlug, collection], collectionIndex) => {
+  return sitemapCollections.flatMap(([collectionSlug, collection], collectionIndex) => {
     const previewUrl = collection.previewUrl
 
     if (!previewUrl) {
       return []
     }
 
-    return (collectionEntries[collectionIndex] ?? []).map((entry, entryIndex) => {
+    return (collectionEntries[collectionIndex] ?? []).map(entry => {
       const pathname = previewUrl(entry.slug)
-      const locales = entryLocalesByCollection[collectionIndex]?.[entryIndex] ?? []
+      const locales = entryLocalesByCollection.get(collectionSlug)?.get(entry.slug) ?? []
 
       return {
         url: absoluteSitemapUrl(pathname),
@@ -197,22 +219,24 @@ function collectNavigationPageNodes(nodes: CmsNavigationTreeNode[]): NavigationP
 
 async function getNavigationUrls(navigationKey: CmsNavigationKey): Promise<MetadataRoute.Sitemap> {
   const pageNodes = collectNavigationPageNodes(await getCmsNavigationTree({ navigationKey }))
-
-  // Parallelized across every docs page in this navigation tree so the
-  // per-entry `getEntryLocales` lookups don't serialize (same rationale as
-  // `getCmsEntryUrls`); `getEntryLocales` is `"use cache: remote"`-backed.
-  const entryLocalesByNode = await Promise.all(
-    pageNodes.map(({ entry }) =>
-      getEntryLocales({ collectionSlug: entry.collection, slug: entry.slug })
-    )
+  const localesByEntry = await getLocalesByEntry(
+    pageNodes.map(({ entry }) => ({
+      collectionSlug: entry.collection,
+      slug: entry.slug,
+    }))
   )
 
-  return pageNodes.map(({ resolvedPath, entry }, index) => ({
+  return pageNodes.map(({ resolvedPath, entry }) => ({
     url: absoluteSitemapUrl(resolvedPath),
     lastModified: getValidDateOrNow({ value: entry.updatedAt }),
     changeFrequency: NAVIGATION_PAGE_CHANGE_FREQUENCY,
     priority: NAVIGATION_PAGE_PRIORITY,
-    alternates: { languages: entryAlternates(resolvedPath, entryLocalesByNode[index] ?? []) },
+    alternates: {
+      languages: entryAlternates(
+        resolvedPath,
+        localesByEntry.get(entry.collection)?.get(entry.slug) ?? []
+      ),
+    },
   }))
 }
 
@@ -253,7 +277,7 @@ export async function buildSitemap(): Promise<MetadataRoute.Sitemap> {
   )
 
   return dedupeSitemapUrls([
-    ...STATIC_SITEMAP_ROUTES.map(localizedSitemapEntry),
+    ...STATIC_PUBLIC_ROUTES.map(localizedSitemapEntry),
     ...getAgentPlatformDocsUrls((navigationUrls[docsNavigationIndex]?.length ?? 0) > 0),
     ...getBlogUrls(blogPosts),
     ...cmsEntryUrls,

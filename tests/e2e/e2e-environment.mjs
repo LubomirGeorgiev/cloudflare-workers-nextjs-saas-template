@@ -21,6 +21,9 @@ const baseUrl = process.env.E2E_BASE_URL ?? "http://127.0.0.1:18788";
 const previewPort = new URL(baseUrl).port || "18788";
 const buildCacheVersion = 3;
 const appTestModeVar = "APP_TEST_MODE";
+// Cached D1 renders whose first, cold request is far slower than the test timeout, and which
+// parallel test files would otherwise request at the same time on the same uncached key.
+const cachedD1Routes = ["/llms.txt", "/sitemap.xml"];
 const publicBuildEnv = getPublicBuildEnv(process.env);
 const buildInputExactFiles = [
   ".env",
@@ -355,6 +358,18 @@ export function createE2EEnvironment() {
     );
   }
 
+  async function warmCachedD1Routes() {
+    for (const pathname of cachedD1Routes) {
+      const response = await fetch(new URL(pathname, baseUrl));
+
+      if (!response.ok) {
+        throw new Error(`Failed to warm ${pathname}: HTTP ${response.status}\n\n${previewLog}`);
+      }
+
+      await response.arrayBuffer();
+    }
+  }
+
   function stopPreview() {
     if (!previewProcess?.pid || previewProcess.exitCode !== null) {
       return;
@@ -484,6 +499,7 @@ export function createE2EEnvironment() {
     previewProcess.stderr?.on("data", appendPreviewLog);
 
     await waitForPreview();
+    await warmCachedD1Routes();
     log("Preview ready");
   }
 

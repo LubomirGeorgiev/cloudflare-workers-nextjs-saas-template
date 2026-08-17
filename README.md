@@ -39,7 +39,6 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - ⚡ Rate Limiting for Auth Endpoints
   - 🛡️ Protected Routes and Layouts
   - 📋 Session Listing and Management
-  - 🔒 Anti-Disposable Email Protection
 - 💾 Database with Drizzle and Cloudflare D1
   - 🏗️ Type-safe Database Operations
   - 🔄 Automatic Migration Generation
@@ -106,7 +105,9 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - ⚡ KV-backed CMS entry caching and cache maintenance actions
   - 🔍 Full-text docs search
   - 🤖 AI-assisted SEO description generation
-  - 🧱 Blog, docs, sitemap.xml, JSON-LD schema, and llms.txt rendering
+  - 🧱 Blog, docs, sitemap.xml, and JSON-LD schema rendering
+  - 📄 Markdown views for public pages through the `.md` URL suffix
+  - 🤖 `llms.txt` index for the API specification, MCP endpoint, and docs tree
 - ✨ Validations with Zod and React Hook Form
   - 🛡️ Type-safe Form Validations
   - 🔒 Server-side Validations
@@ -222,7 +223,7 @@ The template ships a public machine surface next to the web app: a versioned RES
 
 **Public REST API.** A [Hono](https://hono.dev/) app mounted at `/api/v1` ([`src/api/`](src/api)). Handlers call the same `src/lib/**` service functions the app's server actions use, so business rules exist in exactly one place. Requests are authenticated by a bearer credential, rate limited per credential by the app's shared KV limiter (`RATE_LIMITS.API_AUTHED` / `RATE_LIMITS.API_ANON` in [`src/utils/with-rate-limit.ts`](src/utils/with-rate-limit.ts)), and failures come back as [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents whose `code` member is a stable, untranslated identifier.
 
-**OpenAPI + docs.** `GET /api/v1/openapi.json` is generated from the Valibot request/response schemas in [`src/schemas/api/`](src/schemas/api) and the `describeRoute` metadata on each route. The reference at `/docs/api` is our own: every operation, field, example, and `curl` snippet is rendered on the server from that document, and the only client JavaScript is an instant filter over the already-rendered endpoints. `/docs/authentication`, `/docs/api/errors`, and `/docs/mcp` cover credentials, error codes, and agent setup. `/docs/llms.txt` points agents at the spec and the MCP endpoint. How a fork extends the API and MCP surface is repo documentation, not a public page: [`docs/extending-api-and-mcp.md`](docs/extending-api-and-mcp.md).
+**OpenAPI + docs.** `GET /api/v1/openapi.json` is generated from the Valibot request/response schemas in [`src/schemas/api/`](src/schemas/api) and the `describeRoute` metadata on each route. The reference at `/docs/api` is our own: every operation, field, example, and `curl` snippet is rendered on the server from that document, and the only client JavaScript is an instant filter over the already-rendered endpoints. `/docs/authentication`, `/docs/api/errors`, and `/docs/mcp` cover credentials, error codes, and agent setup. Add `.md` to a public page URL to get Markdown. `/llms.txt` points agents at the spec, MCP endpoint, and docs tree. How a fork extends the API and MCP surface is repo documentation, not a public page: [`docs/extending-api-and-mcp.md`](docs/extending-api-and-mcp.md).
 
 **API keys.** Users create keys under **Settings → API & MCP**, teams under team settings (gated by the `MANAGE_API_KEYS` team permission). A key carries scopes and an optional expiry, its secret is displayed once, and only a hash plus the last characters are stored. Keys are cached in KV for a few minutes with the same version/TTL discipline as sessions, so revocation is immediate locally and propagates in about a minute. The prefixes live at the top of [`src/constants.ts`](src/constants.ts) — **rebrand them when forking**, because secret scanners attribute a leaked key to whoever owns the prefix.
 

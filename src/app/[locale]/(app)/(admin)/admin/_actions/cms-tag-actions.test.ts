@@ -7,6 +7,7 @@ const {
   createCmsTagTranslationMock,
   deleteCmsTagMock,
   getCmsTagsMock,
+  purgeMarkdownPageCacheMock,
   requireAdminMock,
   revalidatePathMock,
   updateCmsTagMock,
@@ -15,12 +16,19 @@ const {
   createCmsTagTranslationMock: vi.fn(),
   deleteCmsTagMock: vi.fn(),
   getCmsTagsMock: vi.fn(),
+  purgeMarkdownPageCacheMock: vi.fn(),
   requireAdminMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   updateCmsTagMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+
+// The KV sweep needs a Worker binding, and its locale fan-out is asserted once in
+// `cms-entry-revalidation.test.ts`; here only the paths the tag actions hand it are under test.
+vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
+  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
+}));
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
@@ -72,5 +80,16 @@ describe("CMS tag actions", () => {
       expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}/blog/tags`);
       expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}/blog/tags/release-notes`);
     }
+  });
+
+  test("deleteCmsTagAction purges the page Markdown cache of the tag pages", async () => {
+    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
+    deleteCmsTagMock.mockResolvedValue({ slug: "release-notes" });
+
+    await deleteCmsTagAction({ id: "tag_release_notes" });
+
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
+      pathnames: ["/blog/tags", "/blog/tags/release-notes"],
+    });
   });
 });
