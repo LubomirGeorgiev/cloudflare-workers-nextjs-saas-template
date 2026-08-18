@@ -22,13 +22,16 @@ vi.mock("@/utils/session-user", () => ({
 }));
 
 const {
-  API_KEY_CACHE,
-  OAUTH_GRANT_CACHE,
-  deletePrincipalSnapshot,
-  getSnapshotKey,
+  deleteApiKeySnapshot,
+  deleteGrantSnapshot,
+  getApiKeySnapshotKey,
+  getGrantGenerationKey,
+  getGrantSnapshotKey,
   loadPrincipalIdentity,
-  purgeUserPrincipalCaches,
-  putPrincipalSnapshot,
+  putApiKeySnapshot,
+  putGrantSnapshot,
+  readApiKeySnapshot,
+  readGrantSnapshot,
 } = await import("@/utils/kv-principal-cache");
 
 function createKV() {
@@ -43,203 +46,167 @@ function createKV() {
     delete: vi.fn(async (key: string) => {
       store.delete(key);
     }),
-    list: vi.fn(async ({ prefix }: { prefix: string }) => ({
-      keys: [...store.keys()]
-        .filter((name) => name.startsWith(prefix))
-        .map((name) => ({ name })),
-    })),
+    list: vi.fn(async () => ({ keys: [], list_complete: true })),
   };
 }
 
 let kv: ReturnType<typeof createKV>;
 
-const USER_ID = "user_purged";
-const OTHER_USER_ID = "user_untouched";
+const USER_ID = "user_principal";
+const GENERATION = "gen-1";
 
-async function seedSnapshot({
-  cache,
-  id,
-  userId,
-  ttlSeconds,
-}: {
-  cache: typeof API_KEY_CACHE;
-  id: string;
-  userId: string;
-  ttlSeconds: number;
-}) {
-  await putPrincipalSnapshot({ cache, id, userId, snapshot: { userId }, ttlSeconds });
+function readStoredGrant(grantId: string): unknown {
+  return JSON.parse(kv.store.get(getGrantSnapshotKey(grantId))!);
 }
 
-describe("principal snapshot cache", () => {
+// The two contracts differ in exactly one thing — whether a write carries the stamp its reader
+// compares — so each is tested against the bytes it leaves in KV, not against the other.
+describe("the grant snapshot contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     kv = createKV();
     getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
   });
 
-  test("writes the snapshot and a user index entry under disjoint prefixes", async () => {
-    await seedSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: "grant-1",
-      userId: USER_ID,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
+  test("an envelope round-trips, and keeps the stamp beside the payload", async () => {
+    await putGrantSnapshot({
+      grantId: "grant-1",
+      snapshot: { userId: USER_ID },
+      generation: GENERATION,
     });
 
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(true);
-    expect(kv.store.has(`${OAUTH_GRANT_CACHE.userIndexPrefix}${USER_ID}:grant-1`)).toBe(true);
+    const { snapshot } = await readGrantSnapshot<{ userId: string }>({
+      grantId: "grant-1",
+      userId: USER_ID,
+    });
+
+    expect(snapshot).toEqual({ userId: USER_ID });
+    // The payload the caller owns comes back untouched: the cache never mixes its stamp into it.
+    expect(readStoredGrant("grant-1")).toEqual({
+      generation: GENERATION,
+      snapshot: { userId: USER_ID },
+    });
     expect(kv.put).toHaveBeenCalledWith(
-      expect.any(String),
+      getGrantSnapshotKey("grant-1"),
       expect.any(String),
       { expirationTtl: OAUTH_GRANT_CACHE_TTL_SECONDS },
     );
   });
 
-  test("purges both credential kinds for one user and nothing else", async () => {
-    await Promise.all([
-      seedSnapshot({
-        cache: API_KEY_CACHE,
-        id: "keyhash-1",
-        userId: USER_ID,
-        ttlSeconds: API_KEY_CACHE_TTL_SECONDS,
-      }),
-      seedSnapshot({
-        cache: OAUTH_GRANT_CACHE,
-        id: "grant-1",
-        userId: USER_ID,
-        ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-      }),
-      seedSnapshot({
-        cache: OAUTH_GRANT_CACHE,
-        id: "grant-2",
-        userId: OTHER_USER_ID,
-        ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-      }),
-    ]);
+  // The reason grants have their own writer: the compiler, not a reviewer, has to reject a write
+  // that states no generation, because such an entry is one no purge could ever invalidate.
+  test("a grant write cannot omit its generation", () => {
+    type GrantWrite = Parameters<typeof putGrantSnapshot>[0];
 
-    await purgeUserPrincipalCaches(USER_ID);
+    // @ts-expect-error - `generation` is required, and `null` is how a caller states "no purge".
+    const unstamped: GrantWrite = { grantId: "grant-1", snapshot: { userId: USER_ID } };
 
-    expect(kv.store.has(getSnapshotKey({ cache: API_KEY_CACHE, id: "keyhash-1" }))).toBe(false);
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(false);
-    // Index entries go with them, so a later purge does not retry a dead id.
-    expect([...kv.store.keys()].some((key) => key.includes(USER_ID))).toBe(false);
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-2" }))).toBe(true);
+    expect(unstamped).toMatchObject({ grantId: "grant-1" });
   });
 
-  test("purges more credentials than fit in one batch", async () => {
-    const grantIds = Array.from({ length: 13 }, (_, index) => `grant-${index}`);
+  test("a write stating no purge is in force is readable", async () => {
+    await putGrantSnapshot({ grantId: "grant-1", snapshot: { userId: USER_ID }, generation: null });
 
-    for (const id of grantIds) {
-      await seedSnapshot({
-        cache: OAUTH_GRANT_CACHE,
-        id,
-        userId: USER_ID,
-        ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-      });
+    await expect(readGrantSnapshot({ grantId: "grant-1", userId: USER_ID }))
+      .resolves.toMatchObject({ snapshot: { userId: USER_ID } });
+  });
+
+  // An entry written before the envelope existed has no `snapshot` field. That is a miss and a
+  // rebuild, never a half-built value, and it self-heals within one cache TTL.
+  test("an entry stored in an older shape reads as a miss", async () => {
+    kv.store.set(
+      getGrantSnapshotKey("grant-legacy"),
+      JSON.stringify({ userId: USER_ID, generation: null }),
+    );
+
+    await expect(readGrantSnapshot({ grantId: "grant-legacy", userId: USER_ID }))
+      .resolves.toMatchObject({ snapshot: null });
+  });
+
+  test("the read returns the stamp a rebuild must carry", async () => {
+    kv.store.set(getGrantGenerationKey(USER_ID), GENERATION);
+
+    await expect(readGrantSnapshot({ grantId: "grant-1", userId: USER_ID }))
+      .resolves.toEqual({ snapshot: null, generation: GENERATION });
+  });
+
+  // The whole comparison rule in one table: the stamp decides, and its absence means no purge is
+  // still in force rather than "unknown".
+  test.each([
+    { stamped: GENERATION, current: GENERATION, usable: true, why: "the stamp still matches" },
+    { stamped: "gen-0", current: GENERATION, usable: false, why: "a purge superseded the stamp" },
+    { stamped: null, current: null, usable: true, why: "no purge was ever in force" },
+    { stamped: null, current: GENERATION, usable: false, why: "the entry predates the purge" },
+    { stamped: GENERATION, current: null, usable: true, why: "the stamp expired" },
+  ])("a snapshot is usable=$usable when $why", async ({ stamped, current, usable }) => {
+    if (current !== null) {
+      kv.store.set(getGrantGenerationKey(USER_ID), current);
+    }
+    await putGrantSnapshot({
+      grantId: "grant-1",
+      snapshot: { userId: USER_ID },
+      generation: stamped,
+    });
+
+    const { snapshot } = await readGrantSnapshot({ grantId: "grant-1", userId: USER_ID });
+
+    expect(snapshot === null).toBe(!usable);
+  });
+
+  test("deleting one grant leaves the user's other snapshots alone", async () => {
+    for (const grantId of ["grant-1", "grant-2"]) {
+      await putGrantSnapshot({ grantId, snapshot: { userId: USER_ID }, generation: null });
     }
 
-    await purgeUserPrincipalCaches(USER_ID);
+    await deleteGrantSnapshot({ grantId: "grant-1" });
 
-    expect(kv.store.size).toBe(0);
+    expect(kv.store.has(getGrantSnapshotKey("grant-1"))).toBe(false);
+    expect(kv.store.has(getGrantSnapshotKey("grant-2"))).toBe(true);
+  });
+});
+
+describe("the API-key snapshot contract", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    kv = createKV();
+    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
   });
 
-  test("a single revocation leaves the rest of the user's snapshots alone", async () => {
-    await Promise.all([
-      seedSnapshot({
-        cache: OAUTH_GRANT_CACHE,
-        id: "grant-1",
-        userId: USER_ID,
-        ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-      }),
-      seedSnapshot({
-        cache: OAUTH_GRANT_CACHE,
-        id: "grant-2",
-        userId: USER_ID,
-        ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-      }),
-    ]);
+  // Stored bare, with no envelope and no stamp: these entries are invalidated by deletion, so a
+  // stamp would only be a field nothing ever reads.
+  test("a snapshot round-trips exactly as the caller built it", async () => {
+    await putApiKeySnapshot({ keyHash: "keyhash-1", snapshot: { keyId: "akey_1" } });
 
-    await deletePrincipalSnapshot({ cache: OAUTH_GRANT_CACHE, id: "grant-1", userId: USER_ID });
-
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(false);
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-2" }))).toBe(true);
-  });
-
-  // The write order is the whole safety argument: KV has no transaction, so the only guarantee
-  // available is that a half-finished write lands on the recoverable side.
-  test("a failed index write leaves no snapshot behind", async () => {
-    kv.put.mockRejectedValueOnce(new Error("kv unavailable"));
-
-    await expect(seedSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: "grant-1",
-      userId: USER_ID,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-    })).rejects.toThrow("kv unavailable");
-
-    expect(kv.store.size).toBe(0);
-    expect(kv.put).toHaveBeenCalledOnce();
-  });
-
-  test("a failed snapshot write leaves an index entry a purge can clean up", async () => {
-    kv.put.mockImplementationOnce(async (key: string, value: string) => {
-      kv.store.set(key, value);
+    await expect(readApiKeySnapshot({ keyHash: "keyhash-1" })).resolves.toEqual({ keyId: "akey_1" });
+    expect(JSON.parse(kv.store.get(getApiKeySnapshotKey("keyhash-1"))!)).toEqual({
+      keyId: "akey_1",
     });
-    kv.put.mockRejectedValueOnce(new Error("kv unavailable"));
-
-    await expect(seedSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: "grant-1",
-      userId: USER_ID,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-    })).rejects.toThrow("kv unavailable");
-
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(false);
-    expect(kv.store.has(`${OAUTH_GRANT_CACHE.userIndexPrefix}${USER_ID}:grant-1`)).toBe(true);
-
-    // The dangling entry costs one delete of a missing key and then disappears.
-    await purgeUserPrincipalCaches(USER_ID);
-    expect(kv.store.size).toBe(0);
+    expect(kv.put).toHaveBeenCalledWith(
+      getApiKeySnapshotKey("keyhash-1"),
+      expect.any(String),
+      { expirationTtl: API_KEY_CACHE_TTL_SECONDS },
+    );
   });
 
-  test("a failed snapshot delete keeps the index entry so a later purge retries it", async () => {
-    await seedSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: "grant-1",
-      userId: USER_ID,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-    });
-    kv.delete.mockRejectedValueOnce(new Error("kv unavailable"));
-
-    await expect(
-      deletePrincipalSnapshot({ cache: OAUTH_GRANT_CACHE, id: "grant-1", userId: USER_ID }),
-    ).rejects.toThrow("kv unavailable");
-
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(true);
-    expect(kv.store.has(`${OAUTH_GRANT_CACHE.userIndexPrefix}${USER_ID}:grant-1`)).toBe(true);
-
-    await purgeUserPrincipalCaches(USER_ID);
-    expect(kv.store.size).toBe(0);
+  test("a read of an absent hash is a miss, not a throw", async () => {
+    await expect(readApiKeySnapshot({ keyHash: "keyhash-gone" })).resolves.toBeNull();
   });
 
-  test("a failed index delete leaves the snapshot already gone", async () => {
-    await seedSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: "grant-1",
-      userId: USER_ID,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-    });
-    kv.delete.mockImplementationOnce(async (key: string) => {
-      kv.store.delete(key);
-    });
-    kv.delete.mockRejectedValueOnce(new Error("kv unavailable"));
+  test("deleting one hash leaves the user's other snapshots alone", async () => {
+    await putApiKeySnapshot({ keyHash: "keyhash-1", snapshot: {} });
+    await putApiKeySnapshot({ keyHash: "keyhash-2", snapshot: {} });
 
-    await expect(
-      deletePrincipalSnapshot({ cache: OAUTH_GRANT_CACHE, id: "grant-1", userId: USER_ID }),
-    ).rejects.toThrow("kv unavailable");
+    await deleteApiKeySnapshot({ keyHash: "keyhash-1" });
 
-    expect(kv.store.has(getSnapshotKey({ cache: OAUTH_GRANT_CACHE, id: "grant-1" }))).toBe(false);
-    expect(kv.store.has(`${OAUTH_GRANT_CACHE.userIndexPrefix}${USER_ID}:grant-1`)).toBe(true);
+    expect(kv.store.has(getApiKeySnapshotKey("keyhash-1"))).toBe(false);
+    expect(kv.store.has(getApiKeySnapshotKey("keyhash-2"))).toBe(true);
   });
+});
+
+// The two key spaces share a namespace with sessions and with the OAuth provider, so they may only
+// ever be told apart by their prefixes.
+test("the two caches never collide on the same credential id", () => {
+  expect(getApiKeySnapshotKey("shared-id")).not.toBe(getGrantSnapshotKey("shared-id"));
 });
 
 // The rebuild-on-miss read both credential kinds share; each still caches it under its own policy.

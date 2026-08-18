@@ -311,7 +311,7 @@ export async function updateApiKeyScopes({
 
   // The KV snapshot embeds the granted scopes, so without this a narrowed key would keep its old
   // power until the cache TTL expired it.
-  await deleteApiKeyCache({ keyHash: key.keyHash, userId: key.userId });
+  await deleteApiKeyCache({ keyHash: key.keyHash });
 
   return toSummary({ ...key, scopes: validScopes });
 }
@@ -343,7 +343,7 @@ export async function revokeApiKey({ keyId }: { keyId: string }): Promise<{ succ
 
   // D1 is authoritative from here; deleting the snapshot is what makes revocation take effect
   // before the cache TTL would have expired it (still ≤60s of KV propagation).
-  await deleteApiKeyCache({ keyHash: key.keyHash, userId: key.userId });
+  await deleteApiKeyCache({ keyHash: key.keyHash });
 
   return { success: true };
 }

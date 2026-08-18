@@ -3,21 +3,21 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import ms from "ms";
 
-import { API_KEY_CACHE_TTL_SECONDS, CURRENT_API_KEY_CACHE_VERSION } from "@/constants";
+import { CURRENT_API_KEY_CACHE_VERSION } from "@/constants";
 import { getDB } from "@/db";
 import { apiKeyTable } from "@/db/schema";
 import { toApiAudience, type ApiPrincipal } from "@/lib/api/principal";
 import { toApiScopes } from "@/lib/api/scopes";
 import { looksLikeApiKey } from "@/utils/api-key-format";
 import {
-  API_KEY_CACHE,
-  deletePrincipalSnapshot,
+  deleteApiKeySnapshot,
   loadPrincipalIdentity,
-  putPrincipalSnapshot,
-  readPrincipalSnapshot,
+  putApiKeySnapshot,
+  readApiKeySnapshot,
   reviveUserDates,
 } from "@/utils/kv-principal-cache";
 import type { KVSession } from "@/utils/kv-session";
+import { mapInBatches } from "@/utils/map-in-batches";
 import { hashToken } from "@/utils/random-token";
 import { createBackgroundTouch } from "@/utils/throttled-background-touch";
 
@@ -26,6 +26,9 @@ import { createBackgroundTouch } from "@/utils/throttled-background-touch";
 // the stored stamp permanently stale within a generation, so it can only rule out the first write —
 // the isolate-local throttle below is what bounds a hot key to one write per interval.
 export const LAST_USED_UPDATE_INTERVAL_MS = ms("5m");
+
+// Mirrors TEAM_SESSION_REFRESH_BATCH_SIZE: KV fan-out for one user's credentials stays bounded.
+const API_KEY_PURGE_BATCH_SIZE = 5;
 
 interface CachedApiKey {
   version: number;
@@ -94,16 +97,6 @@ export function resetApiKeyUsageThrottleForTests(): void {
   apiKeyUsageTouch.resetForTests();
 }
 
-async function writeSnapshot(cached: CachedApiKey, keyHash: string): Promise<void> {
-  await putPrincipalSnapshot({
-    cache: API_KEY_CACHE,
-    id: keyHash,
-    userId: cached.userId,
-    snapshot: cached,
-    ttlSeconds: API_KEY_CACHE_TTL_SECONDS,
-  });
-}
-
 // The bearer hot path. Returns null for anything that is not a currently valid key; it never
 // throws for bad input, so callers can map null straight onto 401.
 export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal | null> {
@@ -112,7 +105,7 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
   }
 
   const keyHash = await hashToken(secret);
-  const cached = await readPrincipalSnapshot<CachedApiKey>({ cache: API_KEY_CACHE, id: keyHash });
+  const cached = await readApiKeySnapshot<CachedApiKey>({ keyHash });
 
   if (isUsableSnapshot(cached)) {
     touchLastUsedAt({ keyId: cached.keyId, lastUsedAt: cached.lastUsedAt });
@@ -158,18 +151,28 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
     lastUsedAt: key.lastUsedAt ? key.lastUsedAt.getTime() : null,
   };
 
-  await writeSnapshot(snapshot, keyHash);
+  await putApiKeySnapshot({ keyHash, snapshot });
   touchLastUsedAt({ keyId: key.id, lastUsedAt: snapshot.lastUsedAt });
 
   return toPrincipal(snapshot);
 }
 
-export async function deleteApiKeyCache({
-  keyHash,
-  userId,
-}: {
-  keyHash: string;
-  userId?: string;
-}): Promise<void> {
-  await deletePrincipalSnapshot({ cache: API_KEY_CACHE, id: keyHash, userId });
+export async function deleteApiKeyCache({ keyHash }: { keyHash: string }): Promise<void> {
+  await deleteApiKeySnapshot({ keyHash });
+}
+
+// D1 is the index the KV key space cannot be: `api_key_user_id_idx` already maps a user to every
+// hash their snapshots are keyed by, and a row cannot lose a write to a concurrent one. Revoked
+// rows are included deliberately — re-deleting a gone snapshot is free, missing a live one is not.
+export async function purgeUserApiKeyCache(userId: string): Promise<void> {
+  const keys = await getDB()
+    .select({ keyHash: apiKeyTable.keyHash })
+    .from(apiKeyTable)
+    .where(eq(apiKeyTable.userId, userId));
+
+  await mapInBatches({
+    items: keys,
+    batchSize: API_KEY_PURGE_BATCH_SIZE,
+    fn: ({ keyHash }) => deleteApiKeySnapshot({ keyHash }),
+  });
 }

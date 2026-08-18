@@ -1,18 +1,23 @@
 import "server-only";
 
-import { CURRENT_OAUTH_GRANT_CACHE_VERSION, OAUTH_GRANT_CACHE_TTL_SECONDS } from "@/constants";
+import {
+  CURRENT_OAUTH_GRANT_CACHE_VERSION,
+  OAUTH_GRANT_GENERATION_TTL_SECONDS,
+} from "@/constants";
 import { PERSONAL_AUDIENCE, type ApiPrincipal } from "@/lib/api/principal";
 import { toApiScopes, type ApiScope } from "@/lib/api/scopes";
 import type { OAuthBearerProps } from "@/lib/oauth/bearer-props";
 import {
-  deletePrincipalSnapshot,
+  deleteGrantSnapshot,
+  getGrantGenerationKey,
+  getPrincipalCacheKV,
   loadPrincipalIdentity,
-  OAUTH_GRANT_CACHE,
-  putPrincipalSnapshot,
-  readPrincipalSnapshot,
+  putGrantSnapshot,
+  readGrantSnapshot,
   reviveUserDates,
 } from "@/utils/kv-principal-cache";
 import type { KVSession } from "@/utils/kv-session";
+import { createRandomId } from "@/utils/random-token";
 
 interface CachedOAuthGrant {
   version: number;
@@ -44,14 +49,20 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
   // Fail closed on the way in: a scope the catalog no longer knows about grants nothing.
   const scopes = toApiScopes(props.scopes ?? []);
 
-  if (props.grantId) {
-    const cached = await readPrincipalSnapshot<CachedOAuthGrant>({
-      cache: OAUTH_GRANT_CACHE,
-      id: props.grantId,
-    });
+  // Read before the D1 rebuild below, never after: a purge landing in between then stamps this
+  // snapshot with the superseded generation, which the next read rejects. The other order would
+  // stamp pre-purge identity as current.
+  let generation: string | null = null;
 
-    if (isUsableSnapshot(cached) && cached.userId === props.userId) {
-      return toPrincipal({ cached, props, scopes });
+  if (props.grantId) {
+    const read = await readGrantSnapshot<CachedOAuthGrant>({
+      grantId: props.grantId,
+      userId: props.userId,
+    });
+    generation = read.generation;
+
+    if (isUsableSnapshot(read.snapshot) && read.snapshot.userId === props.userId) {
+      return toPrincipal({ cached: read.snapshot, props, scopes });
     }
   }
 
@@ -69,13 +80,7 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
   };
 
   if (props.grantId) {
-    await putPrincipalSnapshot({
-      cache: OAUTH_GRANT_CACHE,
-      id: props.grantId,
-      userId: props.userId,
-      snapshot,
-      ttlSeconds: OAUTH_GRANT_CACHE_TTL_SECONDS,
-    });
+    await putGrantSnapshot({ grantId: props.grantId, snapshot, generation });
   }
 
   return toPrincipal({ cached: snapshot, props, scopes });
@@ -104,14 +109,17 @@ function toPrincipal({
 }
 
 // Called when a grant is revoked so the next request rebuilds (and finds nothing to rebuild from).
-// `userId` also clears the index entry; without it the entry lingers until its TTL, costing at
-// most one extra delete on the next user-wide purge.
-export async function deleteOAuthGrantCache({
-  grantId,
-  userId,
-}: {
-  grantId: string;
-  userId?: string;
-}): Promise<void> {
-  await deletePrincipalSnapshot({ cache: OAUTH_GRANT_CACHE, id: grantId, userId });
+// Targeted at the one grant, unlike the generation stamp, which invalidates all of a user's.
+export async function deleteOAuthGrantCache({ grantId }: { grantId: string }): Promise<void> {
+  await deleteGrantSnapshot({ grantId });
+}
+
+// One blind write, so two concurrent purges cannot lose each other's work and a snapshot rebuild
+// racing this one is stamped with the generation it read — stale by comparison, not accepted.
+export async function purgeUserGrantCache(userId: string): Promise<void> {
+  const kv = await getPrincipalCacheKV();
+
+  await kv.put(getGrantGenerationKey(userId), createRandomId(), {
+    expirationTtl: OAUTH_GRANT_GENERATION_TTL_SECONDS,
+  });
 }

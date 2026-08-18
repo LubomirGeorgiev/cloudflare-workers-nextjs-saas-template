@@ -23,9 +23,11 @@ import {
   OAUTH_CLIENT_REGISTRATION_TTL_SECONDS,
   OAUTH_CLIENT_RENEWAL_INTERVAL_SECONDS,
   OAUTH_CLIENT_RENEWAL_PAGE_SIZE,
+  OAUTH_MAINTENANCE_INTERVAL_MINUTES,
   OAUTH_OPEN_DCR_ENABLED,
   OAUTH_REGISTER_PATH,
   OAUTH_TOKEN_PATH,
+  OAUTH_PURGE_BATCH_SIZE,
   OAUTH_UNVERIFIED_CIMD_RETENTION_SECONDS,
 } from "@/constants";
 import { getDB } from "@/db";
@@ -50,7 +52,11 @@ import { generateApiKey } from "@/utils/api-key-format";
 
 // A client record must survive several consecutive failed sweeps, not just one; the renewal
 // interval is only meaningful while it divides the registration TTL at least this many times.
-const MIN_RENEWALS_PER_REGISTRATION_LIFETIME = 4;
+const MIN_RENEWALS_PER_REGISTRATION_LIFETIME = 12;
+
+// The renewal page size and the maintenance interval are one knob in two halves: retuning either
+// alone changes capacity. This is the verified-client population one renewal interval must cover.
+const MIN_RENEWALS_PER_RENEWAL_INTERVAL = 10_000;
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
 
@@ -447,15 +453,16 @@ test("only verified DCR leases enter the renewal queue", async () => {
 });
 
 test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
-  "mirror pruning waits for complete provider GC and preserves stable or verified apps",
+  "mirror pruning survives a provider sweep that can never complete, and preserves stable or verified apps",
   async () => {
     const now = new Date();
     const expiredAt = new Date(
       now.getTime() - OAUTH_CLIENT_REGISTRATION_TTL_SECONDS * 1000 - 1_000,
     );
-    const [expired, verified] = await Promise.all([
+    const [expired, verified, live] = await Promise.all([
       registerClient("Expired DCR"),
       registerClient("Verified DCR"),
+      registerClient("Live DCR"),
     ]);
     await setOAuthAppVerified({ clientId: verified.clientId, isVerified: true });
 
@@ -493,36 +500,59 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
       env.OAUTH_KV.delete(`client:${verified.clientId}`),
     ]);
 
-    // The provider's default bounded sweep is 50 records. Fifty-one orphan grants force an
-    // incomplete first pass, during which the D1 mirror must remain untouched.
-    const grantOwner = `000-${uid("prune-owner")}`;
-    await Promise.all(Array.from({ length: 51 }, async (_, index) => {
-      const grantId = `grant-${index.toString().padStart(2, "0")}`;
+    // The shape that stalls the library sweep forever: a whole budget of healthy grants that sorts
+    // first. The library keeps its list cursor in a local variable, so every call restarts here,
+    // spends the budget on grants it must keep, and never reaches the key behind them.
+    const liveGrantOwner = `000-${uid("live-owner")}`;
+    const grantIdWidth = String(OAUTH_PURGE_BATCH_SIZE).length;
+    await Promise.all(Array.from({ length: OAUTH_PURGE_BATCH_SIZE }, async (_, index) => {
+      const grantId = `grant-${index.toString().padStart(grantIdWidth, "0")}`;
       await env.OAUTH_KV.put(
-        `grant:${grantOwner}:${grantId}`,
+        `grant:${liveGrantOwner}:${grantId}`,
         JSON.stringify({
           id: grantId,
-          userId: grantOwner,
-          clientId: expired.clientId,
+          userId: liveGrantOwner,
+          clientId: live.clientId,
           scope: ["profile:read"],
           createdAt: Math.floor(now.getTime() / 1000),
         }),
       );
     }));
 
-    const incomplete = await purgeExpiredOAuthData(now);
-    expect(incomplete).toEqual({ mirrorsPruned: 0, providerSweepComplete: false });
-    expect(await getOAuthAppByClientId(expired.clientId)).not.toBeNull();
+    const orphanGrantOwner = `001-${uid("orphan-owner")}`;
+    const orphanGrantId = "grant-orphan";
+    const orphanGrantKey = `grant:${orphanGrantOwner}:${orphanGrantId}`;
+    await env.OAUTH_KV.put(
+      orphanGrantKey,
+      JSON.stringify({
+        id: orphanGrantId,
+        userId: orphanGrantOwner,
+        clientId: expired.clientId,
+        scope: ["profile:read"],
+        createdAt: Math.floor(now.getTime() / 1000),
+      }),
+    );
 
-    const complete = await purgeExpiredOAuthData(now);
-    expect(complete.providerSweepComplete).toBe(true);
-    expect(complete.mirrorsPruned).toBeGreaterThanOrEqual(1);
+    const firstSweep = await purgeExpiredOAuthData(now);
+
+    // Pruning must not wait for `done`: each candidate is proven dead by its own client lookup.
+    expect(firstSweep.providerSweepComplete).toBe(false);
+    expect(await env.OAUTH_KV.get(orphanGrantKey)).not.toBeNull();
+    expect(firstSweep.mirrorsPruned).toBeGreaterThanOrEqual(1);
     expect(await getOAuthAppByClientId(expired.clientId)).toBeNull();
+
+    // The next tick restarts at the same key, so the stall never clears on its own.
+    const secondSweep = await purgeExpiredOAuthData(now);
+    expect(secondSweep.providerSweepComplete).toBe(false);
+
     expect(await getOAuthAppByClientId(verified.clientId)).not.toBeNull();
     expect(await getOAuthAppByClientId(stableClientIds.cimd)).toMatchObject({
       registrationSource: "cimd",
     });
     expect(await getOAuthAppByClientId(stableClientIds.portal)).not.toBeNull();
+    // The live client keeps its grants: a stalled sweep must not become an excuse to delete data.
+    expect(await env.OAUTH_KV.get(`grant:${liveGrantOwner}:grant-${"0".repeat(grantIdWidth)}`))
+      .not.toBeNull();
   },
 );
 
@@ -640,7 +670,8 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
     const firstTick = await renewVerifiedOAuthClients();
     expect(firstTick).toMatchObject({ renewed: 0, missing: OAUTH_CLIENT_RENEWAL_PAGE_SIZE });
 
-    // The page moved even though nothing could be renewed — this is what unblocks the queue.
+    // The page moved even though nothing could be renewed — this is what unblocks the queue. A
+    // full page also proves the id lists behind these calls stay inside D1's bound-parameter cap.
     const deadRows = await getOAuthAppsByClientIds(deadClientIds);
     expect(deadRows.size).toBe(deadClientIds.length);
     for (const row of deadRows.values()) {
@@ -689,6 +720,15 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
       .toBeLessThanOrEqual(OAUTH_CLIENT_REGISTRATION_TTL_SECONDS);
   },
 );
+
+test("the renewal page size and the maintenance interval stay paced to each other", () => {
+  const ticksPerDay = (24 * 60) / OAUTH_MAINTENANCE_INTERVAL_MINUTES;
+  const renewalIntervalDays = OAUTH_CLIENT_RENEWAL_INTERVAL_SECONDS / (24 * 60 * 60);
+
+  // Slowing the tick without growing the page cuts renewal capacity, and nothing else reports it.
+  expect(OAUTH_CLIENT_RENEWAL_PAGE_SIZE * ticksPerDay * renewalIntervalDays)
+    .toBeGreaterThanOrEqual(MIN_RENEWALS_PER_RENEWAL_INTERVAL);
+});
 
 test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
   "the consent screen refuses a redirect URI the client never registered",

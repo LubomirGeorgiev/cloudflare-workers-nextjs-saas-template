@@ -31,7 +31,7 @@ vi.mock("@/utils/session-user", () => ({
   getUserTeamsWithPermissions: getUserTeamsWithPermissionsMock,
 }));
 
-vi.mock("@/utils/kv-principal-cache", () => ({
+vi.mock("@/utils/kv-principal-purge", () => ({
   purgeUserPrincipalCaches: purgeUserPrincipalCachesMock,
 }));
 

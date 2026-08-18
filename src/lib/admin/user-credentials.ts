@@ -185,7 +185,7 @@ export async function revokeUserApiKey({
 
   // D1 is authoritative from here; dropping the snapshot is what makes revocation take effect
   // before the cache TTL would have expired it (still ≤60s of KV propagation).
-  await deleteApiKeyCache({ keyHash: key.keyHash, userId: key.userId });
+  await deleteApiKeyCache({ keyHash: key.keyHash });
 
   return { success: true };
 }

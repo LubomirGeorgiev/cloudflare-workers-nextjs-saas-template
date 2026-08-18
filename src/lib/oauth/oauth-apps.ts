@@ -1,10 +1,15 @@
 import "server-only";
 
-import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { oauthAppTable, type OAuthAppRegistrationSource } from "@/db/schema";
 import { isCimdClientId } from "@/lib/oauth/client-identity";
+
+// D1 caps bound parameters per statement at SQLite's 100, and a client id costs one. Sweep page
+// sizes are tuned against the Worker subrequest budget, so every id list chunks itself instead of
+// making that cap a second, invisible ceiling on the page size.
+const CLIENT_ID_CHUNK_SIZE = 50;
 
 interface OAuthAppSummary {
   id: string;
@@ -67,6 +72,47 @@ function toSummary(row: {
   return { ...row, redirectUris: row.redirectUris ?? [] };
 }
 
+function chunkClientIds(clientIds: string[]): string[][] {
+  const chunks: string[][] = [];
+
+  for (let start = 0; start < clientIds.length; start += CLIENT_ID_CHUNK_SIZE) {
+    chunks.push(clientIds.slice(start, start + CLIENT_ID_CHUNK_SIZE));
+  }
+
+  return chunks;
+}
+
+// Sequential D1 writes, and every chunk is attempted even after one throws: the callers below both
+// stamp or correct a whole sweep page, and a chunk left untouched stays at the head of the next
+// page. The first error is rethrown once the rest are done, so the caller still sees the failure.
+async function updateOAuthAppsByClientIds({
+  clientIds,
+  values,
+  condition,
+}: {
+  clientIds: string[];
+  values: Partial<typeof oauthAppTable.$inferInsert>;
+  condition?: SQL;
+}): Promise<void> {
+  const db = getDB();
+  let failure: unknown;
+
+  for (const chunk of chunkClientIds(clientIds)) {
+    try {
+      await db
+        .update(oauthAppTable)
+        .set(values)
+        .where(and(inArray(oauthAppTable.clientId, chunk), ...(condition ? [condition] : [])));
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+
+  if (failure !== undefined) {
+    throw new Error("OAuth app chunk update failed", { cause: failure });
+  }
+}
+
 // Early CIMD mirrors were labelled DCR by the consent backstop. URL-shaped DCR IDs are never
 // issued, so this correction is deterministic and leaves the row's verification decision intact.
 export async function correctLegacyCimdOAuthAppSources(clientIds: string[]): Promise<void> {
@@ -75,14 +121,11 @@ export async function correctLegacyCimdOAuthAppSources(clientIds: string[]): Pro
     return;
   }
 
-  const db = getDB();
-  await db
-    .update(oauthAppTable)
-    .set({ registrationSource: "cimd" })
-    .where(and(
-      inArray(oauthAppTable.clientId, cimdClientIds),
-      eq(oauthAppTable.registrationSource, "dcr"),
-    ));
+  await updateOAuthAppsByClientIds({
+    clientIds: cimdClientIds,
+    values: { registrationSource: "cimd" },
+    condition: eq(oauthAppTable.registrationSource, "dcr"),
+  });
 }
 
 // Idempotent mirror of a client registration. Called from the DCR response interceptor and again
@@ -136,12 +179,20 @@ export async function getOAuthAppsByClientIds(
   }
 
   const db = getDB();
-  const rows = await db.query.oauthAppTable.findMany({
-    columns: SUMMARY_COLUMNS,
-    where: { clientId: { in: clientIds } },
-  });
+  const apps = new Map<string, OAuthAppSummary>();
 
-  return new Map(rows.map((row) => [row.clientId, toSummary(row)]));
+  for (const chunk of chunkClientIds(clientIds)) {
+    const rows = await db.query.oauthAppTable.findMany({
+      columns: SUMMARY_COLUMNS,
+      where: { clientId: { in: chunk } },
+    });
+
+    for (const row of rows) {
+      apps.set(row.clientId, toSummary(row));
+    }
+  }
+
+  return apps;
 }
 
 export async function listOAuthApps({
@@ -244,17 +295,23 @@ async function deleteUnverifiedOAuthApps({
   }
 
   const db = getDB();
-  const deleted = await db
-    .delete(oauthAppTable)
-    .where(and(
-      inArray(oauthAppTable.clientId, clientIds),
-      eq(oauthAppTable.registrationSource, registrationSource),
-      isNull(oauthAppTable.verifiedAt),
-      ...(inactiveBefore ? [lt(oauthAppTable.updatedAt, inactiveBefore)] : []),
-    ))
-    .returning({ clientId: oauthAppTable.clientId });
+  let deletedCount = 0;
 
-  return deleted.length;
+  for (const chunk of chunkClientIds(clientIds)) {
+    const deleted = await db
+      .delete(oauthAppTable)
+      .where(and(
+        inArray(oauthAppTable.clientId, chunk),
+        eq(oauthAppTable.registrationSource, registrationSource),
+        isNull(oauthAppTable.verifiedAt),
+        ...(inactiveBefore ? [lt(oauthAppTable.updatedAt, inactiveBefore)] : []),
+      ))
+      .returning({ clientId: oauthAppTable.clientId });
+
+    deletedCount += deleted.length;
+  }
+
+  return deletedCount;
 }
 
 // Re-checks the safety predicates in the DELETE so a concurrent admin verification wins over
@@ -307,9 +364,6 @@ export async function markOAuthAppsRenewalAttempted(clientIds: string[]): Promis
     return;
   }
 
-  const db = getDB();
-  await db
-    .update(oauthAppTable)
-    .set({ lastRenewedAt: new Date() })
-    .where(inArray(oauthAppTable.clientId, clientIds));
+  // One timestamp for the whole page, so chunking cannot reorder rows that were attempted together.
+  await updateOAuthAppsByClientIds({ clientIds, values: { lastRenewedAt: new Date() } });
 }

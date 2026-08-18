@@ -25,6 +25,11 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
     closure: [
       "worker-entrypoint.ts",
       "src/constants.ts",
+      // Import-free string constants: the entry stamps the edge cache policy and purge tag onto
+      // the two metadata routes vinext hands back uncacheable, which it cannot do from behind an
+      // `import()`. `cache-tags.ts` holds the tag names `src/utils/cache.ts` re-exports.
+      "src/constants/cache-control.ts",
+      "src/constants/cache-tags.ts",
       "src/constants/oauth.ts",
       "src/lib/api/scopes.ts",
       "src/lib/oauth/provider-config.ts",

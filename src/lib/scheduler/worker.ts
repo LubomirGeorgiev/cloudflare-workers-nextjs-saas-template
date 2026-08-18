@@ -1,6 +1,11 @@
+import { OAUTH_MAINTENANCE_INTERVAL_MINUTES } from "@/constants/oauth";
+import { claimPacedRun } from "@/lib/scheduler/paced-run";
 import { dispatchScheduledJobsToQueue, getSchedulerQueueDelayLimitSeconds } from "@/lib/scheduler/scheduler";
 import { runScheduledJob } from "@/lib/scheduler/job-handlers";
 import type { ScheduledQueueMessage } from "@/lib/scheduler/jobs";
+
+// KV key that paces the OAuth sweeps. Renaming it restarts their cadence once.
+const OAUTH_MAINTENANCE_TASK = "oauth";
 
 // Mirrors isBillingEnabled() from @/flags, inlined to keep this cron entrypoint free of the
 // server-only trial-recovery graph at module load; the Stripe-dependent sweep is imported
@@ -50,8 +55,23 @@ async function runBillingMaintenance(now: Date): Promise<void> {
 
 // OAuth housekeeping: provider GC, stale CIMD mirror pruning, and the renewal touch that keeps
 // verified clients' KV records alive. They are independent, so they settle independently.
-async function runOAuthMaintenance(now: Date): Promise<void> {
-  await runMaintenanceTask("OAuth maintenance import", async () => {
+//
+// Queue dispatch and trial recovery need every 5-minute tick; these do not. Their deadlines are
+// days wide and the provider sweep pays two KV list operations per call, so KV holds the last run
+// and the claim below skips the ticks in between.
+async function runOAuthMaintenance({ env, now }: { env: Env; now: Date }): Promise<void> {
+  await runMaintenanceTask("OAuth maintenance", async () => {
+    const claimed = await claimPacedRun({
+      kv: env.NEXT_INC_CACHE_KV,
+      task: OAUTH_MAINTENANCE_TASK,
+      now,
+      intervalMinutes: OAUTH_MAINTENANCE_INTERVAL_MINUTES,
+    });
+
+    if (!claimed) {
+      return;
+    }
+
     const {
       pruneExpiredUnverifiedCimdOAuthApps,
       purgeExpiredOAuthData,
@@ -83,7 +103,7 @@ export async function handleSchedulerCron({
 
   // Error-isolated per task, so the sweeps run concurrently and neither can take the other — or
   // the queue dispatch above — down with it.
-  await Promise.all([runBillingMaintenance(now), runOAuthMaintenance(now)]);
+  await Promise.all([runBillingMaintenance(now), runOAuthMaintenance({ env, now })]);
 
   return scheduledJobsCount;
 }

@@ -21,9 +21,14 @@ export const APP_KV_PREFIXES = {
   passwordReset: "password-reset:",
   emailVerification: "email-verification:",
   apiKey: "apikey:",
-  apiKeyUser: "apikey-user:",
   oauthGrant: "oauthgrant:",
-  oauthGrantUser: "oauthgrant-user:",
+  // Per-user invalidation stamp for `oauthgrant:` snapshots. API-key snapshots cannot use one:
+  // their bearer path knows only the key hash, so it could not build this key without a second
+  // round trip. A user's key hashes come from D1 instead.
+  oauthGrantGeneration: "oauthgrant-gen:",
+  // Last-run stamp per paced cron task, so a sweep's cadence is measured from its own last run
+  // instead of inferred from the cron interval. See `src/lib/scheduler/paced-run.ts`.
+  maintenanceRun: "maintenance-run:",
 } as const;
 
 /**

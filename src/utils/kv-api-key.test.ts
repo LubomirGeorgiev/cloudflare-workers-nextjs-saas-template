@@ -39,7 +39,7 @@ const {
   LAST_USED_UPDATE_INTERVAL_MS,
   resetApiKeyUsageThrottleForTests,
 } = await import("@/utils/kv-api-key");
-const { API_KEY_CACHE, getSnapshotKey } = await import("@/utils/kv-principal-cache");
+const { getApiKeySnapshotKey } = await import("@/utils/kv-principal-cache");
 
 const USER_ID = "user_key_owner";
 // A scope no catalog can contain, standing in for one a fork removed after the key was issued.
@@ -86,7 +86,7 @@ async function seedKey(
   const { secret, hash } = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
 
   store.set(
-    getSnapshotKey({ cache: API_KEY_CACHE, id: hash }),
+    getApiKeySnapshotKey(hash),
     JSON.stringify(buildSnapshot({ scopes, lastUsedAt })),
   );
 

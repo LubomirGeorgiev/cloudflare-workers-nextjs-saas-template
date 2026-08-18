@@ -43,3 +43,25 @@ Put the literal above the default export with a one-line pointer, and add a row 
 // Cached for an hour — see docs/page-caching.md.
 export const revalidate = 3600;
 ```
+
+## Metadata routes do not get a timer
+
+`sitemap.xml` and `robots.txt` are metadata routes, not pages, so `export const revalidate` does
+nothing for them. Vinext gives every metadata route a fixed `public, max-age=0, must-revalidate` and
+never routes it through the Cloudflare CDN adapter that gives pages their `CDN-Cache-Control`. Two
+consequences follow from reading `vinext/dist/server/metadata-route-response.js`:
+
+- The outer ISR cache there only turns on when the route's **default export** itself carries a
+  `"use cache"` directive. Ours is a thin `await import()` wrapper, kept thin on purpose for the
+  startup budget, so the cache never engages.
+- Even with the directive, `@vinext/cloudflare`'s CDN adapter keeps no origin page store — its
+  `get()` always returns null and its `set()` is a no-op — so the branch that emits a real
+  `s-maxage` cannot run. The adapter caches by response header alone.
+
+So the edge policy is stamped in `worker-entrypoint.ts` instead, from
+`METADATA_ROUTE_EDGE_CACHE_CONTROL` and `EDGE_CACHED_METADATA_ROUTE_TAGS` in
+`src/constants/cache-control.ts`. The sitemap also carries its `sitemap` cache tag, so a CMS publish
+purges the edge copy through `revalidateCacheTag` and the hour is only a backstop.
+
+Re-check this on a Vinext upgrade, the same as the other pinned-behavior audits: if a later version
+runs metadata routes through the CDN adapter, the stamp becomes redundant.

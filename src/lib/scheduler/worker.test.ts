@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
+import { OAUTH_MAINTENANCE_INTERVAL_MINUTES } from "@/constants/oauth";
 import { SCHEDULED_JOB_TYPES, type ScheduledQueueMessage } from "@/lib/scheduler/jobs";
 
 const {
@@ -92,13 +94,34 @@ function trackSettlement(mock: ReturnType<typeof vi.fn>) {
   return () => isSettled;
 }
 
-function runCron(now: Date) {
+const OAUTH_PACING_KEY = `${APP_KV_PREFIXES.maintenanceRun}oauth`;
+
+// The OAuth sweeps are paced by a KV stamp instead of the cron cadence, so every cron run needs a
+// namespace. In-memory, so a test can seed "ran at T" or leave it empty for "never ran".
+function createPacingKV(lastRunAt?: Date) {
+  const store = new Map<string, string>();
+
+  if (lastRunAt) {
+    store.set(OAUTH_PACING_KEY, lastRunAt.toISOString());
+  }
+
+  return {
+    store,
+    get: vi.fn(async (key: string) => store.get(key) ?? null),
+    put: vi.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+  };
+}
+
+function runCron(now: Date, kv = createPacingKV()) {
   const queue = { send: vi.fn() };
 
   return {
     queue,
+    kv,
     result: handleSchedulerCron({
-      env: { SCHEDULER_QUEUE: queue } as unknown as Env,
+      env: { SCHEDULER_QUEUE: queue, NEXT_INC_CACHE_KV: kv } as unknown as Env,
       now,
     }),
   };
@@ -119,6 +142,7 @@ describe("scheduler worker", () => {
     await expect(handleSchedulerCron({
       env: {
         SCHEDULER_QUEUE: queue,
+        NEXT_INC_CACHE_KV: createPacingKV(),
       } as unknown as Env,
       now,
     })).resolves.toBe(2);
@@ -139,6 +163,58 @@ describe("scheduler worker", () => {
     expect(renewVerifiedOAuthClientsMock).toHaveBeenCalledWith(now);
     expect(dispatchScheduledJobsToQueueMock).toHaveBeenCalledWith({ queue, now });
     expect(settleStaleTrialReservationsMock).not.toHaveBeenCalled();
+  });
+
+  // The 5-minute tick exists for queue dispatch and trial recovery. OAuth sweeps cost two KV list
+  // operations per call and have day-wide deadlines, so a tick inside the interval must skip them.
+  test("cron skips the OAuth sweeps until the interval has elapsed", async () => {
+    stubBillingConfigured(true);
+    const now = new Date("2026-05-29T10:35:00.000Z");
+    const lastRunAt = new Date(now.getTime() - (OAUTH_MAINTENANCE_INTERVAL_MINUTES - 5) * 60_000);
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+    const { kv, result } = runCron(now, createPacingKV(lastRunAt));
+
+    await expect(result).resolves.toBe(0);
+
+    expect(pruneExpiredUnverifiedCimdOAuthAppsMock).not.toHaveBeenCalled();
+    expect(purgeExpiredOAuthDataMock).not.toHaveBeenCalled();
+    expect(renewVerifiedOAuthClientsMock).not.toHaveBeenCalled();
+    // A skipped run must leave the stamp alone, or the interval would restart on every tick.
+    expect(kv.store.get(OAUTH_PACING_KEY)).toBe(lastRunAt.toISOString());
+    // Queue dispatch and trial recovery keep the full 5-minute cadence.
+    expect(settleStaleTrialReservationsMock).toHaveBeenCalledWith({ now });
+  });
+
+  test("cron runs the OAuth sweeps once the interval has elapsed", async () => {
+    stubBillingConfigured(false);
+    const now = new Date("2026-05-29T10:35:00.000Z");
+    const lastRunAt = new Date(now.getTime() - OAUTH_MAINTENANCE_INTERVAL_MINUTES * 60_000);
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+    const { kv, result } = runCron(now, createPacingKV(lastRunAt));
+
+    await expect(result).resolves.toBe(0);
+
+    expect(purgeExpiredOAuthDataMock).toHaveBeenCalledWith(now);
+    // The stamp advances to this run, which is what moves the next one a full interval out.
+    expect(kv.store.get(OAUTH_PACING_KEY)).toBe(now.toISOString());
+  });
+
+  // Claimed before the work, so a sweep that throws cannot let the next tick start it again.
+  test("cron stamps the run before the sweeps it paces", async () => {
+    stubBillingConfigured(false);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+    let stampedBeforeSweep: string | undefined;
+    const kv = createPacingKV();
+    purgeExpiredOAuthDataMock.mockImplementationOnce(async () => {
+      stampedBeforeSweep = kv.store.get(OAUTH_PACING_KEY);
+    });
+
+    await expect(runCron(now, kv).result).resolves.toBe(0);
+
+    expect(stampedBeforeSweep).toBe(now.toISOString());
   });
 
   test.each([

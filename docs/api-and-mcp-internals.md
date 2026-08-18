@@ -118,9 +118,22 @@ code and stay untranslated; only the chrome around them is localized.
 
 ## KV prefixes
 
-Both registries live in `src/constants/kv-prefixes.ts`. App code owns `apikey:`, `apikey-user:`,
-`oauthgrant:`, and `oauthgrant-user:` alongside the pre-existing `session:`, `rate-limit:`,
-`webauthn-challenge:`, `password-reset:`, `email-verification:`, `md-page:`, and `vinext-cache*`.
+Both registries live in `src/constants/kv-prefixes.ts`, and `APP_KV_PREFIXES` is the authoritative
+list. App code owns `apikey:`, `oauthgrant:`, and `oauthgrant-gen:` alongside the pre-existing
+`session:`, `rate-limit:`, `webauthn-challenge:`, `password-reset:`, `email-verification:`,
+`md-page:`, and `vinext-cache*`.
+
+`oauthgrant-gen:` holds one generation stamp per user. Every grant snapshot records the stamp it was
+written under, so a purge invalidates all of that user's snapshots by writing one new stamp instead
+of enumerating them. A read accepts the snapshot when the two stamps match, and also when no stamp
+key exists at all, because the stamp outlives every snapshot written before it. API-key snapshots
+get no stamp: their bearer path knows only the key hash, so it cannot build the per-user key without
+a second round trip, and D1 supplies the user's key hashes instead.
+
+The former `apikey-user:` and `oauthgrant-user:` index prefixes are gone. Their keys carried the
+snapshot TTL (300 seconds or less — `API_KEY_CACHE_TTL_SECONDS` in `src/constants.ts` and
+`OAUTH_GRANT_CACHE_TTL_SECONDS` in `src/constants/oauth.ts`), so any left in production self-expire
+and no cleanup job is necessary.
 
 `OAUTH_RESERVED_KV_PREFIXES` (`client:`, `grant:`, `token:`, `enterprise-jti:`) belongs to
 `@cloudflare/workers-oauth-provider` — never read or write those from app code. `OAUTH_KV` is a

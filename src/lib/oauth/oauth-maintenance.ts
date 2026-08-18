@@ -6,6 +6,7 @@ import {
   OAUTH_CLIENT_RENEWAL_BATCH_SIZE,
   OAUTH_CLIENT_RENEWAL_INTERVAL_SECONDS,
   OAUTH_CLIENT_RENEWAL_PAGE_SIZE,
+  OAUTH_PURGE_BATCH_SIZE,
   OAUTH_UNVERIFIED_CIMD_RETENTION_SECONDS,
 } from "@/constants";
 import { isCimdClientId } from "@/lib/oauth/client-identity";
@@ -106,18 +107,14 @@ export async function renewVerifiedOAuthClients(
   return result;
 }
 
-// Provider-side garbage collection runs first. A complete sweep proves every grant for a missing
-// DCR client was removed, which is the only safe point to prune its D1 identity mirror without a
-// provider API for listing grants by client. Incomplete bounded sweeps deliberately prune nothing.
+// Provider-side garbage collection runs first, but the mirror prune below does not wait for it: a
+// lookupClient() proves each candidate dead on its own. The sweep restarts its list cursor on every
+// call, so `providerSweepComplete` only reports it and stays false forever above the batch size.
 export async function purgeExpiredOAuthData(
   now = new Date(),
 ): Promise<{ mirrorsPruned: number; providerSweepComplete: boolean }> {
   const helpers = getOAuthHelpers();
-  const providerResult = await helpers.purgeExpiredData();
-
-  if (!providerResult.done) {
-    return { mirrorsPruned: 0, providerSweepComplete: false };
-  }
+  const providerResult = await helpers.purgeExpiredData({ batchSize: OAUTH_PURGE_BATCH_SIZE });
 
   const expiredBefore = new Date(
     now.getTime() - OAUTH_CLIENT_REGISTRATION_TTL_SECONDS * 1000,
@@ -142,7 +139,7 @@ export async function purgeExpiredOAuthData(
 
   return {
     mirrorsPruned: await deleteUnverifiedDcrOAuthApps(missingClientIds),
-    providerSweepComplete: true,
+    providerSweepComplete: providerResult.done,
   };
 }
 

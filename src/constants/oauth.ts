@@ -9,6 +9,8 @@ export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 2 * 60 * 60;
 // so 90d means a one-click re-consent per quarter plus automatic cleanup of idle grants. Set to
 // `undefined` for never-expiring refresh tokens (the "until revoked" model); revocation still
 // works from /settings/api-mcp.
+// Before you set `undefined`, know the KV cost: the provider then stores each grant with no expiry,
+// and its purge only collects grants that have one, so every grant key lives forever.
 export const OAUTH_REFRESH_TOKEN_TTL_SECONDS: number | undefined = 90 * 24 * 60 * 60;
 // Lifetime of the provider's KV `client:` record, passed explicitly to the library rather than
 // inherited from its internal default: the whole renewal policy below is calibrated to this
@@ -20,12 +22,21 @@ export const OAUTH_CLIENT_REGISTRATION_TTL_SECONDS = 90 * 24 * 60 * 60;
 // per lifetime at these values, asserted in tests/integration/oauth-provider.test.ts.
 export const OAUTH_CLIENT_RENEWAL_INTERVAL_SECONDS = 7 * 24 * 60 * 60;
 export const OAUTH_CLIENT_RENEWAL_BATCH_SIZE = 5;
-// How many verified apps one cron tick may touch. Each renewal is a KV read + write, so this stays
-// far inside the per-invocation subrequest budget even on a busy deployment.
-export const OAUTH_CLIENT_RENEWAL_PAGE_SIZE = 25;
-// Mirror pruning only runs after the provider reports a complete orphan-grant sweep. This cap
-// then bounds the extra client lookups and D1 delete candidates added to that cron invocation.
+// How many verified apps one cron tick may touch: 100 x 24 hourly ticks x 7 days = 16,800 renewals
+// per renewal interval. The one real ceiling is the subrequest budget — a KV read + write each, so
+// 200 of the 1,000 an invocation gets, shared with the purge and the prune. D1 id lists chunk.
+export const OAUTH_CLIENT_RENEWAL_PAGE_SIZE = 100;
+// How long the OAuth sweeps wait between runs. KV holds each sweep's last run and the scheduler
+// measures the gap from it, so this value is free of the cron cadence: it needs no relation to the
+// `crons` entry in wrangler.jsonc, and changing either one alone cannot re-pace the other.
+export const OAUTH_MAINTENANCE_INTERVAL_MINUTES = 60;
+// Mirror pruning checks every candidate against the provider, so this cap bounds the extra client
+// lookups and D1 delete candidates one cron invocation adds on top of the purge and the renewals.
 export const OAUTH_APP_PRUNE_PAGE_SIZE = 25;
+// Passed explicitly to purgeExpiredData() rather than left to the library default, so a dependency
+// bump cannot re-pace our cron. Every checked grant or token costs a KV read, and a dead grant adds
+// a revokeGrant() fan-out, so the value stays small to protect the per-invocation subrequest budget.
+export const OAUTH_PURGE_BATCH_SIZE = 50;
 // Approval touches a CIMD mirror before its grant is created. Retain it one day beyond the longest
 // token lifetime; with non-expiring refresh grants no safe age cutoff exists, so pruning is off.
 export const OAUTH_UNVERIFIED_CIMD_RETENTION_SECONDS =
@@ -35,4 +46,8 @@ export const OAUTH_UNVERIFIED_CIMD_RETENTION_SECONDS =
 // Same TTL/version discipline as the API-key snapshot: revocation deletes the grant, so the
 // worst case is this TTL plus KV cross-PoP propagation.
 export const OAUTH_GRANT_CACHE_TTL_SECONDS = 300;
+// The stamp that invalidates a user's grant snapshots must outlive every snapshot written before
+// it, so a read finding no stamp can accept the snapshot it has. That is the cache TTL plus the
+// ~60s KV needs to propagate a write to every PoP.
+export const OAUTH_GRANT_GENERATION_TTL_SECONDS = OAUTH_GRANT_CACHE_TTL_SECONDS + 60;
 export const CURRENT_OAUTH_GRANT_CACHE_VERSION = 1;

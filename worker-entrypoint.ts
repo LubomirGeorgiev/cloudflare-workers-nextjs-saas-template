@@ -13,6 +13,10 @@ import {
   OAUTH_ISSUANCE_THROTTLED_METHODS,
   OAUTH_REGISTER_PATH,
 } from "./src/constants";
+import {
+  EDGE_CACHED_METADATA_ROUTE_TAGS,
+  METADATA_ROUTE_EDGE_CACHE_CONTROL,
+} from "./src/constants/cache-control";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
@@ -161,7 +165,7 @@ const worker = {
         .mirrorDcrRegistrationResponse({ response, ctx });
     }
 
-    return response;
+    return withMetadataRouteEdgeCache({ method: request.method, pathname, response });
   },
 
   // Cron and queue are their own entrypoints, so the job graph is imported on the invocation that
@@ -181,6 +185,33 @@ const worker = {
     await handleSchedulerQueue(batch);
   },
 } satisfies ExportedHandler<Env, ScheduledQueueMessage>;
+
+// Re-wraps rather than mutating in place: a response is free to carry immutable headers, and
+// re-wrapping re-points the body stream rather than reading it.
+function withMetadataRouteEdgeCache(
+  { method, pathname, response }: { method: string; pathname: string; response: Response },
+): Response {
+  const cacheTag = Object.hasOwn(EDGE_CACHED_METADATA_ROUTE_TAGS, pathname)
+    ? EDGE_CACHED_METADATA_ROUTE_TAGS[pathname]
+    : undefined;
+
+  if (cacheTag === undefined || !response.ok || (method !== "GET" && method !== "HEAD")) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("cdn-cache-control", METADATA_ROUTE_EDGE_CACHE_CONTROL);
+
+  if (cacheTag) {
+    headers.set("cache-tag", cacheTag);
+  }
+
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
 
 // Only set here (never trusted from the inbound request) to prevent client spoofing. Takes the
 // already-parsed URL: the caller has one, and parsing is not free on a per-request path.

@@ -27,7 +27,7 @@ import { createApiKey, revokeApiKey, updateApiKeyScopes } from "@/lib/api-keys/a
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import { generateApiKey } from "@/utils/api-key-format";
 import { deleteApiKeyCache, getApiKeyPrincipal } from "@/utils/kv-api-key";
-import { purgeUserPrincipalCaches } from "@/utils/kv-principal-cache";
+import { purgeUserPrincipalCaches } from "@/utils/kv-principal-purge";
 import { hashToken } from "@/utils/random-token";
 
 const db = getDB();
@@ -269,7 +269,7 @@ test("a key whose row was revoked directly stops working once the snapshot is dr
   // The stale snapshot still answers until it is deleted — the documented ≤TTL acceptance window.
   expect(await getApiKeyPrincipal(key.secret)).not.toBeNull();
 
-  await deleteApiKeyCache({ keyHash: key.hash, userId });
+  await deleteApiKeyCache({ keyHash: key.hash });
 
   expect(await getApiKeyPrincipal(key.secret)).toBeNull();
 });

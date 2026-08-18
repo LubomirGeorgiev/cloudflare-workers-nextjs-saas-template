@@ -96,5 +96,5 @@ export async function revokeConnectedAppForUser({
   userId: string;
 }): Promise<void> {
   await getOAuthHelpers().revokeGrant(grantId, userId);
-  await deleteOAuthGrantCache({ grantId, userId });
+  await deleteOAuthGrantCache({ grantId });
 }

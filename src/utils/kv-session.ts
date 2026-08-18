@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 
 import { getDB } from "@/db";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
-import { purgeUserPrincipalCaches } from "@/utils/kv-principal-cache";
+import { purgeUserPrincipalCaches } from "@/utils/kv-principal-purge";
 import { mapInBatches } from "@/utils/map-in-batches";
 import { getIP } from "./get-IP";
 import { MAX_SESSIONS_PER_USER } from "@/constants";

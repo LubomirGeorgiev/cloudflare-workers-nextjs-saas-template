@@ -3,8 +3,10 @@ import { fetchAppPath } from "./app-frame";
 import {
   DOCS_LLMS_TXT_CACHE_CONTROL,
   DOCS_SEARCH_CACHE_CONTROL,
+  METADATA_ROUTE_EDGE_CACHE_CONTROL,
   SESSION_NO_STORE_CACHE_CONTROL,
 } from "../../src/constants/cache-control";
+import { CACHE_TAGS } from "../../src/constants/cache-tags";
 import { LLMS_TXT_PATH } from "../../src/constants";
 import { OG_IMAGE_CACHE_CONTROL, OG_IMAGE_CONTENT_TYPE } from "../../src/constants/og-image";
 import { LOCALE_COOKIE_NAME } from "../../src/i18n/config";
@@ -120,6 +122,21 @@ test("serves the root llms.txt export with its shared cache policy", async () =>
 
   expect(response.status).toBe(200);
   expectCachePolicy(response, DOCS_LLMS_TXT_CACHE_CONTROL);
+});
+
+// Vinext pins a metadata route to the browser-revalidate policy and skips the CDN adapter, so
+// without the Worker's stamp the edge revalidates against the origin on every crawler hit.
+test.each([
+  ["/sitemap.xml", CACHE_TAGS.SITEMAP],
+  ["/robots.txt", null],
+])("caches %s at the CDN edge", async (path, cacheTag) => {
+  const response = await fetchAppPath(path);
+
+  expect(response.status).toBe(200);
+  expect(parseCacheControl(response.headers.get("cdn-cache-control"))).toEqual(
+    parseCacheControl(METADATA_ROUTE_EDGE_CACHE_CONTROL)
+  );
+  expect(response.headers.get("cache-tag")).toBe(cacheTag);
 });
 
 test("serves docs search results with its shared cache policy", async () => {

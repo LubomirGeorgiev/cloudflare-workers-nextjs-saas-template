@@ -3,40 +3,9 @@ import "server-only";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import ms from "ms";
 
-const CMS_PREFIX = "cms";
-
-function tagPart(value: string): string {
-  return encodeURIComponent(value);
-}
-
-export const CACHE_TAGS = {
-  SITEMAP: "sitemap",
-  CMS_TAGS: `${CMS_PREFIX}-tags`,
-  cmsEntry({
-    collectionSlug,
-    slug,
-  }: {
-    collectionSlug: string;
-    slug: string;
-  }) {
-    return `${CMS_PREFIX}-entry-${tagPart(collectionSlug)}-${tagPart(slug)}`;
-  },
-  cmsCollection(collectionSlug: string) {
-    return `${CMS_PREFIX}-collection-${tagPart(collectionSlug)}`;
-  },
-  cmsCollectionCount(collectionSlug: string) {
-    return `${CMS_PREFIX}-collection-count-${tagPart(collectionSlug)}`;
-  },
-  cmsNavigation(navigationKey: string) {
-    return `${CMS_PREFIX}-navigation-${tagPart(navigationKey)}`;
-  },
-  cmsRedirect(navigationKey: string) {
-    return `${CMS_PREFIX}-redirect-${tagPart(navigationKey)}`;
-  },
-  cmsSearchCollection(collectionSlug: string) {
-    return `${CMS_PREFIX}-search-${tagPart(collectionSlug)}`;
-  },
-} as const;
+// The tag names stay import-free in `@/constants/cache-tags` so the Worker entrypoint can read
+// them without this module's startup cost. Re-exported here, the historical home for them.
+export { CACHE_TAGS } from "@/constants/cache-tags";
 
 interface CacheScopeOptions {
   ttl: ms.StringValue; // e.g., "1h", "5m", "1d"
