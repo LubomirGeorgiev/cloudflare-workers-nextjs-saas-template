@@ -27,11 +27,29 @@ const PAGE_PATHNAME = STATIC_PUBLIC_ROUTES[0]!.pathname;
 const DOCS_PAGE_PATHNAME = INDEXED_DOCS_ROUTES[0]!.pathname;
 const BLOG_LISTING_PATHNAME = BLOG_LISTING_ROUTES[0]!.pathname;
 const TAG_PAGE_PATHNAME = `${BLOG_LISTING_PATHNAME}/tags/react`;
+const SOURCE_CACHE_TAG = "cms-collection-blog,_N_T_/blog";
 
 // A locale the router actually serves, and one the catalog holds but `I18N_ENABLED` de-served.
 const SERVED_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 const DE_SERVED_LOCALE = LOCALES.find((locale) => !ENABLED_LOCALES.includes(locale));
 const NON_DEFAULT_CATALOG_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
+
+// A KV stand-in that stores strings and honors the `"json"` read type, because the page cache
+// writes a JSON envelope and reads it back parsed.
+function createKvMock() {
+  const values = new Map<string, string>();
+
+  return {
+    get: vi.fn(async (key: string, type?: "json") => {
+      const value = values.get(key) ?? null;
+
+      return value !== null && type === "json" ? JSON.parse(value) : value;
+    }),
+    put: vi.fn(async (key: string, value: string) => {
+      values.set(key, value);
+    }),
+  };
+}
 
 describe("resolveMdRequestTarget", () => {
   test("maps CMS, static docs, listing, and index paths", () => {
@@ -131,18 +149,13 @@ describe("handleMarkdownRequest", () => {
   // The TTL is ours, not the page's: the rendered page below advertises a different CDN max-age,
   // and it must not reach either the outgoing header or the KV expiry.
   test("renders and caches an allowlisted public page with the fixed page TTL", async () => {
-    const values = new Map<string, string>();
-    const kv = {
-      get: vi.fn(async (key: string) => values.get(key) ?? null),
-      put: vi.fn(async (key: string, value: string) => {
-        values.set(key, value);
-      }),
-    };
+    const kv = createKvMock();
     // The root layout stamps every title through `%s - SITE_NAME`, so the fixture carries it too.
     const render = vi.fn(async () => new Response(
       `<html><head><title>Terms - ${SITE_NAME}</title><meta name="description" content="Terms summary"></head><body><main><h1>Terms</h1><p>Body</p></main></body></html>`,
       {
         headers: {
+          "cache-tag": SOURCE_CACHE_TAG,
           "content-type": "text/html; charset=utf-8",
           "cdn-cache-control": "max-age=86400, stale-while-revalidate=60",
         },
@@ -169,13 +182,15 @@ describe("handleMarkdownRequest", () => {
 
     expect(first?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
     expect(second?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
+    expect(first?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    expect(second?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
     await expect(first?.text()).resolves.toContain(
       `Source: ${buildAbsoluteSourcePageUrl({ pathname: PAGE_PATHNAME })}`,
     );
     expect(render).toHaveBeenCalledOnce();
     expect(kv.put).toHaveBeenCalledWith(
       `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:${PAGE_PATHNAME}`,
-      expect.any(String),
+      expect.stringContaining(`"cacheTag":"${SOURCE_CACHE_TAG}"`),
       { expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS },
     );
   });
@@ -227,13 +242,7 @@ describe("handleMarkdownRequest", () => {
   });
 
   test("attaches a page .md only when the download flag is present", async () => {
-    const values = new Map<string, string>();
-    const kv = {
-      get: vi.fn(async (key: string) => values.get(key) ?? null),
-      put: vi.fn(async (key: string, value: string) => {
-        values.set(key, value);
-      }),
-    };
+    const kv = createKvMock();
     const render = vi.fn(async () => new Response(
       `<html><head><title>React - ${SITE_NAME}</title></head><body><main><h1>React</h1><p>Body</p></main></body></html>`,
       { headers: { "content-type": "text/html; charset=utf-8" } },
@@ -308,7 +317,10 @@ describe("handleMarkdownRequest", () => {
     const render = vi.fn(async (request: Request) => {
       internalUrls.push(request.url);
       return new Response("# Entry\n", {
-        headers: { "content-type": "text/markdown; charset=utf-8" },
+        headers: {
+          "cache-tag": "cms-entry-blog-launch",
+          "content-type": "text/markdown; charset=utf-8",
+        },
       });
     });
     const sharedParams = {
@@ -317,7 +329,7 @@ describe("handleMarkdownRequest", () => {
       render,
     };
 
-    await handleMarkdownRequest({
+    const plainResponse = await handleMarkdownRequest({
       ...sharedParams,
       request: new Request("https://example.com/blog/launch.md"),
     });
@@ -331,6 +343,7 @@ describe("handleMarkdownRequest", () => {
     expect(plain.pathname).toBe("/markdown/blog/launch");
     expect(plain.searchParams.get("locale")).toBe(DEFAULT_LOCALE);
     expect(plain.searchParams.has(MARKDOWN_DOWNLOAD_PARAM)).toBe(false);
+    expect(plainResponse?.headers.get("cache-tag")).toBe("cms-entry-blog-launch");
     // The CMS route handler sets the disposition itself, from its own URL, so the flag must survive
     // the rewrite next to the locale.
     expect(downloaded.pathname).toBe("/markdown/blog/launch");
@@ -414,7 +427,10 @@ describe("handleMarkdownRequest", () => {
     const render = vi.fn(async (request: Request) => {
       renderedMethod = request.method;
       return new Response("# Entry\n", {
-        headers: { "content-type": "text/markdown; charset=utf-8" },
+        headers: {
+          "cache-tag": "cms-entry-blog-launch",
+          "content-type": "text/markdown; charset=utf-8",
+        },
       });
     });
 
@@ -426,6 +442,7 @@ describe("handleMarkdownRequest", () => {
     });
 
     expect(response?.status).toBe(200);
+    expect(response?.headers.get("cache-tag")).toBe("cms-entry-blog-launch");
     expect(response?.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     expect(response?.body).toBeNull();
     // The inner render always sees a GET, whatever method the caller sent.

@@ -62,12 +62,10 @@ vi.mock("@/lib/cms/entry", () => ({
   getCmsEntryBySlug: vi.fn(),
 }));
 
-vi.mock("@/utils/cache", () => ({
-  CACHE_TAGS: {
-    cmsEntry: vi.fn(),
-    cmsNavigation: vi.fn(),
-    cmsRedirect: vi.fn(),
-  },
+// Real `CACHE_TAGS`, so a change to the production tag format (its escaping included) fails the
+// `cache-tag` assertions instead of passing against a hand-written copy.
+vi.mock("@/utils/cache", async () => ({
+  ...(await vi.importActual<typeof import("@/utils/cache")>("@/utils/cache")),
   setCacheScope: vi.fn(),
 }));
 
@@ -85,6 +83,7 @@ const { localizedPathname } = await import("@/utils/i18n-urls");
 const { SITE_URL } = await import("@/constants");
 const { collectionSlugs } = await import("@/../cms.config");
 const { DOCS_SLUG } = await import("@/lib/cms/docs-config");
+const { CACHE_TAGS } = await import("@/utils/cache");
 
 /** The navigation tree only has to be non-empty: the node lookup itself is mocked. */
 const DOCS_TREE = [{ id: "nav_1" } as unknown as CmsNavigationTreeNode];
@@ -279,6 +278,42 @@ describe("CMS Markdown route", () => {
     expect(entryRepository.getCmsEntryBySlug).not.toHaveBeenCalled();
   });
 
+  test("tags a docs Markdown response with its entry and path dependencies", async () => {
+    const slug = "introduction";
+    const markdown = "# Introduction\n";
+
+    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    vi.mocked(navigationRepository.getCmsNavigationTree).mockResolvedValue(DOCS_TREE);
+    vi.mocked(navigationRepository.getCmsNavigationNodeByResolvedPath).mockReturnValue({
+      nodeType: "page",
+      entry: { slug },
+      resolvedPath: `/docs/${slug}`,
+    } as unknown as CmsNavigationTreeNode);
+    vi.mocked(entryRepository.getCmsEntryBySlug).mockResolvedValue({
+      collection: DOCS_SLUG,
+      locale: DEFAULT_LOCALE,
+      slug,
+    } as Awaited<ReturnType<typeof entryRepository.getCmsEntryBySlug>>);
+    vi.mocked(buildCmsEntryMarkdown).mockReturnValue(markdown);
+
+    const response = await GET(
+      new Request(`https://example.com/markdown/docs/${slug}`),
+      {
+        params: Promise.resolve({ collection: DOCS_SLUG, path: [slug] }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-tag")).toBe(
+      [
+        CACHE_TAGS.cmsEntry({ collectionSlug: DOCS_SLUG, slug }),
+        CACHE_TAGS.cmsNavigation(DOCS_SLUG),
+        CACHE_TAGS.cmsRedirect(DOCS_SLUG),
+      ].join(","),
+    );
+    await expect(response.text()).resolves.toBe(markdown);
+  });
+
   // The other side of the same rule: a collection with no navigation tree has only the bare slug,
   // so that fallback has to stay.
   test.skipIf(!BARE_SLUG_COLLECTION)(
@@ -305,6 +340,9 @@ describe("CMS Markdown route", () => {
 
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+      expect(response.headers.get("cache-tag")).toBe(
+        CACHE_TAGS.cmsEntry({ collectionSlug: collection, slug }),
+      );
       await expect(response.text()).resolves.toBe(markdown);
       expect(navigationRepository.getCmsNavigationTree).not.toHaveBeenCalled();
     },

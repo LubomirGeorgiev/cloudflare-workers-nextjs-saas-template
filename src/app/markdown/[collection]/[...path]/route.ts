@@ -35,6 +35,21 @@ type DocsPathResolution =
 /** `no-navigation` is the one docs answer that leaves the bare entry slug worth trying. */
 type DocsNavigationResolution = DocsPathResolution | { type: "no-navigation" };
 
+const DOCS_RESOLUTION_CACHE_TAGS = [
+  CACHE_TAGS.cmsNavigation(DOCS_SLUG),
+  CACHE_TAGS.cmsRedirect(DOCS_SLUG),
+];
+
+function entryCacheTags({
+  collectionSlug,
+  slug,
+}: {
+  collectionSlug: string;
+  slug: string;
+}): string[] {
+  return [CACHE_TAGS.cmsEntry({ collectionSlug, slug })];
+}
+
 export async function GET(
   request: Request,
   {
@@ -67,14 +82,17 @@ function notFoundResponse(error: string): NextResponse {
 }
 
 function renderedEntryResponse({
+  cacheTags,
   entry,
   wantsDownload,
 }: {
+  cacheTags: string[];
   entry: CachedMarkdownEntry;
   wantsDownload: boolean;
 }): Response {
   const headers: Record<string, string> = {
     "cache-control": CMS_MARKDOWN_CACHE_CONTROL,
+    "cache-tag": cacheTags.join(","),
     "content-type": "text/markdown; charset=utf-8",
   };
 
@@ -133,9 +151,19 @@ async function handleMarkdownRouteRequest({
     slug: resolution.slug,
   });
 
-  return entry
-    ? renderedEntryResponse({ entry, wantsDownload })
-    : notFoundResponse("CMS entry not found");
+  if (!entry) {
+    return notFoundResponse("CMS entry not found");
+  }
+
+  // This route owns Cache-Control, so Vinext cannot attach the collected tags. Mirror the tags the
+  // two cached functions declared, so the edge copy shares their invalidation contract. The docs
+  // tags stay even on a `no-navigation` fall-through: the resolver declared them before it gave up.
+  const cacheTags = [
+    ...entryCacheTags({ collectionSlug, slug: resolution.slug }),
+    ...(collectionSlug === DOCS_SLUG ? DOCS_RESOLUTION_CACHE_TAGS : []),
+  ];
+
+  return renderedEntryResponse({ cacheTags, entry, wantsDownload });
 }
 
 async function resolveMarkdownEntry({
@@ -179,10 +207,7 @@ async function resolveCachedDocsMarkdownPath({
 }): Promise<DocsNavigationResolution> {
   "use cache: remote";
   setCacheScope({
-    tags: [
-      CACHE_TAGS.cmsNavigation(DOCS_SLUG),
-      CACHE_TAGS.cmsRedirect(DOCS_SLUG),
-    ],
+    tags: DOCS_RESOLUTION_CACHE_TAGS,
     ttl: "8 hours",
   });
 
@@ -245,9 +270,7 @@ async function renderCachedEntryMarkdown({
 }): Promise<CachedMarkdownEntry | null> {
   "use cache: remote";
   setCacheScope({
-    tags: [
-      CACHE_TAGS.cmsEntry({ collectionSlug, slug }),
-    ],
+    tags: entryCacheTags({ collectionSlug, slug }),
     ttl: "8 hours",
   });
 

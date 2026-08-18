@@ -33,6 +33,7 @@ const innerFetchMock = vi.hoisted(() => vi.fn());
 // The Vite `define` that injects this is not applied under the test config, so the test supplies
 // the value the way `src/lib/scheduler/admin.test.ts` supplies the scheduler queue name.
 const MARKDOWN_BUILD_ID = "test-build-id";
+const SOURCE_CACHE_TAG = "static-terms,_N_T_/terms";
 
 vi.mock("vinext/server/fetch-handler", () => ({
   default: {
@@ -79,7 +80,10 @@ describe("worker edge integration", () => {
   test("forwards a CMS .md URL to the Markdown route without a redirect", async () => {
     innerFetchMock.mockImplementationOnce(async (request: Request) => {
       return new Response(`# ${new URL(request.url).pathname}\n`, {
-        headers: { "content-type": "text/markdown; charset=utf-8" },
+        headers: {
+          "cache-tag": "cms-entry-docs-billing",
+          "content-type": "text/markdown; charset=utf-8",
+        },
       });
     });
 
@@ -90,6 +94,7 @@ describe("worker edge integration", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-tag")).toBe("cms-entry-docs-billing");
     expect(response.headers.get("location")).toBeNull();
     await expect(response.text()).resolves.toBe("# /markdown/docs/core-concepts/billing\n");
   });
@@ -106,6 +111,7 @@ describe("worker edge integration", () => {
         `<html><head><title>Terms - ${SITE_NAME}</title><meta name="description" content="Terms summary"></head><body><main><h1>Terms</h1><p>Page body</p></main></body></html>`,
         {
           headers: {
+            "cache-tag": SOURCE_CACHE_TAG,
             "content-type": "text/html; charset=utf-8",
             "cdn-cache-control": "max-age=86400, stale-while-revalidate=60",
           },
@@ -121,6 +127,7 @@ describe("worker edge integration", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     // Our own TTL, not the page's: the rendered page above advertises a different CDN max-age.
     expect(response.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
@@ -132,6 +139,15 @@ describe("worker edge integration", () => {
     // The KV write is now a `waitUntil` task, so it settles after the response.
     await waitOnExecutionContext(ctx);
     expect(await env.NEXT_INC_CACHE_KV.get(cacheKey)).not.toBeNull();
+
+    const cachedResponse = await worker.fetch(
+      new Request("https://example.com/terms.md"),
+      env as Env,
+      createExecutionContext(),
+    );
+    expect(cachedResponse.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    await expect(cachedResponse.text()).resolves.toContain("Page body");
+    expect(innerFetchMock).toHaveBeenCalledOnce();
   });
 
   // A `.md` URL promises Markdown. A page the converter cannot frame still rendered, so it is

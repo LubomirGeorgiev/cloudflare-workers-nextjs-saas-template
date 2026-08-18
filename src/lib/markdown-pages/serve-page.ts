@@ -15,6 +15,13 @@ import type { MarkdownBranchParams, MdRequestTarget } from "./index";
 // rate-limit graph onto this lazily loaded chunk for one string.
 const PROBLEM_JSON_CONTENT_TYPE = "application/problem+json";
 
+// One shape, no migration path: the cache key carries the build id, so every deploy starts an empty
+// key space and only this file's own writes can ever be read back.
+interface CachedMarkdownPage {
+  body: string;
+  cacheTag: string | null;
+}
+
 /** Public contract: a caller branches on this code, never on the prose next to it. */
 export const MARKDOWN_UNAVAILABLE_CODE = "MARKDOWN_UNAVAILABLE";
 export const MARKDOWN_UNAVAILABLE_STATUS = 406;
@@ -25,10 +32,12 @@ const MARKDOWN_UNAVAILABLE_CACHE_CONTROL = "no-store";
 
 function markdownResponse({
   body,
+  cacheTag,
   pathname,
   wantsDownload,
 }: {
   body: string;
+  cacheTag: string | null;
   pathname: string;
   wantsDownload: boolean;
 }): Response {
@@ -36,6 +45,10 @@ function markdownResponse({
     "cache-control": MARKDOWN_PAGE_CACHE_CONTROL,
     "content-type": "text/markdown; charset=utf-8",
   };
+
+  if (cacheTag) {
+    headers["cache-tag"] = cacheTag;
+  }
 
   // Set here, not before the cache read: the cache key is pathname-only, so a cached hit must get
   // the header too, and the flag must never change the cached body.
@@ -110,10 +123,15 @@ export async function servePageMarkdown({
   wantsDownload,
 }: MarkdownBranchParams & { target: Extract<MdRequestTarget, { type: "page" }> }) {
   const cacheKey = buildMarkdownPageCacheKey({ pathname: target.pathname });
-  const cached = await env.NEXT_INC_CACHE_KV.get(cacheKey);
+  const cached = await env.NEXT_INC_CACHE_KV.get<CachedMarkdownPage>(cacheKey, "json");
 
   if (cached) {
-    return markdownResponse({ body: cached, pathname: target.pathname, wantsDownload });
+    return markdownResponse({
+      body: cached.body,
+      cacheTag: cached.cacheTag,
+      pathname: target.pathname,
+      wantsDownload,
+    });
   }
 
   const rendered = await render(
@@ -138,12 +156,17 @@ export async function servePageMarkdown({
     return markdownUnavailableResponse({ sourceUrl });
   }
 
+  // This Worker branch is outside Vinext finalization, so its edge copy must inherit source tags.
+  // The tag only helps when the same operation also purges this KV entry: a publish fires both
+  // without a fixed order, so a request in between re-serves the stale body under the same tag.
+  const cacheTag = rendered.headers.get("cache-tag");
+
   // Off the response path: a cache write must not add latency to, or fail, a page that rendered.
   ctx.waitUntil(
-    env.NEXT_INC_CACHE_KV.put(cacheKey, markdown, {
+    env.NEXT_INC_CACHE_KV.put(cacheKey, JSON.stringify({ body: markdown, cacheTag } satisfies CachedMarkdownPage), {
       expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS,
     }).catch(() => undefined),
   );
 
-  return markdownResponse({ body: markdown, pathname: target.pathname, wantsDownload });
+  return markdownResponse({ body: markdown, cacheTag, pathname: target.pathname, wantsDownload });
 }
