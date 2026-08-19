@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { SITE_NAME } from "@/constants";
+import { LLMS_TXT_URL, SITE_NAME } from "@/constants";
 import {
   MARKDOWN_PAGE_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_TTL_SECONDS,
@@ -184,6 +184,8 @@ describe("handleMarkdownRequest", () => {
     expect(second?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
     expect(first?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
     expect(second?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    expect(first?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
+    expect(second?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
     await expect(first?.text()).resolves.toContain(
       `Source: ${buildAbsoluteSourcePageUrl({ pathname: PAGE_PATHNAME })}`,
     );
@@ -444,6 +446,7 @@ describe("handleMarkdownRequest", () => {
     expect(response?.status).toBe(200);
     expect(response?.headers.get("cache-tag")).toBe("cms-entry-blog-launch");
     expect(response?.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+    expect(response?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
     expect(response?.body).toBeNull();
     // The inner render always sees a GET, whatever method the caller sent.
     expect(renderedMethod).toBe("GET");

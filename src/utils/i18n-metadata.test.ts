@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { I18N_ENABLED, SITE_URL } from "@/constants";
+import { API_DOCS_PATH, I18N_ENABLED, SITE_URL } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 
 vi.mock("server-only", () => ({}));
@@ -22,6 +22,52 @@ const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) a
 const { buildAlternates, noindexNonDefaultLocale } = await import("./i18n-metadata");
 
 describe("buildAlternates", () => {
+  test("advertises a Markdown alternate for a supported public page", () => {
+    const alternates = buildAlternates({
+      pathname: API_DOCS_PATH,
+      locale: DEFAULT_LOCALE,
+      availableLocales: LOCALES,
+    });
+
+    expect(alternates!.types).toEqual({
+      "text/markdown": `${SITE_URL}${API_DOCS_PATH}.md`,
+    });
+  });
+
+  test("uses the index Markdown path for the site root", () => {
+    const alternates = buildAlternates({
+      pathname: "/",
+      locale: DEFAULT_LOCALE,
+      availableLocales: LOCALES,
+    });
+
+    expect(alternates!.types).toEqual({
+      "text/markdown": `${SITE_URL}/index.md`,
+    });
+  });
+
+  test.skipIf(!I18N_ENABLED)("uses the active locale in the Markdown alternate", () => {
+    const alternates = buildAlternates({
+      pathname: API_DOCS_PATH,
+      locale: NON_DEFAULT_LOCALE,
+      availableLocales: LOCALES,
+    });
+
+    expect(alternates!.types).toEqual({
+      "text/markdown": `${SITE_URL}/${NON_DEFAULT_LOCALE}${API_DOCS_PATH}.md`,
+    });
+  });
+
+  test("omits the Markdown alternate when the route does not support Markdown", () => {
+    const alternates = buildAlternates({
+      pathname: "/sign-in",
+      locale: DEFAULT_LOCALE,
+      availableLocales: LOCALES,
+    });
+
+    expect(alternates!.types).toBeUndefined();
+  });
+
   test("canonical is the active locale's own URL", () => {
     const alternates = buildAlternates({
       pathname: "/privacy",
@@ -124,6 +170,9 @@ describe("buildAlternates", () => {
     expect(languages[NON_DEFAULT_LOCALE]).toBe(
       `https://example.com/app/${NON_DEFAULT_LOCALE}/privacy`,
     );
+    expect(alternates!.types).toEqual({
+      "text/markdown": `https://example.com/app/${NON_DEFAULT_LOCALE}/privacy.md`,
+    });
   });
 });
 

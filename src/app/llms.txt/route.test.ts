@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { LLMS_TXT_URL } from "@/constants";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { CACHE_TAGS } from "@/utils/cache";
 
@@ -62,6 +63,7 @@ describe("/llms.txt", () => {
     await expect(response.text()).resolves.toBe("# Docs\n");
     expect(response.headers.get("content-type")).toBe("text/plain; charset=utf-8");
     expect(response.headers.get("cache-tag")).toBe(EXPECTED_CACHE_TAGS.join(","));
+    expect(response.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
     expect(buildLlmsTxtContentMock).toHaveBeenCalledWith({
       blogEntries: [{ id: "post" }],
       docsNodes: [

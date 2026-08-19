@@ -20,6 +20,7 @@ import { LOCALES, type Locale } from "@/i18n/config";
 import { PROBLEM_JSON_CONTENT_TYPE } from "@/lib/api/errors";
 import { JSON_CONTENT_TYPE } from "@/lib/api/openapi-walk";
 import { buildApiReferenceView } from "@/lib/api/reference-model";
+import { markdownAlternateFor } from "@/lib/markdown-pages/markdown-alternate";
 import { cn } from "@/lib/utils";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { buildAlternates } from "@/utils/i18n-metadata";
@@ -67,6 +68,9 @@ export default async function ApiReferencePage({
   // Every operation renders the same strings, so the page owns the one label set for all of them.
   const operationLabels = buildApiOperationLabels(t);
   const document = apiDocument();
+  // Same resolver the `Link` header and the metadata alternate use, so the link never points at a
+  // `.md` URL the Worker would not serve.
+  const markdownAlternate = markdownAlternateFor({ pathname: API_DOCS_PATH, locale });
   // The MCP derivation owns which operations become tools and what they are called; the view model
   // only labels them, so the mapping is passed in rather than reached for from the docs layer.
   const view = buildApiReferenceView({
@@ -121,6 +125,9 @@ export default async function ApiReferencePage({
 
           <DocsCrossLinks
             links={[
+              ...(markdownAlternate
+                ? [{ href: markdownAlternate.path, label: t("markdownLink"), isLocalized: false }]
+                : []),
               { href: API_OPENAPI_SPEC_PATH, label: t("specLink"), isLocalized: false },
               { href: API_AUTH_DOCS_PATH, label: t("authLink") },
               { href: API_ERRORS_DOCS_PATH, label: t("errorsLink") },

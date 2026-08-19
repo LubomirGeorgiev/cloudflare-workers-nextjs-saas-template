@@ -29,6 +29,7 @@ export const CURRENT_API_KEY_CACHE_VERSION = 2;
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
 export const API_V1_BASE_PATH = "/api/v1";
 export const LLMS_TXT_PATH = "/llms.txt";
+export const LLMS_TXT_URL = `${SITE_URL}${LLMS_TXT_PATH}`;
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
 // The document is a static read, so only the safe methods serve it. Shared by the Hono route and
 // the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.

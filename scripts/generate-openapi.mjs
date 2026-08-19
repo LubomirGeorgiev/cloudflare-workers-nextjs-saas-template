@@ -15,10 +15,12 @@ import { createServer } from "vite";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
+const openApiViteCacheDir = path.join(root, "node_modules/.vite-openapi", String(process.pid));
 
 async function generate() {
   const server = await createServer({
     root,
+    cacheDir: openApiViteCacheDir,
     configFile: false,
     logLevel: "error",
     resolve: {

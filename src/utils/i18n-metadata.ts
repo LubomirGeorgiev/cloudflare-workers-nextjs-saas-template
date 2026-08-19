@@ -5,6 +5,10 @@ import { getTranslations } from "next-intl/server";
 
 import { I18N_ENABLED, SITE_NAME } from "@/constants";
 import { DEFAULT_LOCALE, getOpenGraphLocales, type Locale } from "@/i18n/config";
+import {
+  markdownAlternateFor,
+  MARKDOWN_CONTENT_TYPE,
+} from "@/lib/markdown-pages/markdown-alternate";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
 // Complete site-default OpenGraph object for a locale. Both the root layout and
@@ -44,11 +48,13 @@ export function buildAlternates({
   availableLocales,
 }: BuildAlternatesOptions): Metadata["alternates"] {
   const canonical = absoluteLocalizedUrl({ pathname, locale });
+  const markdown = markdownAlternateFor({ pathname, locale });
+  const types = markdown ? { [MARKDOWN_CONTENT_TYPE]: markdown.url } : undefined;
 
   // Single-locale mode: emit a self-canonical but no hreflang — advertising
   // language alternates that don't exist would be dishonest.
   if (!I18N_ENABLED) {
-    return { canonical };
+    return { canonical, types };
   }
 
   const languages: Record<string, string> = {};
@@ -61,6 +67,7 @@ export function buildAlternates({
   return {
     canonical,
     languages,
+    types,
   };
 }
 

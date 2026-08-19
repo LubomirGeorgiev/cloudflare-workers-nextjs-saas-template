@@ -12,7 +12,7 @@ import type { CmsCollectionListItem } from "@/lib/cms/entry";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 import { singleLine } from "@/lib/markdown-pages/markdown-document";
 import { buildAbsoluteMarkdownPageUrl } from "@/lib/markdown-pages/page-paths";
-import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+import { CMS_NAVIGATION_NODE_TYPES, type CmsNavigationNodeType } from "@/types/cms-navigation";
 import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url";
 import { RATE_LIMITS } from "@/utils/with-rate-limit";
 
@@ -140,13 +140,13 @@ function appendNodeLines({
   pageDescriptionFallback: (title: string) => string;
   depth?: number;
 }) {
-  let hasRenderedNode = false;
+  let lastRenderedType: CmsNavigationNodeType | null = null;
 
   for (const node of nodes) {
     if (node.nodeType === CMS_NAVIGATION_NODE_TYPES.GROUP) {
       const headingLevel = Math.min(depth + 3, 6);
 
-      if (hasRenderedNode) {
+      if (lastRenderedType !== null) {
         lines.push("");
       }
 
@@ -157,7 +157,7 @@ function appendNodeLines({
         pageDescriptionFallback,
         depth: depth + 1,
       });
-      hasRenderedNode = true;
+      lastRenderedType = CMS_NAVIGATION_NODE_TYPES.GROUP;
       continue;
     }
 
@@ -170,18 +170,13 @@ function appendNodeLines({
     const title = escapeMarkdownLinkText(node.entry.title);
     const desc = pageDescription({ node, fallback: pageDescriptionFallback });
 
-    if (depth === 0) {
-      if (hasRenderedNode) {
-        lines.push("");
-      }
-
-      lines.push(`### [${title}](${url}): ${desc}`);
-      hasRenderedNode = true;
-      continue;
+    // A root page after a group would join that group's bullet list without this break.
+    if (depth === 0 && lastRenderedType === CMS_NAVIGATION_NODE_TYPES.GROUP) {
+      lines.push("");
     }
 
     lines.push(`- [${title}](${url}): ${desc}`);
-    hasRenderedNode = true;
+    lastRenderedType = CMS_NAVIGATION_NODE_TYPES.PAGE;
   }
 }
 
@@ -259,7 +254,7 @@ function appendSearchApiLines(lines: string[]): void {
   lines.push(
     "## Search API",
     "",
-    `AI agents can find relevant docs with \`GET ${exampleUrl}\`. The \`q\` parameter is required, \`limit\` defaults to 8 and accepts 1-20, and the JSON response returns a \`results\` array with \`title\`, \`resolvedPath\`, \`snippet\`, \`slug\`, \`seoDescription\`, and \`entryId\`.`,
+    `- [Documentation search API](${exampleUrl}): Find relevant docs. The \`q\` parameter is required. \`limit\` defaults to 8 and accepts 1-20. The JSON response returns matching page metadata and excerpts.`,
     "",
   );
 }
@@ -290,13 +285,7 @@ function appendMachineInterfaceLines({
   lines: string[];
   routeCopy: Map<string, DocsRouteCopy>;
 }): void {
-  lines.push(
-    "## API and MCP",
-    "",
-    `- OpenAPI 3.1 document: \`GET ${SITE_URL}${API_OPENAPI_SPEC_PATH}\` — every public REST operation with its scopes, request and response schemas, and error shape.`,
-    `- MCP endpoint (Streamable HTTP): \`${getMcpEndpointUrl()}\` — the same operations as agent tools. Authenticate with an API key as a bearer token, or connect over OAuth.`,
-    `- Authenticated REST requests and MCP tool calls share a limit of ${RATE_LIMITS.API_AUTHED.limit} requests per ${RATE_LIMITS.API_AUTHED.windowInSeconds} seconds per credential. Every response carries \`RateLimit-Limit\`, \`RateLimit-Remaining\`, and \`RateLimit-Reset\` (seconds until the window resets); a 429 also includes \`retry-after\`.`,
-  );
+  lines.push("## API and MCP", "");
 
   appendRouteCopyLines({
     keyOf: docsRouteIdKey,
@@ -305,7 +294,13 @@ function appendMachineInterfaceLines({
     routes: INDEXED_DOCS_ROUTES,
   });
 
-  lines.push("");
+  lines.push(
+    `- [OpenAPI document](${SITE_URL}${API_OPENAPI_SPEC_PATH}): Exact OpenAPI 3.1 contract with operations, scopes, schemas, and errors.`,
+    `- [MCP endpoint](${getMcpEndpointUrl()}): Streamable HTTP endpoint for the same operations as agent tools. Use an API key or OAuth.`,
+    "",
+    `Authenticated REST requests and MCP calls share a limit of ${RATE_LIMITS.API_AUTHED.limit} requests per ${RATE_LIMITS.API_AUTHED.windowInSeconds} seconds per credential. Responses include \`RateLimit-Limit\`, \`RateLimit-Remaining\`, and \`RateLimit-Reset\`. A 429 response also includes \`retry-after\`.`,
+    "",
+  );
 }
 
 export async function buildLlmsTxtContent({

@@ -250,6 +250,7 @@
         "oauthFlow": "OAuth 2.1 usa el flujo de código de autorización con PKCE. Envía a los usuarios a {authorizationPath}. Intercambia el código en {tokenPath}.",
         "wireFormat": "Envía una clave de API o un token de acceso OAuth como Authorization: Bearer TOKEN. Los cuerpos de petición usan {jsonContentType}. Los errores usan {problemJsonContentType}. Decide según code y lee detail antes de la siguiente acción.",
         "rateLimit": "Las peticiones autenticadas a la API están limitadas a {limit} peticiones por cada {windowInSeconds} segundos y credencial. Cada respuesta incluye RateLimit-Limit, RateLimit-Remaining y RateLimit-Reset (segundos hasta que se reinicia la ventana); una respuesta 429 incluye además retry-after.",
+        "markdownLink": "Abrir la referencia Markdown de la API",
         "specLink": "Abrir el documento OpenAPI",
         "authLink": "Cómo funciona la autenticación",
         "errorsLink": "Códigos de error",
@@ -1089,7 +1090,7 @@
   "Landing": {
     "meta": {
       "title": "Plantilla SaaS",
-      "description": "Una plantilla SaaS moderna creada con Next.js 15 y Cloudflare Workers, diseñada para escalar y rendir al máximo."
+      "description": "Una plantilla SaaS moderna creada con Next.js 16 y Cloudflare Workers, diseñada para escalar y rendir al máximo."
     },
     "Hero": {
       "titleLine1": "Lleva tu SaaS",

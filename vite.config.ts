@@ -11,6 +11,7 @@ import { analyzeBundle } from "./tools/vite-bundle-analyzer.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
 import { getSchedulerQueueName } from "./tools/wrangler-config.ts";
 
+const VINEXT_VITE_CACHE_DIR = "node_modules/.vite-vinext";
 const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
 const MARKDOWN_BUILD_ID =
@@ -19,6 +20,7 @@ const MARKDOWN_BUILD_ID =
   Date.now().toString(36);
 
 export default defineConfig({
+  cacheDir: VINEXT_VITE_CACHE_DIR,
   define: {
     __MARKDOWN_BUILD_ID__: JSON.stringify(MARKDOWN_BUILD_ID),
     __SCHEDULER_QUEUE_NAME__: JSON.stringify(getSchedulerQueueName()),

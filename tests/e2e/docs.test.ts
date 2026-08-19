@@ -62,7 +62,34 @@ test("serves a docs page as markdown at its .md URL", async () => {
 
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
+  expect(response.headers.get("link")).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
   await expect(response.text()).resolves.toContain("Authentication and team management");
+});
+
+// The root llms.txt relation is an HTTP header only: the Worker stamps it on every `text/html`
+// response, so the document shell must not emit a second copy of it.
+test("advertises the API Markdown page and root llms.txt in HTML and HTTP links", async () => {
+  const response = await fetchAppPath(API_DOCS_PATH);
+  const link = response.headers.get("link") ?? "";
+  const html = await response.text();
+
+  expect(link).toContain(`${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`);
+  expect(link).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
+  expect(html).toMatch(
+    new RegExp(`<link[^>]+href="[^"]*${API_DOCS_PATH}\\.md"[^>]+type="text/markdown"[^>]*>`),
+  );
+  expect(html).not.toMatch(/rel="describedby"/);
+});
+
+// A failed HTML page has no Markdown twin: the advertised `.md` URL would fail the same way.
+test("does not advertise a Markdown alternate on a missing docs page", async () => {
+  const response = await fetchAppPath("/docs/no-such-page-exists");
+  const link = response.headers.get("link") ?? "";
+
+  expect(response.status).toBe(404);
+  // next-intl stamps its own `rel="alternate"; hreflang=` values here, so pin the Markdown one.
+  expect(link).not.toContain('type="text/markdown"');
+  expect(link).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
 });
 
 test("redirects an old docs .md path to its current .md URL", async () => {
@@ -84,15 +111,19 @@ test("serves llms.txt from the docs navigation tree", async () => {
 
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toMatch(/^text\/plain\b/);
+  expect(response.headers.get("link")).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
 
   const body = await response.text();
   expect(body.split("\n")[0]).toBe(`# ${SITE_NAME}`);
   expect(body).toMatch(/^## Documentation$/m);
   expect(body).toMatch(/^## Search API$/m);
-  expect(body).toMatch(/GET https?:\/\/\S+\/api\/docs\/search\?q=authentication&limit=8/);
+  expect(body).toMatch(
+    /^- \[Documentation search API\]\(https?:\/\/[^)]+\/api\/docs\/search\?q=authentication&limit=8\): /m,
+  );
   expect(body).toMatch(
     new RegExp(`^- \\[Introduction\\]\\(https?://[^)]+${SEEDED_DOCS_ENTRY_PATH}\\.md\\): `, "m"),
   );
+  expect(body).not.toMatch(/^### \[Introduction\]/m);
 });
 
 test("redirects the old docs llms.txt URL to the root file", async () => {
@@ -110,8 +141,14 @@ test("points agents at the OpenAPI document and the MCP endpoint from llms.txt",
   const body = await response.text();
 
   expect(body).toMatch(/^## API and MCP$/m);
-  expect(body).toContain(API_OPENAPI_SPEC_PATH);
-  expect(body).toMatch(new RegExp(`https?://[^\\s\`]+${MCP_PATH}\``));
+  expect(body).toMatch(
+    new RegExp(`^- \\[OpenAPI document\\]\\(https?://[^)]+${API_OPENAPI_SPEC_PATH}\\): `, "m"),
+  );
+  expect(body).toMatch(
+    new RegExp(`^- \\[MCP endpoint\\]\\(https?://[^)]+${MCP_PATH}\\): `, "m"),
+  );
+  expect(body).not.toContain("OpenAPI 3.1 document: `GET");
+  expect(body).not.toContain("MCP endpoint (Streamable HTTP): `");
   expect(body).toContain(API_AUTH_DOCS_PATH);
   expect(body).toContain(`${API_AUTH_DOCS_PATH}.md`);
   expect(body).toContain(MCP_DOCS_PATH);

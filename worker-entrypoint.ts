@@ -109,20 +109,35 @@ async function getThrottleGates() {
   return import("./src/lib/oauth/edge/throttle-gates");
 }
 
+async function handleEarlyEdgeRequest({
+  method,
+  pathname,
+}: {
+  method: string;
+  pathname: string;
+}): Promise<Response | null> {
+  const customResponse = handleCustomEdge(pathname);
+  if (customResponse) {
+    return customResponse;
+  }
+
+  // Called ahead of the header clone: the document is prebuilt bytes that depend on nothing in the
+  // request, so normalizing headers for it would be pure waste.
+  if (isOpenApiSpecRequest({ method, pathname })) {
+    return openapiHandler.fetch();
+  }
+
+  return null;
+}
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    const early = handleCustomEdge(pathname);
-    if (early) {
-      return early;
-    }
-
-    // Ahead of the header clone: the document is prebuilt bytes that depend on nothing in the
-    // request, so normalizing headers for it would be pure waste.
-    if (isOpenApiSpecRequest({ method: request.method, pathname })) {
-      return openapiHandler.fetch();
+    const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, pathname });
+    if (earlyResponse) {
+      return earlyResponse;
     }
 
     // Header normalization applies to every branch below — including everything behind the OAuth
@@ -165,7 +180,13 @@ const worker = {
         .mirrorDcrRegistrationResponse({ response, ctx });
     }
 
-    return withMetadataRouteEdgeCache({ method: request.method, pathname, response });
+    const withDiscovery = await withHtmlAgentDiscovery({
+      method: request.method,
+      pathname,
+      response,
+    });
+
+    return withMetadataRouteEdgeCache({ method: request.method, pathname, response: withDiscovery });
   },
 
   // Cron and queue are their own entrypoints, so the job graph is imported on the invocation that
@@ -185,6 +206,27 @@ const worker = {
     await handleSchedulerQueue(batch);
   },
 } satisfies ExportedHandler<Env, ScheduledQueueMessage>;
+
+async function withHtmlAgentDiscovery({
+  method,
+  pathname,
+  response,
+}: {
+  method: string;
+  pathname: string;
+  response: Response;
+}): Promise<Response> {
+  const contentType = response.headers.get("content-type");
+
+  if ((method !== "GET" && method !== "HEAD") || !contentType?.startsWith("text/html")) {
+    return response;
+  }
+
+  return (await import("./src/lib/markdown-pages/discovery-links")).withHtmlDiscoveryLinkHeader({
+    pathname,
+    response,
+  });
+}
 
 // Re-wraps rather than mutating in place: a response is free to carry immutable headers, and
 // re-wrapping re-points the body stream rather than reading it.

@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import { API_OPENAPI_SPEC_PATH, SITE_URL } from "@/constants";
+import { getMcpEndpointUrl } from "@/constants/agent-clients";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { DEFAULT_LOCALE } from "@/i18n/config";
@@ -59,12 +61,25 @@ describe("buildLlmsTxtContent", () => {
 
     expect(body).toContain("/docs/getting-started/introduction.md");
     expect(body).toContain("[Introduction metadata title]");
+    expect(body).toContain(
+      `- [Introduction metadata title](${SITE_URL}/docs/getting-started/introduction.md): Start here.`,
+    );
     expect(body).not.toContain("Short navigation label");
     expect(body).not.toContain("/markdown/docs/introduction");
     expect(body).toContain("/blog/release-notes.md");
     expect(body).toContain("[Release notes metadata title]");
     expect(body).toContain("## Blog");
     expect(body).toContain(messages.Client.Docs.ApiReference.meta.title);
+    expect(body).toContain(messages.Landing.meta.description);
+    expect(body).toContain(
+      `## Search API\n\n- [Documentation search API](${SITE_URL}/api/docs/search?`,
+    );
+    expect(body).toContain(
+      `- [OpenAPI document](${SITE_URL}${API_OPENAPI_SPEC_PATH}): Exact OpenAPI 3.1 contract`,
+    );
+    expect(body).toContain(
+      `- [MCP endpoint](${getMcpEndpointUrl()}): Streamable HTTP endpoint`,
+    );
 
     for (const route of INDEXED_DOCS_ROUTES) {
       expect(body).toContain(`${route.pathname}.md`);
@@ -76,5 +91,53 @@ describe("buildLlmsTxtContent", () => {
     }
 
     expect(body.indexOf("## Site pages")).toBeLessThan(body.indexOf("## Documentation"));
+  });
+
+  test("separates a root-level page from the group before it", async () => {
+    const groupNode = {
+      nodeType: "group",
+      title: "Guides",
+      resolvedPath: null,
+      entry: null,
+      children: [
+        {
+          nodeType: "page",
+          title: "Nested label",
+          resolvedPath: "/docs/guides/install",
+          entry: {
+            collection: "docs",
+            slug: "install",
+            title: "Install",
+            seoDescription: "Install the app.",
+          },
+          children: [],
+        },
+      ],
+    } as unknown as CmsNavigationTreeNode;
+    const rootPageNode = {
+      nodeType: "page",
+      title: "Changelog label",
+      resolvedPath: "/docs/changelog",
+      entry: {
+        collection: "docs",
+        slug: "changelog",
+        title: "Changelog",
+        seoDescription: "What changed.",
+      },
+      children: [],
+    } as unknown as CmsNavigationTreeNode;
+    const body = await buildLlmsTxtContent({
+      blogEntries: [],
+      docsNodes: [groupNode, rootPageNode],
+    });
+
+    expect(body).toContain(
+      [
+        "### Guides",
+        `- [Install](${SITE_URL}/docs/guides/install.md): Install the app.`,
+        "",
+        `- [Changelog](${SITE_URL}/docs/changelog.md): What changed.`,
+      ].join("\n"),
+    );
   });
 });

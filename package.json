@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "clean": "rm -rf node_modules/.vite node_modules/.vite-temp .vinext/cache dist vinext worker worker-dist",
-    "dev": "pnpm run clean && vinext dev",
-    "build": "pnpm run clean && vinext build --verbose",
+    "clean": "rm -rf node_modules/.vite node_modules/.vite-vinext node_modules/.vite-openapi node_modules/.vite-temp .vinext/cache dist vinext worker worker-dist",
+    "dev": "vinext dev",
+    "build": "vinext build --verbose",
     "analyze:bundle": "ANALYZE_BUNDLE=1 pnpm build",
     "build:prod": "vinext-cloudflare deploy --dry-run",
     "start": "vinext start",

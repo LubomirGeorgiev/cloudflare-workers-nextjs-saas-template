@@ -1,3 +1,4 @@
+import { applyLlmsDescribedByLink, withLlmsDescribedByLinkHeader } from "./discovery-links";
 import { resolveMdRequestTarget, type MdRequestTarget } from "./resolve-target";
 
 export { resolveMdRequestTarget } from "./resolve-target";
@@ -63,11 +64,18 @@ export async function handleMarkdownRequest({
           await import("./serve-page")
         ).servePageMarkdown({ target, request, env, ctx, render, wantsDownload });
 
-  return request.method === "HEAD"
-    ? new Response(null, {
-        headers: response.headers,
-        status: response.status,
-        statusText: response.statusText,
-      })
-    : response;
+  if (request.method === "HEAD") {
+    // The body is dropped anyway, so the discovery relation goes straight onto the headers this
+    // branch already has to build.
+    const headers = new Headers(response.headers);
+    applyLlmsDescribedByLink(headers);
+
+    return new Response(null, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
+
+  return withLlmsDescribedByLinkHeader({ response });
 }

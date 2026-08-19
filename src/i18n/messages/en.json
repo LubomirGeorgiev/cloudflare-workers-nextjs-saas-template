@@ -250,6 +250,7 @@
         "oauthFlow": "OAuth 2.1 uses the authorization code flow with PKCE. Send users to {authorizationPath}. Exchange the code at {tokenPath}.",
         "wireFormat": "Send an API key or OAuth access token as Authorization: Bearer TOKEN. Request bodies use {jsonContentType}. Errors use {problemJsonContentType}. Branch on code and read detail before the next action.",
         "rateLimit": "Authenticated API requests are limited to {limit} requests per {windowInSeconds} seconds per credential. Every response carries RateLimit-Limit, RateLimit-Remaining, and RateLimit-Reset (seconds until the window resets); a 429 also includes retry-after.",
+        "markdownLink": "Open the Markdown API reference",
         "specLink": "Open the OpenAPI document",
         "authLink": "How authentication works",
         "errorsLink": "Error codes",
@@ -1089,7 +1090,7 @@
   "Landing": {
     "meta": {
       "title": "SaaS Template",
-      "description": "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
+      "description": "A modern SaaS template built with Next.js 16 and Cloudflare Workers, designed for scalability and performance."
     },
     "Hero": {
       "titleLine1": "Ship your SaaS",
