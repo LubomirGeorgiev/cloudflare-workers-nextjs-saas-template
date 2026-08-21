@@ -35,6 +35,12 @@ type ValibotPipeItem = {
   type?: string;
 };
 
+interface UnwrappedValibotSchema {
+  defaultValue: unknown;
+  isOptional: boolean;
+  schema: ValibotSchemaLike;
+}
+
 export function valibotSchemaToFieldConfigs(schema: GenericSchema): FieldConfig[] {
   const schemaLike = schema as ValibotSchemaLike;
 
@@ -54,7 +60,7 @@ export function valibotSchemaToFieldConfigs(schema: GenericSchema): FieldConfig[
   return fields;
 }
 
-function valibotTypeToFieldConfig(name: string, schema: GenericSchema): FieldConfig | null {
+function unwrapValibotSchema(schema: GenericSchema): UnwrappedValibotSchema {
   let currentSchema = schema as ValibotSchemaLike;
   let isOptional = false;
   let defaultValue: unknown = undefined;
@@ -64,9 +70,7 @@ function valibotTypeToFieldConfig(name: string, schema: GenericSchema): FieldCon
     currentSchema.type === "nullable" ||
     currentSchema.type === "nullish"
   ) {
-    if (currentSchema.type === "optional" || currentSchema.type === "nullable" || currentSchema.type === "nullish") {
-      isOptional = true;
-    }
+    isOptional = true;
 
     if ("default" in currentSchema) {
       defaultValue = getDefaultValue(currentSchema);
@@ -78,6 +82,16 @@ function valibotTypeToFieldConfig(name: string, schema: GenericSchema): FieldCon
 
     currentSchema = currentSchema.wrapped as ValibotSchemaLike;
   }
+
+  return { defaultValue, isOptional, schema: currentSchema };
+}
+
+function valibotTypeToFieldConfig(name: string, schema: GenericSchema): FieldConfig | null {
+  const {
+    defaultValue,
+    isOptional,
+    schema: currentSchema,
+  } = unwrapValibotSchema(schema);
 
   const pipe = currentSchema.pipe ?? [];
   const baseSchema = (pipe[0] as ValibotSchemaLike | undefined) ?? currentSchema;

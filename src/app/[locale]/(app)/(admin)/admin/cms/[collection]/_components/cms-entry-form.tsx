@@ -69,6 +69,52 @@ type CmsEntryFormProps = {
   pageSubtitle: string;
 };
 
+function getCmsEntryFormDefaultValues({
+  defaultFieldValues,
+  entry,
+  mode,
+}: {
+  defaultFieldValues: Record<string, unknown>;
+  entry?: GetCmsCollectionResult;
+  mode: CmsEntryFormProps["mode"];
+}): CmsEntryFormInput {
+  return {
+    title: entry?.title || "",
+    slug: entry?.slug || "",
+    content: entry?.content || { type: "doc", content: [] },
+    seoDescription: entry?.seoDescription || "",
+    status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
+    publishedAt: entry?.publishedAt ? new Date(entry.publishedAt) : undefined,
+    tagIds: entry?.tags?.map((tag) => tag.tag.id) || [],
+    fields: defaultFieldValues,
+    featuredImageId: entry?.featuredImageId || undefined,
+  };
+}
+
+function getCmsEntryPreview({
+  collection,
+  currentSlug,
+  navigationPublicUrl,
+}: {
+  collection: string;
+  currentSlug: string;
+  navigationPublicUrl: Route | null;
+}): { navigationKey: string | null; previewUrl: Route | null } {
+  const collectionSlug = collection as CollectionsUnion;
+  const collectionConfig = cmsConfig.collections[collectionSlug];
+  const navigationKey = getCmsCollectionNavigationKey(collectionSlug);
+  const previewUrlBuilder = "previewUrl" in collectionConfig
+    ? collectionConfig.previewUrl
+    : undefined;
+  const previewUrl = navigationKey
+    ? navigationPublicUrl
+    : currentSlug.trim() && previewUrlBuilder
+      ? (previewUrlBuilder(currentSlug) as Route)
+      : null;
+
+  return { navigationKey, previewUrl };
+}
+
 export function CmsEntryForm({
   collection,
   navigationPublicUrl = null,
@@ -77,7 +123,6 @@ export function CmsEntryForm({
   pageTitle,
   pageSubtitle,
 }: CmsEntryFormProps) {
-  const collectionConfig = cmsConfig.collections[collection as CollectionsUnion];
   const router = useRouter();
   const multiSelectRef = useRef<MultiSelectRef>(null);
   const isSlugManuallyEditedRef = useRef(false);
@@ -110,17 +155,7 @@ export function CmsEntryForm({
 
   const form = useForm<CmsEntryFormInput, unknown, CmsEntryFormData>({
     resolver: valibotResolver(cmsEntryFormSchema),
-    defaultValues: {
-      title: entry?.title || "",
-      slug: entry?.slug || "",
-      content: entry?.content || { type: "doc", content: [] },
-      seoDescription: entry?.seoDescription || "",
-      status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
-      publishedAt: entry?.publishedAt ? new Date(entry.publishedAt) : undefined,
-      tagIds: entry?.tags?.map((t) => t.tag.id) || [],
-      fields: defaultFieldValues,
-      featuredImageId: entry?.featuredImageId || undefined,
-    },
+    defaultValues: getCmsEntryFormDefaultValues({ defaultFieldValues, entry, mode }),
   });
 
   const statusValue = form.watch("status");
@@ -372,13 +407,11 @@ export function CmsEntryForm({
   }, [searchValue, hasExactMatch, isCreatingTag, handleCreateTag]);
 
   const currentSlug = form.watch("slug");
-  const navigationKey = getCmsCollectionNavigationKey(collection as CollectionsUnion);
-  const previewUrlBuilder = "previewUrl" in collectionConfig ? collectionConfig.previewUrl : undefined;
-  const previewUrl = navigationKey
-    ? navigationPublicUrl
-    : currentSlug?.trim() && previewUrlBuilder
-      ? (previewUrlBuilder(currentSlug) as Route)
-      : null;
+  const { navigationKey, previewUrl } = getCmsEntryPreview({
+    collection,
+    currentSlug,
+    navigationPublicUrl,
+  });
   const showNavigationAlert = mode === "edit" && Boolean(navigationKey) && !previewUrl;
   const navigationAlert = showNavigationAlert ? (
     <Alert>

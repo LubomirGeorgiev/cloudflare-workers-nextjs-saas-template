@@ -157,38 +157,152 @@ export interface MultiSelectRef {
   closePopover: () => void;
 }
 
+interface NormalizedMultiSelectProps extends MultiSelectProps {
+  animation: number;
+  autoSize: boolean;
+  closeOnSelect: boolean;
+  deduplicateOptions: boolean;
+  defaultValue: string[];
+  disabled: boolean;
+  hideSelectAll: boolean;
+  maxCount: number;
+  modalPopover: boolean;
+  placeholder: string;
+  resetOnDefaultValueChange: boolean;
+  searchable: boolean;
+  singleLine: boolean;
+}
+
+interface ResponsiveSettings {
+  compactMode: boolean;
+  hideIcons: boolean;
+  maxCount: number;
+}
+
+interface WidthConstraints {
+  maxWidth: string;
+  minWidth: string;
+  width: string;
+}
+
+function normalizeMultiSelectProps(props: MultiSelectProps): NormalizedMultiSelectProps {
+  return {
+    ...props,
+    animation: props.animation === undefined ? 0 : props.animation,
+    autoSize: props.autoSize === undefined ? false : props.autoSize,
+    closeOnSelect: props.closeOnSelect === undefined ? false : props.closeOnSelect,
+    deduplicateOptions: props.deduplicateOptions === undefined
+      ? false
+      : props.deduplicateOptions,
+    defaultValue: props.defaultValue === undefined ? [] : props.defaultValue,
+    disabled: props.disabled === undefined ? false : props.disabled,
+    hideSelectAll: props.hideSelectAll === undefined ? false : props.hideSelectAll,
+    maxCount: props.maxCount === undefined ? 3 : props.maxCount,
+    modalPopover: props.modalPopover === undefined ? false : props.modalPopover,
+    placeholder: props.placeholder === undefined ? "Select options" : props.placeholder,
+    resetOnDefaultValueChange: props.resetOnDefaultValueChange === undefined
+      ? true
+      : props.resetOnDefaultValueChange,
+    searchable: props.searchable === undefined ? true : props.searchable,
+    singleLine: props.singleLine === undefined ? false : props.singleLine,
+  };
+}
+
+function getMultiSelectTriggerClassName({
+  autoSize,
+  className,
+  disabled,
+  responsiveSettings,
+  screenSize,
+}: {
+  autoSize: boolean;
+  className?: string;
+  disabled: boolean;
+  responsiveSettings: ResponsiveSettings;
+  screenSize: "mobile" | "tablet" | "desktop";
+}): string {
+  return cn(
+    "flex p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
+    autoSize ? "w-auto" : "w-full",
+    responsiveSettings.compactMode && "min-h-8 text-sm",
+    screenSize === "mobile" && "min-h-12 text-base",
+    disabled && "opacity-50 cursor-not-allowed",
+    className,
+  );
+}
+
+function getMultiSelectPopoverClassName({
+  animationClassName,
+  popoverClassName,
+  screenSize,
+}: {
+  animationClassName: string;
+  popoverClassName?: string;
+  screenSize: "mobile" | "tablet" | "desktop";
+}): string {
+  return cn(
+    "w-auto p-0",
+    animationClassName,
+    screenSize === "mobile" && "w-[85vw] max-w-[280px]",
+    screenSize === "tablet" && "w-[70vw] max-w-md",
+    screenSize === "desktop" && "min-w-[300px]",
+    popoverClassName,
+  );
+}
+
+function getMultiSelectPopoverStyle({
+  animation,
+  animationConfig,
+  screenSize,
+  widthConstraints,
+}: {
+  animation: number;
+  animationConfig?: AnimationConfig;
+  screenSize: "mobile" | "tablet" | "desktop";
+  widthConstraints: WidthConstraints;
+}): React.CSSProperties {
+  return {
+    animationDuration: `${animationConfig?.duration || animation}s`,
+    animationDelay: `${animationConfig?.delay || 0}s`,
+    maxWidth: `min(${widthConstraints.maxWidth}, 85vw)`,
+    maxHeight: screenSize === "mobile" ? "70vh" : "60vh",
+    touchAction: "manipulation",
+  };
+}
+
 // Take from https://github.com/sersavan/shadcn-multi-select-component/blob/main/src/components/multi-select.tsx
 export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
   (
-    {
+    multiSelectProps,
+    ref
+  ) => {
+    const {
       options,
       onValueChange,
       variant,
-      defaultValue = [],
-      placeholder = "Select options",
-      animation = 0,
+      defaultValue,
+      placeholder,
+      animation,
       animationConfig,
-      maxCount = 3,
-      modalPopover = false,
+      maxCount,
+      modalPopover,
       className,
-      hideSelectAll = false,
-      searchable = true,
+      hideSelectAll,
+      searchable,
       emptyIndicator,
-      autoSize = false,
-      singleLine = false,
+      autoSize,
+      singleLine,
       popoverClassName,
-      disabled = false,
+      disabled,
       responsive,
       minWidth,
       maxWidth,
-      deduplicateOptions = false,
-      resetOnDefaultValueChange = true,
-      closeOnSelect = false,
+      deduplicateOptions,
+      resetOnDefaultValueChange,
+      closeOnSelect,
       onSearchChange,
       ...props
-    },
-    ref
-  ) => {
+    } = normalizeMultiSelectProps(multiSelectProps);
     const [selectedValues, setSelectedValues] =
       React.useState<string[]>(defaultValue);
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
@@ -700,14 +814,13 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
                 aria-label={`Multi-select: ${selectedValues.length} of ${allOptions.length
                   } options selected. ${placeholder}`}
-                className={cn(
-                  "flex p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
-                  autoSize ? "w-auto" : "w-full",
-                  responsiveSettings.compactMode && "min-h-8 text-sm",
-                  screenSize === "mobile" && "min-h-12 text-base",
-                  disabled && "opacity-50 cursor-not-allowed",
-                  className
-                )}
+                className={getMultiSelectTriggerClassName({
+                  autoSize,
+                  className,
+                  disabled,
+                  responsiveSettings,
+                  screenSize,
+                })}
                 style={{
                   ...widthConstraints,
                   maxWidth: `min(${widthConstraints.maxWidth}, 100%)`,
@@ -896,21 +1009,17 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
             role="listbox"
             aria-multiselectable="true"
             aria-label="Available options"
-            className={cn(
-              "w-auto p-0",
-              getPopoverAnimationClass(),
-              screenSize === "mobile" && "w-[85vw] max-w-[280px]",
-              screenSize === "tablet" && "w-[70vw] max-w-md",
-              screenSize === "desktop" && "min-w-[300px]",
-              popoverClassName
-            )}
-            style={{
-              animationDuration: `${animationConfig?.duration || animation}s`,
-              animationDelay: `${animationConfig?.delay || 0}s`,
-              maxWidth: `min(${widthConstraints.maxWidth}, 85vw)`,
-              maxHeight: screenSize === "mobile" ? "70vh" : "60vh",
-              touchAction: "manipulation",
-            }}
+            className={getMultiSelectPopoverClassName({
+              animationClassName: getPopoverAnimationClass(),
+              popoverClassName,
+              screenSize,
+            })}
+            style={getMultiSelectPopoverStyle({
+              animation,
+              animationConfig,
+              screenSize,
+              widthConstraints,
+            })}
             align="start"
             onEscapeKeyDown={() => setIsPopoverOpen(false)}>
             <Command>

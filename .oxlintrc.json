@@ -36,6 +36,7 @@
     "project/client-translations-under-client-namespace": "error",
     "project/no-implicit-locale-translations": "error",
     "array-callback-return": "error",
+    "complexity": ["error", { "max": 30 }],
     "curly": ["error", "all"],
     "eqeqeq": "error",
     "no-fallthrough": "error",

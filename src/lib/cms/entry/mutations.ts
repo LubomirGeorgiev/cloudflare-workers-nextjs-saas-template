@@ -173,6 +173,38 @@ async function syncCreatedEntrySideEffects({
   ]);
 }
 
+async function resolveUpdatedSeoDescription({
+  content,
+  existingEntry,
+  seoDescription,
+  title,
+}: {
+  content: UpdateCmsEntryParams["content"];
+  existingEntry: CmsEntry;
+  seoDescription: UpdateCmsEntryParams["seoDescription"];
+  title: UpdateCmsEntryParams["title"];
+}): Promise<string | null | undefined> {
+  const contentOrTitleChanged = content !== undefined || title !== undefined;
+  const shouldGenerateSeo =
+    seoDescription === undefined &&
+    contentOrTitleChanged &&
+    (!existingEntry.seoDescription || existingEntry.seoDescription.trim() === "");
+
+  if (!shouldGenerateSeo) {
+    return seoDescription;
+  }
+
+  const generatedDescription = await generateSeoDescription({
+    title: title ?? existingEntry.title,
+    content: (content ?? existingEntry.content) as JSONContent,
+    collectionSlug: existingEntry.collection,
+    // `locale` is a raw text column; fall back to the default if it left the catalog.
+    locale: isLocale(existingEntry.locale) ? existingEntry.locale : DEFAULT_LOCALE,
+  });
+
+  return generatedDescription || seoDescription;
+}
+
 export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsEntry | null> {
   const validated = v.parse(updateCmsEntryParamsSchema, params);
   const { id, slug, title, content, fields, seoDescription, status, publishedAt, tagIds, featuredImageId, sourceContentHashes } = validated;
@@ -197,29 +229,12 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     validatedFields = validateEntryFields(fields, collection);
   }
 
-  let finalSeoDescription = seoDescription;
-
-  // Auto-generate SEO only when the caller did not provide one and the entry lacks one.
-  const finalTitle = title ?? existingEntry.title;
-  const finalContent = content ?? existingEntry.content;
-  const contentOrTitleChanged = content !== undefined || title !== undefined;
-  const shouldGenerateSeo =
-    finalSeoDescription === undefined &&
-    contentOrTitleChanged &&
-    (!existingEntry.seoDescription || existingEntry.seoDescription.trim() === "");
-
-  if (shouldGenerateSeo) {
-    const generatedDescription = await generateSeoDescription({
-      title: finalTitle,
-      content: finalContent as JSONContent,
-      collectionSlug: existingEntry.collection,
-      // `locale` is a raw text column; fall back to the default if it left the catalog.
-      locale: isLocale(existingEntry.locale) ? existingEntry.locale : DEFAULT_LOCALE,
-    });
-    if (generatedDescription) {
-      finalSeoDescription = generatedDescription;
-    }
-  }
+  const finalSeoDescription = await resolveUpdatedSeoDescription({
+    content,
+    existingEntry,
+    seoDescription,
+    title,
+  });
 
   validateSeoDescription(finalSeoDescription);
 
