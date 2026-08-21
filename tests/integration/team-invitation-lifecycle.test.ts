@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Public-boundary coverage for the invitation lifecycle, exercised through the real command
 // functions (inviteUserToTeam / acceptTeamInvitationById / removeTeamMember) against real D1 —

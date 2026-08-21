@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Behavior coverage for the bearer hot path against a real D1 + KV. The invariants under test:
 // a malformed token never reaches storage, a cache hit serves the principal without D1, and the

@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // The generated OpenAPI document is the contract three consumers read: the docs UI, third-party
 // clients, and (from Phase 4) the MCP tool derivation. Generation runs the whole Valibot ->

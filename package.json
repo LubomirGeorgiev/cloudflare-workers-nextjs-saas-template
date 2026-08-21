@@ -113,7 +113,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.51.1",
-    "@cloudflare/vitest-pool-workers": "^0.20.3",
+    "@cloudflare/vitest-plugin": "^1.0.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
     "@types/hast": "^3.0.5",

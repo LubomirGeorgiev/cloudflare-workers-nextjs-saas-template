@@ -1,4 +1,4 @@
-import { cloudflareTest, type D1Migration } from "@cloudflare/vitest-pool-workers";
+import { cloudflareTest, type D1Migration } from "@cloudflare/vitest-plugin";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 

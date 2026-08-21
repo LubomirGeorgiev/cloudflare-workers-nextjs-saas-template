@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Public-boundary atomicity coverage for the team subsystem's race-safe write paths. The branch's
 // whole point is that team creation, invitation, acceptance, seat capacity, trial reservation, and

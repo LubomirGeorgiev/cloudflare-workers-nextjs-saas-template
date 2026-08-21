@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Behavior coverage for renaming a team against a real D1. The invariant under test is that a
 // rename changes ONLY the display name: `slug` is the team's URL and must survive untouched, so

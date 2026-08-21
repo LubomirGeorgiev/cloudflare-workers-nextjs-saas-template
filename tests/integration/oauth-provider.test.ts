@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // The OAuth authorization server end to end against real D1 + KV. `@cloudflare/workers-oauth-provider`
 // is a plain library, so the whole dance — dynamic registration, consent, code exchange, refresh

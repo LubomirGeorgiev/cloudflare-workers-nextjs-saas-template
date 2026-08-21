@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // End-to-end coverage of the public REST API against real D1 + KV: requests carry a real API key,
 // so nothing about authentication or authorization is mocked. What is under test is the full

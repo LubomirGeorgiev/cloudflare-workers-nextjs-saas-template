@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // The anonymous throttle for the public API, driven through the real Worker entrypoint against the
 // real KV limiter. `@cloudflare/workers-oauth-provider` answers a bad or missing bearer itself and

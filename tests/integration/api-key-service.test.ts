@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Behavior coverage for the API-key service against a real D1: the creation cap is enforced by a
 // conditional INSERT (D1 has no transactions), scopes are validated against the shared catalog,

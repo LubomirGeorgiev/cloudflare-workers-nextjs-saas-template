@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // Lifecycle coverage for the trial-reservation state machine against a real Miniflare D1:
 // completeTrialSubscription (release-on-success / retain-on-ambiguous / release-on-definite)

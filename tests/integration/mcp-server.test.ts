@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 // The remote MCP server over real Streamable HTTP, driven through the Worker entrypoint so the
 // whole funnel is under test: OAuth-provider bearer validation, the principal build, spec-driven

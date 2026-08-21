@@ -1,4 +1,4 @@
-/// <reference types="@cloudflare/vitest-pool-workers/types" />
+/// <reference types="@cloudflare/vitest-plugin/types" />
 
 import { AuthorizationError } from "@cloudflare/workers-oauth-provider";
 import { env } from "cloudflare:workers";
