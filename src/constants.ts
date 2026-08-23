@@ -29,7 +29,21 @@ export const CURRENT_API_KEY_CACHE_VERSION = 2;
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
 export const API_V1_BASE_PATH = "/api/v1";
 export const LLMS_TXT_PATH = "/llms.txt";
-export const LLMS_TXT_URL = `${SITE_URL}${LLMS_TXT_PATH}`;
+// File-local: `LLMS_DESCRIBED_BY_RELATION.href` is the one URL every consumer reads.
+const LLMS_TXT_URL = `${SITE_URL}${LLMS_TXT_PATH}`;
+// One definition of the root llms.txt relation. Two channels advertise it — the `Link` header the
+// Worker stamps on HTML and the `<link>` the shell renders — and they must not drift apart.
+export const LLMS_DESCRIBED_BY_RELATION = {
+  href: LLMS_TXT_URL,
+  rel: "describedby",
+  type: "text/plain",
+} as const;
+
+// The `.md` twin's media type and URL suffix. They live here, not next to the Markdown code, so
+// the `Accept` prefilter in `worker-entrypoint.ts` can compare against the real value: that gate
+// runs on every page request, and this module is already on the entry's static graph.
+export const MARKDOWN_CONTENT_TYPE = "text/markdown";
+export const MARKDOWN_EXTENSION = ".md";
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
 // The document is a static read, so only the safe methods serve it. Shared by the Hono route and
 // the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.

@@ -1,7 +1,5 @@
-import { SITE_URL } from "@/constants";
+import { MARKDOWN_EXTENSION, SITE_URL } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
-
-const MARKDOWN_EXTENSION = ".md";
 
 /** The index segment, because neither a bare `/.md` nor a locale root `/es.md` is a usable URL. */
 const INDEX_PAGE_SEGMENT = "/index";

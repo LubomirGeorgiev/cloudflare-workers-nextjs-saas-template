@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { LLMS_TXT_URL, SITE_NAME } from "@/constants";
+import { SITE_NAME } from "@/constants";
 import {
   MARKDOWN_PAGE_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_TTL_SECONDS,
@@ -11,6 +11,7 @@ import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-ro
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES } from "@/i18n/config";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
 
+import { LLMS_DESCRIBED_BY_LINK } from "./discovery-links";
 import {
   handleMarkdownRequest,
   MARKDOWN_DOWNLOAD_PARAM,
@@ -184,8 +185,8 @@ describe("handleMarkdownRequest", () => {
     expect(second?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
     expect(first?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
     expect(second?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
-    expect(first?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
-    expect(second?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
+    expect(first?.headers.get("link")).toBe(LLMS_DESCRIBED_BY_LINK);
+    expect(second?.headers.get("link")).toBe(LLMS_DESCRIBED_BY_LINK);
     await expect(first?.text()).resolves.toContain(
       `Source: ${buildAbsoluteSourcePageUrl({ pathname: PAGE_PATHNAME })}`,
     );
@@ -446,7 +447,7 @@ describe("handleMarkdownRequest", () => {
     expect(response?.status).toBe(200);
     expect(response?.headers.get("cache-tag")).toBe("cms-entry-blog-launch");
     expect(response?.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
-    expect(response?.headers.get("link")).toBe(`<${LLMS_TXT_URL}>; rel="describedby"`);
+    expect(response?.headers.get("link")).toBe(LLMS_DESCRIBED_BY_LINK);
     expect(response?.body).toBeNull();
     // The inner render always sees a GET, whatever method the caller sent.
     expect(renderedMethod).toBe("GET");

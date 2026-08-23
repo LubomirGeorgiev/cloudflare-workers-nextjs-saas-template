@@ -3,12 +3,16 @@
 // Composition only: this file decides *what runs in what order*, never what any policy is. The
 // OAuth-owned pieces (issuance and anonymous throttling, DCR mirroring, API-key token resolution)
 // live in `src/lib/oauth/edge/`, are lazily imported, and are unit-testable without a Worker.
+// Put every new edge concern in its own helper, never inline in `fetch`: `fetch` is at its
+// complexity cap, and each helper stays readable and testable on its own.
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import handler from "vinext/server/fetch-handler";
 import {
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
+  MARKDOWN_CONTENT_TYPE,
+  MARKDOWN_EXTENSION,
   MCP_PATH,
   OAUTH_ISSUANCE_THROTTLED_METHODS,
   OAUTH_REGISTER_PATH,
@@ -35,10 +39,6 @@ function handleCustomEdge(pathname: string): Response | null {
   }
 
   return null;
-}
-
-function isMarkdownPageRequest({ method, pathname }: { method: string; pathname: string }): boolean {
-  return (method === "GET" || method === "HEAD") && pathname.toLowerCase().endsWith(".md");
 }
 
 // The OpenAPI document is deliberately readable without a credential (it is what agent clients and
@@ -130,6 +130,45 @@ async function handleEarlyEdgeRequest({
   return null;
 }
 
+// Both ways to ask for Markdown, in the order they must be tried. The negotiated redirect is the
+// `else` branch, so a `.md` URL is never negotiated against itself, and it answers at the edge
+// rather than rendering: an agent that asked for Markdown must not pay for an HTML render first.
+async function handleMarkdownEdgeRequest({
+  request,
+  env,
+  ctx,
+  pathname,
+}: {
+  ctx: ExecutionContext;
+  env: Env;
+  pathname: string;
+  request: Request;
+}): Promise<Response | null> {
+  const method = request.method;
+  if (method !== "GET" && method !== "HEAD") {
+    return null;
+  }
+
+  if (pathname.toLowerCase().endsWith(MARKDOWN_EXTENSION)) {
+    return (await import("./src/lib/markdown-pages")).handleMarkdownRequest({
+      request,
+      env,
+      ctx,
+      render: nextAppHandler.fetch,
+    });
+  }
+
+  // Cheap prefilter, deliberately broader than the real rule: it runs on every page request, and
+  // the exact parse stays behind the `import()` with the rest of the Markdown graph.
+  const accept = request.headers.get("accept");
+  if (accept === null || !accept.toLowerCase().includes(MARKDOWN_CONTENT_TYPE)) {
+    return null;
+  }
+
+  return (await import("./src/lib/markdown-pages/accept-negotiation"))
+    .markdownNegotiationRedirect({ accept, pathname });
+}
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -144,16 +183,14 @@ const worker = {
     // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
     const forwarded = withForwardedCfHeaders({ request, url });
 
-    if (isMarkdownPageRequest({ method: request.method, pathname })) {
-      const markdownResponse = await (await import("./src/lib/markdown-pages")).handleMarkdownRequest({
-        request: forwarded,
-        env,
-        ctx,
-        render: nextAppHandler.fetch,
-      });
-      if (markdownResponse) {
-        return markdownResponse;
-      }
+    const markdownResponse = await handleMarkdownEdgeRequest({
+      request: forwarded,
+      env,
+      ctx,
+      pathname,
+    });
+    if (markdownResponse) {
+      return markdownResponse;
     }
 
     // The gate enforces this same set; reading it here too is what keeps the KV limiter off the

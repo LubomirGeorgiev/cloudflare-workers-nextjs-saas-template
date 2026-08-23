@@ -1,14 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { API_DOCS_PATH, LLMS_TXT_URL, SITE_URL } from "@/constants";
+import { API_DOCS_PATH, SITE_URL } from "@/constants";
 import { BLOG_LISTING_ROUTES } from "@/constants/public-routes";
 
 vi.mock("server-only", () => ({}));
 
-const { appendLinkHeaderValues, withHtmlDiscoveryLinkHeader, withLlmsDescribedByLinkHeader } =
-  await import("./discovery-links");
-
-const DESCRIBED_BY = `<${LLMS_TXT_URL}>; rel="describedby"`;
+// The relation has one definition, so the expected value comes from it rather than a second copy.
+const {
+  appendLinkHeaderValues,
+  LLMS_DESCRIBED_BY_LINK: DESCRIBED_BY,
+  withHtmlDiscoveryLinkHeader,
+  withLlmsDescribedByLinkHeader,
+} = await import("./discovery-links");
 const API_DOCS_ALTERNATE =
   `<${SITE_URL}${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`;
 

@@ -8,13 +8,18 @@ import {
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
+  MARKDOWN_CONTENT_TYPE,
+  MARKDOWN_EXTENSION,
   OAUTH_AUTHORIZE_PATH,
   OAUTH_OPEN_DCR_ENABLED,
   OAUTH_PROTECTED_RESOURCE_PATH,
   OAUTH_REGISTER_PATH,
   SITE_NAME,
 } from "@/constants";
-import { MARKDOWN_PAGE_CACHE_CONTROL } from "@/constants/cache-control";
+import {
+  MARKDOWN_NEGOTIATION_CACHE_CONTROL,
+  MARKDOWN_PAGE_CACHE_CONTROL,
+} from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import {
@@ -97,6 +102,64 @@ describe("worker edge integration", () => {
     expect(response.headers.get("cache-tag")).toBe("cms-entry-docs-billing");
     expect(response.headers.get("location")).toBeNull();
     await expect(response.text()).resolves.toBe("# /markdown/docs/core-concepts/billing\n");
+  });
+
+  test("redirects an Accept: text/markdown page request to its .md twin", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/terms", { headers: { accept: MARKDOWN_CONTENT_TYPE } }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`/terms${MARKDOWN_EXTENSION}`);
+    expect(response.headers.get("vary")).toBe("accept");
+    expect(response.headers.get("cache-control")).toBe(MARKDOWN_NEGOTIATION_CACHE_CONTROL);
+    // The whole point of answering at the edge: the agent never pays for an HTML render.
+    expect(innerFetchMock).not.toHaveBeenCalled();
+  });
+
+  // A media type is case-insensitive, so the cheap prefilter in the Worker entry must accept a
+  // mixed-case header. A prefilter that is narrower than the parser hides the whole feature.
+  test("redirects a mixed-case Accept: text/markdown page request to its .md twin", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/terms", {
+        headers: { accept: MARKDOWN_CONTENT_TYPE.toUpperCase() },
+      }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe(`/terms${MARKDOWN_EXTENSION}`);
+    expect(innerFetchMock).not.toHaveBeenCalled();
+  });
+
+  // A browser header names no exact `text/markdown` range, so it takes the page.
+  test("renders the page for a browser Accept header", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/terms", {
+        headers: { accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
+      }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(innerFetchMock).toHaveBeenCalledOnce();
+  });
+
+  test("renders the page for a path with no .md twin", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/dashboard", {
+        headers: { accept: MARKDOWN_CONTENT_TYPE },
+      }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(innerFetchMock).toHaveBeenCalledOnce();
   });
 
   test("renders a public JSX page as Markdown and caches it in KV", async () => {

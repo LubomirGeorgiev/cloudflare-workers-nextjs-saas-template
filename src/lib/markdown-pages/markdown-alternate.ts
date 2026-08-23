@@ -4,8 +4,12 @@ import type { Locale } from "@/i18n/config";
 import { buildMarkdownPagePath, localizedPagePathname } from "./page-paths";
 import { resolveMdRequestTarget } from "./resolve-target";
 
-/** The media type of every `.md` twin, for both the `Link` header and the metadata alternate. */
-export const MARKDOWN_CONTENT_TYPE = "text/markdown";
+/**
+ * The media type of every `.md` twin, for both the `Link` header and the metadata alternate.
+ * Re-exported from `@/constants`, which owns it so the Worker entry can read it without pulling
+ * this module onto its startup graph.
+ */
+export { MARKDOWN_CONTENT_TYPE } from "@/constants";
 
 interface MarkdownAlternate {
   path: string;

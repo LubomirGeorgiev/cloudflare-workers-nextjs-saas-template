@@ -15,6 +15,7 @@ import {
   API_DOCS_PATH,
   API_ERRORS_DOCS_PATH,
   API_OPENAPI_SPEC_PATH,
+  LLMS_DESCRIBED_BY_RELATION,
   LLMS_TXT_PATH,
   MCP_DOCS_PATH,
   MCP_PATH,
@@ -26,6 +27,9 @@ import { parseMarkdownPagePath } from "../../src/lib/markdown-pages/page-paths";
 import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 const defaultMessages = await loadCatalog(DEFAULT_LOCALE);
+
+/** Every `<link rel="describedby">` element, whatever order the renderer writes its attributes. */
+const DESCRIBED_BY_LINK_PATTERN = /<link[^>]+rel="describedby"[^>]*>/g;
 
 /** Every question the landing accordion renders, read from the catalog rather than restated here. */
 function faqQuestions(messages: typeof defaultMessages): string[] {
@@ -66,8 +70,9 @@ test("serves a docs page as markdown at its .md URL", async () => {
   await expect(response.text()).resolves.toContain("Authentication and team management");
 });
 
-// The root llms.txt relation is an HTTP header only: the Worker stamps it on every `text/html`
-// response, so the document shell must not emit a second copy of it.
+// The Worker stamps the root llms.txt relation on every `text/html` response, and the shell repeats
+// it in the DOM for agents that read markup instead of headers. React must hoist that one copy into
+// `<head>` during the server render, so the slice below is where the only match may appear.
 test("advertises the API Markdown page and root llms.txt in HTML and HTTP links", async () => {
   const response = await fetchAppPath(API_DOCS_PATH);
   const link = response.headers.get("link") ?? "";
@@ -78,7 +83,17 @@ test("advertises the API Markdown page and root llms.txt in HTML and HTTP links"
   expect(html).toMatch(
     new RegExp(`<link[^>]+href="[^"]*${API_DOCS_PATH}\\.md"[^>]+type="text/markdown"[^>]*>`),
   );
-  expect(html).not.toMatch(/rel="describedby"/);
+
+  const headEnd = html.indexOf("</head>");
+  expect(headEnd).toBeGreaterThan(-1);
+
+  const headLinks = html.slice(0, headEnd).match(DESCRIBED_BY_LINK_PATTERN) ?? [];
+  const documentLinks = html.match(DESCRIBED_BY_LINK_PATTERN) ?? [];
+
+  expect(headLinks).toHaveLength(1);
+  expect(documentLinks).toHaveLength(1);
+  expect(headLinks[0]).toMatch(new RegExp(`href="https?://[^"]+${LLMS_TXT_PATH}"`));
+  expect(headLinks[0]).toContain(`type="${LLMS_DESCRIBED_BY_RELATION.type}"`);
 });
 
 // A failed HTML page has no Markdown twin: the advertised `.md` URL would fail the same way.

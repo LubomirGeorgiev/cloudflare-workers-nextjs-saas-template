@@ -106,7 +106,7 @@ export const RATE_LIMITS = {
   },
   CMS_MARKDOWN_API: {
     identifier: "cms-markdown-api",
-    limit: 5,
+    limit: 50,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
   GET_SESSION_API: {

@@ -1,8 +1,14 @@
-import { LLMS_TXT_URL } from "@/constants";
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
 
 import { markdownAlternateFor, MARKDOWN_CONTENT_TYPE } from "./markdown-alternate";
 
-const LLMS_DESCRIBED_BY_LINK = `<${LLMS_TXT_URL}>; rel="describedby"`;
+/**
+ * The shared relation as one RFC 8288 `Link` value. Built from the constant, not from the raw URL,
+ * so the header and the `<link>` the shell renders stay the same relation.
+ */
+export const LLMS_DESCRIBED_BY_LINK =
+  `<${LLMS_DESCRIBED_BY_RELATION.href}>; rel="${LLMS_DESCRIBED_BY_RELATION.rel}";` +
+  ` type="${LLMS_DESCRIBED_BY_RELATION.type}"`;
 
 /** The separator RFC 8288 uses between values of one `Link` header, and the one we write back. */
 const LINK_VALUE_SEPARATOR = ", ";

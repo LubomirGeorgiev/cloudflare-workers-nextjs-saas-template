@@ -10,6 +10,7 @@ import { AskiChatStickyBanner } from "@/components/aski-chat-sticky-banner";
 import { PublicConfigHydrator } from "@/components/public-config-hydrator";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
 import { getPublicConfig } from "@/flags";
 import { getClientMessages } from "@/i18n/client-messages";
 import type { Locale } from "@/i18n/config";
@@ -34,6 +35,10 @@ export async function RootShell({ locale, children }: RootShellProps) {
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className="font-sans antialiased">
+        {/* Same relation the `Link` header carries, for agents that read the DOM instead of it.
+            React hoists it into `<head>` during the server render, so it does not land in the
+            streamed metadata outlet that `StreamedMetadataHoister` has to move after hydration. */}
+        <link {...LLMS_DESCRIBED_BY_RELATION} />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <PublicConfigRootHydrator />
           <StreamedMetadataHoister />
