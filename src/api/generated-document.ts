@@ -3,6 +3,9 @@ import "server-only";
 import documentJson from "virtual:api-openapi-document";
 import type { OpenAPIV3_1 } from "openapi-types";
 
+import { JSON_CONTENT_TYPE } from "@/constants";
+import { STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL } from "@/constants/cache-control";
+
 // The one generated document, shared by the public `GET /api/v1/openapi.json` route, the MCP tool
 // derivation, and the server-rendered docs UI.
 //
@@ -20,7 +23,10 @@ const apiDocumentJson: string = documentJson;
  */
 export function apiDocumentResponse(): Response {
   return new Response(apiDocumentJson, {
-    headers: { "content-type": "application/json" },
+    headers: {
+      "cdn-cache-control": STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
+      "content-type": JSON_CONTENT_TYPE,
+    },
   });
 }
 

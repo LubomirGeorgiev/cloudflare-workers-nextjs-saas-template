@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { API_OPENAPI_SPEC_PATH, SITE_URL } from "@/constants";
+import { API_CATALOG_PATH, API_OPENAPI_SPEC_PATH, SITE_URL } from "@/constants";
 import { getMcpEndpointUrl } from "@/constants/agent-clients";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
@@ -73,6 +73,9 @@ describe("buildLlmsTxtContent", () => {
     expect(body).toContain(messages.Landing.meta.description);
     expect(body).toContain(
       `## Search API\n\n- [Documentation search API](${SITE_URL}/api/docs/search?`,
+    );
+    expect(body).toContain(
+      `- [API catalog](${SITE_URL}${API_CATALOG_PATH}): RFC 9727 linkset`,
     );
     expect(body).toContain(
       `- [OpenAPI document](${SITE_URL}${API_OPENAPI_SPEC_PATH}): Exact OpenAPI 3.1 contract`,

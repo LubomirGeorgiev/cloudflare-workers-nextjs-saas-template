@@ -44,6 +44,12 @@ export const SESSION_NO_STORE_CACHE_CONTROL =
 export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 
+// The API catalog and the OpenAPI document are prebuilt bytes that change only on deploy, and the
+// edge fast path returns them before the metadata policy above can reach them, so each producer
+// stamps this itself. No purge follows a deploy, so the TTL is the drift window: keep it an hour.
+export const STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL =
+  "public, max-age=3600, stale-while-revalidate=86400";
+
 // The tag to purge each edge copy under, or `null` for content that changes on deploy alone.
 export const EDGE_CACHED_METADATA_ROUTE_TAGS: Readonly<Record<string, string | null>> = {
   "/sitemap.xml": CACHE_TAGS.SITEMAP,

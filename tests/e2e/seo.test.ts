@@ -3,10 +3,7 @@ import { fetchAppPath } from "./app-frame";
 import { API_AUTH_DOCS_PATH, API_DOCS_PATH, MCP_DOCS_PATH } from "../../src/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "../../src/i18n/config";
 import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+import { escapeRegExp } from "../../src/utils/escape-regexp";
 
 function expectAbsoluteLoc(body: string, pathname: string): void {
   expect(body).toMatch(

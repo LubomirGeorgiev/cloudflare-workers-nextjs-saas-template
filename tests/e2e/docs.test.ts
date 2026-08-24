@@ -15,7 +15,7 @@ import {
   API_DOCS_PATH,
   API_ERRORS_DOCS_PATH,
   API_OPENAPI_SPEC_PATH,
-  LLMS_DESCRIBED_BY_RELATION,
+  HTML_DISCOVERY_RELATIONS,
   LLMS_TXT_PATH,
   MCP_DOCS_PATH,
   MCP_PATH,
@@ -25,11 +25,14 @@ import { DEFAULT_LOCALE } from "../../src/i18n/config";
 import { loadCatalog } from "../../src/i18n/message-catalogs";
 import { parseMarkdownPagePath } from "../../src/lib/markdown-pages/page-paths";
 import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
+import { escapeRegExp } from "../../src/utils/escape-regexp";
 
 const defaultMessages = await loadCatalog(DEFAULT_LOCALE);
 
-/** Every `<link rel="describedby">` element, whatever order the renderer writes its attributes. */
-const DESCRIBED_BY_LINK_PATTERN = /<link[^>]+rel="describedby"[^>]*>/g;
+/** Every `<link>` element of one relation, whatever order the renderer writes its attributes. */
+function discoveryLinkPattern(rel: string): RegExp {
+  return new RegExp(`<link[^>]+rel="${escapeRegExp(rel)}"[^>]*>`, "g");
+}
 
 /** Every question the landing accordion renders, read from the catalog rather than restated here. */
 function faqQuestions(messages: typeof defaultMessages): string[] {
@@ -70,16 +73,16 @@ test("serves a docs page as markdown at its .md URL", async () => {
   await expect(response.text()).resolves.toContain("Authentication and team management");
 });
 
-// The Worker stamps the root llms.txt relation on every `text/html` response, and the shell repeats
-// it in the DOM for agents that read markup instead of headers. React must hoist that one copy into
-// `<head>` during the server render, so the slice below is where the only match may appear.
-test("advertises the API Markdown page and root llms.txt in HTML and HTTP links", async () => {
+// The Worker stamps every discovery relation on a `text/html` response, and the shell repeats the
+// same set in the DOM for agents that read markup instead of headers. React must hoist that one
+// copy into `<head>` during the server render, so the slice below is where the only match may
+// appear. The set comes from the shared list, so a relation dropped from either channel fails here.
+test("advertises the API Markdown page and every discovery relation in HTML and HTTP links", async () => {
   const response = await fetchAppPath(API_DOCS_PATH);
   const link = response.headers.get("link") ?? "";
   const html = await response.text();
 
   expect(link).toContain(`${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`);
-  expect(link).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
   expect(html).toMatch(
     new RegExp(`<link[^>]+href="[^"]*${API_DOCS_PATH}\\.md"[^>]+type="text/markdown"[^>]*>`),
   );
@@ -87,13 +90,24 @@ test("advertises the API Markdown page and root llms.txt in HTML and HTTP links"
   const headEnd = html.indexOf("</head>");
   expect(headEnd).toBeGreaterThan(-1);
 
-  const headLinks = html.slice(0, headEnd).match(DESCRIBED_BY_LINK_PATTERN) ?? [];
-  const documentLinks = html.match(DESCRIBED_BY_LINK_PATTERN) ?? [];
+  const head = html.slice(0, headEnd);
+  expect(HTML_DISCOVERY_RELATIONS.length).toBeGreaterThan(0);
 
-  expect(headLinks).toHaveLength(1);
-  expect(documentLinks).toHaveLength(1);
-  expect(headLinks[0]).toMatch(new RegExp(`href="https?://[^"]+${LLMS_TXT_PATH}"`));
-  expect(headLinks[0]).toContain(`type="${LLMS_DESCRIBED_BY_RELATION.type}"`);
+  for (const relation of HTML_DISCOVERY_RELATIONS) {
+    // Origins differ between the preview and a deployment, so only the path of each href is pinned.
+    const { pathname } = new URL(relation.href);
+    const pattern = discoveryLinkPattern(relation.rel);
+    const headLinks = head.match(pattern) ?? [];
+    const documentLinks = html.match(pattern) ?? [];
+
+    expect(link).toContain(`${pathname}>; rel="${relation.rel}"; type="${relation.type}"`);
+    expect(headLinks).toHaveLength(1);
+    expect(documentLinks).toHaveLength(1);
+    expect(headLinks[0]).toMatch(
+      new RegExp(`href="https?://[^"]+${escapeRegExp(pathname)}"`),
+    );
+    expect(headLinks[0]).toContain(`type="${relation.type}"`);
+  }
 });
 
 // A failed HTML page has no Markdown twin: the advertised `.md` URL would fail the same way.

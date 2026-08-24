@@ -31,8 +31,8 @@ export const API_V1_BASE_PATH = "/api/v1";
 export const LLMS_TXT_PATH = "/llms.txt";
 // File-local: `LLMS_DESCRIBED_BY_RELATION.href` is the one URL every consumer reads.
 const LLMS_TXT_URL = `${SITE_URL}${LLMS_TXT_PATH}`;
-// One definition of the root llms.txt relation. Two channels advertise it — the `Link` header the
-// Worker stamps on HTML and the `<link>` the shell renders — and they must not drift apart.
+// One definition of the root llms.txt relation. A Markdown response advertises it alone; HTML
+// advertises it as part of `HTML_DISCOVERY_RELATIONS` below.
 export const LLMS_DESCRIBED_BY_RELATION = {
   href: LLMS_TXT_URL,
   rel: "describedby",
@@ -44,6 +44,10 @@ export const LLMS_DESCRIBED_BY_RELATION = {
 // runs on every page request, and this module is already on the entry's static graph.
 export const MARKDOWN_CONTENT_TYPE = "text/markdown";
 export const MARKDOWN_EXTENSION = ".md";
+// The other two media types the edge compares against or stamps. They share this home so the HTML
+// gate in `worker-entrypoint.ts`, the API catalog, and the OpenAPI document cannot drift apart.
+export const HTML_CONTENT_TYPE = "text/html";
+export const JSON_CONTENT_TYPE = "application/json";
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
 // The document is a static read, so only the safe methods serve it. Shared by the Hono route and
 // the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.
@@ -58,6 +62,24 @@ export const MCP_PATH = "/mcp";
 export const MCP_DOCS_PATH = "/docs/mcp";
 // Version of the published API contract, not of the app; it is the OpenAPI `info.version`.
 export const API_VERSION = "1.0.0";
+// RFC 9727. One document naming every API this deployment publishes — the REST API and the MCP
+// server — as an RFC 9264 linkset, so an agent that knows only the origin can find both. Built from
+// these constants and served at the edge; advertised on HTML the two ways llms.txt is.
+export const API_CATALOG_PATH = "/.well-known/api-catalog";
+export const API_CATALOG_CONTENT_TYPE = "application/linkset+json";
+// The catalog is a static read like the OpenAPI document, so only the safe methods serve it.
+// Shared by the edge fast path in `worker-entrypoint.ts` and its test: anything else falls through.
+export const API_CATALOG_METHODS = ["GET", "HEAD"] as const;
+// File-local: every consumer reads the relation through `HTML_DISCOVERY_RELATIONS` below.
+const API_CATALOG_RELATION = {
+  href: `${SITE_URL}${API_CATALOG_PATH}`,
+  rel: "api-catalog",
+  type: API_CATALOG_CONTENT_TYPE,
+} as const;
+// One definition of what every HTML response advertises, in the order it advertises them. Two
+// channels carry the set — the `Link` header the Worker stamps and the `<link>`s the shell renders
+// — so a new relation goes here and reaches both, instead of reaching one and drifting.
+export const HTML_DISCOVERY_RELATIONS = [LLMS_DESCRIBED_BY_RELATION, API_CATALOG_RELATION] as const;
 // OAuth 2.1 endpoints. `/oauth/authorize` is our own consent page; the other two are implemented
 // by @cloudflare/workers-oauth-provider, which wraps the Worker in `worker-entrypoint.ts`.
 export const OAUTH_AUTHORIZE_PATH = "/oauth/authorize";

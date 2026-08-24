@@ -5,13 +5,16 @@ import { BLOG_LISTING_ROUTES } from "@/constants/public-routes";
 
 vi.mock("server-only", () => ({}));
 
-// The relation has one definition, so the expected value comes from it rather than a second copy.
+// The relations have one definition, so the expected values come from it rather than a copy.
 const {
   appendLinkHeaderValues,
+  HTML_DISCOVERY_LINKS,
   LLMS_DESCRIBED_BY_LINK: DESCRIBED_BY,
   withHtmlDiscoveryLinkHeader,
   withLlmsDescribedByLinkHeader,
 } = await import("./discovery-links");
+/** Every HTML response carries the whole set, whatever its status. */
+const ALWAYS_ADVERTISED = HTML_DISCOVERY_LINKS.join(", ");
 const API_DOCS_ALTERNATE =
   `<${SITE_URL}${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`;
 
@@ -32,16 +35,16 @@ describe("agent discovery Link headers", () => {
       response: htmlResponse(),
     });
 
-    expect(response.headers.get("link")).toBe(`${API_DOCS_ALTERNATE}, ${DESCRIBED_BY}`);
+    expect(response.headers.get("link")).toBe(`${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`);
   });
 
-  test("only links llms.txt when an HTML page has no Markdown version", () => {
+  test("only links the always-advertised relations when a page has no Markdown version", () => {
     const response = withHtmlDiscoveryLinkHeader({
       pathname: "/sign-in",
       response: new Response("page"),
     });
 
-    expect(response.headers.get("link")).toBe(DESCRIBED_BY);
+    expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
   });
 
   // The `.md` twin of a failed page fails the same way, so advertising it points agents at a 404.
@@ -54,7 +57,7 @@ describe("agent discovery Link headers", () => {
       response: htmlResponse({ status: 404 }),
     });
 
-    expect(response.headers.get("link")).toBe(DESCRIBED_BY);
+    expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
   });
 
   test("omits the Markdown alternate on a failed render of a supported page", () => {
@@ -63,7 +66,7 @@ describe("agent discovery Link headers", () => {
       response: htmlResponse({ status: 500 }),
     });
 
-    expect(response.headers.get("link")).toBe(DESCRIBED_BY);
+    expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
   });
 
   test("preserves an existing Link header", () => {
@@ -75,12 +78,14 @@ describe("agent discovery Link headers", () => {
     });
 
     expect(response.headers.get("link")).toBe(
-      `<${SITE_URL}${API_DOCS_PATH}>; rel="canonical", ${API_DOCS_ALTERNATE}, ${DESCRIBED_BY}`,
+      `<${SITE_URL}${API_DOCS_PATH}>; rel="canonical", ${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`,
     );
   });
 
   test("returns the same response when it already carries every value", () => {
-    const original = htmlResponse({ headers: { link: `${API_DOCS_ALTERNATE}, ${DESCRIBED_BY}` } });
+    const original = htmlResponse({
+      headers: { link: `${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}` },
+    });
     const response = withHtmlDiscoveryLinkHeader({ pathname: API_DOCS_PATH, response: original });
 
     expect(response).toBe(original);

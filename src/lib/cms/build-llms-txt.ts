@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cmsConfig } from "@/../cms.config";
-import { API_OPENAPI_SPEC_PATH, SITE_NAME, SITE_URL } from "@/constants";
+import { API_CATALOG_PATH, API_OPENAPI_SPEC_PATH, SITE_NAME, SITE_URL } from "@/constants";
 import { getMcpEndpointUrl } from "@/constants/agent-clients";
 import { INDEXED_DOCS_ROUTES, type DocsPageRoute } from "@/constants/docs-routes";
 import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
@@ -295,6 +295,7 @@ function appendMachineInterfaceLines({
   });
 
   lines.push(
+    `- [API catalog](${SITE_URL}${API_CATALOG_PATH}): RFC 9727 linkset with the REST API, the MCP endpoint, and where each one is described.`,
     `- [OpenAPI document](${SITE_URL}${API_OPENAPI_SPEC_PATH}): Exact OpenAPI 3.1 contract with operations, scopes, schemas, and errors.`,
     `- [MCP endpoint](${getMcpEndpointUrl()}): Streamable HTTP endpoint for the same operations as agent tools. Use an API key or OAuth.`,
     "",

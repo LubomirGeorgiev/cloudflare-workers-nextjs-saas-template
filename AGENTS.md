@@ -115,7 +115,7 @@ Lucia Auth; logic lives in `src/utils/auth.ts` and `src/utils/kv-session.ts`.
 
 ## Public API, OAuth, and MCP
 
-One pipeline, not four features: an endpoint described once becomes a documented operation, an entry in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `src/api/` at `/api/v1`, spec at `/api/v1/openapi.json`, OAuth 2.1 provider wrapping the Worker in `worker-entrypoint.ts`, MCP server at `/mcp`. File map, error semantics, rate-limit headers, MCP derivation, KV key spaces, and the docs-UI internals: [docs/api-and-mcp-internals.md](docs/api-and-mcp-internals.md).
+One pipeline, not four features: an endpoint described once becomes a documented operation, an entry in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `src/api/` at `/api/v1`, spec at `/api/v1/openapi.json`, RFC 9727 catalog at `/.well-known/api-catalog`, OAuth 2.1 provider wrapping the Worker in `worker-entrypoint.ts`, MCP server at `/mcp`. File map, error semantics, rate-limit headers, MCP derivation, KV key spaces, and the docs-UI internals: [docs/api-and-mcp-internals.md](docs/api-and-mcp-internals.md).
 
 - Declare every route once, with `...apiOperation({ ... })` from `src/api/operation.ts` spread ahead of its validators: a unique `operationId`, `summary`, agent-readable `description`, `tags`, `scope`, `audience`, and success `responses`. From that one call come the `security` metadata, the shared `COMMON_ERROR_RESPONSES`, and the guard that enforces scope and audience before any validator runs.
 - The `description` is what an agent sees as the tool description: what the operation does, changes, and returns — no marketing copy, no repo jargon.

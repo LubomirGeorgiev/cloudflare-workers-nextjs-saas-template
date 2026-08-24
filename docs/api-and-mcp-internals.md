@@ -23,6 +23,7 @@ in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `s
 | Agent-readable prose for keyed `ActionError`s | `src/lib/api/error-details.ts` |
 | Request and response schemas | `src/schemas/api/` |
 | Generated OpenAPI document | `src/api/generated-document.ts` |
+| RFC 9727 API catalog | `src/lib/api/api-catalog.ts` |
 | Document generation | `scripts/generate-openapi.mjs` via the vite plugin `tools/openapi-document.ts` |
 | Neutral document walking | `src/lib/api/openapi-walk.ts` |
 | Docs view model | `src/lib/api/reference-model.ts` |
@@ -36,6 +37,21 @@ in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `s
 The document is built once at build time and shared by the `openapi.json` route, the docs page, and
 MCP. It is walked through `openapi-walk.ts` so the docs and MCP never import each other, and
 `reference-model.ts` takes its operationId → tool-name map from its caller for the same reason.
+
+## Discovery: `/.well-known/api-catalog`
+
+RFC 9727. One RFC 9264 linkset with a context per published API — `/api/v1` and `/mcp` — naming the
+OpenAPI document (`service-desc`), the human docs (`service-doc`, both the page and its `.md`
+twin, each with its own media type), and the RFC 9728 protected resource metadata (`service-meta`)
+of each. It is what an agent that knows only the origin reads
+first, so it answers before any credential check, from the same edge fast path as `openapi.json`
+in `worker-entrypoint.ts`, on `GET` and `HEAD` alone.
+
+The document is built from constants in `src/lib/api/api-catalog.ts` and serialized once per
+isolate. Its titles are untranslated on purpose: it is a machine response, and the edge has no
+request scope to read a locale from. Every HTML response advertises it with a `rel="api-catalog"`
+`Link` header, and `RootShell` renders the same relation as a `<link>` — the two channels llms.txt
+already uses.
 
 ## Scope and audience: where the check goes
 

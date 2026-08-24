@@ -8,9 +8,12 @@
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import handler from "vinext/server/fetch-handler";
 import {
+  API_CATALOG_METHODS,
+  API_CATALOG_PATH,
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
+  HTML_CONTENT_TYPE,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_EXTENSION,
   MCP_PATH,
@@ -32,6 +35,7 @@ import {
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./src/utils/request-protocol";
 
 const OPENAPI_SPEC_METHODS: ReadonlySet<string> = new Set(API_OPENAPI_SPEC_METHODS);
+const CATALOG_METHODS: ReadonlySet<string> = new Set(API_CATALOG_METHODS);
 
 function handleCustomEdge(pathname: string): Response | null {
   if (pathname === "/_worker/health") {
@@ -46,6 +50,13 @@ function handleCustomEdge(pathname: string): Response | null {
 // request — so only the methods the canonical route serves skip it; the rest fall through to it.
 function isOpenApiSpecRequest({ method, pathname }: { method: string; pathname: string }): boolean {
   return pathname === API_OPENAPI_SPEC_PATH && OPENAPI_SPEC_METHODS.has(method);
+}
+
+// RFC 9727. Nothing else claims this path — the OAuth provider serves only its own two
+// `.well-known` documents — so the safe methods answer here and every other method falls through
+// to the app's 404.
+function isApiCatalogRequest({ method, pathname }: { method: string; pathname: string }): boolean {
+  return pathname === API_CATALOG_PATH && CATALOG_METHODS.has(method);
 }
 
 // Everything the provider does not claim: the whole Next app, including our own consent page at
@@ -74,6 +85,13 @@ const apiHandler = {
 const openapiHandler = {
   fetch: async (): Promise<Response> =>
     (await import("./src/api/generated-document")).apiDocumentResponse(),
+};
+
+// Lazy for the same reason, and cheap for the same one: the catalog is a fixed string built from
+// constants, so only a request that asks for it evaluates the module that holds it.
+const apiCatalogHandler = {
+  fetch: async (): Promise<Response> =>
+    (await import("./src/lib/api/api-catalog")).apiCatalogResponse(),
 };
 
 // Trailing slash is significant: the library prefix-matches API routes. `/mcp` is an exact
@@ -125,6 +143,11 @@ async function handleEarlyEdgeRequest({
   // request, so normalizing headers for it would be pure waste.
   if (isOpenApiSpecRequest({ method, pathname })) {
     return openapiHandler.fetch();
+  }
+
+  // Same reasoning: the catalog names the APIs and depends on nothing in the request.
+  if (isApiCatalogRequest({ method, pathname })) {
+    return apiCatalogHandler.fetch();
   }
 
   return null;
@@ -255,7 +278,7 @@ async function withHtmlAgentDiscovery({
 }): Promise<Response> {
   const contentType = response.headers.get("content-type");
 
-  if ((method !== "GET" && method !== "HEAD") || !contentType?.startsWith("text/html")) {
+  if ((method !== "GET" && method !== "HEAD") || !contentType?.startsWith(HTML_CONTENT_TYPE)) {
     return response;
   }
 

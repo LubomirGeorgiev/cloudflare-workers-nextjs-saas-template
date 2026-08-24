@@ -1,3 +1,5 @@
+import { escapeRegExp } from "@/utils/escape-regexp";
+
 export const MIN_QUERY_LENGTH = 2;
 
 export interface HighlightMatcher {
@@ -55,8 +57,4 @@ function getHighlightTerms(query: string) {
         .sort((left, right) => right.length - left.length)
     )
   );
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

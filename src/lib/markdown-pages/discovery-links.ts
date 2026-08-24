@@ -1,14 +1,16 @@
-import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
+import { HTML_DISCOVERY_RELATIONS, LLMS_DESCRIBED_BY_RELATION } from "@/constants";
 
 import { markdownAlternateFor, MARKDOWN_CONTENT_TYPE } from "./markdown-alternate";
 
-/**
- * The shared relation as one RFC 8288 `Link` value. Built from the constant, not from the raw URL,
- * so the header and the `<link>` the shell renders stay the same relation.
- */
-export const LLMS_DESCRIBED_BY_LINK =
-  `<${LLMS_DESCRIBED_BY_RELATION.href}>; rel="${LLMS_DESCRIBED_BY_RELATION.rel}";` +
-  ` type="${LLMS_DESCRIBED_BY_RELATION.type}"`;
+/** Formats one relation as an RFC 8288 `Link` value. Takes the constant, never a raw URL. */
+function linkValue({ href, rel, type }: { href: string; rel: string; type: string }): string {
+  return `<${href}>; rel="${rel}"; type="${type}"`;
+}
+
+// Kept separate from the list below: a Markdown response advertises this relation on its own.
+export const LLMS_DESCRIBED_BY_LINK = linkValue(LLMS_DESCRIBED_BY_RELATION);
+/** The header form of the set the shell renders as `<link>`s, so neither channel can drift. */
+export const HTML_DISCOVERY_LINKS: readonly string[] = HTML_DISCOVERY_RELATIONS.map(linkValue);
 
 /** The separator RFC 8288 uses between values of one `Link` header, and the one we write back. */
 const LINK_VALUE_SEPARATOR = ", ";
@@ -66,8 +68,8 @@ function withLinkHeader({
 
 /**
  * The discovery relations an HTML response advertises. `ok` gates the Markdown alternate: a 404 or
- * a 500 has no `.md` twin, and the advertised URL would fail the same way. llms.txt exists whatever
- * this response is, so `describedby` rides on an error page too.
+ * a 500 has no `.md` twin, and the advertised URL would fail the same way. llms.txt and the API
+ * catalog exist whatever this response is, so those two ride on an error page too.
  */
 export function htmlDiscoveryLinkValues({
   ok,
@@ -79,12 +81,12 @@ export function htmlDiscoveryLinkValues({
   const alternate = ok ? markdownAlternateFor({ pathname }) : null;
 
   if (!alternate) {
-    return [LLMS_DESCRIBED_BY_LINK];
+    return [...HTML_DISCOVERY_LINKS];
   }
 
   return [
     `<${alternate.url}>; rel="alternate"; type="${MARKDOWN_CONTENT_TYPE}"`,
-    LLMS_DESCRIBED_BY_LINK,
+    ...HTML_DISCOVERY_LINKS,
   ];
 }
 

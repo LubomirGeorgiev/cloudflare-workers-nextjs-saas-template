@@ -5,6 +5,9 @@ import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  API_CATALOG_CONTENT_TYPE,
+  API_CATALOG_METHODS,
+  API_CATALOG_PATH,
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
@@ -19,6 +22,7 @@ import {
 import {
   MARKDOWN_NEGOTIATION_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_CONTROL,
+  STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
 } from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
@@ -290,6 +294,55 @@ describe("worker edge integration", () => {
     expect(innerFetchMock).not.toHaveBeenCalled();
     expect(response.status).toBe(401);
   });
+
+  // RFC 9727 discovery: an agent that knows only the origin reads this before it has a credential,
+  // so it is answered at the edge on the same terms as the document above. The linkset content is
+  // the producer's contract, so `src/lib/api/api-catalog.test.ts` owns it, not this layer.
+  test.each([...API_CATALOG_METHODS])(
+    "the API catalog answers at the edge without a credential (%s)",
+    async (method) => {
+      const response = await worker.fetch(
+        new Request(`https://example.com${API_CATALOG_PATH}`, { method }),
+        env as Env,
+        createExecutionContext()
+      );
+
+      expect(innerFetchMock).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe(API_CATALOG_CONTENT_TYPE);
+    },
+  );
+
+  test("a write method on the API catalog path falls through to the Next app handler", async () => {
+    const response = await worker.fetch(
+      new Request(`https://example.com${API_CATALOG_PATH}`, { method: "POST" }),
+      env as Env,
+      createExecutionContext()
+    );
+
+    expect(innerFetchMock).toHaveBeenCalledOnce();
+    // The app answers (the stub here, a 404 in production). The catalog bytes must never leave
+    // under a method the edge does not serve.
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).not.toBe(API_CATALOG_CONTENT_TYPE);
+  });
+
+  // The early return happens before `withMetadataRouteEdgeCache`, so the policy each producer
+  // stamps is the only one a shared cache ever sees.
+  test.each([API_CATALOG_PATH, API_OPENAPI_SPEC_PATH])(
+    "the early edge return keeps the deploy-only cache policy (%s)",
+    async (pathname) => {
+      const response = await worker.fetch(
+        new Request(`https://example.com${pathname}`),
+        env as Env,
+        createExecutionContext()
+      );
+
+      expect(response.headers.get("cdn-cache-control")).toBe(
+        STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
+      );
+    },
+  );
 
   test("the consent page falls through to the Next app handler", async () => {
     await worker.fetch(
