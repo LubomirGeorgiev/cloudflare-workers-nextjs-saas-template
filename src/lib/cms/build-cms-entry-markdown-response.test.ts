@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, test, vi } from "vitest";
 
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
 import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 
 vi.mock("server-only", () => ({}));
@@ -231,7 +232,8 @@ describe("buildCmsEntryMarkdown", () => {
 
     expect(markdown).toBe(
       "# Guide\n\nSource: https://example.com/docs/guide\nPublished: 2026-08-01\n"
-      + "Updated: 2026-08-01\n\n## Main section\n\nIntro text.\n\n```ts\nconst a = 1;\n"
+      + `Updated: 2026-08-01\nIndex: ${LLMS_DESCRIBED_BY_RELATION.href}\n`
+      + "\n## Main section\n\nIntro text.\n\n```ts\nconst a = 1;\n"
       + "# not a heading\n```\n\n### Subsection\n\nClosing text.\n",
     );
   });

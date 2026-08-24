@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { SITE_NAME } from "@/constants";
+import { LLMS_DESCRIBED_BY_RELATION, SITE_NAME } from "@/constants";
 import {
   MARKDOWN_DIRECTIVE_ATTRIBUTE,
   MARKDOWN_DIRECTIVES,
@@ -8,6 +8,8 @@ import {
 
 import { convertHtmlToMarkdown } from "./convert-html";
 
+// The frame ends with this pointer, so an agent that keeps only the body still finds the index.
+const INDEX_LINE = `Index: ${LLMS_DESCRIBED_BY_RELATION.href}`;
 const SKIP = `${MARKDOWN_DIRECTIVE_ATTRIBUTE}="${MARKDOWN_DIRECTIVES.skip}"`;
 const UNWRAP = `${MARKDOWN_DIRECTIVE_ATTRIBUTE}="${MARKDOWN_DIRECTIVES.unwrap}"`;
 
@@ -44,8 +46,8 @@ describe("convertHtmlToMarkdown", () => {
     });
 
     expect(markdown).toBe(
-      "# Terms of Service\n\nThe legal terms.\n\nSource: https://example.com/terms\n\n"
-      + "Read [the policy](https://example.com/privacy.md).\n\n## Details\n",
+      "# Terms of Service\n\nThe legal terms.\n\nSource: https://example.com/terms\n"
+      + `${INDEX_LINE}\n\nRead [the policy](https://example.com/privacy.md).\n\n## Details\n`,
     );
   });
 

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
+
 import { buildMarkdownDocument, singleLine } from "./markdown-document";
+
+// The frame ends with this pointer, so an agent that keeps only the body still finds the index.
+const INDEX_LINE = `Index: ${LLMS_DESCRIBED_BY_RELATION.href}`;
 
 describe("singleLine", () => {
   test("collapses every whitespace run and trims the ends", () => {
@@ -24,7 +29,7 @@ describe("buildMarkdownDocument", () => {
       }),
     ).toBe(
       "# Release notes\n\nA complete summary.\n\nSource: https://example.com/blog/release-notes\n"
-      + "Author: Ada Lovelace\nTags: Engineering\n\n## Details\n\nBody copy.\n",
+      + `Author: Ada Lovelace\nTags: Engineering\n${INDEX_LINE}\n\n## Details\n\nBody copy.\n`,
     );
   });
 
@@ -36,7 +41,7 @@ describe("buildMarkdownDocument", () => {
         sourceUrl: "https://example.com/terms",
         title: "Terms of Service",
       }),
-    ).toBe("# Terms of Service\n\nSource: https://example.com/terms\n\nBody copy.\n");
+    ).toBe(`# Terms of Service\n\nSource: https://example.com/terms\n${INDEX_LINE}\n\nBody copy.\n`);
   });
 
   test("drops the body block when there is no body", () => {
@@ -46,6 +51,6 @@ describe("buildMarkdownDocument", () => {
         sourceUrl: "https://example.com/terms",
         title: "Terms of Service",
       }),
-    ).toBe("# Terms of Service\n\nSource: https://example.com/terms\n");
+    ).toBe(`# Terms of Service\n\nSource: https://example.com/terms\n${INDEX_LINE}\n`);
   });
 });

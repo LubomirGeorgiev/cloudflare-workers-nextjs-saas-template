@@ -1,7 +1,9 @@
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
+
 /**
  * The one frame every Markdown surface writes: the title heading, an optional description, the
- * `Source:` line, optional metadata lines, then the body. Both producers call this, so the scraped
- * page and the CMS entry cannot drift apart.
+ * `Source:` line, optional metadata lines, the `Index:` pointer, then the body. Both producers call
+ * this, so the scraped page and the CMS entry cannot drift apart.
  */
 interface BuildMarkdownDocumentParams {
   /** Already rendered Markdown. An empty body drops the blank line and the body block with it. */
@@ -33,6 +35,9 @@ export function buildMarkdownDocument({
     "",
     `Source: ${sourceUrl}`,
     ...metadataLines,
+    // An agent that keeps only the body never sees the `describedby` Link header, so the site
+    // index has to ride inside the document too.
+    `Index: ${LLMS_DESCRIBED_BY_RELATION.href}`,
   ];
 
   if (body) {

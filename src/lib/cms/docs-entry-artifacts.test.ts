@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { JSONContent } from "@tiptap/core";
 
+import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
@@ -102,7 +103,8 @@ describe("docs entry artifacts", () => {
     expect(artifacts.markdown).toBe(
       "# Introduction\n\nStart here.\n\n"
       + "Source: https://example.com/docs/getting-started/introduction\n"
-      + "Author: Ada Lovelace\nPublished: 2026-08-01\nUpdated: 2026-08-02\nTags: Guides\n\n"
+      + "Author: Ada Lovelace\nPublished: 2026-08-01\nUpdated: 2026-08-02\nTags: Guides\n"
+      + `Index: ${LLMS_DESCRIBED_BY_RELATION.href}\n\n`
       + "## Getting Started\n\nInstall the template.\n\n### Configure Cloudflare\n",
     );
   });
