@@ -65,3 +65,77 @@ purges the edge copy through `revalidateCacheTag` and the hour is only a backsto
 
 Re-check this on a Vinext upgrade, the same as the other pinned-behavior audits: if a later version
 runs metadata routes through the CDN adapter, the stamp becomes redundant.
+
+## The edge cache is Workers Caching, not the Cache API
+
+`wrangler.jsonc` turns on Cloudflare Workers Caching with `"cache": { "enabled": true }` (around line
+25). The feature needs Wrangler 4.69.0 or above; this repo pins `^4.125.0` and compatibility date
+`2026-08-03`.
+
+Nothing in `src/` or `worker-entrypoint.ts` calls `caches.default` or `caches.open`. A grep for the
+Cache API finds nothing, so a reader concludes that no edge cache runs. That conclusion is wrong: the
+mechanism here is configuration, not code. Four independent code reviewers made that exact mistake,
+which is why this section exists.
+
+Workers Caching is also not the zone cache. Zone Cache Rules, Page Rules, and cache level settings do
+not change it. The response headers the Worker sends are the whole configuration surface:
+
+| Response header | What Workers Caching does |
+| --- | --- |
+| `cache-control: public, s-maxage=…` | Stores the response and serves it until the TTL ends. |
+| `cache-control: no-store` or `private` | Does not store the response, and reports `Cf-Cache-Status: BYPASS`. It also drops the cache entry that already exists for that key. See the probe below. |
+| `vary: accept` | Stores one variant per distinct value of the listed request header, per RFC 9110/9111. It compares those values verbatim, with no normalization. |
+| `cache-tag: …` | Gives the purge identity. All variants of one URL must carry the same tags; different tags on different variants give inconsistent purges. |
+
+This layer is not the Vinext CDN adapter of the section above. That adapter keeps no origin page
+store, and it still keeps none. Both statements are true, and each one describes a different layer.
+
+### Measured: an uncacheable response drops every variant
+
+The docs say a `no-store` response is not stored. They do not say what happens to the entry that is
+already there. We measured it on the deployed site, on `/docs/mcp`:
+
+- **A — a cacheable variant miss evicts nothing.** Prime the browser `Accept` variant (HIT). Request
+  with `Accept: application/x-test` (MISS, then HIT). Return to the browser `Accept`: still **HIT**.
+  Two variants coexist, and both stay alive.
+- **B — an uncacheable response kills both.** Request with `Accept: text/markdown`, which returned a
+  `no-store` 303 (`cf-cache-status: BYPASS`). The browser `Accept` variant is then **MISS**, and the
+  `x-test` variant is **MISS** too.
+
+So the whole entry goes, and every `vary: accept` variant goes with it. One request cold-flushed the
+page HTML for every visitor in that data center. Anyone could do it, with no auth and one header.
+
+That is why `MARKDOWN_NEGOTIATION_CACHE_CONTROL` in `src/constants/cache-control.ts` is
+`public, max-age=0, s-maxage=…` and not `no-store`. A stored 303 becomes its own variant beside the
+HTML instead of an invalidation of it. `max-age=0` keeps it out of private browser caches, so a
+client that once asked for Markdown does not keep redirecting itself.
+
+The safety argument is that the cache key partitions more finely than the branch it feeds. The
+variant key is the exact `Accept` string, and `prefersMarkdownRepresentation` reads that same string.
+Two requests that share a variant key therefore always get the same answer from the Worker, so a
+stored 303 only ever reaches a caller who would have received that 303 live. A browser `Accept`
+string never names `text/markdown`, so it never matches that variant.
+
+### Known gaps, both bounded
+
+- **Purge skew.** A rendered page carries a `cache-tag` (`src/lib/markdown-pages/serve-page.ts:162`
+  reads one back off a render), and the edge builds the 303 before any render, so the 303 variant
+  carries no tag. A tag purge may leave it behind. The redirect target is a pure function of the
+  pathname, so a CMS publish can never make a stale 303 wrong. Only removing a page from the Markdown
+  allowlist could, and then the agent gets a 404 from the `.md` — never wrong content — for at most
+  the TTL.
+- **Variant fan-out.** `withHtmlDiscoveryLinkHeader` (`src/lib/markdown-pages/discovery-links.ts`)
+  puts `vary: accept` on every HTML page that has a `.md` twin, so the edge splits per exact `Accept`
+  string. Chrome, Firefox, and Safari each send a different one, and the strings change between
+  versions. This predates the negotiation change. Cloudflare's remedy is to normalize `Accept` before
+  the cached entrypoint sees it.
+
+### Still to confirm after the next deploy
+
+Re-run the A/B probe and read `cf-cache-status` on the 303. `HIT` is the intended result. `EXPIRED`
+or `REVALIDATED` means `max-age=0` won over `s-maxage` — still stored, so the eviction is still
+fixed; drop `max-age=0` to get the hits. `BYPASS` means Cloudflare declines to store a 303: no
+regression, but the eviction stays, and the fallback is to disable Workers Caching on the entrypoint
+and move page caching to an inner entrypoint.
+
+Re-check this on a Wrangler or Vinext upgrade, the same as the other pinned-behavior audits.

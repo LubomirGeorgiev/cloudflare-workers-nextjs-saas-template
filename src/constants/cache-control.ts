@@ -5,6 +5,9 @@
  * anything with a runtime dependency joins every cold isolate's startup graph. Also,
  * `tests/e2e/cache-headers.test.ts` asserts the emitted headers against these same constants, so a
  * route cannot drift from its test.
+ *
+ * How the edge reads these headers — Workers Caching, `Vary` variants, and purge identity — is in
+ * `docs/page-caching.md`. Read it before you change a directive here.
  */
 
 import { CACHE_TAGS } from "@/constants/cache-tags";
@@ -24,10 +27,11 @@ export const MARKDOWN_PAGE_CACHE_TTL_SECONDS = 3600;
 export const MARKDOWN_PAGE_CACHE_CONTROL =
   `public, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}, stale-while-revalidate=86400`;
 
-// Two representations share this URL, and Cloudflare's zone cache keys on `Accept-Encoding` alone,
-// so a storable 303 would reach browsers that never asked for Markdown. The HTML twin sends
-// `vary: accept` for the browsers and proxies that do honour it; a Cache Rule here would not.
-export const MARKDOWN_NEGOTIATION_CACHE_CONTROL = "no-store";
+// A `no-store` 303 dropped the whole cache entry, and every `vary: accept` variant with it, so one
+// agent request cold-flushed the page HTML for every visitor in that data center. Measured against
+// production, not inferred — the A/B probe is in docs/page-caching.md. Storing makes it a variant.
+export const MARKDOWN_NEGOTIATION_CACHE_CONTROL =
+  `public, max-age=0, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}`;
 
 // Short shared TTL: search hits repeat across visitors, but a new doc should surface quickly.
 export const DOCS_SEARCH_CACHE_CONTROL =

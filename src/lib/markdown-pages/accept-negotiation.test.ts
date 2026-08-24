@@ -1,7 +1,10 @@
 import { describe, expect, test } from "vitest";
 
 import { ACCEPT_VARY_FIELD } from "@/constants";
-import { MARKDOWN_NEGOTIATION_CACHE_CONTROL } from "@/constants/cache-control";
+import {
+  MARKDOWN_NEGOTIATION_CACHE_CONTROL,
+  MARKDOWN_PAGE_CACHE_TTL_SECONDS,
+} from "@/constants/cache-control";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { ENABLED_LOCALES } from "@/i18n/config";
 
@@ -60,15 +63,17 @@ describe("accept header matching", () => {
   });
 });
 
-// Pinned to the literal, against the usual derive-from-the-constant rule: two representations
-// share this URL and Cloudflare's zone cache keys on `Accept-Encoding` alone, so a storable 303
-// would reach browsers that never asked for Markdown. Only `no-store` is safe.
-test("stays non-storable", () => {
-  expect(MARKDOWN_NEGOTIATION_CACHE_CONTROL).toBe("no-store");
+// One equality, but on the derived string, so a fork may retune the seconds. `no-store` is the
+// regression this guards: it dropped the whole cache entry and every `vary: accept` variant with it,
+// so one agent request cold-flushed the page HTML. See docs/page-caching.md.
+test("stays shared-storable", () => {
+  expect(MARKDOWN_NEGOTIATION_CACHE_CONTROL).toBe(
+    `public, max-age=0, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}`,
+  );
 });
 
 describe("markdownNegotiationRedirect", () => {
-  test("sends a public page to its .md twin without caching the answer", () => {
+  test("sends a public page to its .md twin under the shared cache policy", () => {
     const redirect = markdownNegotiationRedirect({
       accept: "text/markdown",
       pathname: PAGE_PATHNAME,

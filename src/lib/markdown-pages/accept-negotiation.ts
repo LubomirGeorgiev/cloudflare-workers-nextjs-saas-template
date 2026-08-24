@@ -53,6 +53,8 @@ export function markdownNegotiationRedirect({
       // would send a preview deployment to production.
       location: alternate.path,
       "cache-control": MARKDOWN_NEGOTIATION_CACHE_CONTROL,
+      // Load-bearing now that the 303 is storable: without it a shared cache would hand this
+      // redirect to the next caller that asked for the page.
       vary: ACCEPT_VARY_FIELD,
     },
   });
