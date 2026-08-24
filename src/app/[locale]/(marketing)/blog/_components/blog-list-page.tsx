@@ -3,7 +3,6 @@ import { getTranslator } from "@/i18n/translator";
 import { Link, redirect } from "@/i18n/navigation"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
-import type { Blog, WithContext } from "schema-dts"
 import { Tag, Users } from "lucide-react"
 import { getCmsCollection, getCmsCollectionCount } from "@/lib/cms/entry"
 import { BlogCard } from "@/components/blog-card"
@@ -12,10 +11,11 @@ import { BlogPaginationServer } from "@/components/blog-pagination-server"
 import { BLOG_POSTS_PER_PAGE } from "@/constants"
 import { getBlogPagePath } from "@/lib/blog-routing"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
-import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
+import { buildBlogListGraph } from "@/lib/seo/blog-json-ld"
+import { JsonLd } from "@/lib/seo/json-ld"
 
 interface BlogListPageProps {
   page: number;
@@ -81,50 +81,11 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
     notFound()
   }
 
-  // JSON-LD structured data for Blog
-  const jsonLd: WithContext<Blog> = {
-    "@context": "https://schema.org",
-    "@type": "Blog",
-    name: t("meta.title"),
-    inLanguage: locale,
-    description: t("meta.description"),
-    ...(blogEntries.length > 0 && {
-      blogPost: blogEntries.map((entry) => {
-        const authorName = entry.createdByUser
-          ? [entry.createdByUser.firstName, entry.createdByUser.lastName].filter(Boolean).join(' ') || entry.createdByUser.email || undefined
-          : undefined
-
-        const { publishedDate, modifiedDate } = getCmsEntryDates({
-          publishedAt: entry.publishedAt,
-          createdAt: entry.createdAt,
-          updatedAt: entry.updatedAt,
-        })
-
-        return {
-          "@type": "BlogPosting" as const,
-          headline: entry.title,
-          datePublished: publishedDate.toISOString(),
-          dateModified: modifiedDate.toISOString(),
-          ...(entry.featuredImageUrl && {
-            image: entry.featuredImageUrl,
-          }),
-          ...(authorName && {
-            author: {
-              "@type": "Person" as const,
-              name: authorName,
-            },
-          }),
-        }
-      }),
-    }),
-  }
+  const graph = await buildBlogListGraph({ locale, page, posts: blogEntries })
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd graph={graph} />
       {/* Negative margins cancel the blog layout's horizontal padding so the
           grid backdrop bleeds full width and meets the nav with no gap. */}
       <header className="relative isolate -mx-4 overflow-hidden md:-mx-6 lg:-mx-8">

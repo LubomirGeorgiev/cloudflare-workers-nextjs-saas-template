@@ -27,6 +27,8 @@ import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } f
 import { Link, permanentRedirect, redirect as redirectLocalized } from "@/i18n/navigation";
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+import { buildDocsArticleGraph, buildDocsCollectionGraph } from "@/lib/seo/docs-json-ld";
+import { JsonLd } from "@/lib/seo/json-ld";
 
 interface DocsPageProps {
   params: Promise<{
@@ -170,8 +172,8 @@ export async function generateMetadata({
 export default async function DocsPage({ params }: DocsPageProps) {
   const { locale, slug } = await params;
   const t = await getTranslator({ locale, namespace: "Client.Docs.Page" });
+  const tDocsMeta = await getTranslator({ locale, namespace: "Client.Docs.meta" });
   const tPagination = await getTranslator({ locale, namespace: "Client.Pagination" });
-  const tCrumb = await getTranslator({ locale, namespace: "Breadcrumb" });
   const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
@@ -197,42 +199,13 @@ export default async function DocsPage({ params }: DocsPageProps) {
     nodeId: node.id,
     nodes: navigationTree,
   });
-  const breadcrumbJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: tCrumb("home"),
-        item: absoluteLocalizedUrl({ pathname: "/", locale: urlLocale }),
-      },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: t("docs"),
-        item: absoluteLocalizedUrl({ pathname: docsBasePath, locale: urlLocale }),
-      },
-      ...breadcrumbs.map((crumb, index) => ({
-        "@type": "ListItem",
-        position: index + 3,
-        name: getNavigationNodeDisplayTitle(crumb),
-        item: absoluteLocalizedUrl({
-          pathname: crumb.resolvedPath ?? docsBasePath,
-          locale: urlLocale,
-        }),
-      })),
-      {
-        "@type": "ListItem",
-        position: breadcrumbs.length + 3,
-        name: nodeTitle,
-        item: absoluteLocalizedUrl({
-          pathname: node.resolvedPath ?? docsBasePath,
-          locale: urlLocale,
-        }),
-      },
-    ],
-  };
+  // Shared by both branches below: the crumbs under the docs root, which both docs builders prepend.
+  const docsTrail = breadcrumbs.map((crumb) => ({
+    pathname: crumb.resolvedPath ?? docsBasePath,
+    name: getNavigationNodeDisplayTitle(crumb),
+  }));
+  const docsPathname = node.resolvedPath ?? docsBasePath;
+
   const breadcrumbNode = (
     <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
       <Link href={docsBasePath}>{t("docs")}</Link>
@@ -255,31 +228,24 @@ export default async function DocsPage({ params }: DocsPageProps) {
 
   if (result.type === "group") {
     const children = getRoutableGroupChildren(node);
-    const groupItemListJsonLd = {
-      "@context": "https://schema.org",
-      "@type": "ItemList",
-      name: t("groupListName", { group: nodeTitle }),
-      itemListElement: children.map((child, index) => ({
-        "@type": "ListItem",
-        position: index + 1,
+    const groupGraph = await buildDocsCollectionGraph({
+      locale: urlLocale,
+      pathname: docsPathname,
+      name: nodeTitle,
+      // Deliberately not the `<meta>` description: structured data must describe
+      // what the page shows, while the meta copy is a richer search teaser.
+      description: t("sectionFallbackDescription"),
+      trail: docsTrail,
+      items: children.map((child) => ({
+        pathname: child.resolvedPath!,
         name: getNavigationNodeDisplayTitle(child),
-        url: absoluteLocalizedUrl({ pathname: child.resolvedPath!, locale: urlLocale }),
         description: getNavigationItemDescription(child) ?? undefined,
       })),
-    };
+    });
 
     return (
       <>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-        />
-        {children.length > 0 ? (
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(groupItemListJsonLd) }}
-          />
-        ) : null}
+        <JsonLd graph={groupGraph} />
         <div className="px-4 py-10 lg:px-8">
           <article className="min-w-0">
             {breadcrumbNode}
@@ -366,12 +332,22 @@ export default async function DocsPage({ params }: DocsPageProps) {
     download: true,
   });
 
+  const docsDescription =
+    entry.seoDescription || tDocsMeta("pageDescription", { title: entry.title });
+
+  const pageGraph = await buildDocsArticleGraph({
+    locale: urlLocale,
+    pathname: docsPathname,
+    name: entry.title,
+    description: docsDescription,
+    trail: docsTrail,
+    sections: tableOfContents.map((heading) => heading.text),
+    markdownUrl: markdownApiUrl,
+  });
+
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd graph={pageGraph} />
       <div className="px-4 py-10 lg:px-8">
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
           <article className="min-w-0">

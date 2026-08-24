@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { getTranslator } from "@/i18n/translator";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
+import { buildPageGraph, JsonLd } from "@/lib/seo/json-ld";
 
 // Cached for a day — see docs/page-caching.md.
 export const revalidate = 86400;
@@ -32,9 +33,21 @@ export default async function TermsPage({
 }) {
   const { locale } = await params;
   const t = await getTranslator({ locale, namespace: "Legal.Terms" });
+  const tMeta = await getTranslator({ locale, namespace: "Legal.Terms.meta" });
+
+  // `dateModified` is the one signal that matters on a policy page: it tells a crawler, and a
+  // model summarising the terms, which revision it is reading.
+  const graph = await buildPageGraph({
+    locale,
+    pathname: "/terms",
+    name: tMeta("title"),
+    description: tMeta("description"),
+    dateModified: lastUpdated,
+  });
 
   return (
     <>
+      <JsonLd graph={graph} />
       <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
 
       <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString(locale) })}</p>

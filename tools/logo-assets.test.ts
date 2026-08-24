@@ -4,9 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { SITE_LOGO } from "@/constants/logo";
+
 import {
   EMAIL_LOGO_PNG_PATH,
-  EMAIL_LOGO_RASTER_SIZE,
   FAVICON_ICO_PATH,
   FAVICON_ICO_SIZES,
   LOGO_ASSETS,
@@ -85,12 +86,12 @@ describe("logo assets", () => {
       `${EMAIL_LOGO_PNG_PATH} is not a PNG — run \`pnpm logo:generate\``
     ).toBe(true);
 
-    // The email <img> hard-codes width and height from EMAIL_LOGO, so a file at another size
-    // would silently stretch in every inbox.
+    // These pixels are what the structured-data logo advertises, and what the email <img> shows
+    // scaled down; a file at another size would silently stretch in every inbox.
     expect({
       width: png.readUInt32BE(PNG_IHDR_WIDTH_OFFSET),
       height: png.readUInt32BE(PNG_IHDR_WIDTH_OFFSET + 4),
-    }).toEqual({ width: EMAIL_LOGO_RASTER_SIZE.width, height: EMAIL_LOGO_RASTER_SIZE.height });
+    }).toEqual({ width: SITE_LOGO.width, height: SITE_LOGO.height });
   });
 
   // The stock packers store raw BMP, which costs about 10x here. This catches a swap back to one.

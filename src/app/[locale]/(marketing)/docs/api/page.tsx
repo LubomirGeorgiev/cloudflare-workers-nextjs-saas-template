@@ -24,6 +24,8 @@ import { markdownAlternateFor } from "@/lib/markdown-pages/markdown-alternate";
 import { cn } from "@/lib/utils";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { buildAlternates } from "@/utils/i18n-metadata";
+import { buildDocsArticleGraph } from "@/lib/seo/docs-json-ld";
+import { JsonLd } from "@/lib/seo/json-ld";
 import { RATE_LIMITS, rateLimitDocsValues } from "@/utils/with-rate-limit";
 
 import { ApiOperation, buildApiOperationLabels } from "./_components/api-operation";
@@ -65,6 +67,7 @@ export default async function ApiReferencePage({
 }) {
   const { locale } = await params;
   const t = await getTranslator({ locale, namespace: "Client.Docs.ApiReference" });
+  const tMeta = await getTranslator({ locale, namespace: "Client.Docs.ApiReference.meta" });
   // Every operation renders the same strings, so the page owns the one label set for all of them.
   const operationLabels = buildApiOperationLabels(t);
   const document = apiDocument();
@@ -78,8 +81,22 @@ export default async function ApiReferencePage({
     mcpToolNames: mcpToolNameByOperationId(document),
   });
 
+  // Every documented operation becomes a section heading, so the reference lists its own
+  // surface rather than presenting as one opaque page.
+  const graph = await buildDocsArticleGraph({
+    locale,
+    pathname: API_DOCS_PATH,
+    name: tMeta("title"),
+    description: tMeta("description"),
+    sections: view.groups.flatMap((group) =>
+      group.operations.map((operation) => operation.summary),
+    ),
+    ...(markdownAlternate && { markdownUrl: markdownAlternate.url }),
+  });
+
   return (
     <NuqsAdapter>
+      <JsonLd graph={graph} />
       <div className="px-4 py-10 lg:px-8">
         <header className="mb-8 space-y-4">
           <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>

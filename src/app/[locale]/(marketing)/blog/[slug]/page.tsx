@@ -12,7 +12,9 @@ import { ContentTableOfContentsNav } from "@/components/content-table-of-content
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
 import type { JSONContent } from "@tiptap/core"
 import Image from "next/image"
-import { SITE_NAME, SITE_URL } from "@/constants"
+import { SITE_URL } from "@/constants"
+import { buildBlogPostGraph } from "@/lib/seo/blog-json-ld"
+import { contentLocale, JsonLd } from "@/lib/seo/json-ld"
 import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, type Locale } from "@/i18n/config"
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
@@ -22,7 +24,6 @@ import { BlogBackLink } from "@/components/blog-back-link"
 import { cn } from "@/lib/utils"
 import { CmsEntryTags } from "@/components/cms-entry-tags"
 import { localizeEntryTags } from "@/lib/cms/tags"
-import type { BlogPosting, BreadcrumbList, WithContext } from "schema-dts"
 import { BlogListPage, getBlogListPageMetadata } from "../_components/blog-list-page"
 import { getBlogPagePath } from "@/lib/blog-routing"
 import { getValidPageNumber } from "@/utils/get-valid-page-number"
@@ -86,12 +87,12 @@ export async function generateMetadata({
   const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
   const featuredImageUrl = entry.featuredImageUrl ? `${SITE_URL}${entry.featuredImageUrl}` : undefined
   const author = entry.createdByUser
-  const authorName = author
-    ? [author.firstName, author.lastName].filter(Boolean).join(' ') || author.email
-    : undefined
+  // Empty unknown-label on purpose: OG omits `authors` when the name is
+  // unresolvable, rather than publishing a translated "Unknown author".
+  const authorName = author ? getAuthorDisplayName(author, "") : undefined
   // A fallback render serves default-locale content, so localize tags to the
   // body's real language, not the URL's, keeping keywords consistent.
-  const displayLocale = isFallback ? DEFAULT_LOCALE : locale
+  const displayLocale = contentLocale({ locale, isFallback })
   // Tag localization and the entry's translation set are independent reads of the resolved entry.
   const [localizedTags, availableLocales] = await Promise.all([
     localizeEntryTags(entry.tags, displayLocale),
@@ -152,7 +153,6 @@ export async function generateMetadata({
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { locale, slug } = await params
   const t = await getTranslator({ locale, namespace: "Blog.Post" })
-  const tCrumb = await getTranslator({ locale, namespace: "Breadcrumb" })
 
   const validPageNumber = getValidPageNumber({ value: slug })
 
@@ -184,7 +184,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   // A fallback render serves default-locale content, so localize tags to the
   // body's real language, not the URL's.
-  const displayLocale = isFallback ? DEFAULT_LOCALE : locale
+  const displayLocale = contentLocale({ locale, isFallback })
   const localizedTags = await localizeEntryTags(entry.tags, displayLocale)
 
   const { publishedDate, modifiedDate } = getCmsEntryDates({
@@ -195,84 +195,19 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const tableOfContents = extractTableOfContents(entry.content as JSONContent)
   const tableOfContentsTree = buildTableOfContentsTree(tableOfContents)
 
-  // JSON-LD structured data for Article
-  const jsonLd: WithContext<BlogPosting> = {
-    "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    headline: entry.title,
-    // A fallback render serves the default-locale body under a
-    // non-default prefix, so advertise the body's real language, not the URL's.
-    inLanguage: displayLocale,
-    description: entry.seoDescription || generateMetaDescription(entry.content as JSONContent),
-    url: absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
-    datePublished: publishedDate.toISOString(),
-    dateModified: modifiedDate.toISOString(),
-    ...(entry.featuredImageUrl && {
-      image: `${SITE_URL}${entry.featuredImageUrl}`,
-    }),
-    ...(author && {
-      author: {
-        "@type": "Person",
-        name: authorName,
-        url: absoluteLocalizedUrl({ pathname: `/blog/authors/${getAuthorRouteParam(author)}`, locale: displayLocale }),
-        ...(author.avatar && {
-          image: `${SITE_URL}${author.avatar}`,
-        }),
-      },
-    }),
-    ...(localizedTags.length > 0 && {
-      keywords: localizedTags.map(({ tag }) => tag.name).join(", "),
-    }),
-    mainEntityOfPage: {
-      "@type": "WebPage",
-      "@id": absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
-    },
-    publisher: {
-      "@type": "Organization",
-      name: SITE_NAME,
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE_URL}/favicon.ico`,
-      },
-    },
-  }
+  const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
 
-  // Breadcrumb structured data
-  const breadcrumbJsonLd: WithContext<BreadcrumbList> = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: tCrumb("home"),
-        item: absoluteLocalizedUrl({ pathname: "/", locale: displayLocale }),
-      },
-      {
-        "@type": "ListItem",
-        position: 2,
-        name: tCrumb("blog"),
-        item: absoluteLocalizedUrl({ pathname: "/blog", locale: displayLocale }),
-      },
-      {
-        "@type": "ListItem",
-        position: 3,
-        name: entry.title,
-        item: absoluteLocalizedUrl({ pathname: `/blog/${entry.slug}`, locale: displayLocale }),
-      },
-    ],
-  }
+  const graph = await buildBlogPostGraph({
+    locale,
+    isFallback,
+    post: entry,
+    description,
+    tags: localizedTags.map(({ tag }) => tag),
+  })
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
+      <JsonLd graph={graph} />
       <div className="mx-auto max-w-6xl py-12 sm:py-16">
         <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
           <article className="min-w-0 max-w-3xl">

@@ -66,6 +66,7 @@ export default async function AuthenticationDocsPage({
   return (
     <DocsProsePage
       locale={locale}
+      pathname={API_AUTH_DOCS_PATH}
       title={t("title")}
       description={t("description")}
       headerAside={

@@ -5,12 +5,14 @@ import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
+  ACCEPT_VARY_FIELD,
   API_CATALOG_CONTENT_TYPE,
   API_CATALOG_METHODS,
   API_CATALOG_PATH,
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
+  HTML_CONTENT_TYPE,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_EXTENSION,
   OAUTH_AUTHORIZE_PATH,
@@ -151,6 +153,42 @@ describe("worker edge integration", () => {
 
     expect(response.headers.get("location")).toBeNull();
     expect(innerFetchMock).toHaveBeenCalledOnce();
+  });
+
+  test("stamps Vary: accept on HTML for a page with a Markdown twin", async () => {
+    innerFetchMock.mockImplementationOnce(async () => {
+      return new Response("<html></html>", {
+        headers: {
+          "content-type": `${HTML_CONTENT_TYPE}; charset=utf-8`,
+          vary: "RSC, Next-Url",
+        },
+      });
+    });
+
+    const response = await worker.fetch(
+      new Request("https://example.com/terms", { headers: { accept: "text/html" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("vary")).toBe(`RSC, Next-Url, ${ACCEPT_VARY_FIELD}`);
+  });
+
+  test("does not stamp Vary: accept on HTML with no Markdown twin", async () => {
+    innerFetchMock.mockImplementationOnce(async () => {
+      return new Response("<html></html>", {
+        headers: { "content-type": `${HTML_CONTENT_TYPE}; charset=utf-8` },
+      });
+    });
+
+    const response = await worker.fetch(
+      new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.headers.get("vary")).toBeNull();
   });
 
   test("renders the page for a path with no .md twin", async () => {

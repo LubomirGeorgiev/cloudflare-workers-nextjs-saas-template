@@ -11,10 +11,11 @@ import { getInitials } from "@/utils/name-initials"
 import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
 import { HairlineGrid } from "@/components/hairline-grid"
-import type { CollectionPage, WithContext } from "schema-dts"
 import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
+import { buildBlogAuthorsGraph } from "@/lib/seo/blog-json-ld"
+import { JsonLd } from "@/lib/seo/json-ld"
 
 // Cached for an hour — see docs/page-caching.md.
 export const revalidate = 3600;
@@ -105,37 +106,11 @@ export default async function BlogAuthorsPage({
 
   const authors = Array.from(authorMap.values()).sort((a, b) => b.postCount - a.postCount)
 
-  // JSON-LD structured data for CollectionPage
-  const jsonLd: WithContext<CollectionPage> = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: t("meta.title"),
-    inLanguage: locale,
-    description: t("description"),
-    ...(authors.length > 0 && {
-      mainEntity: {
-        "@type": "ItemList",
-        itemListElement: authors.map((author, index) => ({
-          "@type": "ListItem",
-          position: index + 1,
-          item: {
-            "@type": "Person",
-            name: getAuthorDisplayName(author, unknownAuthor),
-            ...(author.email && {
-              email: author.email,
-            }),
-          },
-        })),
-      },
-    }),
-  }
+  const graph = await buildBlogAuthorsGraph({ locale, authors })
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd graph={graph} />
       <div className="mx-auto max-w-7xl py-12 sm:py-16">
         <div className="mb-12">
           <BlogBackLink href="/blog" label={t("backToBlog")} />

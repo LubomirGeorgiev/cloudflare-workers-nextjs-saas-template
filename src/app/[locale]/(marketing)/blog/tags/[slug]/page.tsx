@@ -9,11 +9,11 @@ import { getCmsTags } from "@/lib/cms/tags"
 import { BlogCard } from "@/components/blog-card"
 import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
-import type { CollectionPage, WithContext } from "schema-dts"
-import { getCmsEntryDates } from "@/utils/cms-entry-dates"
 import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
+import { buildBlogTagGraph } from "@/lib/seo/blog-json-ld"
+import { JsonLd } from "@/lib/seo/json-ld"
 
 type TagPageProps = {
   params: Promise<{
@@ -91,44 +91,11 @@ export default async function TagPage({ params }: TagPageProps) {
     entry.tags?.some(entryTag => entryTag.tag.id === tag.id)
   )
 
-  // JSON-LD structured data for CollectionPage
-  const jsonLd: WithContext<CollectionPage> = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: t("meta.title", { name: tag.name }),
-    inLanguage: locale,
-    description: tag.description || t("meta.description", { name: tag.name }),
-    ...(blogEntries.length > 0 && {
-      mainEntity: {
-        "@type": "ItemList",
-        itemListElement: blogEntries.map((entry, index) => {
-          const { publishedDate, modifiedDate } = getCmsEntryDates({
-            publishedAt: entry.publishedAt,
-            createdAt: entry.createdAt,
-            updatedAt: entry.updatedAt,
-          })
-
-          return {
-            "@type": "ListItem",
-            position: index + 1,
-            item: {
-              "@type": "BlogPosting",
-              headline: entry.title,
-              datePublished: publishedDate.toISOString(),
-              dateModified: modifiedDate.toISOString(),
-            },
-          }
-        }),
-      },
-    }),
-  }
+  const graph = await buildBlogTagGraph({ locale, tag, posts: blogEntries })
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd graph={graph} />
       <div className="mx-auto max-w-7xl py-12 sm:py-16">
         <div className="mb-12">
           <BlogBackLink href="/blog/tags" label={t("backToTags")} />

@@ -24,10 +24,9 @@ export const MARKDOWN_PAGE_CACHE_TTL_SECONDS = 3600;
 export const MARKDOWN_PAGE_CACHE_CONTROL =
   `public, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}, stale-while-revalidate=86400`;
 
-// The Accept-negotiated redirect from a page to its `.md` twin. Two representations share this
-// URL, and Cloudflare's edge honours no `Vary` but `Accept-Encoding`, so a stored redirect would
-// reach browsers. Never cache it. The redirect still sends `vary: accept` for the caches that do
-// honour it; the HTML representation sends none, because on Cloudflare it would change nothing.
+// Two representations share this URL, and Cloudflare's zone cache keys on `Accept-Encoding` alone,
+// so a storable 303 would reach browsers that never asked for Markdown. The HTML twin sends
+// `vary: accept` for the browsers and proxies that do honour it; a Cache Rule here would not.
 export const MARKDOWN_NEGOTIATION_CACHE_CONTROL = "no-store";
 
 // Short shared TTL: search hits repeat across visitors, but a new doc should surface quickly.

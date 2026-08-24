@@ -4,24 +4,20 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { GITHUB_REPO_URL } from "@/constants";
+import { FAQ_ENTRIES, FAQ_MARKUP, FAQ_QUESTION_KEY } from "@/constants/faq";
+import type { FaqAnswerPart, FaqEntry } from "@/constants/faq";
 import { MARKDOWN_DIRECTIVES } from "@/constants/markdown-directives";
 import { getTranslator } from "@/i18n/translator";
 import type { Locale } from "@/i18n/config";
 
 type FaqTranslator = Awaited<ReturnType<typeof getTranslator<"Landing.Faq">>>;
 
-const FAQ_KEYS = [
-  "isFree",
-  "featuresIncluded",
-  "techStack",
-  "deploy",
-  "gettingStarted",
-  "roadmap",
-  "emailTemplates",
-  "customize",
-  "contribute",
-] as const;
+/** Consecutive list parts share one list element; every other part stands on its own. */
+interface FaqAnswerBlock {
+  key: string;
+  list: boolean;
+  parts: FaqAnswerPart[];
+}
 
 export async function FAQ({ locale }: { locale: Locale }) {
   const t = await getTranslator({ locale, namespace: "Landing.Faq" });
@@ -44,18 +40,18 @@ export async function FAQ({ locale }: { locale: Locale }) {
         {/* `hiddenUntilFound` keeps every answer in the DOM, so find-in-page reaches a closed one
             and so does the `.md` copy of this page. */}
         <Accordion type="single" collapsible hiddenUntilFound className="w-full">
-          {FAQ_KEYS.map((key, index) => (
-            <AccordionItem key={key} value={`item-${index}`} className="border-border">
+          {FAQ_ENTRIES.map((entry, index) => (
+            <AccordionItem key={entry.key} value={`item-${index}`} className="border-border">
               {/* The trigger label is the question itself, not a page action. */}
               <AccordionTrigger
                 data-markdown={MARKDOWN_DIRECTIVES.unwrap}
                 className="text-left font-display text-base font-medium"
               >
-                {t(`${key}.question`)}
+                {t(`${entry.key}.${FAQ_QUESTION_KEY}`)}
               </AccordionTrigger>
               <AccordionContent>
                 <div className="prose prose-sm dark:prose-invert w-full max-w-none text-muted-foreground prose-a:text-edge">
-                  <FaqAnswer faqKey={key} t={t} />
+                  <FaqAnswer entry={entry} t={t} />
                 </div>
               </AccordionContent>
             </AccordionItem>
@@ -66,119 +62,54 @@ export async function FAQ({ locale }: { locale: Locale }) {
   );
 }
 
-function FaqAnswer({ faqKey, t }: { faqKey: (typeof FAQ_KEYS)[number]; t: FaqTranslator }) {
-  const richLink = {
-    link: (chunks: React.ReactNode) => (
-      <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer">
-        {chunks}
-      </a>
-    ),
-  };
-  const richReadme = {
-    link: (chunks: React.ReactNode) => (
-      <a href={`${GITHUB_REPO_URL}/blob/main/README.md`} target="_blank" rel="noreferrer">
-        {chunks}
-      </a>
-    ),
-  };
-  const richCode = {
-    code: (chunks: React.ReactNode) => <code>{chunks}</code>,
-  };
+export function FaqAnswer({ entry, t }: { entry: FaqEntry; t: FaqTranslator }) {
+  const List = entry.listStyle === "number" ? "ol" : "ul";
+  const listMarker = entry.listStyle === "number" ? "list-decimal" : "list-disc";
 
-  switch (faqKey) {
-    case "isFree":
-      return <>{t.rich("isFree.answer", richLink)}</>;
-    case "featuresIncluded":
-      return (
-        <>
-          {t("featuresIncluded.intro")}
-          <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li>{t("featuresIncluded.item1")}</li>
-            <li>{t("featuresIncluded.item2")}</li>
-            <li>{t("featuresIncluded.item3")}</li>
-            <li>{t("featuresIncluded.item4")}</li>
-            <li>{t("featuresIncluded.item5")}</li>
-            <li>{t("featuresIncluded.item6")}</li>
-            <li>{t("featuresIncluded.item7")}</li>
-            <li>{t("featuresIncluded.item8")}</li>
-            <li>{t("featuresIncluded.item9")}</li>
-            <li>{t("featuresIncluded.item10")}</li>
-            <li>{t("featuresIncluded.item11")}</li>
-            <li>{t("featuresIncluded.item12")}</li>
-          </ul>
-        </>
-      );
-    case "techStack":
-      return (
-        <>
-          <p>{t("techStack.intro")}</p>
-          <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li>{t("techStack.item1")}</li>
-            <li>{t("techStack.item2")}</li>
-            <li>{t("techStack.item3")}</li>
-            <li>{t("techStack.item4")}</li>
-            <li>{t("techStack.item5")}</li>
-            <li>{t("techStack.item6")}</li>
-            <li>{t("techStack.item7")}</li>
-            <li>{t("techStack.item8")}</li>
-          </ul>
-        </>
-      );
-    case "deploy":
-      return (
-        <>
-          <p>{t("deploy.intro")}</p>
-          <ol className="list-decimal pl-6 mt-2 space-y-1">
-            <li>{t("deploy.item1")}</li>
-            <li>{t("deploy.item2")}</li>
-            <li>{t("deploy.item3")}</li>
-            <li>{t("deploy.item4")}</li>
-            <li>{t("deploy.item5")}</li>
-            <li>{t("deploy.item6")}</li>
-          </ol>
-          <p className="mt-2">{t.rich("deploy.outro", richLink)}</p>
-        </>
-      );
-    case "gettingStarted":
-      return (
-        <>
-          <p>{t("gettingStarted.paragraph1")}</p>
-          <p>{t.rich("gettingStarted.paragraph2", richReadme)}</p>
-        </>
-      );
-    case "roadmap":
-      return (
-        <>
-          <p>{t("roadmap.intro")}</p>
-          <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li>{t("roadmap.item1")}</li>
-            <li>{t("roadmap.item2")}</li>
-            <li>{t("roadmap.item3")}</li>
-            <li>{t("roadmap.item4")}</li>
-            <li>{t("roadmap.item5")}</li>
-            <li>{t("roadmap.item6")}</li>
-            <li>{t("roadmap.item7")}</li>
-            <li>{t("roadmap.item8")}</li>
-            <li>{t("roadmap.item9")}</li>
-          </ul>
-        </>
-      );
-    case "emailTemplates":
-      return <>{t("emailTemplates.answer")}</>;
-    case "customize":
-      return (
-        <>
-          <p>{t("customize.intro")}</p>
-          <ul className="list-disc pl-6 mt-2 space-y-1">
-            <li>{t.rich("customize.item1", richCode)}</li>
-            <li>{t.rich("customize.item2", richCode)}</li>
-            <li>{t.rich("customize.item3", richCode)}</li>
-          </ul>
-        </>
-      );
-    case "contribute":
-      return <>{t.rich("contribute.answer", richLink)}</>;
-    default:
-      return null;
+  return (
+    <>
+      {groupAnswerBlocks(entry.answer).map((block) =>
+        block.list ? (
+          <List key={block.key} className={`${listMarker} pl-6 mt-2 space-y-1`}>
+            {block.parts.map((part) => (
+              <li key={part.key}>{renderAnswerPart({ part, t })}</li>
+            ))}
+          </List>
+        ) : (
+          <p key={block.key}>{renderAnswerPart({ part: block.parts[0]!, t })}</p>
+        ),
+      )}
+    </>
+  );
+}
+
+function groupAnswerBlocks(answer: readonly FaqAnswerPart[]): FaqAnswerBlock[] {
+  return answer.reduce<FaqAnswerBlock[]>((blocks, part) => {
+    const previous = blocks.at(-1);
+    if (part.listItem && previous?.list) {
+      previous.parts.push(part);
+      return blocks;
+    }
+    blocks.push({ key: part.key, list: Boolean(part.listItem), parts: [part] });
+    return blocks;
+  }, []);
+}
+
+function renderAnswerPart({ part, t }: { part: FaqAnswerPart; t: FaqTranslator }) {
+  if (!part.markup) {
+    return t(part.key);
   }
+
+  const markup = FAQ_MARKUP[part.markup];
+  if (markup.tag === "code") {
+    return t.rich(part.key, { code: (chunks) => <code>{chunks}</code> });
+  }
+
+  return t.rich(part.key, {
+    link: (chunks) => (
+      <a href={markup.href} target="_blank" rel="noreferrer">
+        {chunks}
+      </a>
+    ),
+  });
 }

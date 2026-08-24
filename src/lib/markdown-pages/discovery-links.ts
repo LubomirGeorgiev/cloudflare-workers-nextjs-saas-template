@@ -1,5 +1,10 @@
-import { HTML_DISCOVERY_RELATIONS, LLMS_DESCRIBED_BY_RELATION } from "@/constants";
+import {
+  ACCEPT_VARY_FIELD,
+  HTML_DISCOVERY_RELATIONS,
+  LLMS_DESCRIBED_BY_RELATION,
+} from "@/constants";
 
+import type { MarkdownAlternate } from "./markdown-alternate";
 import { markdownAlternateFor, MARKDOWN_CONTENT_TYPE } from "./markdown-alternate";
 
 /** Formats one relation as an RFC 8288 `Link` value. Takes the constant, never a raw URL. */
@@ -12,8 +17,8 @@ export const LLMS_DESCRIBED_BY_LINK = linkValue(LLMS_DESCRIBED_BY_RELATION);
 /** The header form of the set the shell renders as `<link>`s, so neither channel can drift. */
 export const HTML_DISCOVERY_LINKS: readonly string[] = HTML_DISCOVERY_RELATIONS.map(linkValue);
 
-/** The separator RFC 8288 uses between values of one `Link` header, and the one we write back. */
-const LINK_VALUE_SEPARATOR = ", ";
+/** The separator both `Link` and `Vary` use between values, and the one we write back. */
+const HEADER_LIST_SEPARATOR = ", ";
 
 /**
  * Adds the values the header does not already carry, and reports whether it changed anything.
@@ -27,15 +32,34 @@ export function appendLinkHeaderValues({
   values: readonly string[];
 }): boolean {
   const current = headers.get("link");
-  const existing = current ? current.split(LINK_VALUE_SEPARATOR) : [];
+  const existing = current ? current.split(HEADER_LIST_SEPARATOR) : [];
   const additions = values.filter((value) => !existing.includes(value));
 
   if (additions.length === 0) {
     return false;
   }
 
-  headers.set("link", [...existing, ...additions].join(LINK_VALUE_SEPARATOR));
+  headers.set("link", [...existing, ...additions].join(HEADER_LIST_SEPARATOR));
 
+  return true;
+}
+
+/**
+ * Adds `accept` to `Vary` without replacing tokens already on the response (Vinext lists RSC
+ * fields). Matches case-insensitively, which is why `Link` keeps its own appender above.
+ */
+function applyAcceptVary(headers: Headers): boolean {
+  const current = headers.get("vary");
+  const tokens = current
+    ? current.split(",").map((token) => token.trim()).filter(Boolean)
+    : [];
+
+  // `*` already means every request header, so it needs nothing added.
+  if (tokens.some((token) => token === "*" || token.toLowerCase() === ACCEPT_VARY_FIELD)) {
+    return false;
+  }
+
+  headers.set("vary", [...tokens, ACCEPT_VARY_FIELD].join(HEADER_LIST_SEPARATOR));
   return true;
 }
 
@@ -44,18 +68,18 @@ export function applyLlmsDescribedByLink(headers: Headers): boolean {
   return appendLinkHeaderValues({ headers, values: [LLMS_DESCRIBED_BY_LINK] });
 }
 
-// A response may carry immutable headers, so adding one means re-wrapping. Returns the original
-// response untouched when there is nothing to add.
-function withLinkHeader({
+// A response may carry immutable headers, so changing one means re-wrapping. Returns the original
+// response untouched when `apply` changed nothing.
+function withHeaderChanges({
+  apply,
   response,
-  values,
 }: {
+  apply: (headers: Headers) => boolean;
   response: Response;
-  values: readonly string[];
 }): Response {
   const headers = new Headers(response.headers);
 
-  if (!appendLinkHeaderValues({ headers, values })) {
+  if (!apply(headers)) {
     return response;
   }
 
@@ -67,19 +91,11 @@ function withLinkHeader({
 }
 
 /**
- * The discovery relations an HTML response advertises. `ok` gates the Markdown alternate: a 404 or
- * a 500 has no `.md` twin, and the advertised URL would fail the same way. llms.txt and the API
- * catalog exist whatever this response is, so those two ride on an error page too.
+ * The discovery relations an HTML response advertises. A 404 or a 500 gets a `null` alternate: its
+ * `.md` twin fails the same way. llms.txt and the API catalog exist whatever this response is, so
+ * those two ride on an error page too.
  */
-export function htmlDiscoveryLinkValues({
-  ok,
-  pathname,
-}: {
-  ok: boolean;
-  pathname: string;
-}): string[] {
-  const alternate = ok ? markdownAlternateFor({ pathname }) : null;
-
+function htmlDiscoveryLinkValues(alternate: MarkdownAlternate | null): string[] {
   if (!alternate) {
     return [...HTML_DISCOVERY_LINKS];
   }
@@ -90,6 +106,9 @@ export function htmlDiscoveryLinkValues({
   ];
 }
 
+/**
+ * Stamps the discovery `Link`s, plus `vary: accept` when this URL really has two representations.
+ */
 export function withHtmlDiscoveryLinkHeader({
   pathname,
   response,
@@ -97,12 +116,22 @@ export function withHtmlDiscoveryLinkHeader({
   pathname: string;
   response: Response;
 }): Response {
-  return withLinkHeader({
+  const alternate = response.ok ? markdownAlternateFor({ pathname }) : null;
+
+  return withHeaderChanges({
     response,
-    values: htmlDiscoveryLinkValues({ ok: response.ok, pathname }),
+    apply: (headers) => {
+      const linked = appendLinkHeaderValues({
+        headers,
+        values: htmlDiscoveryLinkValues(alternate),
+      });
+      const varied = alternate ? applyAcceptVary(headers) : false;
+
+      return linked || varied;
+    },
   });
 }
 
 export function withLlmsDescribedByLinkHeader({ response }: { response: Response }): Response {
-  return withLinkHeader({ response, values: [LLMS_DESCRIBED_BY_LINK] });
+  return withHeaderChanges({ response, apply: applyLlmsDescribedByLink });
 }

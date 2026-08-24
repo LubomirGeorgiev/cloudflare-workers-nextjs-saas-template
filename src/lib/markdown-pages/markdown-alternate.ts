@@ -11,7 +11,7 @@ import { resolveMdRequestTarget } from "./resolve-target";
  */
 export { MARKDOWN_CONTENT_TYPE } from "@/constants";
 
-interface MarkdownAlternate {
+export interface MarkdownAlternate {
   path: string;
   url: string;
 }

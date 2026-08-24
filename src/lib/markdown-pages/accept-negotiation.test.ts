@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { ACCEPT_VARY_FIELD } from "@/constants";
 import { MARKDOWN_NEGOTIATION_CACHE_CONTROL } from "@/constants/cache-control";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { ENABLED_LOCALES } from "@/i18n/config";
@@ -60,8 +61,8 @@ describe("accept header matching", () => {
 });
 
 // Pinned to the literal, against the usual derive-from-the-constant rule: two representations
-// share this URL and Cloudflare varies its cache key on `Accept-Encoding` alone, so a storable
-// redirect here would reach every later visitor. Only a non-storable value is safe.
+// share this URL and Cloudflare's zone cache keys on `Accept-Encoding` alone, so a storable 303
+// would reach browsers that never asked for Markdown. Only `no-store` is safe.
 test("stays non-storable", () => {
   expect(MARKDOWN_NEGOTIATION_CACHE_CONTROL).toBe("no-store");
 });
@@ -78,7 +79,7 @@ describe("markdownNegotiationRedirect", () => {
       buildMarkdownPagePath({ pathname: PAGE_PATHNAME }),
     );
     expect(redirect?.headers.get("cache-control")).toBe(MARKDOWN_NEGOTIATION_CACHE_CONTROL);
-    expect(redirect?.headers.get("vary")).toBe("accept");
+    expect(redirect?.headers.get("vary")).toBe(ACCEPT_VARY_FIELD);
   });
 
   test("keeps the locale prefix of the page it redirects", () => {

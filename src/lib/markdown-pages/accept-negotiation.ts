@@ -1,3 +1,4 @@
+import { ACCEPT_VARY_FIELD } from "@/constants";
 import { MARKDOWN_NEGOTIATION_CACHE_CONTROL } from "@/constants/cache-control";
 
 import { markdownAlternateFor, MARKDOWN_CONTENT_TYPE } from "./markdown-alternate";
@@ -52,7 +53,7 @@ export function markdownNegotiationRedirect({
       // would send a preview deployment to production.
       location: alternate.path,
       "cache-control": MARKDOWN_NEGOTIATION_CACHE_CONTROL,
-      vary: "accept",
+      vary: ACCEPT_VARY_FIELD,
     },
   });
 }

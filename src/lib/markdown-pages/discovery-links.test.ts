@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { API_DOCS_PATH, SITE_URL } from "@/constants";
+import { ACCEPT_VARY_FIELD, API_DOCS_PATH, SITE_URL } from "@/constants";
 import { BLOG_LISTING_ROUTES } from "@/constants/public-routes";
 
 vi.mock("server-only", () => ({}));
@@ -36,6 +36,39 @@ describe("agent discovery Link headers", () => {
     });
 
     expect(response.headers.get("link")).toBe(`${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`);
+    expect(response.headers.get("vary")).toBe(ACCEPT_VARY_FIELD);
+  });
+
+  test("appends accept to an existing Vary list on a Markdown-capable page", () => {
+    const response = withHtmlDiscoveryLinkHeader({
+      pathname: API_DOCS_PATH,
+      response: htmlResponse({ headers: { vary: "RSC, Next-Url" } }),
+    });
+
+    expect(response.headers.get("vary")).toBe(`RSC, Next-Url, ${ACCEPT_VARY_FIELD}`);
+  });
+
+  test("leaves Vary: * unchanged, because it already covers accept", () => {
+    const response = withHtmlDiscoveryLinkHeader({
+      pathname: API_DOCS_PATH,
+      response: htmlResponse({ headers: { vary: "*" } }),
+    });
+
+    expect(response.headers.get("link")).toBe(`${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`);
+    expect(response.headers.get("vary")).toBe("*");
+  });
+
+  test("does not repeat accept that Vary already lists in another case", () => {
+    const original = htmlResponse({
+      headers: {
+        link: `${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`,
+        vary: "Accept, RSC",
+      },
+    });
+    const response = withHtmlDiscoveryLinkHeader({ pathname: API_DOCS_PATH, response: original });
+
+    expect(response).toBe(original);
+    expect(response.headers.get("vary")).toBe("Accept, RSC");
   });
 
   test("only links the always-advertised relations when a page has no Markdown version", () => {
@@ -45,6 +78,7 @@ describe("agent discovery Link headers", () => {
     });
 
     expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
+    expect(response.headers.get("vary")).toBeNull();
   });
 
   // The `.md` twin of a failed page fails the same way, so advertising it points agents at a 404.
@@ -58,6 +92,7 @@ describe("agent discovery Link headers", () => {
     });
 
     expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
+    expect(response.headers.get("vary")).toBeNull();
   });
 
   test("omits the Markdown alternate on a failed render of a supported page", () => {
@@ -67,6 +102,7 @@ describe("agent discovery Link headers", () => {
     });
 
     expect(response.headers.get("link")).toBe(ALWAYS_ADVERTISED);
+    expect(response.headers.get("vary")).toBeNull();
   });
 
   test("preserves an existing Link header", () => {
@@ -84,7 +120,10 @@ describe("agent discovery Link headers", () => {
 
   test("returns the same response when it already carries every value", () => {
     const original = htmlResponse({
-      headers: { link: `${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}` },
+      headers: {
+        link: `${API_DOCS_ALTERNATE}, ${ALWAYS_ADVERTISED}`,
+        vary: ACCEPT_VARY_FIELD,
+      },
     });
     const response = withHtmlDiscoveryLinkHeader({ pathname: API_DOCS_PATH, response: original });
 

@@ -48,6 +48,10 @@ export const MARKDOWN_EXTENSION = ".md";
 // gate in `worker-entrypoint.ts`, the API catalog, and the OpenAPI document cannot drift apart.
 export const HTML_CONTENT_TYPE = "text/html";
 export const JSON_CONTENT_TYPE = "application/json";
+// Both representations of a Markdown-capable URL send this `Vary` field, so a cache can key them
+// apart. It lives here so the 303 and the HTML `Link` stamp read it without importing each other.
+// Keep the value lowercase: the append guard compares it against normalized `Vary` tokens.
+export const ACCEPT_VARY_FIELD = "accept";
 export const API_OPENAPI_SPEC_PATH = `${API_V1_BASE_PATH}/openapi.json`;
 // The document is a static read, so only the safe methods serve it. Shared by the Hono route and
 // the edge fast path in `worker-entrypoint.ts`: anything else must fall through to the auth chain.

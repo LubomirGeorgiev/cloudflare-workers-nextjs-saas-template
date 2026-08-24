@@ -6,10 +6,8 @@ import {
   EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
   SITE_DOMAIN,
   SITE_NAME,
-  SITE_URL,
 } from "@/constants";
-import { EMAIL_LOGO } from "@/constants/logo";
-import { LOGO_VERSION } from "@/constants/logo-version";
+import { EMAIL_LOGO_IMAGE } from "@/constants/logo-url";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { loadCatalog } from "@/i18n/message-catalogs";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
@@ -22,15 +20,6 @@ import {
   type EmailSendJobPayload,
 } from "@/lib/scheduler/jobs";
 import isProd from "./is-prod";
-
-// Not `absoluteLocalizedUrl`: that prefixes a locale, and the asset is the same in every language.
-// The mark has to be a hosted absolute URL because clients that allow images at all fetch them —
-// Gmail, Outlook and Yahoo each strip an inline data URI, and a `cid:` reference needs the
-// multipart/related body the send path does not build.
-// `?v=` is stamped by `pnpm logo:generate`, not per send: mail image proxies hold a URL for a long
-// time and ignore our headers, so it has to change when the artwork does — and only then, or every
-// recipient refetches and each message carries a URL unique enough to reveal who opened it.
-const EMAIL_LOGO_URL = `${SITE_URL}${EMAIL_LOGO.pathname}?v=${LOGO_VERSION}`;
 
 // The queue consumer has no request context (no cookies/headers), so it can't
 // call getUserLocale()/getTranslations(). `loadCatalog` keeps one explicit `import()`
@@ -171,7 +160,7 @@ function buildEmailTemplate({
   <body style="margin:0;padding:30px 16px;background-color:#f6f9fc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Ubuntu,sans-serif;color:#525f7f;">
     <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border:1px solid #f0f0f0;border-radius:5px;box-shadow:0 5px 10px rgba(20,50,70,.2);padding:40px;">
       <div style="margin:0 0 24px;text-align:center;">
-        <img src="${escapeHtml(EMAIL_LOGO_URL)}" width="${EMAIL_LOGO.width}" height="${EMAIL_LOGO.height}" alt="${escapedSiteName}" style="display:inline-block;border:0;outline:none;text-decoration:none;" />
+        <img src="${escapeHtml(EMAIL_LOGO_IMAGE.url)}" width="${EMAIL_LOGO_IMAGE.width}" height="${EMAIL_LOGO_IMAGE.height}" alt="${escapedSiteName}" style="display:inline-block;border:0;outline:none;text-decoration:none;" />
       </div>
       <h1 style="margin:0 0 30px;font-size:18px;line-height:1.5;text-align:center;color:#525f7f;">${escapedTitle}</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedGreeting}</p>

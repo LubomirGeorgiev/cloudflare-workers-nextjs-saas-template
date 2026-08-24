@@ -3,7 +3,9 @@
  * one place a fork edits to move the artwork. `src/app/icon.svg`, `src/app/favicon.ico`,
  * `public/logo.svg`, and `public/logo.png` are written from `renderLogoSvg` below by
  * `pnpm logo:generate`, which also stamps `logo-version.ts` next to this file;
- * `tools/logo-assets.test.ts` fails on drift.
+ * `tools/logo-assets.test.ts` fails on drift. Never import that stamp back here: the generator
+ * loads this module to write it, so the import would leave a deleted stamp unrecreatable.
+ * `logo-url.ts` reads it instead.
  */
 
 export const LOGO_VIEW_BOX = "0 0 32 32"
@@ -12,6 +14,18 @@ export const LOGO_VIEW_BOX = "0 0 32 32"
 // The box is the tight bounds rounded to whole pixels (45 * 270 / 248 = 48.99); `width`/`height`
 // attributes are mandatory there, because Outlook lays the message out before the image arrives.
 export const EMAIL_LOGO = { pathname: "/logo.png", width: 49, height: 45 } as const
+
+/** Three times `EMAIL_LOGO`, so the mark stays sharp on a retina phone. */
+const EMAIL_LOGO_RASTER_SCALE = 3
+
+// Intrinsic pixels of the generated `public/logo.png`: what `pnpm logo:generate` rasterizes, and
+// what structured data has to advertise. Google rejects SVG for `Organization.logo` and wants at
+// least 112px on a side, which this clears.
+export const SITE_LOGO = {
+  pathname: EMAIL_LOGO.pathname,
+  width: EMAIL_LOGO.width * EMAIL_LOGO_RASTER_SCALE,
+  height: EMAIL_LOGO.height * EMAIL_LOGO_RASTER_SCALE,
+} as const
 
 // Tight bounds of the painted mark. `renderLogoSvg` draws on these instead of the square grid,
 // because a standalone file must fill its box (the favicon, where every one of 16 pixels counts).

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { EMAIL_LOGO, renderLogoSvg } from "@/constants/logo";
+import { EMAIL_LOGO, renderLogoSvg, SITE_LOGO } from "@/constants/logo";
 
 // The places the brand mark has to exist as a file rather than as markup a component renders: the
 // Next.js icon conventions, and a plain asset a fork can hand to anything outside the app. All are
@@ -17,14 +17,6 @@ export const FAVICON_ICO_SIZES = [16, 32, 48] as const;
 export const FAVICON_RASTER_SIZE = 1024;
 
 export const FAVICON_ICO_PATH = "src/app/favicon.ico";
-
-/** Three times `EMAIL_LOGO`, so the mark stays sharp on a retina phone. */
-const EMAIL_LOGO_RASTER_SCALE = 3;
-
-export const EMAIL_LOGO_RASTER_SIZE = {
-  width: EMAIL_LOGO.width * EMAIL_LOGO_RASTER_SCALE,
-  height: EMAIL_LOGO.height * EMAIL_LOGO_RASTER_SCALE,
-} as const;
 
 export const EMAIL_LOGO_PNG_PATH = `public${EMAIL_LOGO.pathname}`;
 
@@ -104,5 +96,5 @@ export function renderFaviconRasterSvg(): string {
  * there as stray padding the template cannot see or centre against.
  */
 export function renderEmailLogoRasterSvg(): string {
-  return renderLogoSvg({ size: EMAIL_LOGO_RASTER_SIZE });
+  return renderLogoSvg({ size: SITE_LOGO });
 }

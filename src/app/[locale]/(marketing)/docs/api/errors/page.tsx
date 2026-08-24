@@ -80,6 +80,7 @@ export default async function ApiErrorsDocsPage({
 }) {
   const { locale } = await params;
   const t = await getTranslator({ locale, namespace: "Client.Docs.ApiErrors" });
+  const tApiMeta = await getTranslator({ locale, namespace: "Client.Docs.ApiReference.meta" });
 
   // Derived from the mapper's own registry, so a new code cannot ship undocumented; the literal
   // union still forces a type-checked catalog entry per code, and the status comes from the mapper.
@@ -99,6 +100,8 @@ export default async function ApiErrorsDocsPage({
   return (
     <DocsProsePage
       locale={locale}
+      pathname={API_ERRORS_DOCS_PATH}
+      trail={[{ pathname: API_DOCS_PATH, name: tApiMeta("title") }]}
       title={t("title")}
       description={t("description")}
       headerAside={

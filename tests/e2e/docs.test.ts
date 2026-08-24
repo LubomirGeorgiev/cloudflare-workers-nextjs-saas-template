@@ -83,6 +83,9 @@ test("advertises the API Markdown page and every discovery relation in HTML and 
   const html = await response.text();
 
   expect(link).toContain(`${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`);
+  expect(
+    (response.headers.get("vary") ?? "").split(",").map((token) => token.trim().toLowerCase()),
+  ).toContain("accept");
   expect(html).toMatch(
     new RegExp(`<link[^>]+href="[^"]*${API_DOCS_PATH}\\.md"[^>]+type="text/markdown"[^>]*>`),
   );

@@ -10,13 +10,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { BlogCard } from "@/components/blog-card"
 import { BlogBackLink } from "@/components/blog-back-link"
-import { SITE_NAME, SITE_URL } from "@/constants"
+import { SITE_URL } from "@/constants"
+import { buildBlogAuthorGraph } from "@/lib/seo/blog-json-ld"
+import { JsonLd } from "@/lib/seo/json-ld"
 import {
   getAuthorDisplayName,
   getAuthorRouteParam,
   parseAuthorIdFromRouteParam,
 } from "@/utils/blog-author-url"
-import type { Person, WithContext } from "schema-dts"
 import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
 import { buildAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
@@ -134,30 +135,11 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     redirect({ href: `/blog/authors/${canonicalAuthorParam}`, locale })
   }
 
-  // JSON-LD structured data for Person
-  const jsonLd: WithContext<Person> = {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: authorName,
-    url: absoluteLocalizedUrl({ pathname: `/blog/authors/${canonicalAuthorParam}`, locale }),
-    ...(author.avatar && {
-      image: `${SITE_URL}${author.avatar}`,
-    }),
-    ...(author.email && {
-      email: author.email,
-    }),
-    worksFor: {
-      "@type": "Organization",
-      name: SITE_NAME,
-    },
-  }
+  const graph = await buildBlogAuthorGraph({ locale, author })
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd graph={graph} />
       <div className="mx-auto max-w-7xl py-12 sm:py-16">
         <div className="mb-12">
           <BlogBackLink href="/blog/authors" label={t("backToAuthors")} />

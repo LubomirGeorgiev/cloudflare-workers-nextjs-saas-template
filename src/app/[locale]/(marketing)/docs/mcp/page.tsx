@@ -37,6 +37,7 @@ export default async function McpDocsPage({
   return (
     <DocsProsePage
       locale={locale}
+      pathname={MCP_DOCS_PATH}
       title={t("title")}
       description={t("description")}
       headerAside={
