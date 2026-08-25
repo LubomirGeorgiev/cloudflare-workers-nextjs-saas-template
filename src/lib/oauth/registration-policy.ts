@@ -5,6 +5,7 @@ import type {
   ClientRegistrationCallbackResult,
 } from "@cloudflare/workers-oauth-provider";
 
+import { isLoopbackHost } from "@/lib/oauth/client-identity";
 import { readBoundedRequestBody } from "@/utils/bounded-request-body";
 
 // Open DCR is intentionally anonymous, so bound every piece of metadata the provider persists or
@@ -48,16 +49,6 @@ function rejectMetadata({
 
 function rejectRedirect(description: string): ClientRegistrationCallbackResult {
   return { code: "invalid_redirect_uri", description };
-}
-
-function isLoopbackHost(hostname: string): boolean {
-  const normalized = hostname.toLowerCase();
-
-  if (normalized === "localhost" || normalized === "::1" || normalized === "[::1]") {
-    return true;
-  }
-
-  return /^127(?:\.\d{1,3}){3}$/.test(normalized);
 }
 
 function parseDcrUri({

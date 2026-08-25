@@ -84,6 +84,21 @@ describe("resolving a consent request", () => {
     stubClient("dcr-client-id");
     expect((await resolveConsentRequest("q")).cimdHost).toBeNull();
   });
+
+  // Consent has to say when the code lands on the user's own machine, because then the app that
+  // opened the page is the app that receives it — no domain vouches for it.
+  test("flags a loopback callback and leaves a hosted one unflagged", async () => {
+    stubClient("dcr-client-id");
+    expect((await resolveConsentRequest("q")).isLoopbackRedirect).toBe(false);
+
+    mocks.parseAuthRequest.mockResolvedValue({
+      ...buildAuthRequest("dcr-client-id"),
+      redirectUri: "http://127.0.0.1:8976/callback",
+    });
+    const consent = await resolveConsentRequest("q");
+    expect(consent.isLoopbackRedirect).toBe(true);
+    expect(consent.redirectHost).toBe("127.0.0.1:8976");
+  });
 });
 
 describe("persisting an approved OAuth app", () => {

@@ -7,7 +7,7 @@ import { loadMessages } from "@/i18n/load-messages";
 import type { MessageTree } from "@/i18n/message-catalogs";
 import { operationAnchorId, scopeOfOperation, walkOperations } from "@/lib/api/openapi-walk";
 import { lazyValue, lazyValueByKey } from "@/utils/lazy-value";
-import { hasPrefixMatch, tokenizeSearchQuery, tokenizeSearchText } from "./search-tokens";
+import { hasPrefixMatch, tokenizeIndexQuery, tokenizeIndexText } from "./search-tokens";
 
 // ---------------------------------------------------------------------------
 // The half of docs search that is not CMS content: the docs pages that are app routes, and the API
@@ -24,9 +24,12 @@ const BODY_MATCH_WEIGHT = 1;
 /** Words kept either side of the first hit; the FTS5 `snippet()` window is 18 tokens wide. */
 const SNIPPET_WORD_RADIUS = 9;
 const SNIPPET_ELLIPSIS = " ... ";
-/** `meta` restates the page title for the document head, so indexing it only doubles every hit. */
-const SKIPPED_NAMESPACE_KEYS = new Set(["meta"]);
-
+/**
+ * Chrome keys, at any depth: they name a control or the document head, never prose. Without this,
+ * `meta.title` makes every route a strong match for `title`, and `copyExample` one for `copy`.
+ * Name a new chrome key to match this pattern, or its text becomes a search term.
+ */
+const CHROME_KEY_PATTERN = /^meta$|^(copy|column)[A-Z]|(Label|Link|Button|Placeholder)$/;
 /**
  * Catalog namespace under `Client.Docs` holding each route's prose. Total over the route ids, so a
  * new docs route has to decide whether it is searchable rather than silently missing from results.
@@ -81,26 +84,9 @@ interface DocumentScore {
 const loadRouteDocuments = lazyValueByKey(buildRouteDocuments);
 const loadOperationDocuments = lazyValue(buildOperationDocuments);
 
-function* walkStringLeaves(tree: MessageTree): Generator<[string, string]> {
-  for (const [key, value] of Object.entries(tree)) {
-    if (typeof value === "string") {
-      yield [key, value];
-      continue;
-    }
-
-    if (!Array.isArray(value)) {
-      yield* walkStringLeaves(value);
-    }
-  }
-}
-
-function isMessageSubtree(value: string | string[] | MessageTree): value is MessageTree {
-  return typeof value !== "string" && !Array.isArray(value);
-}
-
-// Index prose, not chrome: the page title and description plus the `*Title`/`*Body` pairs
-// `DocsProsePage` renders. Button and column labels stay out, or "copy" would match every page.
-function classifyLeafKey(key: string): keyof NamespaceText | null {
+// The prose convention: these keys say where their own value belongs. Every other key carries text
+// of its own instead, so the walk indexes the key as well as the value.
+function proseSlotOfKey(key: string): keyof NamespaceText | null {
   if (key === "title" || key === "description") {
     return key;
   }
@@ -112,42 +98,40 @@ function classifyLeafKey(key: string): keyof NamespaceText | null {
   return key.endsWith("Body") ? "body" : null;
 }
 
-function applyLeaf({
-  key,
-  value,
-  collected,
-}: {
-  key: string;
-  value: string;
-  collected: NamespaceText;
-}): void {
-  const field = classifyLeafKey(key);
+// One rule at every depth, so a key means the same thing wherever the catalog nests it.
+function walkNamespace({ tree, collected }: { tree: MessageTree; collected: NamespaceText }): void {
+  for (const [key, value] of Object.entries(tree)) {
+    // A string array is a `t.raw` list, which no docs route renders as prose.
+    if (CHROME_KEY_PATTERN.test(key) || Array.isArray(value)) {
+      continue;
+    }
 
-  if (field === "title" || field === "description") {
-    collected[field] = value;
-  } else if (field) {
-    collected[field].push(value);
-  }
-}
+    const slot = proseSlotOfKey(key);
 
-// A nested key is itself a search term: `ApiErrors.codes` is keyed by the error codes.
-function applySubtree({ tree, collected }: { tree: MessageTree; collected: NamespaceText }): void {
-  for (const [nestedKey, nestedValue] of walkStringLeaves(tree)) {
-    collected.headings.push(nestedKey);
-    collected.body.push(nestedValue);
+    // A key outside the convention is a search term itself: `ApiErrors.codes` is keyed by the
+    // error codes, and a reader searches for the code, not for the sentence that explains it.
+    if (slot === null) {
+      collected.headings.push(key);
+    }
+
+    if (typeof value !== "string") {
+      walkNamespace({ tree: value, collected });
+      continue;
+    }
+
+    if (slot === "title" || slot === "description") {
+      collected[slot] = value;
+      continue;
+    }
+
+    collected[slot ?? "body"].push(value);
   }
 }
 
 function collectNamespaceText(tree: MessageTree): NamespaceText {
   const collected: NamespaceText = { title: "", description: null, headings: [], body: [] };
 
-  for (const [key, value] of Object.entries(tree)) {
-    if (typeof value === "string") {
-      applyLeaf({ key, value, collected });
-    } else if (isMessageSubtree(value) && !SKIPPED_NAMESPACE_KEYS.has(key)) {
-      applySubtree({ tree: value, collected });
-    }
-  }
+  walkNamespace({ tree, collected });
 
   return collected;
 }
@@ -164,7 +148,7 @@ function normalizeIndexedText(text: string): string {
 }
 
 function uniqueTokens(text: string): string[] {
-  return [...new Set(tokenizeSearchText(text))];
+  return [...new Set(tokenizeIndexText(text))];
 }
 
 function toDocument({
@@ -196,7 +180,10 @@ function toDocument({
     resolvedPath,
     // Deduped: scoring prefix-scans these, and a page's body repeats its vocabulary heavily.
     titleTokens: uniqueTokens(normalizedTitle),
-    headingTokens: uniqueTokens(headingText),
+    // The slug joins the headings so a page stays findable by the words of its own URL. Those are
+    // the one part of a docs route that does not change when the catalog is translated, and they
+    // are what someone types who knows the path but not the language the copy is written in.
+    headingTokens: uniqueTokens(`${slug} ${headingText}`),
     bodyTokens: uniqueTokens(bodyText),
     bodyText,
   };
@@ -327,7 +314,7 @@ function findMatchPositions({
   const positions: Array<{ index: number; tokenIndex: number }> = [];
 
   words.forEach((word, index) => {
-    const wordTokens = tokenizeSearchText(word);
+    const wordTokens = tokenizeIndexText(word);
 
     queryTokens.forEach((queryToken, tokenIndex) => {
       if (hasPrefixMatch({ tokens: wordTokens, queryToken })) {
@@ -392,7 +379,7 @@ export async function searchDocsRoutes({
   limit: number;
   locale: Locale;
 }): Promise<DocsRouteSearchResult[]> {
-  const queryTokens = tokenizeSearchQuery(query);
+  const queryTokens = tokenizeIndexQuery(query);
 
   // Ahead of `getSearchDocuments`, so a junk query never pulls in the OpenAPI document.
   if (queryTokens.length === 0) {

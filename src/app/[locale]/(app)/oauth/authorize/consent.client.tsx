@@ -1,12 +1,13 @@
 "use client";
 
-import { AlertTriangle, BadgeCheck, ShieldQuestion } from "lucide-react";
+import { AlertTriangle, BadgeCheck, MonitorSmartphone, ShieldQuestion } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
 import { signOutAction } from "@/actions/sign-out.action";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +26,8 @@ interface ConsentClientProps {
   droppedScopes: string[];
   redirectHost: string | null;
   cimdHost: string | null;
+  clientId: string;
+  isLoopbackRedirect: boolean;
   userEmail: string;
 }
 
@@ -41,6 +44,8 @@ export function ConsentClient({
   droppedScopes,
   redirectHost,
   cimdHost,
+  clientId,
+  isLoopbackRedirect,
   userEmail,
 }: ConsentClientProps) {
   const t = useTranslations("Client.OAuth");
@@ -96,6 +101,20 @@ export function ConsentClient({
           </button>
         </p>
 
+        <dl className="divide-y overflow-hidden rounded-md border text-sm">
+          <IdentityRow label={t("clientIdHostLabel")} value={cimdHost} />
+          {/* A DCR client has no domain to show, so name it by the id it registered under. */}
+          <IdentityRow label={t("clientIdLabel")} value={cimdHost ? null : clientId} />
+          <IdentityRow label={t("redirectHostLabel")} value={redirectHost} />
+        </dl>
+
+        {isLoopbackRedirect ? (
+          <Alert variant="warning">
+            <MonitorSmartphone className="size-4" />
+            <AlertDescription>{t("localRedirectWarning")}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {isRisky ? (
           <div className="flex gap-3 rounded-md border border-destructive/60 bg-destructive/10 p-3 text-sm">
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
@@ -109,7 +128,15 @@ export function ConsentClient({
         ) : null}
 
         <div className="space-y-4">
-          <p className="text-sm font-medium">{t("permissionsTitle")}</p>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-medium">{t("permissionsTitle")}</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {t("permissionCount", {
+                granted: grantedScopes.length,
+                requested: grantedScopes.length + droppedScopes.length,
+              })}
+            </p>
+          </div>
           <ScopeGroup label={t("readGroup")} scopes={readScopes} describe={describeScope} />
           <ScopeGroup label={t("writeGroup")} scopes={writeScopes} describe={describeScope} />
           {grantedScopes.length === 0 ? (
@@ -122,11 +149,6 @@ export function ConsentClient({
             {t("clampedScopes", { scopes: droppedScopes.join(", ") })}
           </p>
         ) : null}
-
-        <dl className="space-y-1 text-xs text-muted-foreground">
-          <HostRow label={t("redirectLabel")} host={redirectHost} />
-          <HostRow label={t("cimdLabel")} host={cimdHost} />
-        </dl>
 
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <Button
@@ -186,16 +208,16 @@ function ConsentHeader({
   );
 }
 
-/** Shown so the user can see which domain the approval actually hands the code to. */
-function HostRow({ label, host }: { label: string; host: string | null }) {
-  if (!host) {
+/** Shown so the user can see who asked and which domain the approval hands the code to. */
+function IdentityRow({ label, value }: { label: string; value: string | null }) {
+  if (!value) {
     return null;
   }
 
   return (
-    <div className="flex justify-between gap-2">
-      <dt>{label}</dt>
-      <dd className="font-mono">{host}</dd>
+    <div className="flex items-baseline justify-between gap-4 px-3 py-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="break-all text-right font-mono text-xs">{value}</dd>
     </div>
   );
 }

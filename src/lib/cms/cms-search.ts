@@ -16,6 +16,8 @@ import { tokenizeSearchQuery } from "@/lib/cms/search-tokens";
 
 const DEFAULT_CMS_SEARCH_LIMIT = 8;
 const CMS_SEARCH_CACHE_TTL = "6 hours";
+/** Inserts per rebuild batch: one batch over a large collection can pass a D1 or request limit. */
+const CMS_SEARCH_REBUILD_CHUNK_SIZE = 50;
 const INSERT_CMS_ENTRY_SEARCH_SQL =
   "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)";
 
@@ -172,24 +174,28 @@ export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): P
   });
 
   const d1 = await getSearchDatabase();
-  const statements = entries.length === 0
-    ? [d1.prepare("DELETE FROM cms_entry_search WHERE collection = ?").bind(collectionSlug)]
-    : [
-        d1.prepare("DELETE FROM cms_entry_search WHERE collection = ?").bind(collectionSlug),
-        ...entries.map((entry) =>
-          prepareCmsEntrySearchInsert({
-            d1,
-            entryId: entry.id,
-            collection: entry.collection,
-            slug: entry.slug,
-            title: entry.title,
-            seoDescription: entry.seoDescription,
-            content: entry.content,
-          })
-        ),
-      ];
+  // The delete commits alone and first: a chunk that fails later then leaves gaps, never duplicates.
+  await d1.prepare("DELETE FROM cms_entry_search WHERE collection = ?").bind(collectionSlug).run();
 
-  await d1.batch(statements);
+  // One chunk at a time: these are D1 writes, so they stay sequential.
+  for (let start = 0; start < entries.length; start += CMS_SEARCH_REBUILD_CHUNK_SIZE) {
+    const chunk = entries.slice(start, start + CMS_SEARCH_REBUILD_CHUNK_SIZE);
+
+    await d1.batch(
+      chunk.map((entry) =>
+        prepareCmsEntrySearchInsert({
+          d1,
+          entryId: entry.id,
+          collection: entry.collection,
+          slug: entry.slug,
+          title: entry.title,
+          seoDescription: entry.seoDescription,
+          content: entry.content,
+        })
+      )
+    );
+  }
+
   await optimizeCmsSearchIndex(d1);
 }
 
@@ -320,7 +326,9 @@ async function getCachedCmsSearchResults({
         AND entry.collection = ?
         AND entry.locale = ?
         AND entry.status = ?
-      ORDER BY bm25(cms_entry_search, 0.0, 0.0, 0.0, 8.0, 3.0, 1.5)
+      -- Columns: entryId, collection, slug, title, seoDescription, body. The slug scores as a
+      -- heading, the same weight the route half gives it in its heading tokens.
+      ORDER BY bm25(cms_entry_search, 0.0, 0.0, 3.0, 8.0, 3.0, 1.5)
       LIMIT ?`
     )
     .bind(

@@ -108,7 +108,7 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 🧱 Blog, docs, sitemap.xml, and JSON-LD schema rendering
   - 📄 Markdown views for public pages through the `.md` URL suffix, or `Accept: text/markdown` on the page URL
   - 🤖 `llms.txt` index for the API specification, MCP endpoint, and docs tree
-- ✨ Validations with Zod and React Hook Form
+- ✨ Validations with Valibot and React Hook Form
   - 🛡️ Type-safe Form Validations
   - 🔒 Server-side Validations
   - 🔍 Client-side Validations

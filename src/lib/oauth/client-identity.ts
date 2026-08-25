@@ -15,3 +15,15 @@ export function getDiscoveredOAuthAppRegistrationSource(
 ): Extract<OAuthAppRegistrationSource, "cimd" | "dcr"> {
   return isCimdClientId(clientId) ? "cimd" : "dcr";
 }
+
+// A loopback callback means the code is delivered to a program on the user's own device, not to a
+// website. Consent says so, and DCR uses it to allow http on those hosts only.
+export function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+
+  if (normalized === "localhost" || normalized === "::1" || normalized === "[::1]") {
+    return true;
+  }
+
+  return /^127(?:\.\d{1,3}){3}$/.test(normalized);
+}

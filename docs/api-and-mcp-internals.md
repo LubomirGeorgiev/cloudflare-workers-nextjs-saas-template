@@ -180,11 +180,10 @@ from the FTS5 table `cms_entry_search`, which joins `cms_entry` and so can only 
 The pages above — and every operation inside `/docs/api` — are matched in memory instead, by
 `src/lib/cms/docs-route-search.ts`.
 
-- Route prose is read from the locale catalog, not from JSX: `DOCS_ROUTE_MESSAGE_NAMESPACES` maps
-  each `DocsRouteId` to its namespace under `Client.Docs`, and the index takes `title`,
-  `description`, the `*Title`/`*Body` pairs, and nested content trees like `ApiErrors.codes`. Adding
-  a docs route means adding a line there (the record is total, so TypeScript asks); adding a section
-  to an existing page needs nothing. Button and column labels are deliberately left out.
+- Route text is read from the locale catalog, not from JSX: `DOCS_ROUTE_MESSAGE_NAMESPACES` maps
+  each `DocsRouteId` to its namespace under `Client.Docs`, and the index takes every string and
+  nested content tree such as `ApiErrors.codes`. Adding a docs route means adding a line there
+  (the record is total, so TypeScript asks); adding text to an existing page needs nothing.
 - Operations are indexed from the build-time document by `operationId`, path, method, tags, and
   scope, and resolve to `${API_DOCS_PATH}#${operationAnchorId(operationId)}` — the same anchor the
   page renders, which is why that helper lives in `openapi-walk.ts` rather than being spelled twice.

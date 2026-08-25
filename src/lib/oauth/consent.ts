@@ -7,6 +7,7 @@ import { clampScopesForClient, type ApiScope } from "@/lib/api/scopes";
 import {
   getDiscoveredOAuthAppRegistrationSource,
   isCimdClientId,
+  isLoopbackHost,
 } from "@/lib/oauth/client-identity";
 import {
   correctLegacyCimdOAuthAppSources,
@@ -29,18 +30,26 @@ interface ConsentRequest {
   redirectHost: string | null;
   /** Set when the client identifies itself by a Client ID Metadata Document URL (domain-bound). */
   cimdHost: string | null;
+  /** The id itself, shown for a DCR client because it has no domain to show instead. */
+  clientId: string;
+  /** The code lands on this device, so the app that opened the page is the one that receives it. */
+  isLoopbackRedirect: boolean;
 }
 
-function hostOf(value: string | undefined): string | null {
+function urlOf(value: string | undefined): URL | null {
   if (!value) {
     return null;
   }
 
   try {
-    return new URL(value).host;
+    return new URL(value);
   } catch {
     return null;
   }
+}
+
+function hostOf(value: string | undefined): string | null {
+  return urlOf(value)?.host ?? null;
 }
 
 // `parseAuthRequest` only reads the query string, so rebuilding the URL against SITE_URL is
@@ -66,6 +75,7 @@ export async function resolveConsentRequest(authQuery: string): Promise<ConsentR
     throw new Error("Unknown OAuth client");
   }
 
+  const redirectUrl = urlOf(authRequest.redirectUri);
   const isVerified = Boolean(app?.verifiedAt);
   const grantedScopes = clampScopesForClient({
     requestedScopes: authRequest.scope,
@@ -84,6 +94,8 @@ export async function resolveConsentRequest(authQuery: string): Promise<ConsentR
     ),
     redirectHost: hostOf(authRequest.redirectUri),
     cimdHost: isCimdClientId(authRequest.clientId) ? hostOf(authRequest.clientId) : null,
+    clientId: authRequest.clientId,
+    isLoopbackRedirect: isLoopbackHost(redirectUrl?.hostname ?? ""),
   };
 }
 

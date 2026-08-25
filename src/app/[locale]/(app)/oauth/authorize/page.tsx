@@ -69,6 +69,8 @@ export default async function AuthorizePage({
         droppedScopes={consent.droppedScopes}
         redirectHost={consent.redirectHost}
         cimdHost={consent.cimdHost}
+        clientId={consent.clientId}
+        isLoopbackRedirect={consent.isLoopbackRedirect}
         userEmail={session.user.email ?? ""}
       />
     </main>
