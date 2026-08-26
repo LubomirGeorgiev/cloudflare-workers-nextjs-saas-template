@@ -236,6 +236,45 @@ test("serves static docs and legal pages as markdown", async () => {
       // this plain-Node runner cannot resolve, so the media type is restated rather than imported.
       expect(body).toContain("application/problem+json");
       expect(body).not.toContain("[](#operation-");
+
+      // The failure block is a collapsed `<details>` on the page. Markdown collapses nothing, so
+      // every operation must carry each status with its description, not the summary preview.
+      // `src/lib/markdown-pages/convert-html.ts` sets `bullet: "-"`, so the `<dl>` lands as a list.
+      const errorLabel = defaultMessages.Client.Docs.ApiReference.errorResponsesLabel;
+      const errorBlocks = body.split(`\n${errorLabel}\n`).slice(1);
+
+      expect(errorBlocks).toHaveLength(
+        (await readSpecOperations()).filter((operation) => operation.hasErrorResponses).length,
+      );
+
+      for (const block of errorBlocks) {
+        expect(block).toMatch(/^\n- \d{3}\n\n\s+\S/);
+
+        const listLines: string[] = [];
+        for (const line of block.split("\n").slice(1)) {
+          if (line !== "" && !/^(- |\s)/.test(line)) {
+            break;
+          }
+
+          listLines.push(line);
+        }
+
+        // A `<dt>` that lost its `<dd>` merges into the next group and nests the list, so an
+        // unrecognized line has to fail here rather than drop out of the pairing below.
+        for (const entry of listLines.filter((entry) => entry !== "")) {
+          expect(entry).toMatch(/^(- \d{3}$|\s+\S)/);
+        }
+
+        const statuses = listLines.flatMap((line, index) => {
+          return line.startsWith("- ")
+            ? [`${line}${listLines.slice(index + 1).find((next) => next !== "") ?? ""}`]
+            : [];
+        });
+
+        for (const status of statuses) {
+          expect(status).toMatch(/^- \d{3}\s+\S/);
+        }
+      }
     }
 
     if (mdPath === "/index.md") {
@@ -317,10 +356,16 @@ test("searches docs from the command dialog", async () => {
 // The reference is rendered on the server from the app's own OpenAPI document — no spec-viewer
 // bundle — so every expectation is read back out of that document rather than hard-coded.
 async function readSpecOperations(): Promise<
-  { operationId: string; path: string; summary: string }[]
+  { operationId: string; path: string; summary: string; hasErrorResponses: boolean }[]
 > {
   const spec = await (await fetchAppPath(API_OPENAPI_SPEC_PATH)).json() as {
-    paths: Record<string, Record<string, { operationId?: string; summary?: string }>>;
+    paths: Record<
+      string,
+      Record<
+        string,
+        { operationId?: string; summary?: string; responses?: Record<string, unknown> }
+      >
+    >;
   };
 
   return Object.entries(spec.paths).flatMap(([path, item]) =>
@@ -330,6 +375,11 @@ async function readSpecOperations(): Promise<
         operationId: operation.operationId!,
         path,
         summary: operation.summary ?? "",
+        // The same non-2xx split `reference-model.ts` makes, so the count follows a fork's own
+        // document rather than the operations this template happens to ship.
+        hasErrorResponses: Object.keys(operation.responses ?? {}).some(
+          (status) => !status.startsWith("2"),
+        ),
       })),
   );
 }

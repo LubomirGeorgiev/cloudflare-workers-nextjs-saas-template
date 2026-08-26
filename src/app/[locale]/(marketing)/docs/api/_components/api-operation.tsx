@@ -186,8 +186,14 @@ function ErrorResponses({
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
         <span className="flex flex-wrap items-center gap-2">
           {labels.heading}
+          {/* A preview of what the collapsed block holds. Markdown collapses nothing, so it lists
+              each status once, below, with its description. */}
           {operation.errorResponses.map((response) => (
-            <span key={response.status} className="font-mono text-[11px] text-muted-foreground/70">
+            <span
+              key={response.status}
+              {...SKIP_IN_MARKDOWN}
+              className="font-mono text-[11px] text-muted-foreground/70"
+            >
               {response.status}
             </span>
           ))}
@@ -200,8 +206,12 @@ function ErrorResponses({
         </span>
       </summary>
 
-      <div {...SKIP_IN_MARKDOWN} className="space-y-3 border-t border-border/60 px-4 py-3">
-        <p className="text-xs leading-relaxed text-muted-foreground">{labels.hint}</p>
+      <div className="space-y-3 border-t border-border/60 px-4 py-3">
+        {/* The page header states the problem shape once and links the errors page, so repeating
+            the hint under every operation would only pad the Markdown. */}
+        <p {...SKIP_IN_MARKDOWN} className="text-xs leading-relaxed text-muted-foreground">
+          {labels.hint}
+        </p>
 
         <dl className="space-y-1.5">
           {operation.errorResponses.map((response) => (
