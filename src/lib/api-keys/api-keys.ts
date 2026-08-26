@@ -11,7 +11,7 @@ import { getDB } from "@/db";
 import { TEAM_PERMISSIONS, apiKeyTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { assertAccountAudience, getBearerPrincipal } from "@/lib/api/principal";
-import { isApiScope, type ApiScope } from "@/lib/api/scopes";
+import { isApiScope, scopesForAudience, toApiScopes, type ApiScope } from "@/lib/api/scopes";
 import { didInsert, toUnixSeconds } from "@/lib/teams/team-writes";
 import type { CreateApiKeySchema } from "@/schemas/api-key.schema";
 import { generateApiKey } from "@/utils/api-key-format";
@@ -33,7 +33,8 @@ export interface ApiKeySummary {
   name: string;
   keyPrefix: string;
   last4: string;
-  scopes: string[];
+  /** Only the scopes the key can actually exercise; `toSummary` narrows the stored row. */
+  scopes: ApiScope[];
   teamId: string | null;
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -66,15 +67,18 @@ const SUMMARY_COLUMNS = {
   revokedAt: true,
 } as const;
 
-type ApiKeyRow = ApiKeySummary & { revokedAt: Date | null };
+type ApiKeyRow = Omit<ApiKeySummary, "scopes"> & { scopes: string[]; revokedAt: Date | null };
 
+// Narrowed exactly as the principal resolver narrows, so a key issued before the audience rule
+// existed reads with the scopes it can actually use — on the settings page, in the REST listing,
+// and during an incident review alike.
 function toSummary(row: ApiKeyRow): ApiKeySummary {
   return {
     id: row.id,
     name: row.name,
     keyPrefix: row.keyPrefix,
     last4: row.last4,
-    scopes: row.scopes,
+    scopes: scopesForAudience({ scopes: toApiScopes(row.scopes), teamId: row.teamId }),
     teamId: row.teamId,
     createdAt: row.createdAt,
     lastUsedAt: row.lastUsedAt,
@@ -98,6 +102,30 @@ function assertValidScopes(scopes: string[]): ApiScope[] {
   }
 
   return valid;
+}
+
+// A team key is refused every account-level operation whatever its scopes, so granting it one
+// writes a permission that can never be exercised. `scopesForAudience` owns the rule; the write
+// path refuses what it drops, because dropping silently hands back a weaker key than was asked for.
+function assertScopesFitAudience({
+  scopes,
+  teamId,
+}: {
+  scopes: ApiScope[];
+  teamId: string | null;
+}): void {
+  const usable = scopesForAudience({ scopes, teamId });
+
+  if (usable.length === scopes.length) {
+    return;
+  }
+
+  const refused = scopes.filter((scope) => !usable.includes(scope));
+
+  throw new ActionError("INPUT_PARSE_ERROR", {
+    key: "Client.Settings.ApiKeys.errorTeamKeyAccountScope",
+    params: { scopes: refused.join(", ") },
+  });
 }
 
 // No privilege escalation: a bearer credential can only ever mint a key that is a subset of
@@ -175,6 +203,7 @@ export async function createApiKey({
   // by issuing a key for another team, or a personal one. The route declares this too.
   assertAccountAudience();
   assertNoScopeEscalation(validScopes);
+  assertScopesFitAudience({ scopes: validScopes, teamId });
 
   if (teamId) {
     await requireTeamPermission(teamId, TEAM_PERMISSIONS.MANAGE_API_KEYS);
@@ -302,6 +331,8 @@ export async function updateApiKeyScopes({
   if (!key || key.revokedAt || (!key.teamId && key.userId !== session.userId)) {
     throw new ActionError("NOT_FOUND", { key: "Client.Settings.ApiKeys.errorKeyNotFound" });
   }
+
+  assertScopesFitAudience({ scopes: validScopes, teamId: key.teamId });
 
   if (key.teamId) {
     await requireTeamPermission(key.teamId, TEAM_PERMISSIONS.MANAGE_API_KEYS);

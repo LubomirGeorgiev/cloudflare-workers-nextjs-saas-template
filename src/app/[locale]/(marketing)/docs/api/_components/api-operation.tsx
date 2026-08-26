@@ -34,6 +34,9 @@ interface CodeBlockLabels {
 
 interface OperationBadgeLabels {
   scope: string;
+  /** What the scope badge reads for the operation that needs a credential but no scope. */
+  anyScope: string;
+  anyScopeDescription: string;
   mcpTool: string;
   operationId: string;
 }
@@ -86,6 +89,8 @@ export function buildApiOperationLabels(t: ApiReferenceTranslator): ApiOperation
     },
     badges: {
       scope: t("scopeLabel"),
+      anyScope: t("anyScopeLabel"),
+      anyScopeDescription: t("anyScopeDescription"),
       mcpTool: t("mcpToolLabel"),
       operationId: t("operationIdLabel"),
     },
@@ -222,18 +227,24 @@ function OperationBadges({
   operation: OperationView;
   labels: OperationBadgeLabels;
 }) {
+  const scopeTitle = operation.scope ? operation.scopeDescription : labels.anyScopeDescription;
+
   return (
     <div className="flex flex-wrap items-center gap-2 text-[11px]">
-      {operation.scope ? (
-        <Link
-          href={API_AUTH_DOCS_PATH}
-          title={operation.scopeDescription ?? undefined}
-          className={cn(BADGE_CLASS_NAME, "transition-colors hover:border-border hover:bg-muted/40")}
-        >
-          <span className="text-muted-foreground">{labels.scope}</span>
+      {/* An unscoped operation still demands a credential, so it states that rather than showing
+          nothing, which a reader takes for a public endpoint or a broken row. */}
+      <Link
+        href={API_AUTH_DOCS_PATH}
+        title={scopeTitle ?? undefined}
+        className={cn(BADGE_CLASS_NAME, "transition-colors hover:border-border hover:bg-muted/40")}
+      >
+        <span className="text-muted-foreground">{labels.scope}</span>
+        {operation.scope ? (
           <code className="font-mono font-medium text-foreground">{operation.scope}</code>
-        </Link>
-      ) : null}
+        ) : (
+          <span className="font-medium text-foreground">{labels.anyScope}</span>
+        )}
+      </Link>
 
       {operation.mcpToolName ? (
         <Link

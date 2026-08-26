@@ -255,7 +255,11 @@ describe("apiOperation", () => {
 
     expect(readOperationPolicy(describe)).toBeUndefined();
     // The policy the route audits read back off the mounted handler.
-    expect(readOperationPolicy(guard)).toEqual({ scope: TEAM_SCOPE, audience: "team" });
+    expect(readOperationPolicy(guard)).toEqual({
+      operationId: "updateTeam",
+      scope: TEAM_SCOPE,
+      audience: "team",
+    });
   });
 
   test("a handler that went through no policy declaration reads back as undeclared", () => {

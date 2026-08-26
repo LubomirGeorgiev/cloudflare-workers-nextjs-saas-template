@@ -39,6 +39,10 @@ const apiKeyExpiryField = v.pipe(
   ),
 );
 
+// An account-only scope alongside a `teamId` is expressible here but deliberately not refused
+// here: a custom `check` reaches a machine caller as a bare `invalid_value` on `/scopes`, while
+// `createApiKey` names the offending scopes and the way out. The picker never offers them, so the
+// combination only ever arrives from a hand-built request — the caller that needs the better error.
 export const createApiKeySchema = v.object({
   name: apiKeyNameField,
   scopes: apiKeyScopesField,

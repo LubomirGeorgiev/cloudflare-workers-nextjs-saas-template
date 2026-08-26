@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormField } from "@/components/ui/form";
 import type { ApiKeySummary } from "@/lib/api-keys/api-keys";
-import { toApiScopes } from "@/lib/api/scopes";
 import {
   updateApiKeyScopesSchema,
   type UpdateApiKeyScopesSchema,
@@ -39,9 +38,9 @@ export function EditApiKeyScopesDialog({ apiKey }: { apiKey: ApiKeySummary }) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Stored scopes are validated only against the catalog the app ships today, so an entry a fork
-  // has since dropped is filtered out rather than re-submitted as an unknown scope.
-  const currentScopes = toApiScopes(apiKey.scopes);
+  // The summary already holds only the scopes the key can exercise, so saving an untouched form
+  // repairs a key issued before account-only scopes were refused on a team key.
+  const currentScopes = apiKey.scopes;
 
   const form = useForm<UpdateApiKeyScopesSchema>({
     resolver: valibotResolver(updateApiKeyScopesSchema),
@@ -91,6 +90,7 @@ export function EditApiKeyScopesDialog({ apiKey }: { apiKey: ApiKeySummary }) {
               render={() => (
                 <ScopePicker
                   selectedScopes={selectedScopes}
+                  teamId={apiKey.teamId}
                   onChange={(scopes) =>
                     form.setValue("scopes", scopes, { shouldValidate: true, shouldDirty: true })
                   }

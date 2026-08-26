@@ -105,6 +105,7 @@ export function CreateApiKeyForm({
             render={() => (
               <ScopePicker
                 selectedScopes={selectedScopes}
+                teamId={teamId}
                 onChange={(scopes) =>
                   form.setValue("scopes", scopes, { shouldValidate: true, shouldDirty: true })
                 }

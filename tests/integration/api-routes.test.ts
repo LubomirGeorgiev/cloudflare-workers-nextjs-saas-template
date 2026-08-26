@@ -9,13 +9,12 @@
 // fork that rebrands or moves the API keeps them valid.
 
 import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
 import { createExecutionContext } from "cloudflare:test";
 import { expect, test } from "vitest";
 
 import { apiApp } from "@/api";
-import { readOperationPolicy } from "@/api/operation";
 import {
-  API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
   MAX_TEAMS_CREATED_PER_USER,
   NAME_MIN_LENGTH,
@@ -30,7 +29,12 @@ import {
   teamTable,
   userTable,
 } from "@/db/schema";
-import { API_SCOPE_NAMES, type ApiScope } from "@/lib/api/scopes";
+import {
+  API_SCOPE_NAMES,
+  TEAM_KEY_SCOPES,
+  isAccountOnlyScope,
+  type ApiScope,
+} from "@/lib/api/scopes";
 import { PROBLEM_BY_CODE, PROBLEM_JSON_CONTENT_TYPE } from "@/lib/api/errors";
 import { FIELD_ERROR_CODES } from "@/lib/api/field-errors";
 import { generateApiKey } from "@/utils/api-key-format";
@@ -701,65 +705,94 @@ test("a service precondition failure maps to its own status", async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Credential introspection.
+//
+// The one operation no scope narrows, and the only account-tagged one a team key can reach. It
+// exists because every other refusal tells a caller what it may not do; this tells it what it may.
+// ---------------------------------------------------------------------------
+
+test("a personal key describes itself without a team", async () => {
+  const user = await seedUser();
+  const scopes: ApiScope[] = [API_SCOPE_NAMES[0]];
+  const secret = await seedKey({ userId: user.id, scopes });
+
+  const { response, body } = await call("/credential", { secret });
+
+  expect(response.status).toBe(200);
+  expect(body).toEqual({ kind: "api-key", audience: "personal", team: null, scopes });
+});
+
+// The question this endpoint was added for: a team key can reach it, and it names the team. The id
+// is the whole payload — name and slug belong to `teams:read`, which this route never demands.
+test("a team key describes itself and names its team by id alone", async () => {
+  const user = await seedUser();
+  const teamId = await seedTeam({ userId: user.id });
+  const scopes: ApiScope[] = [TEAM_KEY_SCOPES[0]];
+  const secret = await seedKey({ userId: user.id, teamId, scopes });
+
+  const { response, body } = await call("/credential", { secret });
+
+  expect(response.status).toBe(200);
+  expect(body).toEqual({ kind: "api-key", audience: "team", team: { id: teamId }, scopes });
+});
+
+// A team key whose owner has lost the membership can do nothing on that team, and this route is
+// where the holder finds that out — so it must still name the team that confines the key.
+test("a team key whose membership is gone still reports its team id", async () => {
+  const user = await seedUser();
+  const teamId = await seedTeam({ userId: user.id });
+  const secret = await seedKey({ userId: user.id, teamId, scopes: [TEAM_KEY_SCOPES[0]] });
+
+  await db.delete(teamMembershipTable).where(eq(teamMembershipTable.teamId, teamId));
+
+  const { response, body } = await call("/credential", { secret });
+
+  expect(response.status).toBe(200);
+  expect(body).toMatchObject({ audience: "team", team: { id: teamId } });
+});
+
+// The reason the endpoint reports scopes at all: the stored grant and the enforced one differ on a
+// team key issued before account-only scopes were refused, and nothing else shows the holder which.
+test.skipIf(!API_SCOPE_NAMES.some(isAccountOnlyScope))(
+  "the scopes reported are the ones in force, not the ones stored",
+  async () => {
+    const user = await seedUser();
+    const teamId = await seedTeam({ userId: user.id });
+    const accountOnly = API_SCOPE_NAMES.filter(isAccountOnlyScope);
+    const secret = await seedKey({
+      userId: user.id,
+      teamId,
+      scopes: [TEAM_KEY_SCOPES[0], ...accountOnly],
+    });
+
+    const { body } = await call("/credential", { secret });
+
+    expect(body.scopes).toEqual([TEAM_KEY_SCOPES[0]]);
+  },
+);
+
+// Unscoped means unscoped, not unauthenticated: the only credential it turns away is none.
+test("credential introspection needs a credential but no scope", async () => {
+  const user = await seedUser();
+  const scopeless = await seedKey({ userId: user.id, scopes: [] });
+
+  await expect(call("/credential", { secret: scopeless })).resolves.toMatchObject({
+    response: { status: 200 },
+    body: { scopes: [] },
+  });
+
+  const anonymous = await call("/credential");
+  expect(anonymous.response.status).toBe(401);
+  expect(anonymous.body.code).toBe("NOT_AUTHORIZED");
+});
+
+// ---------------------------------------------------------------------------
 // Team-key audience.
 //
 // A key with a `teamId` is confined to that team: it may act on it exactly as its creator's
 // permissions allow, and on nothing else. A key without one, and every OAuth grant, stays an
 // account credential. Audience only ever narrows, exactly like a scope.
 // ---------------------------------------------------------------------------
-
-// Structural, because a route that forgets the declaration is the failure mode this prevents: the
-// enumeration is the app's own route table, so a fork that mounts its own router is covered too.
-// `apiOperation` is what attaches the policy, so this also proves every route went through it.
-test("every mounted operation declares a scope and an audience", () => {
-  const declaredBy = new Map<string, boolean>();
-
-  for (const route of apiApp.routes) {
-    // `ALL` is the app-wide middleware chain (auth, rate limiting); the spec route is public and
-    // is deliberately registered before authentication ever runs.
-    if (route.method === "ALL" || route.path === API_OPENAPI_SPEC_PATH) {
-      continue;
-    }
-
-    const key = `${route.method} ${route.path}`;
-    // The scope itself is checked against the catalog, and against the document, by the spec suite.
-    const declared = readOperationPolicy(route.handler) !== undefined;
-
-    declaredBy.set(key, (declaredBy.get(key) ?? false) || declared);
-  }
-
-  expect(declaredBy.size).toBeGreaterThan(0);
-  expect([...declaredBy.entries()].filter(([, declared]) => !declared).map(([key]) => key)).toEqual([]);
-});
-
-// The guard must beat every validator, or a credential that may not call the operation at all
-// learns its request schema from a 400. Registration order is what decides it, so it is read off
-// the route table rather than off the source text.
-test("the policy guard is registered ahead of every validator on its route", () => {
-  const guardAt = new Map<string, number>();
-  const validatorAt = new Map<string, number>();
-
-  apiApp.routes.forEach((route, index) => {
-    if (route.method === "ALL" || route.path === API_OPENAPI_SPEC_PATH) {
-      return;
-    }
-
-    const key = `${route.method} ${route.path}`;
-    const at = readOperationPolicy(route.handler) ? guardAt : route.handler.name === "validator" ? validatorAt : null;
-
-    if (at && !at.has(key)) {
-      at.set(key, index);
-    }
-  });
-
-  // hono-openapi names its validator middleware; a rename would blind the check above rather than
-  // fail it, so the enumeration itself is asserted to have found some.
-  expect(validatorAt.size).toBeGreaterThan(0);
-
-  for (const [key, index] of validatorAt) {
-    expect(guardAt.get(key), `${key}: the scope/audience guard runs after a validator`).toBeLessThan(index);
-  }
-});
 
 test("a team key acts on its own team exactly as a personal key would", async () => {
   const user = await seedUser();

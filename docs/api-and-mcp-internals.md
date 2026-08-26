@@ -72,7 +72,54 @@ either.
 
 `audience` is `"account"`, `"team"` (addresses a `teamId` path parameter), or `"any"` — a
 team-scoped API key (`teamId` set) is refused outside its team, and a route that declares no policy
-fails the route-table audit in `tests/integration/api-routes.test.ts`.
+fails the route-table audit in `tests/integration/api-route-policy.test.ts`. `policyGuard` asserts the
+audience before the scope: a team key cannot hold an account-only scope, so a scope-first refusal
+would send an agent after a grant it can never be given.
+
+### The one unscoped operation
+
+`GET /api/v1/credential` (`getCredential`) declares `scope: null`, the only operation that does. It
+reports what the calling credential is — kind, audience, its team, and the scopes **in force** — so
+a caller refused by a guard can find out what it actually holds instead of guessing from a 403. Gating it behind a scope would fail exactly the caller it exists for.
+
+It reports the credential, never the account: `/me` answers "who owns this" and stays account-only,
+so a team key cannot reach it. That split is what lets this route be unscoped without widening what
+a team key can see. `team` is read off the audience the principal already carries, so the route
+costs no D1 read and still names the team after the owner has lost the membership — the state that
+makes such a key inert. It reports the team id alone, because `getTeam` and `listTeams` gate the
+name and the slug behind `teams:read` and this route holds no scope at all. `team: null` therefore
+means one thing only: the credential is personal.
+
+`scope` is therefore `ApiScope | null` on `ApiOperationPolicy`. It stays required, so a forgotten
+scope is a compile error, and `null` is a word you have to write. Three things keep that word from
+becoming a loophole: `securityForScope()` still emits both security schemes (an empty scope list
+demands a credential; *no* security would be public), `policyGuard` falls back to
+`requirePrincipal()`, and two audits pin the exception. The route-table audit in
+`tests/integration/api-route-policy.test.ts` fails unless the null-scope operations are exactly
+`getCredential`, a GET with `audience: "any"`; `tests/integration/api-openapi-spec.test.ts` fails
+any unscoped operation that is not a GET. A write whose grant nobody checked must never mount.
+
+### Scopes a team key may not hold
+
+A scope whose every operation declares `audience: "account"` is dead weight on a team key — the
+audience guard refuses it whatever the scope says. `API_SCOPES` therefore flags each entry
+`accountOnly`, and four places read it. `scopesForAudience` owns the narrowing rule itself:
+
+- `createApiKey` and `updateApiKeyScopes` refuse the combination, so it is never written. The
+  refusal lives there rather than in `createApiKeySchema` on purpose: a custom Valibot `check`
+  reaches a machine caller as a bare `invalid_value` on `/scopes`, while the service names the
+  offending scopes and the way out through `src/lib/api/error-details.ts`.
+- `ScopePicker` offers a team key only the scopes `scopesForAudience` leaves, so the combination
+  never arrives from the settings UI at all.
+- `toPrincipal` in `src/utils/kv-api-key.ts` narrows, so a key issued before the rule existed
+  resolves without those scopes rather than needing a migration.
+- `toSummary` in `src/lib/api-keys/api-keys.ts` narrows every read of a key, so the settings page
+  and `GET /api-keys` show the same grant the resolver enforces.
+
+The flag is a denormalized copy of what the route table says, kept in the catalog so key creation
+never has to import the OpenAPI document into a page bundle. Two tests in
+`tests/integration/api-route-policy.test.ts` audit every flag against the mounted routes, so mounting a
+team route under an account-only scope fails CI until the flag moves with it.
 
 ## Errors
 

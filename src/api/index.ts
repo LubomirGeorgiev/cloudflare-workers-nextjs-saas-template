@@ -7,6 +7,7 @@ import { problemJsonErrorHandler, problemJsonNotFoundHandler } from "@/api/middl
 import { authedRateLimit } from "@/api/middleware/rate-limit";
 import { apiKeyRoutes } from "@/api/routes/api-keys";
 import { billingRoutes } from "@/api/routes/billing";
+import { credentialRoutes } from "@/api/routes/credential";
 import { invitationRoutes } from "@/api/routes/invitations";
 import { memberRoutes } from "@/api/routes/members";
 import { meRoutes } from "@/api/routes/me";
@@ -52,6 +53,7 @@ function createApiApp(): ApiApp {
   app.use("*", apiAuth);
   app.use("*", authedRateLimit);
 
+  app.route("/", credentialRoutes);
   app.route("/", meRoutes);
   app.route("/", teamRoutes);
   app.route("/", memberRoutes);

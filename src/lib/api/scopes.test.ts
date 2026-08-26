@@ -5,9 +5,12 @@ import {
   API_SCOPE_NAMES,
   type ApiScope,
   DCR_ALLOWED_SCOPES,
+  TEAM_KEY_SCOPES,
   clampScopesForClient,
   describeApiScope,
+  isAccountOnlyScope,
   isApiScope,
+  scopesForAudience,
   toApiScopes,
 } from "@/lib/api/scopes";
 
@@ -62,6 +65,39 @@ describe("stored scope validation", () => {
 
   test("an empty grant stays empty rather than becoming unrestricted", () => {
     expect(toApiScopes([])).toEqual([]);
+  });
+});
+
+// A team key is refused every account-level operation whatever its scopes, so an account-only
+// scope on one is a grant that can never be exercised. `tests/integration/api-route-policy.test.ts`
+// audits the flags themselves against the real route table; this covers the narrowing they drive.
+describe("scopes a team key may hold", () => {
+  const accountOnlyScopes = API_SCOPE_NAMES.filter(isAccountOnlyScope);
+
+  test("the team-key set is exactly the catalog minus the account-only scopes", () => {
+    expect(TEAM_KEY_SCOPES).toEqual(API_SCOPE_NAMES.filter((scope) => !isAccountOnlyScope(scope)));
+    expect(TEAM_KEY_SCOPES.every(isApiScope)).toBe(true);
+  });
+
+  test("a personal credential keeps every scope it was granted", () => {
+    expect(scopesForAudience({ scopes: [...API_SCOPE_NAMES], teamId: null })).toEqual([
+      ...API_SCOPE_NAMES,
+    ]);
+  });
+
+  test("a team credential loses every account-only scope it was granted", () => {
+    const granted = scopesForAudience({ scopes: [...API_SCOPE_NAMES], teamId: "team_1" });
+
+    expect(granted).toEqual(TEAM_KEY_SCOPES);
+    for (const scope of accountOnlyScopes) {
+      expect(granted).not.toContain(scope);
+    }
+  });
+
+  test("narrowing is idempotent, so a repaired grant survives a second pass", () => {
+    const once = scopesForAudience({ scopes: [...API_SCOPE_NAMES], teamId: "team_1" });
+
+    expect(scopesForAudience({ scopes: once, teamId: "team_1" })).toEqual(once);
   });
 });
 

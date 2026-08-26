@@ -264,6 +264,8 @@
         "resultCount": "{visible} de {total} endpoints",
         "noResults": "Ningún endpoint coincide con ese filtro.",
         "scopeLabel": "Permiso",
+        "anyScopeLabel": "Cualquier credencial",
+        "anyScopeDescription": "Este endpoint necesita una credencial, pero ningún permiso concreto.",
         "mcpToolLabel": "Herramienta MCP",
         "operationIdLabel": "Operación",
         "parametersLabel": "Parámetros",
@@ -875,7 +877,8 @@
         "errorTeamLimitReached": "Este equipo puede tener como máximo {max} claves de API activas",
         "errorKeyNotFound": "Clave de API no encontrada",
         "errorTeamKeyOtherTeam": "Esta clave solo funciona con el equipo para el que se creó.",
-        "errorTeamKeyAccountOnly": "Esta clave solo funciona con su equipo, no con la configuración de la cuenta."
+        "errorTeamKeyAccountOnly": "Esta clave solo funciona con su equipo, no con la configuración de la cuenta.",
+        "errorTeamKeyAccountScope": "Una clave de equipo no puede tener permisos de nivel de cuenta: {scopes}"
       },
       "ConnectedApps": {
         "title": "Apps conectadas",

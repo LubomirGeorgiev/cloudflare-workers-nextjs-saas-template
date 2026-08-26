@@ -55,6 +55,15 @@ declares none fails the route-table audit in the API integration tests, so this 
 rather than decided. Like a scope, an audience only ever narrows the credential owner's live
 permissions; team permissions are still checked against D1 on every request.
 
+`scope` is required, so it cannot be forgotten. Write `null` only for a read-only operation that
+must answer whatever the caller holds. `getCredential` is the one in the template, and the
+route-table audit fails any other operation that declares `null`. Everything else names a scope.
+
+A scope reachable only by `"account"` operations is flagged `accountOnly` in the catalog, and a
+team key can neither be granted it nor resolve with it. Add a scope and you have to set the flag;
+add a team route under an existing account-only scope and the route-table audit fails until you
+clear it.
+
 The declaration also reaches the generated document as `x-audience`, which is how `tools/list`
 hides account-level tools from a team-scoped credential. An operation that reaches the document
 some other way, without `apiOperation`, fails closed and is read as `"account"` — so a custom team

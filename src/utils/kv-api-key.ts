@@ -7,7 +7,7 @@ import { CURRENT_API_KEY_CACHE_VERSION } from "@/constants";
 import { getDB } from "@/db";
 import { apiKeyTable } from "@/db/schema";
 import { toApiAudience, type ApiPrincipal } from "@/lib/api/principal";
-import { toApiScopes } from "@/lib/api/scopes";
+import { scopesForAudience, toApiScopes } from "@/lib/api/scopes";
 import { looksLikeApiKey } from "@/utils/api-key-format";
 import {
   deleteApiKeySnapshot,
@@ -69,8 +69,9 @@ function toPrincipal(cached: CachedApiKey): ApiPrincipal {
     userId: cached.userId,
     user: reviveUserDates(cached.user),
     teams: cached.teams,
-    // Fail closed: a scope the catalog no longer knows about grants nothing.
-    scopes: toApiScopes(cached.scopes),
+    // Fail closed twice: a scope the catalog no longer knows about grants nothing, and neither
+    // does an account-only scope on a team key — including one granted before that became a rule.
+    scopes: scopesForAudience({ scopes: toApiScopes(cached.scopes), teamId: cached.teamId }),
     // The stored `teamId` is the key's audience: a team key may only ever act on that team.
     audience: toApiAudience(cached.teamId),
     keyId: cached.keyId,

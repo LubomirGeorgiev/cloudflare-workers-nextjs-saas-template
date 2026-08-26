@@ -8,7 +8,7 @@ import { securityForScope } from "@/api/openapi-document";
 import { COMMON_ERROR_RESPONSES } from "@/api/openapi";
 import type { ApiEnv } from "@/api/types";
 import { audienceExtension, type ApiOperationAudience } from "@/lib/api/audience";
-import { requireScope } from "@/lib/api/principal";
+import { requirePrincipal, requireScope } from "@/lib/api/principal";
 import type { ApiScope } from "@/lib/api/scopes";
 
 // One declaration per operation: a route states its scope and audience once, and this emits both
@@ -22,13 +22,19 @@ import type { ApiScope } from "@/lib/api/scopes";
 const POLICY_MARKER = "__apiOperationPolicy";
 
 interface ApiOperationPolicy {
-  scope: ApiScope;
+  /** Carried so the route-table audits can pin an exception by id, which no path rename breaks. */
+  operationId: string;
+  /**
+   * Required, so a forgotten scope is a compile error rather than an operation published with an
+   * empty scope list. `null` is the deliberate word for an operation that must answer whatever the
+   * caller holds; the route-table audit pins that set to credential introspection alone.
+   */
+  scope: ApiScope | null;
   audience: ApiOperationAudience;
 }
 
 type ApiOperationSpec = Omit<DescribeRouteOptions, "security" | "responses"> &
   ApiOperationPolicy & {
-    operationId: string;
     /** Success responses only; the shared failure modes are documented for every operation. */
     responses: ResponsesWithResolver;
   };
@@ -36,9 +42,20 @@ type ApiOperationSpec = Omit<DescribeRouteOptions, "security" | "responses"> &
 function policyGuard(policy: ApiOperationPolicy): MiddlewareHandler<ApiEnv> {
   const assertAudience = audienceGuard(policy.audience);
 
+  // Audience before scope: a team key can no longer hold an account-only scope, so checking the
+  // scope first would answer "missing profile:read" for an operation no team key can ever call,
+  // sending an agent after a grant it cannot be given. The audience refusal names the real fix.
+  //
+  // A null-scope operation still asserts a principal rather than skipping the layer: `apiAuth`
+  // rejects an anonymous request already, so this only fails closed if that door is ever moved.
   const guard: MiddlewareHandler<ApiEnv> = (c, next) => {
-    requireScope(policy.scope);
     assertAudience(c);
+
+    if (policy.scope === null) {
+      requirePrincipal();
+    } else {
+      requireScope(policy.scope);
+    }
 
     return next();
   };
@@ -62,10 +79,10 @@ export function apiOperation({
       // Documented as well as enforced: the MCP tool list reads it to hide operations a team
       // credential could never call, and no reader can rebuild it from the rest of the document.
       ...audienceExtension(audience),
-      security: securityForScope(scope),
+      security: securityForScope(scope ?? undefined),
       responses: { ...COMMON_ERROR_RESPONSES, ...responses },
     }),
-    policyGuard({ scope, audience }),
+    policyGuard({ operationId: spec.operationId, scope, audience }),
   ];
 }
 

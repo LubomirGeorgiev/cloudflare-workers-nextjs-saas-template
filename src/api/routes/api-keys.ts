@@ -78,7 +78,9 @@ export const apiKeyRoutes = new Hono<ApiEnv>()
       summary: "Create an API key",
       description:
         "Creates an API key for the caller, or for a team when `teamId` is given. The scopes " +
-        "requested must be a subset of the calling credential's own scopes. The `secret` in the " +
+        "requested must be a subset of the calling credential's own scopes. A key created with a " +
+        "`teamId` cannot hold a scope this API marks account-only; the refusal names the rejected " +
+        "scopes, so ask for a personal key instead when you need those. The `secret` in the " +
         "response is returned exactly once and is not recoverable afterwards. " +
         "Account-level: a team-scoped API key is refused with 403.",
       scope: "api-keys:write",

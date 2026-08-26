@@ -118,12 +118,18 @@ export function hasScope(principal: ApiPrincipal, scope: ApiScope): boolean {
 
 // Fails closed: callers run inside the API/MCP layer, which always establishes a principal, so a
 // missing store means the request was never authenticated rather than "unrestricted cookie user".
-export function requireScope(scope: ApiScope): ApiPrincipal {
+export function requirePrincipal(): ApiPrincipal {
   const principal = getBearerPrincipal();
 
   if (!principal) {
     throw new ActionError("NOT_AUTHORIZED", NO_PRINCIPAL_DETAIL);
   }
+
+  return principal;
+}
+
+export function requireScope(scope: ApiScope): ApiPrincipal {
+  const principal = requirePrincipal();
 
   if (!hasScope(principal, scope)) {
     throw new ActionError("FORBIDDEN", missingScopeDetail(scope));

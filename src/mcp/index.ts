@@ -129,6 +129,9 @@ function isReachable({ descriptor, principal }: { descriptor: McpToolDescriptor;
     return false;
   }
 
+  // An operation reaches this with no scope only when the document lists none for it, which the
+  // route-table audit pins to credential introspection — a GET that reports the caller's own
+  // grant. Listing that for every credential tells a confused caller what it holds.
   if (!descriptor.scope) {
     return true;
   }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { API_KEY_MAX_EXPIRY_DAYS, API_KEY_NAME_MAX_LENGTH } from "@/constants";
-import { API_SCOPE_NAMES } from "@/lib/api/scopes";
+import { API_SCOPE_NAMES, TEAM_KEY_SCOPES, isAccountOnlyScope } from "@/lib/api/scopes";
 import { v } from "@/lib/validation";
 import {
   createApiKeySchema,
@@ -37,6 +37,18 @@ describe("createApiKeySchema", () => {
   test("requires at least one scope and rejects unknown ones", () => {
     expect(parse({ name: "CI", scopes: [] }).success).toBe(false);
     expect(parse({ name: "CI", scopes: ["definitely:not-a-scope"] }).success).toBe(false);
+  });
+
+  // The audience rule lives in `createApiKey`, not here: the schema takes the pair so the service
+  // can answer with a detail naming the offending scopes. See its integration tests.
+  const ACCOUNT_ONLY_SCOPE = API_SCOPE_NAMES.find(isAccountOnlyScope);
+
+  test.skipIf(!ACCOUNT_ONLY_SCOPE)("parses an account-only scope with a teamId and leaves the refusal to the service", () => {
+    expect(parse({ name: "CI", scopes: [ACCOUNT_ONLY_SCOPE!], teamId: "team_1" }).success).toBe(true);
+  });
+
+  test("accepts every team-key scope alongside a teamId", () => {
+    expect(parse({ name: "CI", scopes: [...TEAM_KEY_SCOPES], teamId: "team_1" }).success).toBe(true);
   });
 
   test("expiry is optional and bounded", () => {

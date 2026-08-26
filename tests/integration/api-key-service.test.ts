@@ -51,13 +51,23 @@ import {
   updateApiKeyScopes,
 } from "@/lib/api-keys/api-keys";
 import { runWithPrincipal, type ApiKeyPrincipal } from "@/lib/api/principal";
-import { API_SCOPE_NAMES, type ApiScope } from "@/lib/api/scopes";
+import {
+  API_SCOPE_NAMES,
+  TEAM_KEY_SCOPES,
+  isAccountOnlyScope,
+  type ApiScope,
+} from "@/lib/api/scopes";
 import { looksLikeApiKey } from "@/utils/api-key-format";
 
 const db = getDB();
 const SCOPE = API_SCOPE_NAMES[0];
 // A fork can shrink the catalog; escalation is only expressible with a second scope to ask for.
 const OTHER_SCOPE = API_SCOPE_NAMES.find((scope) => scope !== SCOPE);
+// Every team-key test grants this instead of SCOPE: an account-only scope is refused on a team
+// key, and these tests are about caps, permissions, and listings rather than about that rule.
+const TEAM_SCOPE = TEAM_KEY_SCOPES[0];
+// The rule's own subject. Undefined in a fork whose catalog has no account-only scope left.
+const ACCOUNT_ONLY_SCOPE = API_SCOPE_NAMES.find(isAccountOnlyScope);
 
 let seq = 0;
 function uid(prefix: string): string {
@@ -210,11 +220,11 @@ test("team keys are capped separately from the creator's personal keys", async (
   authState.current = sessionFor(ownerId);
 
   for (let i = 0; i < MAX_API_KEYS_PER_TEAM; i++) {
-    await createApiKey({ teamId, name: `team-${i}`, scopes: [SCOPE] });
+    await createApiKey({ teamId, name: `team-${i}`, scopes: [TEAM_SCOPE] });
   }
 
   await expect(
-    createApiKey({ teamId, name: "over cap", scopes: [SCOPE] }),
+    createApiKey({ teamId, name: "over cap", scopes: [TEAM_SCOPE] }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
   // The personal bucket is untouched by the team's usage.
@@ -225,10 +235,10 @@ test("a member without MANAGE_API_KEYS can neither create nor list team keys", a
   const { teamId, ownerId, memberId } = await seedTeam();
 
   authState.current = sessionFor(ownerId);
-  const ownerKey = await createApiKey({ teamId, name: "owned", scopes: [SCOPE] });
+  const ownerKey = await createApiKey({ teamId, name: "owned", scopes: [TEAM_SCOPE] });
 
   authState.current = sessionFor(memberId);
-  await expect(createApiKey({ teamId, name: "sneaky", scopes: [SCOPE] }))
+  await expect(createApiKey({ teamId, name: "sneaky", scopes: [TEAM_SCOPE] }))
     .rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(listTeamApiKeys({ teamId })).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(revokeApiKey({ keyId: ownerKey.key.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -242,7 +252,7 @@ test("listings are scoped: personal keys exclude team keys and vice versa", asyn
   authState.current = sessionFor(ownerId);
 
   const personal = await createApiKey({ name: "personal", scopes: [SCOPE] });
-  const team = await createApiKey({ teamId, name: "team", scopes: [SCOPE] });
+  const team = await createApiKey({ teamId, name: "team", scopes: [TEAM_SCOPE] });
 
   const [personalKeys, teamKeys] = await Promise.all([listUserApiKeys(), listTeamApiKeys({ teamId })]);
 
@@ -318,6 +328,69 @@ test.skipIf(!OTHER_SCOPE)("a scoped credential cannot mint scopes it does not ho
 
   const names = (await db.query.apiKeyTable.findMany({ where: { userId } })).map((key) => key.name);
   expect(names).not.toContain("escalated");
+});
+
+// A team key is refused every account-level operation whatever its scopes, so granting it one is
+// writing a permission no request can exercise. Refused at both write paths, not filtered away:
+// silently dropping a requested scope would hand back a key weaker than the caller asked for.
+test.skipIf(!ACCOUNT_ONLY_SCOPE)("a team key cannot be minted with an account-only scope", async () => {
+  const { teamId, ownerId } = await seedTeam();
+  authState.current = sessionFor(ownerId);
+
+  await expect(
+    createApiKey({ teamId, name: "over-granted", scopes: [TEAM_SCOPE, ACCOUNT_ONLY_SCOPE!] }),
+  ).rejects.toMatchObject({ code: "INPUT_PARSE_ERROR" });
+
+  // Nothing was written: the refusal precedes the INSERT, not just the response.
+  const rows = await db.query.apiKeyTable.findMany({ where: { teamId } });
+  expect(rows).toEqual([]);
+
+  // The same scope on a personal key is exactly what it is for.
+  await expect(
+    createApiKey({ name: "personal", scopes: [ACCOUNT_ONLY_SCOPE!] }),
+  ).resolves.toMatchObject({ key: { scopes: [ACCOUNT_ONLY_SCOPE!], teamId: null } });
+});
+
+test.skipIf(!ACCOUNT_ONLY_SCOPE)("a team key cannot be re-scoped into an account-only scope", async () => {
+  const { teamId, ownerId } = await seedTeam();
+  authState.current = sessionFor(ownerId);
+
+  const created = await createApiKey({ teamId, name: "team", scopes: [TEAM_SCOPE] });
+
+  await expect(
+    updateApiKeyScopes({ keyId: created.key.id, scopes: [ACCOUNT_ONLY_SCOPE!] }),
+  ).rejects.toMatchObject({ code: "INPUT_PARSE_ERROR" });
+
+  const stored = await db.query.apiKeyTable.findFirst({ where: { id: created.key.id } });
+  expect(stored?.scopes).toEqual([TEAM_SCOPE]);
+});
+
+// A key written before the rule existed still carries the scope in D1. Every read path narrows it
+// away, so the settings page, the REST listing, and the principal resolver agree on the grant.
+test.skipIf(!ACCOUNT_ONLY_SCOPE)("a legacy team key lists without its account-only scope", async () => {
+  const { teamId, ownerId } = await seedTeam();
+  authState.current = sessionFor(ownerId);
+  const keyId = uid("akey");
+  const storedScopes = [TEAM_SCOPE, ACCOUNT_ONLY_SCOPE!];
+
+  await db.insert(apiKeyTable).values({
+    id: keyId,
+    userId: ownerId,
+    teamId,
+    name: "legacy",
+    keyHash: uid("hash"),
+    keyPrefix: "prefix",
+    last4: "0000",
+    scopes: storedScopes,
+  });
+
+  const listed = await listTeamApiKeys({ teamId });
+  expect(listed.map((key) => key.id)).toEqual([keyId]);
+  expect(listed[0].scopes).toEqual([TEAM_SCOPE]);
+
+  // The read narrows; the row is left alone, so nothing needs a migration.
+  const stored = await db.query.apiKeyTable.findFirst({ where: { id: keyId } });
+  expect(stored?.scopes).toEqual(storedScopes);
 });
 
 // Minting is account-level, and the service says so itself rather than trusting the route: a team
@@ -407,19 +480,20 @@ test("a team key is re-scoped only by a member holding MANAGE_API_KEYS", async (
   const { teamId, ownerId, memberId } = await seedTeam();
 
   authState.current = sessionFor(ownerId);
-  const created = await createApiKey({ teamId, name: "owned", scopes: [...API_SCOPE_NAMES] });
+  // Every scope a team key may hold, so the refusal below is about the permission, not the grant.
+  const created = await createApiKey({ teamId, name: "owned", scopes: [...TEAM_KEY_SCOPES] });
 
   authState.current = sessionFor(memberId);
   await expect(
-    updateApiKeyScopes({ keyId: created.key.id, scopes: [SCOPE] }),
+    updateApiKeyScopes({ keyId: created.key.id, scopes: [TEAM_SCOPE] }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
   const untouched = await db.query.apiKeyTable.findFirst({ where: { id: created.key.id } });
-  expect(untouched?.scopes).toEqual([...API_SCOPE_NAMES]);
+  expect(untouched?.scopes).toEqual([...TEAM_KEY_SCOPES]);
 
   authState.current = sessionFor(ownerId);
-  await expect(updateApiKeyScopes({ keyId: created.key.id, scopes: [SCOPE] })).resolves
-    .toMatchObject({ scopes: [SCOPE] });
+  await expect(updateApiKeyScopes({ keyId: created.key.id, scopes: [TEAM_SCOPE] })).resolves
+    .toMatchObject({ scopes: [TEAM_SCOPE] });
 });
 
 test("re-scoping is refused without a verified session", async () => {
@@ -468,7 +542,7 @@ test("a team-scoped credential cannot re-scope any key", async () => {
   authState.current = sessionFor(ownerId);
 
   const personal = await createApiKey({ name: "personal", scopes: [SCOPE] });
-  const teamKey = await createApiKey({ teamId, name: "team", scopes: [SCOPE] });
+  const teamKey = await createApiKey({ teamId, name: "team", scopes: [TEAM_SCOPE] });
   // Every scope granted, so the refusals below can only come from the audience.
   const principal = buildKeyPrincipal({
     userId: ownerId,

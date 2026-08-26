@@ -1,6 +1,13 @@
 interface ApiScopeDefinition {
   /** Human-readable grant shown on the OAuth consent screen and in the API docs. */
   description: string;
+  /**
+   * True when every operation this scope opens declares `audience: "account"`. Such a scope is
+   * dead weight on a team key — the audience guard refuses it whatever the scope says — so a team
+   * key is never granted one. Required, not optional, so a fork adding a scope has to decide.
+   * `tests/integration/api-route-policy.test.ts` audits each flag against the real route table.
+   */
+  accountOnly: boolean;
 }
 
 // Coarse resource-level grants: the single source of truth for API keys, OAuth consent, and the
@@ -9,33 +16,43 @@ interface ApiScopeDefinition {
 export const API_SCOPES = {
   "profile:read": {
     description: "Read your account profile, sessions, and preferences.",
+    accountOnly: true,
   },
   "profile:write": {
     description: "Update your account profile and revoke your sessions.",
+    accountOnly: true,
   },
   "teams:read": {
     description: "List the teams you belong to and read their details.",
+    accountOnly: false,
   },
   "teams:write": {
     description: "Create teams and change team details.",
+    accountOnly: false,
   },
   "members:read": {
     description: "List the members of your teams.",
+    accountOnly: false,
   },
   "members:write": {
     description: "Change and remove members of your teams.",
+    accountOnly: false,
   },
   "invites:write": {
     description: "Send and revoke invitations to your teams.",
+    accountOnly: false,
   },
   "billing:read": {
     description: "Read the subscription and billing status of your teams.",
+    accountOnly: false,
   },
   "api-keys:read": {
     description: "List the API keys on your account and when they were last used.",
+    accountOnly: true,
   },
   "api-keys:write": {
     description: "Create and revoke API keys on your account.",
+    accountOnly: true,
   },
 } as const satisfies Record<string, ApiScopeDefinition>;
 
@@ -49,6 +66,31 @@ export function isApiScope(value: string): value is ApiScope {
 
 export function describeApiScope(scope: ApiScope): string {
   return API_SCOPES[scope].description;
+}
+
+/** A scope no team-scoped credential can ever exercise, because only account operations open it. */
+export function isAccountOnlyScope(scope: ApiScope): boolean {
+  return API_SCOPES[scope].accountOnly;
+}
+
+/** What a team key may hold, in catalog order; the whole catalog for a personal one. */
+export const TEAM_KEY_SCOPES: ApiScope[] = API_SCOPE_NAMES.filter(
+  (scope) => !isAccountOnlyScope(scope),
+);
+
+/**
+ * The scopes a credential with this audience may hold. Granting a team key an account-only scope
+ * writes a permission it can never use, so both the write paths and the principal resolver narrow
+ * through here — the resolver too, because a key issued before this rule still holds those rows.
+ */
+export function scopesForAudience({
+  scopes,
+  teamId,
+}: {
+  scopes: ApiScope[];
+  teamId: string | null;
+}): ApiScope[] {
+  return teamId ? scopes.filter((scope) => !isAccountOnlyScope(scope)) : scopes;
 }
 
 // The one validation point between stored grants (KV snapshots, OAuth token props) and a principal.

@@ -264,6 +264,8 @@
         "resultCount": "{visible} of {total} endpoints",
         "noResults": "No endpoint matches that filter.",
         "scopeLabel": "Scope",
+        "anyScopeLabel": "Any credential",
+        "anyScopeDescription": "This endpoint needs a credential, but no particular scope.",
         "mcpToolLabel": "MCP tool",
         "operationIdLabel": "Operation",
         "parametersLabel": "Parameters",
@@ -875,7 +877,8 @@
         "errorTeamLimitReached": "This team can have at most {max} active API keys",
         "errorKeyNotFound": "API key not found",
         "errorTeamKeyOtherTeam": "This key only works with the team it was created for.",
-        "errorTeamKeyAccountOnly": "This key only works with its team, not with account-level settings."
+        "errorTeamKeyAccountOnly": "This key only works with its team, not with account-level settings.",
+        "errorTeamKeyAccountScope": "A team key cannot hold account-level scopes: {scopes}"
       },
       "ConnectedApps": {
         "title": "Connected apps",

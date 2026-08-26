@@ -24,8 +24,14 @@ import {
 } from "@/constants";
 import { DEFAULT_PLAN_ID, TEAM_PLANS, TEAM_PLAN_IDS } from "@/constants/plans";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, apiKeyTable, teamTable, userTable } from "@/db/schema";
-import { API_SCOPE_NAMES, type ApiScope } from "@/lib/api/scopes";
+import {
+  SYSTEM_ROLES_ENUM,
+  apiKeyTable,
+  teamMembershipTable,
+  teamTable,
+  userTable,
+} from "@/db/schema";
+import { API_SCOPE_NAMES, TEAM_KEY_SCOPES, type ApiScope } from "@/lib/api/scopes";
 import { resolveConsentRequest } from "@/lib/oauth/consent";
 import { getOAuthHelpers } from "@/lib/oauth/provider-api";
 import { deriveMcpTools } from "@/mcp/derive-tools";
@@ -246,6 +252,44 @@ test("tools/list is filtered by the credential's scopes", async () => {
   expect(writerNames).toContain("createTeam");
   // A scope the key does not hold hides its tools entirely, whatever the operation.
   expect(writerNames).not.toContain("getMe");
+  // Except the unscoped one: an agent has to be able to ask what it holds before it asks for more.
+  expect(readOnlyNames).toContain("getCredential");
+});
+
+// The endpoint earns its keep here: an agent whose call was refused can ask one tool what its
+// credential actually is, instead of guessing from a 403. Reachable by every credential, so the
+// team key below — which sees no account tool at all — still sees this one.
+test("an agent can ask what its own credential is, whatever it holds", async () => {
+  const user = await seedUser();
+  const teamId = uid("team");
+
+  // A real membership, unlike the refusal tests above, so the agent asks about a live team key.
+  await db.insert(teamTable).values({ id: teamId, name: "Audience Team", slug: uid("audience") });
+  await db.insert(teamMembershipTable).values({
+    teamId,
+    userId: user.id,
+    roleId: SYSTEM_ROLES_ENUM.OWNER,
+    isSystemRole: 1,
+  });
+
+  const token = await seedKey({ userId: user.id, teamId, scopes: [...API_SCOPE_NAMES] });
+
+  expect((await listTools(token)).map((tool) => tool.name)).toContain("getCredential");
+
+  const result = await callTool({ token, name: "getCredential", args: {} });
+
+  expect(result.isError).toBeFalsy();
+
+  const credential = JSON.parse(result.content[0]!.text) as {
+    audience: string;
+    team: { id: string } | null;
+    scopes: string[];
+  };
+
+  expect(credential.audience).toBe("team");
+  expect(credential.team?.id).toBe(teamId);
+  // The account-only scopes it was seeded with are gone, which is the answer it came for.
+  expect(credential.scopes).toEqual([...TEAM_KEY_SCOPES]);
 });
 
 // Path parameters, query parameters, and the request body are merged into one argument object, so

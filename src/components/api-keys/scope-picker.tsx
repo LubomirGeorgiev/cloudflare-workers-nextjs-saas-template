@@ -5,23 +5,30 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { API_SCOPES, API_SCOPE_NAMES, type ApiScope } from "@/lib/api/scopes";
+import { API_SCOPES, API_SCOPE_NAMES, scopesForAudience, type ApiScope } from "@/lib/api/scopes";
 import { cn } from "@/lib/utils";
 
 /**
  * The `scopes` field, shared by the create and edit forms so a key is granted and re-granted
  * through the same list. Owns the set semantics; the caller only stores what it hands back, and
  * renders it inside its own `FormField` so the label and message bind to that form's state.
+ *
+ * Pass the key's `teamId` when it has one: a team key is refused every account-level operation, so
+ * offering it those scopes would only mint a grant it can never use.
  */
 export function ScopePicker({
   selectedScopes,
+  teamId,
   onChange,
 }: {
   selectedScopes: ApiScope[];
+  teamId?: string | null;
   onChange: (scopes: ApiScope[]) => void;
 }) {
   const t = useTranslations("Client.Settings.ApiKeys");
   const tScopes = useTranslations("Client.ApiScopes");
+  // The one narrowing rule, read from the catalog, so this picker cannot drift from the services.
+  const offeredScopes = scopesForAudience({ scopes: API_SCOPE_NAMES, teamId: teamId ?? null });
 
   // Scope copy is translated where a catalog entry exists; forks that add their own scopes fall
   // back to the machine-facing description that also feeds the docs and consent screens.
@@ -38,7 +45,7 @@ export function ScopePicker({
   }
 
   // One control, both directions: the label follows what pressing it would do.
-  const areAllSelected = selectedScopes.length === API_SCOPE_NAMES.length;
+  const areAllSelected = selectedScopes.length === offeredScopes.length;
 
   return (
     <FormItem>
@@ -48,7 +55,7 @@ export function ScopePicker({
           <span className="text-xs text-muted-foreground">
             {t("scopesSelectedCount", {
               selected: selectedScopes.length,
-              total: API_SCOPE_NAMES.length,
+              total: offeredScopes.length,
             })}
           </span>
           <Button
@@ -56,14 +63,14 @@ export function ScopePicker({
             size="sm"
             variant="ghost"
             className="h-7 px-2 text-xs"
-            onClick={() => onChange(areAllSelected ? [] : [...API_SCOPE_NAMES])}
+            onClick={() => onChange(areAllSelected ? [] : [...offeredScopes])}
           >
             {areAllSelected ? t("clearAllScopes") : t("selectAllScopes")}
           </Button>
         </div>
       </div>
       <div className="grid max-h-[24rem] gap-2 overflow-y-auto rounded-md border p-2 sm:grid-cols-2">
-        {API_SCOPE_NAMES.map((scope) => (
+        {offeredScopes.map((scope) => (
           <ScopeToggle
             key={scope}
             scope={scope}

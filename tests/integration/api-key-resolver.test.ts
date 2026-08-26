@@ -24,7 +24,12 @@ import { API_KEY_CACHE_TTL_SECONDS, CURRENT_API_KEY_CACHE_VERSION } from "@/cons
 import { getDB } from "@/db";
 import { apiKeyTable, teamTable, userTable } from "@/db/schema";
 import { createApiKey, revokeApiKey, updateApiKeyScopes } from "@/lib/api-keys/api-keys";
-import { API_SCOPE_NAMES } from "@/lib/api/scopes";
+import {
+  API_SCOPE_NAMES,
+  TEAM_KEY_SCOPES,
+  isAccountOnlyScope,
+  type ApiScope,
+} from "@/lib/api/scopes";
 import { generateApiKey } from "@/utils/api-key-format";
 import { deleteApiKeyCache, getApiKeyPrincipal } from "@/utils/kv-api-key";
 import { purgeUserPrincipalCaches } from "@/utils/kv-principal-purge";
@@ -32,6 +37,9 @@ import { hashToken } from "@/utils/random-token";
 
 const db = getDB();
 const SCOPE = API_SCOPE_NAMES[0];
+// The narrowing this file covers only has a subject while the catalog still has one of each.
+const ACCOUNT_ONLY_SCOPE = API_SCOPE_NAMES.find(isAccountOnlyScope);
+const TEAM_SCOPE = TEAM_KEY_SCOPES[0];
 
 let seq = 0;
 function uid(prefix: string): string {
@@ -65,10 +73,13 @@ async function seedKey({
   userId,
   expiresAt,
   teamId,
+  scopes = [SCOPE],
 }: {
   userId: string;
   expiresAt?: Date;
   teamId?: string;
+  /** Written straight to D1, so a row the service would refuse today can still be staged here. */
+  scopes?: ApiScope[];
 }) {
   const generated = await generateApiKey();
   const id = uid("akey");
@@ -80,7 +91,7 @@ async function seedKey({
     keyHash: generated.hash,
     keyPrefix: generated.prefix,
     last4: generated.last4,
-    scopes: [SCOPE],
+    scopes,
     expiresAt,
     teamId,
   });
@@ -154,6 +165,34 @@ test("the key's team becomes the principal's audience, through the cache too", a
   expect(await readSnapshot(teamKey.hash)).not.toBeNull();
   expect((await getApiKeyPrincipal(teamKey.secret))?.audience).toEqual({ type: "team", teamId });
 });
+
+// The write paths refuse this combination now, but a key issued before they did still holds the
+// row. The principal is where that grant would take effect, so it is narrowed there too — and
+// through the snapshot, or the first cache hit would hand the dead scopes back.
+test.skipIf(!ACCOUNT_ONLY_SCOPE)(
+  "a team key issued with account-only scopes resolves without them",
+  async () => {
+    const userId = await seedUser();
+    const teamId = await seedTeam();
+    const legacy = await seedKey({
+      userId,
+      teamId,
+      scopes: [TEAM_SCOPE, ACCOUNT_ONLY_SCOPE!],
+    });
+
+    expect((await getApiKeyPrincipal(legacy.secret))?.scopes).toEqual([TEAM_SCOPE]);
+
+    expect(await readSnapshot(legacy.hash)).not.toBeNull();
+    expect((await getApiKeyPrincipal(legacy.secret))?.scopes).toEqual([TEAM_SCOPE]);
+
+    // The same grant on a personal key is untouched, so this narrows by audience, not by scope.
+    const personal = await seedKey({ userId, scopes: [TEAM_SCOPE, ACCOUNT_ONLY_SCOPE!] });
+    expect((await getApiKeyPrincipal(personal.secret))?.scopes).toEqual([
+      TEAM_SCOPE,
+      ACCOUNT_ONLY_SCOPE!,
+    ]);
+  },
+);
 
 test("a cache hit serves the principal without reading D1", async () => {
   const userId = await seedUser();

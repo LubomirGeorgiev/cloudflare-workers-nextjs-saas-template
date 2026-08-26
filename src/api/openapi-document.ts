@@ -32,10 +32,16 @@ function scopeCatalog(): Record<string, string> {
 
 // Declared per operation so the document states exactly which scope each operation needs. Phase 4
 // derives MCP tools from this metadata to filter `tools/list` by the caller's granted scopes.
-export function securityForScope(scope: ApiScope): OpenAPIV3_1.SecurityRequirementObject[] {
+//
+// An empty scope list is not "no security": it still requires a credential, and says only that no
+// particular scope narrows it. `scopeOfOperation` reads that back as null, which is what keeps a
+// scope-less operation listed for every caller instead of hidden from all of them.
+export function securityForScope(scope?: ApiScope): OpenAPIV3_1.SecurityRequirementObject[] {
+  const scopes = scope ? [scope] : [];
+
   return [
-    { [API_SECURITY_SCHEME_BEARER]: [scope] },
-    { [API_SECURITY_SCHEME_OAUTH2]: [scope] },
+    { [API_SECURITY_SCHEME_BEARER]: scopes },
+    { [API_SECURITY_SCHEME_OAUTH2]: scopes },
   ];
 }
 

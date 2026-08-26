@@ -15,6 +15,10 @@ import { beforeAll, expect, test } from "vitest";
 import { apiApp } from "@/api";
 import { readOperationPolicy } from "@/api/operation";
 import {
+  API_SECURITY_SCHEME_BEARER,
+  API_SECURITY_SCHEME_OAUTH2,
+} from "@/api/openapi-document";
+import {
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
   API_VERSION,
@@ -149,13 +153,54 @@ test("every operation declares a scope from the catalog for both schemes", () =>
     }
 
     const requirements = operation.security ?? [];
-    expect(requirements.length, `${method} ${path}`).toBeGreaterThan(0);
+    // Never absent: an empty scope list still demands a credential, no security at all is public.
+    expect(requirements.length, `${method} ${path}`).toBe(2);
+
+    const declared = new Map<string, string[]>();
 
     for (const requirement of requirements) {
-      for (const scopes of Object.values(requirement)) {
-        expect(scopes.length, `${method} ${path}`).toBe(1);
+      // One scheme per requirement: the two are alternatives, not a pair a caller must satisfy.
+      const entries = Object.entries(requirement);
+      expect(entries.length, `${method} ${path}`).toBe(1);
+      declared.set(entries[0][0], entries[0][1]);
+    }
+
+    expect([...declared.keys()].sort(), `${method} ${path}`).toEqual(
+      [API_SECURITY_SCHEME_BEARER, API_SECURITY_SCHEME_OAUTH2].sort(),
+    );
+
+    for (const scopes of declared.values()) {
+      expect(scopes.length, `${method} ${path}`).toBeLessThanOrEqual(1);
+
+      if (scopes.length === 1) {
         expect(API_SCOPE_NAMES, `${method} ${path}`).toContain(scopes[0]);
       }
+    }
+
+    // Both schemes describe one operation, so a caller must not read a different requirement
+    // depending on whether it authenticated with a key or an OAuth token. The whole list is
+    // compared, so the unscoped operation has to declare the empty list under both schemes.
+    expect(declared.get(API_SECURITY_SCHEME_OAUTH2), `${method} ${path}`).toEqual(
+      declared.get(API_SECURITY_SCHEME_BEARER),
+    );
+  }
+});
+
+// An unscoped operation answers a caller whose grant nobody has checked, so it must not be able to
+// change anything. This is what keeps `scope: null` from becoming a way to mount an unguarded
+// write: introspection is the reason the escape hatch exists, and a GET is all introspection needs.
+test("an operation that declares no scope is read-only", () => {
+  for (const { path, method, operation } of operations()) {
+    if (path === API_OPENAPI_SPEC_PATH) {
+      continue;
+    }
+
+    const isUnscoped = (operation.security ?? []).some(
+      (requirement) => Object.values(requirement).some((scopes) => scopes.length === 0),
+    );
+
+    if (isUnscoped) {
+      expect(method, `${method} ${path} declares no scope`).toBe("get");
     }
   }
 });
@@ -175,7 +220,9 @@ test("every operation documents an audience from the vocabulary", () => {
 // Documented policy and enforced policy come from the single declaration `apiOperation` reads, so a
 // mismatch here means a second source of truth crept back in.
 test("the scope and audience each operation documents are the ones its mounted guard enforces", () => {
-  const enforced = new Map<string, { scope: string; audience: string }>();
+  // Both sides read as null for a null-scope operation, which is the pairing this asserts: an
+  // empty documented scope list has to mean an unscoped guard, and nothing else.
+  const enforced = new Map<string, { scope: string | null; audience: string }>();
 
   for (const route of apiApp.routes) {
     const policy = readOperationPolicy(route.handler);
@@ -193,13 +240,11 @@ test("the scope and audience each operation documents are the ones its mounted g
 
   for (const { path, method, operation } of documented) {
     const requirement = operation.security?.[0] ?? {};
+    const policy = enforced.get(`${method} ${path}`);
 
-    expect(Object.values(requirement)[0]?.[0], `${method} ${path}`).toBe(
-      enforced.get(`${method} ${path}`)?.scope,
-    );
-    expect(operation[AUDIENCE_EXTENSION_KEY], `${method} ${path}`).toBe(
-      enforced.get(`${method} ${path}`)?.audience,
-    );
+    expect(policy, `${method} ${path} mounts no policy guard`).toBeDefined();
+    expect(Object.values(requirement)[0]?.[0] ?? null, `${method} ${path}`).toBe(policy?.scope ?? null);
+    expect(operation[AUDIENCE_EXTENSION_KEY], `${method} ${path}`).toBe(policy?.audience);
   }
 });
 

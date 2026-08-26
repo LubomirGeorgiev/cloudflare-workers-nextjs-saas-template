@@ -75,6 +75,10 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
   "Client.Settings.ApiKeys.errorTeamKeyOtherTeam": ({ teamId }) =>
     `This API key is scoped to team ${teamId} and can only act on that team. Address that team ` +
     "instead, or use a key created for the team you want, or a personal key.",
+  "Client.Settings.ApiKeys.errorTeamKeyAccountScope": ({ scopes }) =>
+    `A team-scoped API key cannot be granted account-only scopes (${scopes}): the audience guard ` +
+    "refuses it every account-level operation, so the grant could never be used. Drop those " +
+    "scopes, or omit `teamId` to create a personal key that can hold them.",
   "Client.Settings.ApiKeys.errorTeamKeyAccountOnly": ({ teamId }) =>
     `This API key is scoped to team ${teamId}, so it cannot reach account-level operations such ` +
     "as the account profile, sign-in sessions, team creation, or API key management. Use a " +
