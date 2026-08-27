@@ -130,10 +130,8 @@ export const SETTINGS_API_MCP_PATH = "/settings/api-mcp" satisfies Route;
 export const TEAMS_DASHBOARD_PATH = "/dashboard/teams" satisfies Route;
 export const ADMIN_OAUTH_APPS_PATH = "/admin/oauth-apps" satisfies Route;
 export const ADMIN_USERS_PATH = "/admin/users" satisfies Route;
-// Llama 3.3 70B (fp8-fast): strong multilingual quality, ~700ms latency, and — unlike the Gemma models —
-// accessible on this account. Used for SEO descriptions and CMS translation. Verify a replacement actually
-// runs (some catalog models 504 or are access-gated) before swapping.
-export const DEFAULT_AI_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const satisfies keyof AiModels;
+// Gemma 4 26B (A4B, instruction-tuned): chat-completions model used for SEO descriptions and CMS
+export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfies keyof AiModels;
 
 // CMS Image Upload Configuration
 export const CMS_IMAGES_BASE_PATH = "cms-images" as const;
