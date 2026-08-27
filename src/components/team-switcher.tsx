@@ -25,6 +25,7 @@ import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { useTranslations } from "next-intl"
+import { useRouter } from "next/navigation"
 
 export function TeamSwitcher({
   teams,
@@ -37,6 +38,7 @@ export function TeamSwitcher({
   }[]
 }) {
   const t = useTranslations("Client.Dashboard.Teams")
+  const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
   const session = useSessionStore()
   const selectedTeamId = session.selectedTeam()
@@ -49,6 +51,9 @@ export function TeamSwitcher({
       setSelectedTeam(selectedTeamId);
       toast.error(error.serverError?.message || t("toastUpdateSelectedTeamError"));
     },
+    // Server components read the team from the KV session, so the store alone leaves them on the
+    // old team. Refresh from onSuccess, not handleTeamChange, so the KV write lands first.
+    onSuccess: () => router.refresh(),
   })
 
   // Find the active team based on selectedTeamId from session
