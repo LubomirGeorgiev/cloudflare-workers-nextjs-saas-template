@@ -219,19 +219,25 @@ export async function listOAuthApps({
 
 // Verification switches the app's consent scope tier. Only DCR rows also need cron renewal;
 // stable CIMD and operator-created identities have no expiring DCR lease to renew.
+//
+// Returns the updated row, or null when no client carries that id: the UPDATE already knows, so a
+// caller that must answer 404 spends no extra D1 round trip on a read.
 export async function setOAuthAppVerified({
   clientId,
   isVerified,
 }: {
   clientId: string;
   isVerified: boolean;
-}): Promise<void> {
+}): Promise<OAuthAppSummary | null> {
   const db = getDB();
 
-  await db
+  const [row] = await db
     .update(oauthAppTable)
     .set({ verifiedAt: isVerified ? new Date() : null })
-    .where(eq(oauthAppTable.clientId, clientId));
+    .where(eq(oauthAppTable.clientId, clientId))
+    .returning();
+
+  return row ? toSummary(row) : null;
 }
 
 export async function deleteOAuthApp(clientId: string): Promise<void> {

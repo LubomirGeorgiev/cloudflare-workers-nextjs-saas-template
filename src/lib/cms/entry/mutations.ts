@@ -10,7 +10,6 @@ import {
   cmsEntryMediaTable,
   cmsEntryTable,
   cmsEntryTagTable,
-  cmsEntryVersionTable,
   type CmsEntry,
 } from "@/db/schema";
 import {
@@ -23,10 +22,6 @@ import {
   invalidateSitemapCache,
 } from "@/lib/cms/cms-cache-invalidation";
 import {
-  deleteCmsPublishSchedule,
-  syncCmsPublishSchedule,
-} from "@/lib/cms/cms-scheduled-publishing";
-import {
   removeCmsEntrySearch,
   syncCmsEntrySearch,
 } from "@/lib/cms/cms-search";
@@ -35,6 +30,11 @@ import {
   validateEntryFields,
   validateSeoDescription,
 } from "@/lib/cms/entry/helpers";
+import {
+  deleteCmsPublishSchedule,
+  recordCmsEntryVersion,
+  syncCmsPublishSchedule,
+} from "@/lib/cms/entry/publishing";
 import {
   createCmsEntryParamsSchema,
   createCmsEntryTranslationParamsSchema,
@@ -345,42 +345,17 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     )
   );
 
-  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: { entryId: id },
-    orderBy: { versionNumber: "desc" },
-  });
-
-  // Version 1 snapshots the pre-update state because entry creation skips duplicate history.
-  if (!latestVersion) {
-    await db.insert(cmsEntryVersionTable).values({
-      entryId: id,
-      versionNumber: 1,
-      title: existingEntry.title,
-      content: existingEntry.content as JSONContent,
-      fields: existingEntry.fields,
-      slug: existingEntry.slug,
-      seoDescription: existingEntry.seoDescription,
-      status: existingEntry.status,
-      featuredImageId: existingEntry.featuredImageId,
-      createdBy: existingEntry.createdBy,
-    });
-  }
-
-  const nextVersionNumber = (latestVersion?.versionNumber ?? 1) + 1;
-  const versionContent = content ?? existingEntry.content;
-  const versionFields = validatedFields ?? existingEntry.fields;
-
-  await db.insert(cmsEntryVersionTable).values({
-    entryId: id,
-    versionNumber: nextVersionNumber,
-    title: title ?? existingEntry.title,
-    content: versionContent as JSONContent,
-    fields: versionFields,
-    slug: slug ?? existingEntry.slug,
-    seoDescription: finalSeoDescription ?? existingEntry.seoDescription,
-    status: status ?? existingEntry.status,
-    featuredImageId: featuredImageId !== undefined ? featuredImageId : existingEntry.featuredImageId,
-    createdBy: existingEntry.createdBy, // Schema tracks the original author for version rows.
+  await recordCmsEntryVersion({
+    existingEntry,
+    snapshot: {
+      title: title ?? existingEntry.title,
+      content: (content ?? existingEntry.content) as JSONContent,
+      fields: validatedFields ?? existingEntry.fields,
+      slug: slug ?? existingEntry.slug,
+      seoDescription: finalSeoDescription ?? existingEntry.seoDescription,
+      status: status ?? existingEntry.status,
+      featuredImageId: featuredImageId !== undefined ? featuredImageId : existingEntry.featuredImageId,
+    },
   });
 
   const oldSlug = existingEntry.slug;

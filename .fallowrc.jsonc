@@ -12,7 +12,11 @@
   // Loaded by path, not by import: the vite plugin in tools/ spawns the generator, which aliases
   // these stubs into the module graph it builds.
   "dynamicallyLoaded": [
-    "scripts/utils/**"
+    "scripts/utils/**",
+    // The internal document's generator config. Loaded by path from
+    // `scripts/generate-openapi.mjs`, exactly as `src/api/openapi.ts` is — that one is also
+    // imported normally by `src/api/operation.ts`, so only this one looks unreachable.
+    "src/api/admin/openapi.ts"
   ],
   "health": {
     "ignore": [

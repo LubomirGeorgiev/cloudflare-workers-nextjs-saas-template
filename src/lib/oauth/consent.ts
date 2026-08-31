@@ -3,7 +3,14 @@ import "server-only";
 import type { AuthRequest, ClientInfo } from "@cloudflare/workers-oauth-provider";
 
 import { OAUTH_AUTHORIZE_PATH, SITE_URL } from "@/constants";
-import { clampScopesForClient, type ApiScope } from "@/lib/api/scopes";
+import {
+  clampAdminScopesForConsent,
+  describeAdminScopes,
+  requestedAdminScopes,
+  type AdminScope,
+  type GrantedScope,
+} from "@/lib/api/admin-scopes";
+import { clampScopesForClient } from "@/lib/api/scopes";
 import {
   getDiscoveredOAuthAppRegistrationSource,
   isCimdClientId,
@@ -23,9 +30,17 @@ interface ConsentRequest {
   logoUri: string | null;
   isVerified: boolean;
   /** Scopes that will actually be granted — already clamped for unverified clients. */
-  grantedScopes: ApiScope[];
+  grantedScopes: GrantedScope[];
   /** Requested scopes the clamp (or an unknown name) removed; shown so consent stays honest. */
   droppedScopes: string[];
+  /** Copy for every internal scope this request names: the consent screen cannot read the catalog. */
+  adminScopeDescriptions: Record<string, string>;
+  /**
+   * The internal scopes verifying this client would unlock, or null when there is nothing to offer.
+   * Non-null only when an admin is looking at an unverified client that asked for them, so the
+   * screen offers verification inline instead of sending them to `/admin/oauth-apps`.
+   */
+  adminScopesToVerify: AdminScope[] | null;
   /** Host of the callback the code would be delivered to — the strongest anti-phishing signal. */
   redirectHost: string | null;
   /** Set when the client identifies itself by a Client ID Metadata Document URL (domain-bound). */
@@ -61,7 +76,18 @@ function toAuthorizeRequest(authQuery: string): Request {
 // Resolves everything the consent screen and the approve action both need. Called twice per
 // approval on purpose: the action never trusts the browser's copy of the scopes, it re-derives
 // them (including the unverified-client clamp) from the re-validated authorization request.
-export async function resolveConsentRequest(authQuery: string): Promise<ConsentRequest> {
+export async function resolveConsentRequest({
+  authQuery,
+  isAdmin = false,
+}: {
+  authQuery: string;
+  /**
+   * Whether the signed-in user is a live admin, decided by the caller from its own session — never
+   * from the authorization request, so a client cannot influence how its consent is treated.
+   * Defaults to false: a caller that has not established this must not accidentally widen a grant.
+   */
+  isAdmin?: boolean;
+}): Promise<ConsentRequest> {
   const helpers = getOAuthHelpers();
   // Throws for an unknown client or a redirect URI the client did not register.
   const authRequest = await helpers.parseAuthRequest(toAuthorizeRequest(authQuery));
@@ -77,10 +103,19 @@ export async function resolveConsentRequest(authQuery: string): Promise<ConsentR
 
   const redirectUrl = urlOf(authRequest.redirectUri);
   const isVerified = Boolean(app?.verifiedAt);
-  const grantedScopes = clampScopesForClient({
-    requestedScopes: authRequest.scope,
-    isVerified,
-  });
+
+  const askedForAdminScopes = requestedAdminScopes(authRequest.scope);
+
+  // Two catalogs, two clamps, deliberately not merged: the public one is the whole of what a
+  // non-admin can ever approve, and the internal one adds nothing unless both its conditions hold.
+  const grantedScopes: GrantedScope[] = [
+    ...clampScopesForClient({ requestedScopes: authRequest.scope, isVerified }),
+    ...clampAdminScopesForConsent({
+      requestedScopes: authRequest.scope,
+      isVerified,
+      isAdmin,
+    }),
+  ];
 
   return {
     authRequest,
@@ -90,8 +125,11 @@ export async function resolveConsentRequest(authQuery: string): Promise<ConsentR
     isVerified,
     grantedScopes,
     droppedScopes: authRequest.scope.filter(
-      (scope) => !grantedScopes.includes(scope as ApiScope),
+      (scope) => !grantedScopes.includes(scope as GrantedScope),
     ),
+    adminScopeDescriptions: describeAdminScopes(askedForAdminScopes),
+    adminScopesToVerify:
+      isAdmin && !isVerified && askedForAdminScopes.length > 0 ? askedForAdminScopes : null,
     redirectHost: hostOf(authRequest.redirectUri),
     cimdHost: isCimdClientId(authRequest.clientId) ? hostOf(authRequest.clientId) : null,
     clientId: authRequest.clientId,
@@ -121,6 +159,19 @@ export async function persistApprovedOAuthApp(consent: ConsentRequest): Promise<
     tokenEndpointAuthMethod: consent.clientInfo.tokenEndpointAuthMethod,
     registrationSource,
   });
+}
+
+// What the verify path needs, and no more: a CIMD client has no D1 row until someone approves it,
+// so verification would have nothing to mark. An existing row is left untouched, because the
+// `updatedAt` refresh above is the retention proof of an approval, and a verify click is not one.
+export async function ensureOAuthAppRecord(consent: ConsentRequest): Promise<void> {
+  const existing = await getOAuthAppByClientId(consent.authRequest.clientId);
+
+  if (existing) {
+    return;
+  }
+
+  await persistApprovedOAuthApp(consent);
 }
 
 // Denial is an OAuth-protocol answer, not an error page: the client is redirected back with

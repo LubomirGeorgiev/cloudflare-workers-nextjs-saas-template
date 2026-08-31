@@ -11,7 +11,6 @@ import {
   isAccountOnlyScope,
   isApiScope,
   scopesForAudience,
-  toApiScopes,
 } from "@/lib/api/scopes";
 
 describe("API scope catalog", () => {
@@ -46,25 +45,6 @@ describe("API scope catalog", () => {
   test("does not treat inherited object properties as scopes", () => {
     expect(isApiScope("toString")).toBe(false);
     expect(isApiScope("constructor")).toBe(false);
-  });
-});
-
-// Stored grants outlive the catalog, so this is the one place a snapshot's raw strings become
-// scopes. Dropping is deliberate: a deleted scope must stop granting, not break the credential.
-describe("stored scope validation", () => {
-  test("keeps every catalog scope in the order it was granted", () => {
-    expect(toApiScopes([...API_SCOPE_NAMES])).toEqual([...API_SCOPE_NAMES]);
-  });
-
-  test("drops names the catalog no longer knows about", () => {
-    const [known] = API_SCOPE_NAMES;
-
-    expect(toApiScopes([known, "removed-by-a-fork:read"])).toEqual([known]);
-    expect(toApiScopes(["removed-by-a-fork:read"])).toEqual([]);
-  });
-
-  test("an empty grant stays empty rather than becoming unrestricted", () => {
-    expect(toApiScopes([])).toEqual([]);
   });
 });
 

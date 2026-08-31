@@ -26,7 +26,9 @@ vi.mock("@/lib/oauth/oauth-apps", () => ({
   upsertOAuthApp: mocks.upsertOAuthApp,
 }));
 
-const { persistApprovedOAuthApp, resolveConsentRequest } = await import("@/lib/oauth/consent");
+const { ensureOAuthAppRecord, persistApprovedOAuthApp, resolveConsentRequest } = await import(
+  "@/lib/oauth/consent"
+);
 
 const REDIRECT_URI = "https://client.example/callback";
 
@@ -70,7 +72,7 @@ describe("resolving a consent request", () => {
     async (clientId) => {
       stubClient(clientId);
 
-      await resolveConsentRequest("client_id=ignored-by-mock");
+      await resolveConsentRequest({ authQuery: "client_id=ignored-by-mock" });
 
       expect(mocks.upsertOAuthApp).not.toHaveBeenCalled();
       expect(mocks.correctLegacyCimdOAuthAppSources).not.toHaveBeenCalled();
@@ -79,25 +81,85 @@ describe("resolving a consent request", () => {
 
   test("reports the CIMD host for a URL-shaped client id and none for a DCR one", async () => {
     stubClient("https://client.example/oauth-client.json");
-    expect((await resolveConsentRequest("q")).cimdHost).toBe("client.example");
+    expect((await resolveConsentRequest({ authQuery: "q" })).cimdHost).toBe("client.example");
 
     stubClient("dcr-client-id");
-    expect((await resolveConsentRequest("q")).cimdHost).toBeNull();
+    expect((await resolveConsentRequest({ authQuery: "q" })).cimdHost).toBeNull();
   });
 
   // Consent has to say when the code lands on the user's own machine, because then the app that
   // opened the page is the app that receives it — no domain vouches for it.
   test("flags a loopback callback and leaves a hosted one unflagged", async () => {
     stubClient("dcr-client-id");
-    expect((await resolveConsentRequest("q")).isLoopbackRedirect).toBe(false);
+    expect((await resolveConsentRequest({ authQuery: "q" })).isLoopbackRedirect).toBe(false);
 
     mocks.parseAuthRequest.mockResolvedValue({
       ...buildAuthRequest("dcr-client-id"),
       redirectUri: "http://127.0.0.1:8976/callback",
     });
-    const consent = await resolveConsentRequest("q");
+    const consent = await resolveConsentRequest({ authQuery: "q" });
     expect(consent.isLoopbackRedirect).toBe(true);
     expect(consent.redirectHost).toBe("127.0.0.1:8976");
+  });
+});
+
+// The inline verify offer is one field, so the screen cannot show a prompt that would grant
+// nothing. It stands only when verification is the single thing left between the request and its
+// internal scopes.
+describe("offering inline verification", () => {
+  function stubAdminRequest({ isVerified }: { isVerified: boolean }) {
+    const clientId = "dcr-client-id";
+    mocks.parseAuthRequest.mockResolvedValue({
+      ...buildAuthRequest(clientId),
+      scope: ["profile:read", "admin:read"],
+    });
+    mocks.lookupClient.mockResolvedValue(buildClientInfo(clientId));
+    mocks.getOAuthAppByClientId.mockResolvedValue(isVerified ? { verifiedAt: new Date() } : null);
+  }
+
+  test("names the scopes for an admin looking at an unverified client", async () => {
+    stubAdminRequest({ isVerified: false });
+
+    const consent = await resolveConsentRequest({ authQuery: "q", isAdmin: true });
+
+    expect(consent.adminScopesToVerify).toEqual(["admin:read"]);
+    expect(consent.grantedScopes).not.toContain("admin:read");
+  });
+
+  test("offers nothing to a non-admin, whatever the client asked for", async () => {
+    stubAdminRequest({ isVerified: false });
+
+    expect((await resolveConsentRequest({ authQuery: "q" })).adminScopesToVerify).toBeNull();
+  });
+
+  test("offers nothing once the client is verified, because the scopes are already granted", async () => {
+    stubAdminRequest({ isVerified: true });
+
+    const consent = await resolveConsentRequest({ authQuery: "q", isAdmin: true });
+
+    expect(consent.adminScopesToVerify).toBeNull();
+    expect(consent.grantedScopes).toContain("admin:read");
+  });
+});
+
+// Verification is not an approval: it may create the row it needs to mark, but it must never
+// refresh `updatedAt` on a row that already exists, because that timestamp records an approval.
+describe("ensuring an OAuth app record before verification", () => {
+  test("creates the row when the client has none", async () => {
+    stubClient("https://client.example/oauth-client.json");
+
+    await ensureOAuthAppRecord(await resolveConsentRequest({ authQuery: "q", isAdmin: true }));
+
+    expect(mocks.upsertOAuthApp).toHaveBeenCalledTimes(1);
+  });
+
+  test("leaves an existing row untouched", async () => {
+    stubClient("dcr-client-id");
+    mocks.getOAuthAppByClientId.mockResolvedValue({ verifiedAt: null });
+
+    await ensureOAuthAppRecord(await resolveConsentRequest({ authQuery: "q", isAdmin: true }));
+
+    expect(mocks.upsertOAuthApp).not.toHaveBeenCalled();
   });
 });
 
@@ -105,7 +167,7 @@ describe("persisting an approved OAuth app", () => {
   test("persists the CIMD identity and corrects a legacy source", async () => {
     const clientId = "https://client.example/oauth-client.json";
     stubClient(clientId);
-    const consent = await resolveConsentRequest("client_id=ignored-by-mock");
+    const consent = await resolveConsentRequest({ authQuery: "client_id=ignored-by-mock" });
 
     await persistApprovedOAuthApp(consent);
 
@@ -126,7 +188,7 @@ describe("persisting an approved OAuth app", () => {
     const clientId = "dcr-client-id";
     stubClient(clientId);
 
-    await persistApprovedOAuthApp(await resolveConsentRequest("client_id=ignored-by-mock"));
+    await persistApprovedOAuthApp(await resolveConsentRequest({ authQuery: "client_id=ignored-by-mock" }));
 
     expect(mocks.correctLegacyCimdOAuthAppSources).not.toHaveBeenCalled();
     expect(mocks.upsertOAuthApp).toHaveBeenCalledWith(expect.objectContaining({

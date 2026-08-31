@@ -31,6 +31,10 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/constants/cache-control.ts",
       "src/constants/cache-tags.ts",
       "src/constants/oauth.ts",
+      // Two string constants and their catalog. The entry builds the internal endpoints' bearer
+      // challenge and RFC 9728 document itself — it cannot do that from behind an `import()`,
+      // because both are stamped on responses the provider has already produced.
+      "src/lib/api/admin-scopes.ts",
       "src/lib/api/scopes.ts",
       "src/lib/oauth/provider-config.ts",
       "src/utils/api-key-format.ts",

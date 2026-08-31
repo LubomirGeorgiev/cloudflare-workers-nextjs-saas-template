@@ -2,23 +2,16 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { cmsConfig } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 
 const {
-  deleteScheduledJobsMock,
-  getCloudflareContextMock,
   getDBMock,
   invalidateEntryAndCollectionMock,
   purgeMarkdownPageCacheMock,
-  scheduleJobMock,
   syncCmsEntrySearchMock,
 } = vi.hoisted(() => ({
-  deleteScheduledJobsMock: vi.fn(),
-  getCloudflareContextMock: vi.fn(),
   getDBMock: vi.fn(),
   invalidateEntryAndCollectionMock: vi.fn(),
   purgeMarkdownPageCacheMock: vi.fn(),
-  scheduleJobMock: vi.fn(),
   syncCmsEntrySearchMock: vi.fn(),
 }));
 
@@ -34,13 +27,15 @@ vi.mock("@/db", () => ({
   getDB: getDBMock,
 }));
 
+// The timer calls into `entry/publishing`, which also carries the queue side of a publish schedule.
+// Its own test asserts that; here the Worker bindings only have to stay out of the way.
 vi.mock("@/utils/cloudflare-context", () => ({
-  getCloudflareContext: getCloudflareContextMock,
+  getCloudflareContext: vi.fn(),
 }));
 
 vi.mock("@/lib/scheduler/scheduler", () => ({
-  deleteScheduledJobs: deleteScheduledJobsMock,
-  scheduleJob: scheduleJobMock,
+  deleteScheduledJobs: vi.fn(),
+  scheduleJob: vi.fn(),
 }));
 
 vi.mock("@/lib/cms/cms-cache-invalidation", () => ({
@@ -52,10 +47,7 @@ vi.mock("@/lib/cms/cms-search", () => ({
   syncCmsEntrySearch: syncCmsEntrySearchMock,
 }));
 
-const {
-  publishScheduledCmsEntryIfDue,
-  syncCmsPublishSchedule,
-} = await import("@/lib/cms/cms-scheduled-publishing");
+const { publishScheduledCmsEntryIfDue } = await import("@/lib/cms/cms-scheduled-publishing");
 
 const BLOG_ENTRY_PATH = cmsConfig.collections.blog.previewUrl("hello-world");
 /** `/blog` for the template: the listing root every page the publish affects sits under. */
@@ -74,47 +66,6 @@ function createUpdateChain(returnedEntries: unknown[]) {
 describe("CMS scheduled publishing", () => {
   afterEach(() => {
     vi.clearAllMocks();
-  });
-
-  test("schedules CMS publish jobs with a stable dedupe key", async () => {
-    const queue = { send: vi.fn() };
-    const publishedAt = new Date("2026-05-29T10:00:00.000Z");
-    getCloudflareContextMock.mockResolvedValue({
-      env: { SCHEDULER_QUEUE: queue },
-    });
-
-    await syncCmsPublishSchedule({
-      id: "entry-1",
-      status: CMS_ENTRY_STATUS.SCHEDULED,
-      publishedAt,
-    });
-
-    expect(scheduleJobMock).toHaveBeenCalledWith({
-      queue,
-      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
-      dedupeKey: "cms-entry:entry-1",
-      payload: { entryId: "entry-1" },
-      runAt: publishedAt,
-    });
-    expect(deleteScheduledJobsMock).not.toHaveBeenCalled();
-  });
-
-  test("deletes CMS publish jobs when the entry is not scheduled", async () => {
-    getCloudflareContextMock.mockResolvedValue({
-      env: { SCHEDULER_QUEUE: { send: vi.fn() } },
-    });
-
-    await syncCmsPublishSchedule({
-      id: "entry-1",
-      status: CMS_ENTRY_STATUS.DRAFT,
-      publishedAt: new Date("2026-05-29T10:00:00.000Z"),
-    });
-
-    expect(deleteScheduledJobsMock).toHaveBeenCalledWith({
-      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
-      dedupeKey: "cms-entry:entry-1",
-    });
-    expect(scheduleJobMock).not.toHaveBeenCalled();
   });
 
   test("returns null without side effects when a scheduled entry is not due", async () => {

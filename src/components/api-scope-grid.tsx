@@ -34,12 +34,29 @@ function sortByCatalogOrder(scopes: string[]): string[] {
   });
 }
 
-export function ApiScopeGrid({ scopes, className }: { scopes: string[]; className?: string }) {
+export function ApiScopeGrid({
+  scopes,
+  className,
+  descriptions,
+}: {
+  scopes: string[];
+  className?: string;
+  /**
+   * Copy for scopes outside the public catalog, supplied by the caller. The internal catalog is
+   * `server-only`, so an admin surface resolves its descriptions on the server and passes them in
+   * rather than this component reaching for them.
+   */
+  descriptions?: Record<string, string>;
+}) {
   const tScopes = useTranslations("Client.ApiScopes");
 
   // A credential can outlive the scope it was issued with (a fork may drop one), so an unknown name
   // still renders — as itself — rather than blowing up the page.
   function describeScope(scope: string): string {
+    if (descriptions?.[scope]) {
+      return descriptions[scope];
+    }
+
     if (!isApiScope(scope)) {
       return scope;
     }

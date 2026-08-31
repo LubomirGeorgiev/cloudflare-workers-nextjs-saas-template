@@ -3,7 +3,7 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
-import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
+import { ALERT_BLOCK_NODE_NAME } from "@/constants/cms-content-nodes";
 
 function extractNodeText(node: JSONContent | undefined): string {
   if (!node) {

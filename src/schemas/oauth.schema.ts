@@ -44,4 +44,8 @@ export const listOAuthAppsSchema = v.object({
 // fallow-ignore-next-line unused-type
 export type ListOAuthAppsSchema = v.InferOutput<typeof listOAuthAppsSchema>;
 
+export const oauthVerifyClientSchema = v.object({
+  authQuery: oauthConsentSchema.entries.authQuery,
+});
+
 // oxlint-enable project/no-unused-module-exports

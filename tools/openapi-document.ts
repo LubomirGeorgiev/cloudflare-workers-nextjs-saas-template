@@ -10,11 +10,32 @@ import type { Plugin } from "vite";
 // The module exports the document as a *string*, not an object literal: the public route answers
 // with those bytes verbatim, and only readers that walk the document pay a parse.
 
-// Kept in sync by hand with the declaration in `virtual-modules.d.ts` — a virtual id has no module
+// Kept in sync by hand with the declarations in `virtual-modules.d.ts` — a virtual id has no module
 // to import the constant from.
-const MODULE_ID = "virtual:api-openapi-document";
+//
+// Two modules, one generator run. The generator evaluates the whole service layer in its own Vite
+// server, so producing the internal document in a second spawn would double the cost of every build
+// and every dev-server invalidation for a document that is derived from the same module graph.
+const MODULE_IDS = {
+  "virtual:api-openapi-document": "public",
+  "virtual:admin-openapi-document": "admin",
+} as const;
 
-const RESOLVED_ID = `\0${MODULE_ID}`;
+type DocumentHalf = (typeof MODULE_IDS)[keyof typeof MODULE_IDS];
+
+const RESOLVED_PREFIX = "\0";
+
+function resolvedId(moduleId: string): string {
+  return `${RESOLVED_PREFIX}${moduleId}`;
+}
+
+function halfForResolvedId(id: string): DocumentHalf | null {
+  if (!id.startsWith(RESOLVED_PREFIX)) {
+    return null;
+  }
+
+  return MODULE_IDS[id.slice(RESOLVED_PREFIX.length) as keyof typeof MODULE_IDS] ?? null;
+}
 const GENERATOR = "scripts/generate-openapi.mjs";
 // Project-relative sources that can change the document, so a dev server regenerates instead of
 // serving a stale one. Much wider than `src/api/`: the generator evaluates the whole API app, so
@@ -35,8 +56,11 @@ export function isDocumentSource(projectRelativePath: string): boolean {
   return DOCUMENT_SOURCES.test(projectRelativePath.split(path.sep).join("/"));
 }
 
+/** The generator's stdout envelope, split into the JSON text each virtual module exports. */
+type DocumentTexts = Record<DocumentHalf, string>;
+
 export function openApiDocument(): Plugin {
-  let document: Promise<string> | null = null;
+  let documents: Promise<DocumentTexts> | null = null;
 
   return {
     name: "api-openapi-document",
@@ -44,27 +68,39 @@ export function openApiDocument(): Plugin {
       server.watcher.on("change", (file) => {
         if (!isDocumentSource(path.relative(server.config.root, file))) return;
 
-        document = null;
+        documents = null;
         for (const environment of Object.values(server.environments)) {
-          const module = environment.moduleGraph.getModuleById(RESOLVED_ID);
-          if (module) environment.moduleGraph.invalidateModule(module);
+          for (const moduleId of Object.keys(MODULE_IDS)) {
+            const module = environment.moduleGraph.getModuleById(resolvedId(moduleId));
+            if (module) environment.moduleGraph.invalidateModule(module);
+          }
         }
       });
     },
     resolveId(id) {
-      return id === MODULE_ID ? RESOLVED_ID : null;
+      return id in MODULE_IDS ? resolvedId(id) : null;
     },
     async load(id) {
-      if (id !== RESOLVED_ID) return null;
+      const half = halfForResolvedId(id);
+      if (!half) return null;
 
       // The generator spawns its own Vite server, so it runs out-of-process: doing it inline would
       // nest a module graph inside this one and inherit these plugins, including this one.
-      document ??= run(process.execPath, [GENERATOR], {
+      documents ??= run(process.execPath, [GENERATOR], {
         maxBuffer: MAX_DOCUMENT_BYTES,
         timeout: GENERATE_TIMEOUT_MS,
-      }).then(({ stdout }) => stdout);
+      }).then(({ stdout }) => {
+        const envelope = JSON.parse(stdout) as Record<DocumentHalf, unknown>;
 
-      return `export default ${JSON.stringify(await document)};`;
+        // Re-serialized per half rather than sliced out of `stdout`: each module exports the exact
+        // bytes its route answers with, and `JSON.stringify` is what makes those bytes canonical.
+        return {
+          public: JSON.stringify(envelope.public),
+          admin: JSON.stringify(envelope.admin),
+        };
+      });
+
+      return `export default ${JSON.stringify((await documents)[half])};`;
     },
   };
 }

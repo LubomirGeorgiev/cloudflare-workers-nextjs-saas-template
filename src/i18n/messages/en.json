@@ -876,6 +876,7 @@
         "errorUserLimitReached": "You can have at most {max} active API keys",
         "errorTeamLimitReached": "This team can have at most {max} active API keys",
         "errorKeyNotFound": "API key not found",
+        "errorKeyNotEditable": "This key's scopes are managed where it was created, not here.",
         "errorTeamKeyOtherTeam": "This key only works with the team it was created for.",
         "errorTeamKeyAccountOnly": "This key only works with its team, not with account-level settings.",
         "errorTeamKeyAccountScope": "A team key cannot hold account-level scopes: {scopes}"
@@ -964,7 +965,15 @@
       "toastDecisionError": "Could not complete the authorization",
       "errorMissingRedirect": "The app did not provide a redirect address, so the request cannot be completed",
       "invalidRequestTitle": "This authorization request is not valid",
-      "invalidRequestDescription": "The application sent an unknown client or a redirect address it has not registered. Go back to the app and start again."
+      "invalidRequestDescription": "The application sent an unknown client or a redirect address it has not registered. Go back to the app and start again.",
+      "adminVerifyTitle": "{app} is asking for administrative access",
+      "adminVerifyBody": "These permissions reach every account on this deployment, so they are only granted to an app someone has vouched for. Verifying marks {app} as verified for everyone here, not just for you.",
+      "adminVerifyButton": "Verify this app and allow administrative access",
+      "adminVerifyToastSuccess": "App verified. The administrative permissions below are now grantable.",
+      "adminVerifyToastError": "Could not verify this app",
+      "adminHintTitle": "This app was asking for administrative access",
+      "adminHintUnknownClient": "This deployment does not recognise the client, so the request was refused before any permission was considered. An agent client identified by a URL is only known once this server can fetch its metadata document, which fails on a host that blocks the request.",
+      "adminHintVerifyNext": "Administrative permissions additionally require the app to be verified. Once the client registers, verify it on the consent screen or at <code>{path}</code>, then start the connection again."
     },
     "Mcp": {
       "title": "Connect an AI agent",

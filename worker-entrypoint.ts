@@ -13,17 +13,21 @@ import {
   API_OPENAPI_SPEC_METHODS,
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
+  ADMIN_API_BASE_PATH,
+  ADMIN_MCP_PATH,
   HTML_CONTENT_TYPE,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_EXTENSION,
   MCP_PATH,
   OAUTH_ISSUANCE_THROTTLED_METHODS,
+  OAUTH_PROTECTED_RESOURCE_PATH,
   OAUTH_REGISTER_PATH,
 } from "./src/constants";
 import {
   EDGE_CACHED_METADATA_ROUTE_TAGS,
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
 } from "./src/constants/cache-control";
+import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
@@ -94,16 +98,110 @@ const apiCatalogHandler = {
     (await import("./src/lib/api/api-catalog")).apiCatalogResponse(),
 };
 
+// The internal surfaces, lazy for the same reasons as their public twins. They are mounted on the
+// same provider funnel deliberately: an admin API key is resolved by `resolveExternalToken` exactly
+// as any other key is, so there is one credential path, not a second one to keep in step.
+const adminApiHandler = {
+  fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
+    (await import("./src/api/admin")).adminApiApp.fetch(request, env, ctx),
+};
+
+const adminMcpHandler = {
+  fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
+    (await import("./src/mcp/admin")).adminMcpApiHandler.fetch(request, env, ctx),
+};
+
+// The internal routes are their own map, and the full table below spreads it: the challenge and
+// metadata helpers name this map, so the internal surface is stated once, not twice.
+const internalApiHandlers = {
+  [`${ADMIN_API_BASE_PATH}/`]: adminApiHandler,
+  [ADMIN_MCP_PATH]: adminMcpHandler,
+};
+
 // Trailing slash is significant: the library prefix-matches API routes. `/mcp` is an exact
 // endpoint, so it needs none, and both credential types reach it through this same funnel.
-const apiHandlers = { [`${API_V1_BASE_PATH}/`]: apiHandler, [MCP_PATH]: mcpHandler };
+//
+// `/mcp/admin` is listed ahead of `/mcp` for readability only — `/mcp` has no trailing slash, so it
+// matches exactly and can never swallow the admin path.
+const apiHandlers = {
+  ...internalApiHandlers,
+  [`${API_V1_BASE_PATH}/`]: apiHandler,
+  [MCP_PATH]: mcpHandler,
+};
+
+// Read once at module scope rather than per request: the tables are fixed, and both matchers run on
+// the response path of every API request.
+const PROVIDER_API_ROUTES = Object.keys(apiHandlers);
+const INTERNAL_API_ROUTES = Object.keys(internalApiHandlers);
+
+function matchesApiRoute({ routes, pathname }: { routes: string[]; pathname: string }): boolean {
+  return routes.some((route) =>
+    route.endsWith("/") ? pathname.startsWith(route) : pathname === route,
+  );
+}
 
 // Derived from the routes above rather than restated, so the throttling below always covers
 // exactly the surface the provider claims.
 function isProviderApiPath(pathname: string): boolean {
-  return Object.keys(apiHandlers).some((route) =>
-    route.endsWith("/") ? pathname.startsWith(route) : pathname === route,
+  return matchesApiRoute({ routes: PROVIDER_API_ROUTES, pathname });
+}
+
+// ---------------------------------------------------------------------------
+// The internal surfaces are discoverable like any other protected resource, but they advertise the
+// *internal* catalog rather than the public one.
+//
+// The provider's own challenge names `API_SCOPE_NAMES`, so a client reading it would request the
+// public scopes and receive a token that `assertAdminPrincipal` refuses forever. These two helpers
+// replace that with the truth for these paths: ask for `admin:*`. A grant is still only issued to
+// a live admin consenting to a verified client — `clampAdminScopesForConsent` owns that rule.
+// ---------------------------------------------------------------------------
+function isInternalApiPath(pathname: string): boolean {
+  return matchesApiRoute({ routes: INTERNAL_API_ROUTES, pathname });
+}
+
+/** RFC 9728 §3.1 puts the resource path after the well-known prefix, so strip it back off. */
+function internalResourceMetadataPath(pathname: string): string | null {
+  if (!pathname.startsWith(`${OAUTH_PROTECTED_RESOURCE_PATH}/`)) {
+    return null;
+  }
+
+  const resourcePath = pathname.slice(OAUTH_PROTECTED_RESOURCE_PATH.length);
+
+  return isInternalApiPath(resourcePath) ? resourcePath : null;
+}
+
+// Built here rather than lazily imported: it is a handful of constants, and the module that holds
+// the scope names is `server-only` and already on this graph.
+function internalResourceMetadata(resourcePath: string, origin: string): Response {
+  return Response.json({
+    resource: `${origin}${resourcePath}`,
+    authorization_servers: [origin],
+    scopes_supported: [...ADMIN_SCOPE_NAMES],
+    bearer_methods_supported: ["header"],
+  });
+}
+
+// Headers on a provider response are immutable, so the challenge is swapped onto a copy.
+function withInternalBearerChallenge({
+  response,
+  origin,
+  pathname,
+}: {
+  response: Response;
+  origin: string;
+  pathname: string;
+}): Response {
+  const headers = new Headers(response.headers);
+  headers.set(
+    "www-authenticate",
+    `Bearer realm="OAuth", resource_metadata="${origin}${OAUTH_PROTECTED_RESOURCE_PATH}${pathname}", scope="${ADMIN_SCOPE_NAMES.join(" ")}"`,
   );
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 const oauthProvider = new OAuthProvider<Env>({
@@ -129,9 +227,11 @@ async function getThrottleGates() {
 
 async function handleEarlyEdgeRequest({
   method,
+  origin,
   pathname,
 }: {
   method: string;
+  origin: string;
   pathname: string;
 }): Promise<Response | null> {
   const customResponse = handleCustomEdge(pathname);
@@ -148,6 +248,13 @@ async function handleEarlyEdgeRequest({
   // Same reasoning: the catalog names the APIs and depends on nothing in the request.
   if (isApiCatalogRequest({ method, pathname })) {
     return apiCatalogHandler.fetch();
+  }
+
+  // Answered here so the provider never does: its document would advertise the public catalog for
+  // an endpoint that only accepts the internal one.
+  const internalResourcePath = internalResourceMetadataPath(pathname);
+  if (internalResourcePath) {
+    return internalResourceMetadata(internalResourcePath, origin);
   }
 
   return null;
@@ -197,7 +304,11 @@ const worker = {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, pathname });
+    const earlyResponse = await handleEarlyEdgeRequest({
+      method: request.method,
+      origin: url.origin,
+      pathname,
+    });
     if (earlyResponse) {
       return earlyResponse;
     }
@@ -232,7 +343,12 @@ const worker = {
     const response = await oauthProvider.fetch(forwarded, env, ctx);
 
     if (response.status === 401 && isProviderApiPath(pathname)) {
-      return (await getThrottleGates()).getAnonThrottleResponse({ request: forwarded, response });
+      const challenged = isInternalApiPath(pathname)
+        ? withInternalBearerChallenge({ response, origin: url.origin, pathname })
+        : response;
+
+      return (await getThrottleGates())
+        .getAnonThrottleResponse({ request: forwarded, response: challenged });
     }
 
     if (request.method === "POST" && response.status === 201 && pathname === OAUTH_REGISTER_PATH) {

@@ -2,17 +2,7 @@
 
 import { type ComponentType } from "react"
 import type { Route } from 'next'
-import {
-  Users,
-  Shield,
-  FileText,
-  Image,
-  Tags,
-  PanelLeft,
-  Bug,
-  CalendarClock,
-  Plug,
-} from "lucide-react"
+import { Bug, CalendarClock, FileText, Image, PanelLeft, Plug, Shield, Tags, Terminal, Users } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -76,6 +66,11 @@ const adminNavItems: NavMainItem[] = [
     title: "OAuth apps",
     url: "/admin/oauth-apps",
     icon: Plug,
+  },
+  {
+    title: "Internal API",
+    url: "/admin/api",
+    icon: Terminal,
   },
   {
     title: "CMS",

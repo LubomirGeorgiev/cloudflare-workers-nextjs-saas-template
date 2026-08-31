@@ -18,12 +18,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { API_DOCS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
 // The reference lives under `app/[locale]`, so it needs the locale-prefixing Link.
 import { Link } from "@/i18n/navigation";
-import type { ApiKeySummary } from "@/lib/api-keys/api-keys";
+import type { PublicApiKeySummary } from "@/lib/api-keys/api-keys";
 import { formatApiKeyHint } from "@/utils/api-key-format";
 import { formatDate } from "@/utils/format-date";
 
 interface ApiKeysManagerProps {
-  apiKeys: ApiKeySummary[];
+  apiKeys: PublicApiKeySummary[];
   /** Set for a team-scoped key list; the permission check happens server-side. */
   teamId?: string;
 }

@@ -1,10 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { API_KEY_PREFIX_LIVE, API_KEY_PREFIX_TEST } from "@/constants";
+import { API_KEY_PREFIX_ADMIN, API_KEY_PREFIX_LIVE, API_KEY_PREFIX_TEST } from "@/constants";
 import {
   API_KEY_PREFIXES,
   crc32,
   encodeBase62,
+  findLongestMatchingPrefix,
   formatApiKeyHint,
   generateApiKey,
   looksLikeApiKey,
@@ -133,4 +134,58 @@ test("formatApiKeyHint shows only the prefix and the last four characters", asyn
   expect(hint.startsWith(generated.prefix)).toBe(true);
   expect(hint.endsWith(generated.last4)).toBe(true);
   expect(generated.secret.includes(hint)).toBe(false);
+});
+
+
+// The internal prefix extends the live one, which is the whole reason these exist: a first-match
+// scan in declaration order strips only `saas_live_` from an internal key, leaves `admin_` in the
+// body, and rejects it on the underscore. Every internal key would then fail the offline gate
+// before ever reaching storage — a total outage of the admin surface, with no error to read.
+describe("a prefix that extends another still validates", () => {
+  test("the internal prefix is an extension of the live one", () => {
+    expect(API_KEY_PREFIX_ADMIN.startsWith(API_KEY_PREFIX_LIVE)).toBe(true);
+    expect(API_KEY_PREFIX_ADMIN).not.toBe(API_KEY_PREFIX_LIVE);
+  });
+
+  test("a key minted with the internal prefix passes the offline gate", async () => {
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_ADMIN });
+
+    expect(secret.startsWith(API_KEY_PREFIX_ADMIN)).toBe(true);
+    expect(looksLikeApiKey(secret)).toBe(true);
+  });
+
+  // The rule itself, against the ordering that would break it. `API_KEY_PREFIXES` happens to
+  // declare the long prefix first today, so asserting only through `looksLikeApiKey` would still
+  // pass if the rule were dropped.
+  test("the longest prefix wins even when a shorter one is declared first", () => {
+    const hostileOrder = [API_KEY_PREFIX_LIVE, API_KEY_PREFIX_ADMIN, API_KEY_PREFIX_TEST];
+
+    expect(
+      findLongestMatchingPrefix({ token: `${API_KEY_PREFIX_ADMIN}abc`, prefixes: hostileOrder }),
+    ).toBe(API_KEY_PREFIX_ADMIN);
+
+    expect(
+      findLongestMatchingPrefix({ token: `${API_KEY_PREFIX_LIVE}abc`, prefixes: hostileOrder }),
+    ).toBe(API_KEY_PREFIX_LIVE);
+
+    expect(
+      findLongestMatchingPrefix({ token: "nope_abc", prefixes: hostileOrder }),
+    ).toBeUndefined();
+  });
+
+  test("every declared prefix round-trips, whichever extends which", async () => {
+    for (const prefix of API_KEY_PREFIXES) {
+      const { secret, prefix: stamped } = await generateApiKey({ prefix });
+
+      expect(stamped).toBe(prefix);
+      expect(looksLikeApiKey(secret), `${prefix} must survive the gate`).toBe(true);
+    }
+  });
+
+  test("a truncated internal key is still refused", async () => {
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_ADMIN });
+
+    expect(looksLikeApiKey(secret.slice(0, -1))).toBe(false);
+    expect(looksLikeApiKey(API_KEY_PREFIX_ADMIN)).toBe(false);
+  });
 });

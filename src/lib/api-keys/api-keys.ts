@@ -11,7 +11,8 @@ import { getDB } from "@/db";
 import { TEAM_PERMISSIONS, apiKeyTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { assertAccountAudience, getBearerPrincipal } from "@/lib/api/principal";
-import { isApiScope, scopesForAudience, toApiScopes, type ApiScope } from "@/lib/api/scopes";
+import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";
+import { isApiScope, scopesForAudience, type ApiScope } from "@/lib/api/scopes";
 import { didInsert, toUnixSeconds } from "@/lib/teams/team-writes";
 import type { CreateApiKeySchema } from "@/schemas/api-key.schema";
 import { generateApiKey } from "@/utils/api-key-format";
@@ -34,7 +35,7 @@ export interface ApiKeySummary {
   keyPrefix: string;
   last4: string;
   /** Only the scopes the key can actually exercise; `toSummary` narrows the stored row. */
-  scopes: ApiScope[];
+  scopes: GrantedScope[];
   teamId: string | null;
   createdAt: Date;
   lastUsedAt: Date | null;
@@ -52,6 +53,16 @@ interface CreateApiKeyParams {
   name: string;
   scopes: string[];
   expiresAt?: Date | null;
+}
+
+interface IssueApiKeyParams extends CreateApiKeyParams {
+  /**
+   * The catalog this door mints from. `issueApiKey` never names a catalog itself, so the public
+   * door and the internal one share one creation policy and disagree on nothing but this predicate
+   * and the prefix beside it.
+   */
+  isAllowedScope: (scope: string) => scope is GrantedScope;
+  keyPrefix: string;
 }
 
 const SUMMARY_COLUMNS = {
@@ -78,7 +89,7 @@ function toSummary(row: ApiKeyRow): ApiKeySummary {
     name: row.name,
     keyPrefix: row.keyPrefix,
     last4: row.last4,
-    scopes: scopesForAudience({ scopes: toApiScopes(row.scopes), teamId: row.teamId }),
+    scopes: scopesForAudience({ scopes: toGrantedScopes(row.scopes), teamId: row.teamId }),
     teamId: row.teamId,
     createdAt: row.createdAt,
     lastUsedAt: row.lastUsedAt,
@@ -88,14 +99,22 @@ function toSummary(row: ApiKeyRow): ApiKeySummary {
 
 // Scopes are stored as a grant snapshot, so an unknown string would silently become a permanent
 // no-op grant. Reject it at the boundary and de-duplicate what survives.
-function assertValidScopes(scopes: string[]): ApiScope[] {
+function assertValidScopes({
+  scopes,
+  isAllowedScope,
+}: {
+  scopes: string[];
+  isAllowedScope: (scope: string) => scope is GrantedScope;
+}): GrantedScope[] {
   const unique = Array.from(new Set(scopes));
 
   if (unique.length === 0) {
     throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Settings.ApiKeys.errorScopesRequired" });
   }
 
-  const valid = unique.filter(isApiScope);
+  // A scope outside the door's catalog is not merely unauthorized, it is *unknown*: it fails the
+  // same check a typo does, so a public door's refusal says nothing about an internal catalog.
+  const valid = unique.filter(isAllowedScope);
 
   if (valid.length !== unique.length) {
     throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Settings.ApiKeys.errorInvalidScope" });
@@ -111,7 +130,7 @@ function assertScopesFitAudience({
   scopes,
   teamId,
 }: {
-  scopes: ApiScope[];
+  scopes: GrantedScope[];
   teamId: string | null;
 }): void {
   const usable = scopesForAudience({ scopes, teamId });
@@ -130,7 +149,7 @@ function assertScopesFitAudience({
 
 // No privilege escalation: a bearer credential can only ever mint a key that is a subset of
 // itself. A cookie session (no principal, or `scopes: null`) may grant the whole catalog.
-function assertNoScopeEscalation(scopes: ApiScope[]): void {
+function assertNoScopeEscalation(scopes: GrantedScope[]): void {
   const granted = getBearerPrincipal()?.scopes;
 
   if (!granted) {
@@ -169,9 +188,9 @@ function buildCapacityGuard({
   };
 }
 
-// Expiry is collected in days by both the settings UI and the REST API, so neither caller has to
-// agree with the server about time zones.
-function apiKeyExpiryFromDays(days?: number | null): Date | null {
+// Expiry is collected in days by every door — the settings UI, the REST API, the admin panel — so
+// no caller has to agree with the server about time zones.
+export function apiKeyExpiryFromDays(days?: number | null): Date | null {
   return days ? new Date(Date.now() + days * DAY_IN_MS) : null;
 }
 
@@ -188,16 +207,27 @@ export function createApiKeyFromInput(input: CreateApiKeySchema) {
   });
 }
 
-// Self-authenticating like its siblings: creation policy lives here, not in the transport, so
-// every write path (settings action, REST, MCP, a future script) mints keys under the same rules.
-export async function createApiKey({
+/**
+ * The public door. Mints from the public catalog and nothing else, so the settings action, the REST
+ * route, and MCP all refuse an unknown scope name without knowing another catalog exists.
+ */
+export function createApiKey(params: CreateApiKeyParams): Promise<CreatedApiKey> {
+  return issueApiKey({ ...params, isAllowedScope: isApiScope, keyPrefix: API_KEY_PREFIX_LIVE });
+}
+
+// Self-authenticating like its siblings: creation policy lives here, not in the transport, so every
+// write path (settings action, REST, MCP, the admin panel) mints keys under the same rules. The
+// catalog is the one thing a door decides for itself; everything below applies to all of them.
+export async function issueApiKey({
   teamId = null,
   name,
   scopes,
   expiresAt = null,
-}: CreateApiKeyParams): Promise<CreatedApiKey> {
+  isAllowedScope,
+  keyPrefix,
+}: IssueApiKeyParams): Promise<CreatedApiKey> {
   const session = await requireVerifiedEmail();
-  const validScopes = assertValidScopes(scopes);
+  const validScopes = assertValidScopes({ scopes, isAllowedScope });
 
   // Minting credentials is account-level: a team key must not be able to widen its own audience
   // by issuing a key for another team, or a personal one. The route declares this too.
@@ -214,7 +244,9 @@ export async function createApiKey({
   const d1 = db.$client;
   const id = `akey_${createRandomId()}`;
   const nowSec = toUnixSeconds(new Date());
-  const generated = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
+  // The prefix comes from the door, never from the caller's intent: a door mints from one catalog,
+  // so which prefix a key carries and which scopes it may hold are one decision made once.
+  const generated = await generateApiKey({ prefix: keyPrefix });
   const guard = buildCapacityGuard({ userId, teamId, nowSec });
 
   const result = await d1
@@ -265,7 +297,7 @@ export async function createApiKey({
 
 // Revoked rows stay in D1 as history but never surface: a revoked key is not something the owner
 // can act on, and the row only exists so the hash can never be re-issued.
-export async function listUserApiKeys(): Promise<ApiKeySummary[]> {
+async function listPersonalApiKeys(): Promise<ApiKeySummary[]> {
   const session = await requireVerifiedEmail();
   const db = getDB();
 
@@ -278,7 +310,50 @@ export async function listUserApiKeys(): Promise<ApiKeySummary[]> {
   return rows.map(toSummary);
 }
 
-export async function listTeamApiKeys({ teamId }: { teamId: string }): Promise<ApiKeySummary[]> {
+/**
+ * A key every one of whose scopes is in the public catalog. The owner-facing listings return this
+ * narrower type, so the settings scope picker — which can only render public scopes — is handed a
+ * value the type system already guarantees it can represent.
+ */
+export interface PublicApiKeySummary extends Omit<ApiKeySummary, "scopes"> {
+  scopes: ApiScope[];
+}
+
+// The one classification the listings and the re-scope guard share, so no key is offered an edit
+// control the guard then refuses. It reads a summary, whose scopes `toGrantedScopes` has already
+// narrowed; a key mixing the two catalogs belongs with the internal ones.
+function isPublicApiKey(key: ApiKeySummary): key is PublicApiKeySummary {
+  return key.scopes.every(isApiScope);
+}
+
+/**
+ * The owner-facing listing: account settings and `GET /api/v1/api-keys` both read it.
+ *
+ * Keys carrying a scope outside the public catalog are excluded, and that exclusion is load-bearing
+ * rather than cosmetic. This response is reachable with `api-keys:read`, which a third-party OAuth
+ * client can hold — listing an internal key here would publish the internal scope names to exactly
+ * the audience the separate catalog exists to keep them from. Those keys are managed in the admin
+ * panel, and an admin can still see and revoke any user's keys from the user detail page.
+ */
+export async function listUserApiKeys(): Promise<PublicApiKeySummary[]> {
+  return (await listPersonalApiKeys()).filter(isPublicApiKey);
+}
+
+/** The complement, for the admin panel. Gated by `listAdminApiKeys`, which proves admin first. */
+export async function listOwnInternalApiKeys(): Promise<ApiKeySummary[]> {
+  return (await listPersonalApiKeys()).filter((key) => !isPublicApiKey(key));
+}
+
+/**
+ * A team key can never hold an internal scope — those are account-only, so `toSummary` already
+ * narrows them away for any row with a `teamId`. The filter states that rather than assuming it,
+ * which is also what lets this return the type the team settings picker needs.
+ */
+export async function listTeamApiKeys({
+  teamId,
+}: {
+  teamId: string;
+}): Promise<PublicApiKeySummary[]> {
   await requireTeamPermission(teamId, TEAM_PERMISSIONS.MANAGE_API_KEYS);
   const db = getDB();
 
@@ -288,7 +363,7 @@ export async function listTeamApiKeys({ teamId }: { teamId: string }): Promise<A
     orderBy: { createdAt: "desc" },
   });
 
-  return rows.map(toSummary);
+  return rows.map(toSummary).filter(isPublicApiKey);
 }
 
 // Revalidation target for the surface a key is rendered on; null for a personal key. Carries no
@@ -315,7 +390,7 @@ export async function updateApiKeyScopes({
   scopes: string[];
 }): Promise<ApiKeySummary> {
   const session = await requireVerifiedEmail();
-  const validScopes = assertValidScopes(scopes);
+  const validScopes = assertValidScopes({ scopes, isAllowedScope: isApiScope });
 
   assertAccountAudience();
   assertNoScopeEscalation(validScopes);
@@ -333,6 +408,13 @@ export async function updateApiKeyScopes({
   }
 
   assertScopesFitAudience({ scopes: validScopes, teamId: key.teamId });
+
+  // Defense in depth: no UI offers this, but a caller that knows a key id reaches here, and this
+  // path can only express public scopes, so re-scoping an internal key would silently strip it.
+  // Classified exactly as the listings classify it, so what is shown and what is allowed agree.
+  if (!isPublicApiKey(toSummary(key))) {
+    throw new ActionError("FORBIDDEN", { key: "Client.Settings.ApiKeys.errorKeyNotEditable" });
+  }
 
   if (key.teamId) {
     await requireTeamPermission(key.teamId, TEAM_PERMISSIONS.MANAGE_API_KEYS);

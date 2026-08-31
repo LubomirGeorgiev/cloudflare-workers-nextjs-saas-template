@@ -1,6 +1,8 @@
 import type { AlertVariant } from "@/components/ui/alert"
 
-export const ALERT_BLOCK_NODE_NAME = "alertBlock"
+// Re-exported so the editor components keep one import site. The value lives in `@/constants`
+// because the server content pipeline matches on it too; see that file for why.
+export { ALERT_BLOCK_NODE_NAME } from "@/constants/cms-content-nodes"
 
 export const ALERT_BLOCK_VARIANTS = [
   "default",

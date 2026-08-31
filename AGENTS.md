@@ -129,6 +129,7 @@ One pipeline, not four features: an endpoint described once becomes a documented
 - The API and MCP entrypoints are plain Worker handlers with no App Router request scope: in shared `src/lib/**` and `src/utils/**`, use `getTranslator` from `@/i18n/translator` rather than `getTranslations` from `next-intl/server`, and expect `cookies()`/`headers()` to throw.
 - App code must never read or write the `OAUTH_RESERVED_KV_PREFIXES` key space (`src/constants/kv-prefixes.ts`); `src/lib/oauth/kv-prefixes.test.ts` enforces the split.
 - A change to the public surface should also reach `src/lib/cms/build-llms-txt.ts` and `src/app/sitemap.ts`.
+- The internal admin surface (`/api/admin/v1`, `/mcp/admin`) is a **separate** Hono app, scope catalog, and build-time document. Declare its routes with `...adminOperation({ ... })` from `src/api/admin/operation.ts`. Never add an `admin:*` scope to `API_SCOPES`, never import `src/lib/api/admin-scopes.ts` (it is `server-only`) from a client component, and never serve the internal document over HTTP. OAuth may grant an internal scope only through `clampAdminScopesForConsent` (live admin + verified client). The generator fails the build if an internal identifier reaches the published document.
 
 ## Database and Migrations
 

@@ -7,7 +7,7 @@ import { LOCALE_LABELS, type Locale } from "@/i18n/config";
 import type { TranslatableEntryField } from "@/types/cms";
 import { runAiText, type AiBinding } from "@/lib/ai/generate-text";
 import { truncateSeoDescription } from "@/lib/cms/seo-description";
-import { ALERT_BLOCK_NODE_NAME } from "@/components/tiptap-node/alert-block/alert-block-types";
+import { ALERT_BLOCK_NODE_NAME } from "@/constants/cms-content-nodes";
 
 // The model NEVER sees the ProseMirror/TipTap structure. We deep-clone the doc, collect only the
 // human-readable leaf strings, translate that flat list, and write each translation back into its original

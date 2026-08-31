@@ -64,13 +64,24 @@ export function isApiScope(value: string): value is ApiScope {
   return Object.hasOwn(API_SCOPES, value);
 }
 
+// The internal `admin:*` catalog lives in `./admin-scopes.ts`, which is `server-only`, and is
+// deliberately NOT re-exported here. This module is imported by client components (the settings
+// scope picker, the connected-apps scope grid), so anything defined here ships in public JavaScript.
+// Keeping the two apart makes a leak a build error rather than a tree-shaking assumption.
+
 export function describeApiScope(scope: ApiScope): string {
   return API_SCOPES[scope].description;
 }
 
-/** A scope no team-scoped credential can ever exercise, because only account operations open it. */
-export function isAccountOnlyScope(scope: ApiScope): boolean {
-  return API_SCOPES[scope].accountOnly;
+/**
+ * A scope no team-scoped credential can ever exercise, because only account operations open it.
+ *
+ * Anything outside the public catalog answers true, which is what keeps this free of any internal
+ * import: an internal scope is account-only by definition (the admin app refuses a team audience),
+ * and an unrecognized name grants nothing anyway, so denying it to a team key is also correct.
+ */
+export function isAccountOnlyScope(scope: string): boolean {
+  return isApiScope(scope) ? API_SCOPES[scope].accountOnly : true;
 }
 
 /** What a team key may hold, in catalog order; the whole catalog for a personal one. */
@@ -83,21 +94,14 @@ export const TEAM_KEY_SCOPES: ApiScope[] = API_SCOPE_NAMES.filter(
  * writes a permission it can never use, so both the write paths and the principal resolver narrow
  * through here — the resolver too, because a key issued before this rule still holds those rows.
  */
-export function scopesForAudience({
+export function scopesForAudience<Scope extends string>({
   scopes,
   teamId,
 }: {
-  scopes: ApiScope[];
+  scopes: Scope[];
   teamId: string | null;
-}): ApiScope[] {
+}): Scope[] {
   return teamId ? scopes.filter((scope) => !isAccountOnlyScope(scope)) : scopes;
-}
-
-// The one validation point between stored grants (KV snapshots, OAuth token props) and a principal.
-// Unknown names are dropped rather than rejected: a scope a fork deletes from the catalog must stop
-// granting anything, not lock out every credential that still carries it.
-export function toApiScopes(scopes: string[]): ApiScope[] {
-  return scopes.filter(isApiScope);
 }
 
 // Credential management is off-limits to unverified clients in both directions: minting keys is an

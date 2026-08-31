@@ -498,7 +498,7 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)("an OAuth access token drives the same tool
     code_challenge_method: "S256",
   }).toString();
 
-  const consent = await resolveConsentRequest(authQuery);
+  const consent = await resolveConsentRequest({ authQuery: authQuery });
   const { redirectTo } = await getOAuthHelpers().completeAuthorization({
     request: consent.authRequest,
     userId: user.id,

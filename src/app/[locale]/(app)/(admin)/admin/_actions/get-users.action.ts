@@ -1,71 +1,16 @@
 "use server"
 
+import { listAdminUsers } from "@/lib/admin/users"
 import { actionClient } from "@/lib/safe-action"
-import { getDB } from "@/db"
-import { requireAdmin } from "@/utils/auth"
-import { sql } from "drizzle-orm"
-import { userTable } from "@/db/schema"
 import { getUsersSchema } from "@/schemas/admin-users.schema"
+import { requireAdmin } from "@/utils/auth"
 
+// The query itself lives in `src/lib/admin/users.ts` so this action and the internal REST/MCP
+// surface list users through one code path.
 export const getUsersAction = actionClient
   .inputSchema(getUsersSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()
 
-    const db = getDB()
-    const { page, pageSize, emailFilter } = input
-
-    // Calculate offset
-    const offset = (page - 1) * pageSize
-
-    const whereClause = emailFilter
-      ? sql`${userTable.email} LIKE ${`%${emailFilter}%`}`
-      : undefined
-    const userWhereClause = emailFilter
-      ? { email: { like: `%${emailFilter}%` } }
-      : undefined
-
-    const [[{ count }], users] = await Promise.all([
-      db
-        .select({ count: sql<number>`count(*)` })
-        .from(userTable)
-        .where(whereClause),
-      db.query.userTable.findMany({
-        columns: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          emailVerified: true,
-          createdAt: true,
-          lastActiveAt: true,
-        },
-        where: userWhereClause,
-        orderBy: { createdAt: "desc" },
-        limit: pageSize,
-        offset,
-      }),
-    ])
-
-    // Transform the data to match our table's expected format
-    const transformedUsers = users.map(user => ({
-      id: user.id,
-      email: user.email,
-      name: user.firstName && user.lastName
-        ? `${user.firstName} ${user.lastName}`
-        : null,
-      role: user.role,
-      status: user.emailVerified ? "active" as const : "inactive" as const,
-      createdAt: user.createdAt,
-      lastActiveAt: user.lastActiveAt,
-    }))
-
-    return {
-      users: transformedUsers,
-      totalCount: count,
-      page,
-      pageSize,
-      totalPages: Math.ceil(count / pageSize),
-    }
+    return listAdminUsers(input)
   })

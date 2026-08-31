@@ -876,6 +876,7 @@
         "errorUserLimitReached": "Puedes tener como máximo {max} claves de API activas",
         "errorTeamLimitReached": "Este equipo puede tener como máximo {max} claves de API activas",
         "errorKeyNotFound": "Clave de API no encontrada",
+        "errorKeyNotEditable": "Los permisos de esta clave se gestionan donde se creó, no aquí.",
         "errorTeamKeyOtherTeam": "Esta clave solo funciona con el equipo para el que se creó.",
         "errorTeamKeyAccountOnly": "Esta clave solo funciona con su equipo, no con la configuración de la cuenta.",
         "errorTeamKeyAccountScope": "Una clave de equipo no puede tener permisos de nivel de cuenta: {scopes}"
@@ -964,7 +965,15 @@
       "toastDecisionError": "No se pudo completar la autorización",
       "errorMissingRedirect": "La aplicación no proporcionó una dirección de redirección, por lo que la solicitud no se puede completar",
       "invalidRequestTitle": "Esta solicitud de autorización no es válida",
-      "invalidRequestDescription": "La aplicación envió un cliente desconocido o una dirección de redirección que no ha registrado. Vuelve a la app e inténtalo de nuevo."
+      "invalidRequestDescription": "La aplicación envió un cliente desconocido o una dirección de redirección que no ha registrado. Vuelve a la app e inténtalo de nuevo.",
+      "adminVerifyTitle": "{app} solicita acceso administrativo",
+      "adminVerifyBody": "Estos permisos alcanzan todas las cuentas de esta instalación, así que solo se conceden a una app por la que alguien responde. Verificarla marca {app} como verificada para todos aquí, no solo para ti.",
+      "adminVerifyButton": "Verificar esta app y permitir el acceso administrativo",
+      "adminVerifyToastSuccess": "App verificada. Los permisos administrativos de abajo ya se pueden conceder.",
+      "adminVerifyToastError": "No se pudo verificar esta app",
+      "adminHintTitle": "Esta app solicitaba acceso administrativo",
+      "adminHintUnknownClient": "Esta instalación no reconoce el cliente, así que la solicitud se rechazó antes de considerar ningún permiso. Un cliente de agente identificado por una URL solo se conoce cuando este servidor puede descargar su documento de metadatos, lo que falla en un host que bloquea la petición.",
+      "adminHintVerifyNext": "Los permisos administrativos requieren además que la app esté verificada. Cuando el cliente se registre, verifícalo en la pantalla de consentimiento o en <code>{path}</code>, y vuelve a iniciar la conexión."
     },
     "Mcp": {
       "title": "Conecta un agente de IA",

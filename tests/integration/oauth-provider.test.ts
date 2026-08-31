@@ -166,7 +166,7 @@ async function approveConsent({
   authQuery: string;
   userId: string;
 }): Promise<{ code: string; grantedScopes: string[] }> {
-  const consent = await resolveConsentRequest(authQuery);
+  const consent = await resolveConsentRequest({ authQuery: authQuery });
   await persistApprovedOAuthApp(consent);
   const { redirectTo } = await getOAuthHelpers().completeAuthorization({
     request: consent.authRequest,
@@ -338,7 +338,7 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
     const requested = ["profile:read", ...restricted];
     const authQuery = buildAuthQuery({ clientId, challenge: pkce.challenge, scopes: requested });
 
-    const clamped = await resolveConsentRequest(authQuery);
+    const clamped = await resolveConsentRequest({ authQuery: authQuery });
     expect(clamped.isVerified).toBe(false);
     expect(clamped.grantedScopes).not.toContain(restricted[0]);
     expect(clamped.droppedScopes).toEqual(restricted);
@@ -349,7 +349,7 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
     expect(tokens.scope.split(" ")).not.toContain(restricted[0]);
 
     await setOAuthAppVerified({ clientId, isVerified: true });
-    const verified = await resolveConsentRequest(authQuery);
+    const verified = await resolveConsentRequest({ authQuery: authQuery });
     expect(verified.isVerified).toBe(true);
     expect(verified.grantedScopes).toEqual(requested);
     expect(verified.droppedScopes).toEqual([]);
@@ -744,7 +744,7 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
       code_challenge_method: "S256",
     }).toString();
 
-    await expect(resolveConsentRequest(authQuery)).rejects.toThrow();
+    await expect(resolveConsentRequest({ authQuery: authQuery })).rejects.toThrow();
   },
 );
 

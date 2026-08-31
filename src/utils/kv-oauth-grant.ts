@@ -5,7 +5,7 @@ import {
   OAUTH_GRANT_GENERATION_TTL_SECONDS,
 } from "@/constants";
 import { PERSONAL_AUDIENCE, type ApiPrincipal } from "@/lib/api/principal";
-import { toApiScopes, type ApiScope } from "@/lib/api/scopes";
+import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";
 import type { OAuthBearerProps } from "@/lib/oauth/bearer-props";
 import {
   deleteGrantSnapshot,
@@ -47,7 +47,7 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
   // A token minted before the exchange callback ran (or one deliberately downscoped to nothing)
   // must not fall back to "unrestricted" — an empty scope list can do nothing, `null` can do all.
   // Fail closed on the way in: a scope the catalog no longer knows about grants nothing.
-  const scopes = toApiScopes(props.scopes ?? []);
+  const scopes = toGrantedScopes(props.scopes ?? []);
 
   // Read before the D1 rebuild below, never after: a purge landing in between then stamps this
   // snapshot with the superseded generation, which the next read rejects. The other order would
@@ -93,7 +93,7 @@ function toPrincipal({
 }: {
   cached: CachedOAuthGrant;
   props: OAuthBearerProps;
-  scopes: ApiScope[];
+  scopes: GrantedScope[];
 }): ApiPrincipal {
   return {
     kind: "oauth-grant",

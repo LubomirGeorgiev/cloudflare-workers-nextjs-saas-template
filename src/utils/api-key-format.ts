@@ -1,4 +1,5 @@
 import {
+  API_KEY_PREFIX_ADMIN,
   API_KEY_PREFIX_LIVE,
   API_KEY_PREFIX_TEST,
   API_KEY_SECRET_BYTES,
@@ -16,7 +17,11 @@ const CHECKSUM_LENGTH = 6;
 const MIN_BODY_LENGTH = 32;
 const CRC32_POLYNOMIAL = 0xedb88320;
 
-export const API_KEY_PREFIXES = [API_KEY_PREFIX_LIVE, API_KEY_PREFIX_TEST] as const;
+export const API_KEY_PREFIXES = [
+  API_KEY_PREFIX_ADMIN,
+  API_KEY_PREFIX_LIVE,
+  API_KEY_PREFIX_TEST,
+] as const;
 
 interface GeneratedApiKey {
   /** The only time the full secret exists; it is shown once and never stored. */
@@ -114,8 +119,39 @@ export async function generateApiKey({
   };
 }
 
+/**
+ * The longest prefix the token starts with, which is not the same as the first one that matches.
+ *
+ * `API_KEY_PREFIX_ADMIN` extends `API_KEY_PREFIX_LIVE`, so a first-match-wins scan would strip only
+ * the live prefix from an internal key and leave `admin_` at the head of the body — an underscore
+ * is not in the base62 alphabet, so the checksum test below would reject it. Every internal key
+ * would fail this gate before reaching storage, and the admin surface would go dark with nothing
+ * but a 401 to read.
+ *
+ * Exported so the rule can be tested against a deliberately hostile ordering. Testing it through
+ * `looksLikeApiKey` alone proves nothing: `API_KEY_PREFIXES` currently happens to declare the long
+ * prefix first, so a first-match scan passes too, and the test would go quietly vacuous.
+ */
+export function findLongestMatchingPrefix({
+  token,
+  prefixes,
+}: {
+  token: string;
+  prefixes: readonly string[];
+}): string | undefined {
+  let longest: string | undefined;
+
+  for (const candidate of prefixes) {
+    if (token.startsWith(candidate) && (!longest || candidate.length > longest.length)) {
+      longest = candidate;
+    }
+  }
+
+  return longest;
+}
+
 function matchPrefix(token: string): string | undefined {
-  return API_KEY_PREFIXES.find((candidate) => token.startsWith(candidate));
+  return findLongestMatchingPrefix({ token, prefixes: API_KEY_PREFIXES });
 }
 
 // Cheap offline gate for the auth hot path: wrong shape or broken checksum means no storage

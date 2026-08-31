@@ -40,3 +40,38 @@ export { teamIdParamSchema } from "@/schemas/fields";
 // Every timestamp the API emits is an ISO 8601 string; `null` means "never" / "not yet".
 export const isoDateSchema = v.pipe(v.string(), v.isoTimestamp());
 export const nullableIsoDateSchema = v.nullable(isoDateSchema);
+
+// A query value reaches a route as a string from Hono's query map and as a number from an MCP tool
+// argument, so a numeric query field must take both. Anything else becomes NaN and `v.number()`
+// refuses it as a wrong type.
+function toQueryNumber(value: unknown): number {
+  return typeof value === "string" || typeof value === "number" ? Number(value) : Number.NaN;
+}
+
+/**
+ * The one integer query field. Every numeric query parameter must use it: a plain `v.number()`
+ * rejects the string the query map actually carries, so an explicitly passed value answers 400.
+ *
+ * The `v.unknown()` base is what keeps the generated contract honest — a `v.union([string, number])`
+ * base would publish `anyOf: [string, number]` as the parameter type in the OpenAPI document and in
+ * the MCP tool input schema, while this emits the plain `integer` a caller should send.
+ */
+export function integerQueryField({
+  min,
+  max,
+  fallback,
+}: {
+  min: number;
+  max?: number;
+  fallback: number;
+}) {
+  const bounded = v.pipe(
+    v.unknown(),
+    v.transform(toQueryNumber),
+    v.number(),
+    v.integer(),
+    v.minValue(min),
+  );
+
+  return v.optional(max === undefined ? bounded : v.pipe(bounded, v.maxValue(max)), fallback);
+}

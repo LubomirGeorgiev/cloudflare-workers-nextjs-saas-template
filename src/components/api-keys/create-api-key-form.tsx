@@ -8,7 +8,8 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { createApiKeyAction } from "@/actions/api-key-actions";
-import { ScopePicker } from "@/components/api-keys/scope-picker";
+import { ApiKeyExpirySelect } from "@/components/api-keys/api-key-expiry-select";
+import { ScopePicker, useApiScopeOptions } from "@/components/api-keys/scope-picker";
 import { Button } from "@/components/ui/button";
 import {
   DialogClose,
@@ -26,19 +27,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { API_KEY_EXPIRY_DAY_OPTIONS } from "@/constants";
 import { createApiKeySchema, type CreateApiKeySchema } from "@/schemas/api-key.schema";
-
-// Sentinel for the "never expires" option: a Select needs a non-empty string value, while the
-// schema expects the field to be absent.
-const NO_EXPIRY_VALUE = "never";
 
 /** The dialog's first mode. Hands the minted secret up so the reveal can take over. */
 export function CreateApiKeyForm({
@@ -51,6 +40,7 @@ export function CreateApiKeyForm({
   const t = useTranslations("Client.Settings.ApiKeys");
   const tCommon = useTranslations("Client.Common");
   const router = useRouter();
+  const scopeOptions = useApiScopeOptions({ teamId });
 
   const form = useForm<CreateApiKeySchema>({
     resolver: valibotResolver(createApiKeySchema),
@@ -104,8 +94,8 @@ export function CreateApiKeyForm({
             name="scopes"
             render={() => (
               <ScopePicker
+                options={scopeOptions}
                 selectedScopes={selectedScopes}
-                teamId={teamId}
                 onChange={(scopes) =>
                   form.setValue("scopes", scopes, { shouldValidate: true, shouldDirty: true })
                 }
@@ -119,31 +109,13 @@ export function CreateApiKeyForm({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>{t("expiryLabel")}</FormLabel>
-                <Select
-                  value={field.value ? String(field.value) : NO_EXPIRY_VALUE}
-                  onValueChange={(value) =>
-                    field.onChange(value === NO_EXPIRY_VALUE ? undefined : Number(value))
-                  }
-                >
-                  <FormControl>
-                    <SelectTrigger aria-label={t("expiryLabel")}>
-                      <SelectValue>
-                        {(value: string | null) =>
-                          value && value !== NO_EXPIRY_VALUE
-                            ? t("expiryDays", { days: Number(value) })
-                            : t("expiryNever")}
-                      </SelectValue>
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={NO_EXPIRY_VALUE}>{t("expiryNever")}</SelectItem>
-                    {API_KEY_EXPIRY_DAY_OPTIONS.map((days) => (
-                      <SelectItem key={days} value={String(days)}>
-                        {t("expiryDays", { days })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <ApiKeyExpirySelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  label={t("expiryLabel")}
+                  neverLabel={t("expiryNever")}
+                  formatDays={(days) => t("expiryDays", { days })}
+                />
                 <FormMessage />
               </FormItem>
             )}

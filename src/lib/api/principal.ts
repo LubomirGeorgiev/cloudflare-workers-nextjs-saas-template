@@ -3,7 +3,7 @@ import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { ActionError } from "@/lib/action-error";
-import type { ApiScope } from "@/lib/api/scopes";
+import type { GrantedScope } from "@/lib/api/admin-scopes";
 import type { CurrentSession } from "@/types";
 import type { KVSession } from "@/utils/kv-session";
 import { getInitials } from "@/utils/name-initials";
@@ -12,7 +12,7 @@ import { getInitials } from "@/utils/name-initials";
 // reads them verbatim. Naming the scope is what lets an agent ask for the right one.
 const NO_PRINCIPAL_DETAIL = "This request carries no authenticated credential.";
 
-function missingScopeDetail(scope: ApiScope): string {
+function missingScopeDetail(scope: GrantedScope): string {
   return `This credential is missing the required scope: ${scope}.`;
 }
 
@@ -29,8 +29,12 @@ interface ApiPrincipalBase {
   userId: string;
   user: KVSession["user"];
   teams: KVSession["teams"];
-  /** Always an array: a credential narrows the owner's permissions, it never widens them. */
-  scopes: ApiScope[];
+  /**
+   * Always an array: a credential narrows the owner's permissions, it never widens them. Typed as
+   * `GrantedScope` because an API key and an OAuth grant may both hold an internal `admin:*` scope.
+   * Holding one grants nothing here: `assertAdminPrincipal` re-reads the live role on every use.
+   */
+  scopes: GrantedScope[];
   /** Required rather than optional so every credential resolver has to decide what it is. */
   audience: ApiAudience;
 }
@@ -112,7 +116,7 @@ export function getBearerPrincipal(): ApiPrincipal | undefined {
   return principalStorage.getStore();
 }
 
-export function hasScope(principal: ApiPrincipal, scope: ApiScope): boolean {
+export function hasScope(principal: ApiPrincipal, scope: GrantedScope): boolean {
   return principal.scopes.includes(scope);
 }
 
@@ -128,7 +132,7 @@ export function requirePrincipal(): ApiPrincipal {
   return principal;
 }
 
-export function requireScope(scope: ApiScope): ApiPrincipal {
+export function requireScope(scope: GrantedScope): ApiPrincipal {
   const principal = requirePrincipal();
 
   if (!hasScope(principal, scope)) {

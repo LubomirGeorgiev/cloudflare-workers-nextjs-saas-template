@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { updateApiKeyScopesAction } from "@/actions/api-key-actions";
-import { ScopePicker } from "@/components/api-keys/scope-picker";
+import { ScopePicker, useApiScopeOptions } from "@/components/api-keys/scope-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form, FormField } from "@/components/ui/form";
-import type { ApiKeySummary } from "@/lib/api-keys/api-keys";
+import type { PublicApiKeySummary } from "@/lib/api-keys/api-keys";
 import {
   updateApiKeyScopesSchema,
   type UpdateApiKeyScopesSchema,
@@ -32,11 +32,12 @@ import {
  * Re-grants an existing key. The name and expiry stay fixed: re-scoping narrows or widens what a
  * live secret can do, while extending its life without re-issuing it is a different decision.
  */
-export function EditApiKeyScopesDialog({ apiKey }: { apiKey: ApiKeySummary }) {
+export function EditApiKeyScopesDialog({ apiKey }: { apiKey: PublicApiKeySummary }) {
   const t = useTranslations("Client.Settings.ApiKeys");
   const tCommon = useTranslations("Client.Common");
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const scopeOptions = useApiScopeOptions({ teamId: apiKey.teamId });
 
   // The summary already holds only the scopes the key can exercise, so saving an untouched form
   // repairs a key issued before account-only scopes were refused on a team key.
@@ -89,8 +90,8 @@ export function EditApiKeyScopesDialog({ apiKey }: { apiKey: ApiKeySummary }) {
               name="scopes"
               render={() => (
                 <ScopePicker
+                  options={scopeOptions}
                   selectedScopes={selectedScopes}
-                  teamId={apiKey.teamId}
                   onChange={(scopes) =>
                     form.setValue("scopes", scopes, { shouldValidate: true, shouldDirty: true })
                   }

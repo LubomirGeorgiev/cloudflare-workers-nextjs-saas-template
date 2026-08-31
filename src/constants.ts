@@ -12,6 +12,11 @@ export const GITHUB_REPO_URL = "https://github.com/LubomirGeorgiev/cloudflare-wo
 // whoever owns the prefix, so borrowing another vendor's shape (e.g. `sk_live_`) misroutes reports.
 export const API_KEY_PREFIX_LIVE = "saas_live_";
 export const API_KEY_PREFIX_TEST = "saas_test_";
+// Internal keys carry their own prefix so a leaked one is recognisable at a glance — in a log, a
+// paste, or a secret scanner's report — without anyone having to look its scopes up. It extends the
+// live prefix rather than replacing it: an internal key is a live key, and a scanner rule written
+// for `saas_live_` still catches it.
+export const API_KEY_PREFIX_ADMIN = `${API_KEY_PREFIX_LIVE}admin_`;
 export const API_KEY_SECRET_BYTES = 32;
 export const API_KEY_NAME_MAX_LENGTH = 100;
 export const API_KEY_MAX_EXPIRY_DAYS = 365;
@@ -64,6 +69,22 @@ export const API_AUTH_DOCS_PATH = "/docs/authentication";
 // it accepts an API key or an OAuth access token; this is the URL users paste into agent clients.
 export const MCP_PATH = "/mcp";
 export const MCP_DOCS_PATH = "/docs/mcp";
+
+// ---------------------------------------------------------------------------
+// Internal admin surface. Neither path appears in the OpenAPI document, the RFC 9727 catalog,
+// `llms.txt`, the sitemap, or any `WWW-Authenticate` challenge a public route sends. They are
+// documented for staff at `ADMIN_API_DOCS_PATH` and nowhere else.
+//
+// Not secret paths — a guessed path answers 401/403 like any other — but unadvertised ones: the
+// authorization is `assertAdminPrincipal` (an `admin:*` scope AND a live admin role), never the
+// obscurity. Both are edge-routed in `worker-entrypoint.ts` onto the same OAuth provider funnel as
+// the public surface, so an admin API key authenticates through exactly one code path.
+// ---------------------------------------------------------------------------
+// Every scope name in either catalog is far shorter; this is the ceiling an unvalidated scope
+// string is bounded by before it reaches the catalog check that actually decides.
+export const API_SCOPE_NAME_MAX_LENGTH = 64;
+export const ADMIN_API_BASE_PATH = "/api/admin/v1";
+export const ADMIN_MCP_PATH = "/mcp/admin";
 // Version of the published API contract, not of the app; it is the OpenAPI `info.version`.
 export const API_VERSION = "1.0.0";
 // RFC 9727. One document naming every API this deployment publishes — the REST API and the MCP
@@ -129,6 +150,8 @@ export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
 export const SETTINGS_API_MCP_PATH = "/settings/api-mcp" satisfies Route;
 export const TEAMS_DASHBOARD_PATH = "/dashboard/teams" satisfies Route;
 export const ADMIN_OAUTH_APPS_PATH = "/admin/oauth-apps" satisfies Route;
+/** Staff-only reference for the internal admin API and MCP endpoints, and where their keys are minted. */
+export const ADMIN_API_DOCS_PATH = "/admin/api" satisfies Route;
 export const ADMIN_USERS_PATH = "/admin/users" satisfies Route;
 // Gemma 4 26B (A4B, instruction-tuned): chat-completions model used for SEO descriptions and CMS
 export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfies keyof AiModels;

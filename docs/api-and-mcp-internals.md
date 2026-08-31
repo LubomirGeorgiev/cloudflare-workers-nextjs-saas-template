@@ -30,6 +30,12 @@ in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `s
 | MCP tool derivation and curation | `src/mcp/derive-tools.ts`, `src/mcp/tool-overrides.ts` |
 | Agent-client registry | `src/constants/agent-clients.ts` |
 | Endpoint paths and flags | `src/constants.ts` |
+| Internal scope catalog (`server-only`) | `src/lib/api/admin-scopes.ts` |
+| Internal route declaration and guard | `src/api/admin/operation.ts`, `src/lib/admin/admin-principal.ts` |
+| Internal Hono app and its routes | `src/api/admin/index.ts`, `src/api/admin/routes/` |
+| Internal document (never served) | `src/api/admin/generated-document.ts` |
+| Internal MCP server | `src/mcp/admin.ts` |
+| Internal key minting | `src/lib/admin/admin-api-keys.ts` |
 | Server-side OAuth lifecycle tuning | `src/constants/oauth.ts` |
 | Both KV key-space registries | `src/constants/kv-prefixes.ts` |
 | Rate-limit header formatting | `src/lib/api/rate-limit-headers.ts` |
@@ -120,6 +126,86 @@ The flag is a denormalized copy of what the route table says, kept in the catalo
 never has to import the OpenAPI document into a page bundle. Two tests in
 `tests/integration/api-route-policy.test.ts` audit every flag against the mounted routes, so mounting a
 team route under an account-only scope fails CI until the flag moves with it.
+
+## The internal admin surface
+
+A second REST API at `/api/admin/v1` and a second MCP server at `/mcp/admin`, for staff tooling.
+Neither appears in the published OpenAPI document, the RFC 9727 catalog, `llms.txt`, the sitemap,
+or any `WWW-Authenticate` challenge. They are documented for staff at `/admin/api` and nowhere else.
+
+**The mechanism is a separate catalog, not a filter.** `ADMIN_SCOPES` lives in
+`src/lib/api/admin-scopes.ts`, never in `API_SCOPES`. Every surface that publishes a scope — OAuth
+`scopesSupported`, RFC 9728 resource metadata, the DCR allowlist, the consent clamp, the settings
+scope picker, the API key request schema, and the OpenAPI security scheme's scope map — reads
+`API_SCOPE_NAMES`. None of them can name a scope that is not in that array, so hiding an internal
+scope needs no filter in any of those files and no future edit can forget one.
+
+That module is `server-only` for the same reason: `scopes.ts` is imported by client components, so
+anything defined there ships in public JavaScript. Importing the internal catalog from a client
+component is a build error rather than a tree-shaking assumption.
+
+**Two documents, one generator run.** `scripts/generate-openapi.mjs` prints
+`{"public": ..., "admin": ...}`, and the vite plugin splits it into `virtual:api-openapi-document`
+and `virtual:admin-openapi-document`. Before printing, the generator asserts the public half
+contains no admin scope name and no admin path — the one point both documents exist in the same
+process, and where a leak would actually be introduced. The internal document is read only by
+`src/mcp/admin.ts` and the `/admin/api` page; nothing serves it over HTTP, authenticated or not.
+
+**Authorization is two independent facts.** `assertAdminPrincipal` requires the operation's
+`admin:*` scope *and* re-reads the account's role from D1 on every request. It reads the principal
+passed to it rather than ambient state: a route runs inside `runWithPrincipal`, but the internal MCP
+server asserts once while *building* a session, before any dispatch has entered that storage. The role is not taken
+from `principal.user.role`, which travels on a KV snapshot under a TTL — reading D1 is what makes a
+demotion take effect immediately rather than when that snapshot expires. A caller who is not a live
+admin gets the same refusal whether or not the scope is present, so a non-admin cannot learn that a
+second scope catalog exists.
+
+**Internal keys are invisible to the owner-facing listings.** `listUserApiKeys` returns
+`PublicApiKeySummary[]` and filters out any key holding a scope outside the public catalog, which
+covers both account settings and `GET /api/v1/api-keys`. That exclusion is load-bearing: the REST
+listing is reachable with `api-keys:read`, a scope a third-party OAuth client can hold, so listing
+an internal key there would publish the internal scope names to exactly the audience the separate
+catalog exists to keep them from. Internal keys are managed at `/admin/api`.
+
+**Demotion revokes them.** `setUserRole` in `src/lib/admin/users.ts` is the only path in the app
+that writes `user.role` — the column has no other writer — so it is also the only place that can
+clean up after a demotion, and it does: writing a non-admin role revokes every internal key that
+user holds and every OAuth grant that carries an internal scope, before the session refresh that
+purges their bearer snapshots. Both cleanups are bounded — the key sweep chunks its id list under
+D1's parameter cap, the grant sweep runs in small batches — and each one carries its own `.catch`,
+so a failure in either store can neither skip the other nor skip the session refresh. Revoking the
+grant also stops a demoted user's account settings from listing `admin:*` on a connected app, and
+stops a later re-promotion from restoring that grant without fresh consent. The role check alone
+already makes those keys powerless, but a powerless key is still a live secret its owner can no
+longer see, since the owner-facing listings exclude internal keys and `/admin/api` needs the role
+they just lost. Revoked rather than deleted, per this codebase's rule for a spent credential: the
+row stays as history and its hash can never be re-issued. The cleanup runs whenever the new role is
+not admin rather than only on an observed transition, so it also repairs a key that survived a
+demotion done straight in the database.
+
+**Two ways in, both gated.** An `admin:*` scope reaches a credential either as an API key minted by
+`createAdminApiKey` — from the admin panel, by a signed-in admin — or as an OAuth grant, so agent
+clients can log in normally. Both doors call one catalog-blind `issueApiKey`, each passing
+its own scope predicate and key prefix: `createApiKey` passes `isApiScope`, so the settings action,
+the public REST route, and MCP all refuse an internal scope as an unknown name, and
+`createAdminApiKey` passes `isAdminScope` after it has proved the admin role. There is
+deliberately no REST or MCP operation that mints one of these keys: that would let an admin
+credential extend its own lifetime without a human at a browser.
+
+`clampAdminScopesForConsent` owns the OAuth side, and requires both conditions: the consenting user
+is a live admin, and the client is verified. The second is the same anti-phishing tier the public
+catalog already applies to `api-keys:*` — these scopes address every account, so they sit at least
+as high. An admin verifies the client from the consent screen itself (`verifyConsentClientAction`),
+so the requirement costs one deliberate click at the moment the decision is being made rather than
+a trip to `/admin/oauth-apps` and back.
+
+Discovery follows the same split. The internal endpoints publish their own RFC 9728 document and
+bearer challenge from `worker-entrypoint.ts`, naming `ADMIN_SCOPE_NAMES`; the provider's own
+challenge names the public catalog, which would send a client after a token these endpoints refuse.
+`tests/integration/admin-surface-discovery.test.ts` pins both directions.
+
+`tests/integration/admin-api-route-policy.test.ts` audits the internal route table and pins the two
+tables apart; `src/lib/api/admin-scopes.test.ts` pins the catalog separation at every grant point.
 
 ## Errors
 

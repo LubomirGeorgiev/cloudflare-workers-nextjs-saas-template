@@ -63,6 +63,10 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
 
   // Account and credentials.
   "Client.Settings.ApiKeys.errorKeyNotFound": "No API key exists with that id on this account.",
+  // Deliberately does not name the scope that made the key uneditable: a caller reaching this over
+  // the public API has no business learning that a second scope catalog exists.
+  "Client.Settings.ApiKeys.errorKeyNotEditable":
+    "This key's scopes cannot be changed here. It was created elsewhere and is managed there.",
   "Client.Settings.ApiKeys.errorInvalidScope":
     "One of the requested scopes is not in this API's scope catalog.",
   "Client.Settings.ApiKeys.errorScopesRequired": "An API key must be created with at least one scope.",

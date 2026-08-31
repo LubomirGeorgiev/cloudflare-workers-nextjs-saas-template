@@ -6,6 +6,7 @@ import { describeRoute, type DescribeRouteOptions, type ResponsesWithResolver } 
 import { audienceGuard } from "@/api/middleware/audience";
 import { securityForScope } from "@/api/openapi-document";
 import { COMMON_ERROR_RESPONSES } from "@/api/openapi";
+import { createPolicyMarker } from "@/api/operation-policy";
 import type { ApiEnv } from "@/api/types";
 import { audienceExtension, type ApiOperationAudience } from "@/lib/api/audience";
 import { requirePrincipal, requireScope } from "@/lib/api/principal";
@@ -19,8 +20,6 @@ import type { ApiScope } from "@/lib/api/scopes";
 // may not call an operation at all must not learn its schema from a 400. It carries the policy on
 // itself, so `apiApp.routes` can be audited structurally — a route that skips this fails a test.
 
-const POLICY_MARKER = "__apiOperationPolicy";
-
 interface ApiOperationPolicy {
   /** Carried so the route-table audits can pin an exception by id, which no path rename breaks. */
   operationId: string;
@@ -32,6 +31,8 @@ interface ApiOperationPolicy {
   scope: ApiScope | null;
   audience: ApiOperationAudience;
 }
+
+const policyMarker = createPolicyMarker<ApiOperationPolicy>("__apiOperationPolicy");
 
 type ApiOperationSpec = Omit<DescribeRouteOptions, "security" | "responses"> &
   ApiOperationPolicy & {
@@ -60,7 +61,7 @@ function policyGuard(policy: ApiOperationPolicy): MiddlewareHandler<ApiEnv> {
     return next();
   };
 
-  return Object.assign(guard, { [POLICY_MARKER]: policy });
+  return policyMarker.carry({ guard, policy });
 }
 
 /**
@@ -86,16 +87,7 @@ export function apiOperation({
   ];
 }
 
-/** A middleware carrying the marker `policyGuard` stamps onto itself. */
-interface PolicyCarrier {
-  [POLICY_MARKER]: ApiOperationPolicy;
-}
-
 /** The policy a mounted handler declares, for the route-table audits. */
 export function readOperationPolicy(handler: unknown): ApiOperationPolicy | undefined {
-  if (typeof handler !== "function" || !(POLICY_MARKER in handler)) {
-    return undefined;
-  }
-
-  return (handler as PolicyCarrier)[POLICY_MARKER];
+  return policyMarker.read(handler);
 }

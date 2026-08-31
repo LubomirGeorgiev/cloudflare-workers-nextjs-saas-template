@@ -1,52 +1,19 @@
 import "server-only";
 
-import type { JSONContent } from "@tiptap/core";
 import { and, eq, lte } from "drizzle-orm";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, type CmsEntry } from "@/db/schema";
-import {
-  invalidateEntryAndCollection,
-  getKnownCmsCollectionSlug,
-} from "@/lib/cms/cms-cache-invalidation";
-import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
-import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
-import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
-import { deleteScheduledJobs, scheduleJob } from "@/lib/scheduler/scheduler";
-import { getCloudflareContext } from "@/utils/cloudflare-context";
+import { finalizePublishedEntry } from "@/lib/cms/entry/publishing";
 
-function getCmsPublishJobDedupeKey(entryId: string): string {
-  return `cms-entry:${entryId}`;
-}
-
-export async function deleteCmsPublishSchedule(entryId: string): Promise<void> {
-  await deleteScheduledJobs({
-    type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
-    dedupeKey: getCmsPublishJobDedupeKey(entryId),
-  });
-}
-
-export async function syncCmsPublishSchedule(
-  entry: Pick<CmsEntry, "id" | "status" | "publishedAt">
-): Promise<void> {
-  const { env } = await getCloudflareContext();
-  const queue = env.SCHEDULER_QUEUE;
-
-  if (entry.status !== CMS_ENTRY_STATUS.SCHEDULED || !entry.publishedAt) {
-    await deleteCmsPublishSchedule(entry.id);
-    return;
-  }
-
-  await scheduleJob({
-    queue,
-    type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
-    dedupeKey: getCmsPublishJobDedupeKey(entry.id),
-    payload: { entryId: entry.id },
-    runAt: entry.publishedAt,
-  });
-}
-
+/**
+ * The queue timer's entry point. It owns only the due check; what publishing an entry means lives
+ * in `@/lib/cms/entry/publishing`, which the editor and the internal admin API call as well.
+ *
+ * No version row is written here: the editor already recorded one when it moved the entry to
+ * `scheduled`, and this path completes that recorded decision rather than making a new one.
+ */
 export async function publishScheduledCmsEntryIfDue({
   entryId,
   now = new Date(),
@@ -69,27 +36,7 @@ export async function publishScheduledCmsEntryIfDue({
     return null;
   }
 
-  await syncCmsEntrySearch({
-    entryId: updatedEntry.id,
-    collection: updatedEntry.collection,
-    slug: updatedEntry.slug,
-    title: updatedEntry.title,
-    seoDescription: updatedEntry.seoDescription,
-    content: updatedEntry.content as JSONContent,
-  });
-
-  const collectionSlug = getKnownCmsCollectionSlug(updatedEntry.collection);
-
-  await invalidateEntryAndCollection({
-    collectionSlug,
-    slug: updatedEntry.slug,
-  });
-
-  // The queue consumer has no App Router request scope, so `revalidateCmsEntryPaths` is out of
-  // reach. A KV delete is not, and without it a timer-driven publish serves the pre-publish `.md`.
-  await purgeCmsEntryMarkdownPages({
-    entries: [{ collection: collectionSlug, slug: updatedEntry.slug }],
-  });
+  await finalizePublishedEntry(updatedEntry);
 
   return updatedEntry;
 }

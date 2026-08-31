@@ -106,9 +106,14 @@ export const AGENT_CLIENTS: AgentClient[] = [
     docsUrl: "https://developers.openai.com/codex/mcp",
     snippets: [
       {
+        // The fallback is in the snippet rather than beside it because it is a command, not prose:
+        // Codex identifies itself with a Client ID Metadata Document URL, and this server has to
+        // fetch that document to know the client. Hosts that refuse the fetch (chatgpt.com answers
+        // 403 to Cloudflare Workers) surface as "unknown client" on the consent screen, which reads
+        // like a misconfiguration. Forcing DCR registers the client directly and skips the fetch.
         authFlavor: "oauth",
         format: "command",
-        template: `codex mcp add ${SERVER_KEY_TOKEN} --url ${MCP_URL_TOKEN}\ncodex mcp login ${SERVER_KEY_TOKEN}`,
+        template: `codex mcp add ${SERVER_KEY_TOKEN} --url ${MCP_URL_TOKEN}\ncodex mcp login ${SERVER_KEY_TOKEN}\n\n# If that fails with "unknown client", this server could not fetch Codex's\n# client metadata document. Register the client directly instead:\ncodex mcp login ${SERVER_KEY_TOKEN} --oauth-client-registration DCR`,
       },
       {
         authFlavor: "api-key",
