@@ -123,7 +123,7 @@ export async function servePageMarkdown({
   wantsDownload,
 }: MarkdownBranchParams & { target: Extract<MdRequestTarget, { type: "page" }> }) {
   const cacheKey = buildMarkdownPageCacheKey({ pathname: target.pathname });
-  const cached = await env.NEXT_INC_CACHE_KV.get<CachedMarkdownPage>(cacheKey, "json");
+  const cached = await env.KV_STORE.get<CachedMarkdownPage>(cacheKey, "json");
 
   if (cached) {
     return markdownResponse({
@@ -163,7 +163,7 @@ export async function servePageMarkdown({
 
   // Off the response path: a cache write must not add latency to, or fail, a page that rendered.
   ctx.waitUntil(
-    env.NEXT_INC_CACHE_KV.put(cacheKey, JSON.stringify({ body: markdown, cacheTag } satisfies CachedMarkdownPage), {
+    env.KV_STORE.put(cacheKey, JSON.stringify({ body: markdown, cacheTag } satisfies CachedMarkdownPage), {
       expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS,
     }).catch(() => undefined),
   );

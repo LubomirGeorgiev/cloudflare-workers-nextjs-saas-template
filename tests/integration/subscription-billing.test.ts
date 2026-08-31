@@ -27,13 +27,13 @@ process.env[`STRIPE_PRICE_${PAID_PLAN_ID.toUpperCase()}`] = PAID_PRICE_ID;
 process.env[`STRIPE_PRICE_${PAID_PLAN_ID.toUpperCase()}_YEAR`] = PAID_YEAR_PRICE_ID;
 
 async function clearRows(): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM team_membership"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM team"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM user"),
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM team_membership"),
+    env.D1_DB.prepare("DELETE FROM team"),
+    env.D1_DB.prepare("DELETE FROM user"),
   ]);
-  const keys = await env.NEXT_INC_CACHE_KV.list();
-  await Promise.all(keys.keys.map((key) => env.NEXT_INC_CACHE_KV.delete(key.name)));
+  const keys = await env.KV_STORE.list();
+  await Promise.all(keys.keys.map((key) => env.KV_STORE.delete(key.name)));
 }
 
 async function seedTeam({ id, planId = DEFAULT_PLAN_ID }: { id: string; planId?: TeamPlanId }): Promise<void> {
@@ -69,7 +69,7 @@ async function seedSession({ userId }: { userId: string }): Promise<string> {
     version: CURRENT_SESSION_VERSION,
   };
   const key = `session:${userId}:session-1`;
-  await env.NEXT_INC_CACHE_KV.put(key, JSON.stringify(session), {
+  await env.KV_STORE.put(key, JSON.stringify(session), {
     expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000),
   });
   return key;
@@ -515,7 +515,7 @@ describe("Stripe subscription webhook handling", () => {
 
     // The webhook only enqueues the refresh; the stored session is untouched until
     // the scheduler job runs.
-    const beforeJob = JSON.parse(await env.NEXT_INC_CACHE_KV.get(sessionKey) as string) as KVSession;
+    const beforeJob = JSON.parse(await env.KV_STORE.get(sessionKey) as string) as KVSession;
     expect(beforeJob.teams).toHaveLength(0);
 
     await runScheduledJob({
@@ -524,7 +524,7 @@ describe("Stripe subscription webhook handling", () => {
       runAt: new Date().toISOString(),
     });
 
-    const stored = await env.NEXT_INC_CACHE_KV.get(sessionKey);
+    const stored = await env.KV_STORE.get(sessionKey);
     expect(stored).toBeTruthy();
     const session = JSON.parse(stored as string) as KVSession;
     const team = session.teams?.find((t) => t.id === "team_a");

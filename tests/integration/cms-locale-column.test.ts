@@ -10,9 +10,9 @@ import { DEFAULT_LOCALE } from "@/i18n/config";
 const db = getDB();
 
 async function clearCmsLocaleRows(): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM user"),
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM cms_entry"),
+    env.D1_DB.prepare("DELETE FROM user"),
   ]);
 }
 

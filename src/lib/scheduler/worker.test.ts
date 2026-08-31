@@ -121,7 +121,7 @@ function runCron(now: Date, kv = createPacingKV()) {
     queue,
     kv,
     result: handleSchedulerCron({
-      env: { SCHEDULER_QUEUE: queue, NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { SCHEDULER_QUEUE: queue, KV_STORE: kv } as unknown as Env,
       now,
     }),
   };
@@ -142,7 +142,7 @@ describe("scheduler worker", () => {
     await expect(handleSchedulerCron({
       env: {
         SCHEDULER_QUEUE: queue,
-        NEXT_INC_CACHE_KV: createPacingKV(),
+        KV_STORE: createPacingKV(),
       } as unknown as Env,
       now,
     })).resolves.toBe(2);

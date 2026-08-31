@@ -25,7 +25,7 @@ function getSearchableCollections(): CollectionsUnion[] {
 }
 
 function getVinextCache(): KVNamespace {
-  const cache = workerEnv.NEXT_INC_CACHE_KV;
+  const cache = workerEnv.KV_STORE;
 
   if (!cache) {
     throw new ActionError("INTERNAL_SERVER_ERROR", "Vinext cache KV binding is unavailable");

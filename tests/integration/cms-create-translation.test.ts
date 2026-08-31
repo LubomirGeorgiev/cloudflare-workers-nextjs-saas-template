@@ -28,11 +28,11 @@ const SHARED_SLUG = "create-translation-test-post";
 const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
 async function clearCmsLocaleRows(): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_tag"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_tag"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM user"),
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM cms_entry_tag"),
+    env.D1_DB.prepare("DELETE FROM cms_tag"),
+    env.D1_DB.prepare("DELETE FROM cms_entry"),
+    env.D1_DB.prepare("DELETE FROM user"),
   ]);
 }
 

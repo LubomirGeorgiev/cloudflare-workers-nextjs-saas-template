@@ -21,7 +21,7 @@ async function listPageCacheKeys(prefix: string): Promise<string[]> {
     let cursor: string | undefined;
 
     do {
-      const page = await workerEnv.NEXT_INC_CACHE_KV.list({ prefix, cursor });
+      const page = await workerEnv.KV_STORE.list({ prefix, cursor });
 
       keys.push(...page.keys.map(({ name }) => name));
       cursor = page.list_complete ? undefined : page.cursor;
@@ -71,6 +71,6 @@ export async function purgeMarkdownPageCache({
     batchSize: PAGE_CACHE_KV_BATCH_SIZE,
     // Own `.catch` per key: this runs after the publish committed, so one failed delete must not
     // fail the action or stop the other keys.
-    fn: (key) => workerEnv.NEXT_INC_CACHE_KV.delete(key).catch(() => undefined),
+    fn: (key) => workerEnv.KV_STORE.delete(key).catch(() => undefined),
   });
 }

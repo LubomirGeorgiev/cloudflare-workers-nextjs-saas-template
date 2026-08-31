@@ -7,4 +7,4 @@ const testEnv = env as Cloudflare.Env & {
   TEST_MIGRATIONS: D1Migration[];
 };
 
-await applyD1Migrations(testEnv.NEXT_TAG_CACHE_D1, testEnv.TEST_MIGRATIONS);
+await applyD1Migrations(testEnv.D1_DB, testEnv.TEST_MIGRATIONS);

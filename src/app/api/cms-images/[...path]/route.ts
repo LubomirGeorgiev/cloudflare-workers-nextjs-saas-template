@@ -13,7 +13,7 @@ export async function GET(
     try {
       const { env } = await getCloudflareContext();
 
-      if (!env.NEXT_INC_CACHE_R2_BUCKET) {
+      if (!env.R2_BUCKET) {
         return NextResponse.json(
           { error: "R2 bucket not configured" },
           { status: 500 }
@@ -56,7 +56,7 @@ export async function GET(
         );
       }
 
-      const object = await env.NEXT_INC_CACHE_R2_BUCKET.get(r2Key);
+      const object = await env.R2_BUCKET.get(r2Key);
 
       if (!object) {
         return NextResponse.json(

@@ -50,11 +50,11 @@ function uid(prefix: string): string {
 }
 
 async function clearRows(): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM team_trial_reservation"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM team_membership"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM team"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM user"),
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM team_trial_reservation"),
+    env.D1_DB.prepare("DELETE FROM team_membership"),
+    env.D1_DB.prepare("DELETE FROM team"),
+    env.D1_DB.prepare("DELETE FROM user"),
   ]);
 }
 

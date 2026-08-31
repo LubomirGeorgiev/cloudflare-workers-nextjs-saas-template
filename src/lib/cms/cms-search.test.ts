@@ -92,7 +92,7 @@ describe("CMS search", () => {
   test("opens a cache scope and rebuilds an empty docs search index", async () => {
     const { d1, statements } = mockSearchDatabase();
 
-    workerEnvMock.NEXT_TAG_CACHE_D1 = d1;
+    workerEnvMock.D1_DB = d1;
     getDBMock.mockReturnValue({
       query: {
         cmsEntryTable: {
@@ -159,7 +159,7 @@ describe("CMS search", () => {
   test("merges docs route hits ahead of CMS entry hits", async () => {
     const { d1 } = mockSearchDatabase();
 
-    workerEnvMock.NEXT_TAG_CACHE_D1 = d1;
+    workerEnvMock.D1_DB = d1;
     getDBMock.mockReturnValue({
       query: { cmsEntryTable: { findMany: vi.fn().mockResolvedValue([]) } },
     });

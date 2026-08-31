@@ -62,7 +62,7 @@ async function runBillingMaintenance(now: Date): Promise<void> {
 async function runOAuthMaintenance({ env, now }: { env: Env; now: Date }): Promise<void> {
   await runMaintenanceTask("OAuth maintenance", async () => {
     const claimed = await claimPacedRun({
-      kv: env.NEXT_INC_CACHE_KV,
+      kv: env.KV_STORE,
       task: OAUTH_MAINTENANCE_TASK,
       now,
       intervalMinutes: OAUTH_MAINTENANCE_INTERVAL_MINUTES,

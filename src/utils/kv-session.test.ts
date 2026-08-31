@@ -54,7 +54,7 @@ describe("updateAllSessionsOfUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     kv = createKV();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
     getUserTeamsWithPermissionsMock.mockResolvedValue([]);
     getDBMock.mockReturnValue({
       query: { teamMembershipTable: { findMany: findMembershipsMock } },
@@ -84,7 +84,7 @@ describe("refreshTeamMemberSessions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     kv = createKV();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
     getUserFromDBMock.mockImplementation(async (userId: string) => ({ id: userId }));
     getUserTeamsWithPermissionsMock.mockResolvedValue([]);
     getDBMock.mockReturnValue({

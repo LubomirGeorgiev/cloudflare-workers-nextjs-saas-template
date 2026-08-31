@@ -167,7 +167,7 @@ describe("handleMarkdownRequest", () => {
       request: new Request(
         `https://example.com${buildMarkdownPagePath({ pathname: PAGE_PATHNAME })}`,
       ),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: {
         waitUntil: (promise: Promise<unknown>) => {
           pending.push(promise);
@@ -228,7 +228,7 @@ describe("handleMarkdownRequest", () => {
           },
         },
       ),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: { waitUntil: () => undefined } as unknown as ExecutionContext,
       render,
     });
@@ -252,7 +252,7 @@ describe("handleMarkdownRequest", () => {
     ));
     const pending: Array<Promise<unknown>> = [];
     const sharedParams = {
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: {
         waitUntil: (promise: Promise<unknown>) => {
           pending.push(promise);
@@ -300,7 +300,7 @@ describe("handleMarkdownRequest", () => {
       request: new Request(
         `https://example.com${buildMarkdownPagePath({ pathname: "/", download: true })}`,
       ),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: { waitUntil: () => undefined } as unknown as ExecutionContext,
       render,
     });
@@ -327,7 +327,7 @@ describe("handleMarkdownRequest", () => {
       });
     });
     const sharedParams = {
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: { waitUntil: () => undefined } as unknown as ExecutionContext,
       render,
     };
@@ -372,7 +372,7 @@ describe("handleMarkdownRequest", () => {
       request: new Request(
         `https://example.com${buildMarkdownPagePath({ pathname: PAGE_PATHNAME })}`,
       ),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: {
         waitUntil: (promise: Promise<unknown>) => {
           pending.push(promise);
@@ -411,7 +411,7 @@ describe("handleMarkdownRequest", () => {
         `https://example.com${buildMarkdownPagePath({ pathname: PAGE_PATHNAME })}`,
         { method: "HEAD" },
       ),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: { waitUntil: () => undefined } as unknown as ExecutionContext,
       render,
     });
@@ -439,7 +439,7 @@ describe("handleMarkdownRequest", () => {
 
     const response = await handleMarkdownRequest({
       request: new Request("https://example.com/blog/launch.md", { method: "HEAD" }),
-      env: { NEXT_INC_CACHE_KV: kv } as unknown as Env,
+      env: { KV_STORE: kv } as unknown as Env,
       ctx: { waitUntil: () => undefined } as unknown as ExecutionContext,
       render,
     });

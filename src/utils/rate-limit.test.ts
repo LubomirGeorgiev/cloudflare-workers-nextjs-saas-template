@@ -61,7 +61,7 @@ describe("resetRateLimit", () => {
     const deleteMock = vi.fn(async (__key: string) => undefined);
     getCloudflareContextMock.mockResolvedValue({
       env: {
-        NEXT_INC_CACHE_KV: {
+        KV_STORE: {
           delete: deleteMock,
         },
       },
@@ -119,7 +119,7 @@ function mockPendingKvWrite() {
   };
   getCloudflareContextMock.mockResolvedValue({
     env: {
-      NEXT_INC_CACHE_KV: kv,
+      KV_STORE: kv,
     },
   });
 

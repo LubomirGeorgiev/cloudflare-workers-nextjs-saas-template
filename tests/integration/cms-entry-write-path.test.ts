@@ -69,21 +69,21 @@ const updatedContent = {
 };
 
 async function clearKV(): Promise<void> {
-  const keys = await env.NEXT_INC_CACHE_KV.list();
-  await Promise.all(keys.keys.map((key) => env.NEXT_INC_CACHE_KV.delete(key.name)));
+  const keys = await env.KV_STORE.list();
+  await Promise.all(keys.keys.map((key) => env.KV_STORE.delete(key.name)));
 }
 
 async function clearCmsRows(): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM scheduled_job"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_search"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_media"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_tag"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_version"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_media"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_tag"),
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM user"),
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM scheduled_job"),
+    env.D1_DB.prepare("DELETE FROM cms_entry_search"),
+    env.D1_DB.prepare("DELETE FROM cms_entry_media"),
+    env.D1_DB.prepare("DELETE FROM cms_entry_tag"),
+    env.D1_DB.prepare("DELETE FROM cms_entry_version"),
+    env.D1_DB.prepare("DELETE FROM cms_entry"),
+    env.D1_DB.prepare("DELETE FROM cms_media"),
+    env.D1_DB.prepare("DELETE FROM cms_tag"),
+    env.D1_DB.prepare("DELETE FROM user"),
   ]);
 }
 
@@ -133,7 +133,7 @@ async function seedCmsTag({ createdBy }: { createdBy: string }): Promise<string>
 }
 
 async function countSearchRows(entryId: string): Promise<number> {
-  const row = await env.NEXT_TAG_CACHE_D1
+  const row = await env.D1_DB
     .prepare("SELECT count(*) AS count FROM cms_entry_search WHERE entryId = ?")
     .bind(entryId)
     .first<{ count: number | string }>();
@@ -142,7 +142,7 @@ async function countSearchRows(entryId: string): Promise<number> {
 }
 
 async function getSearchSlug(entryId: string): Promise<string | null> {
-  const row = await env.NEXT_TAG_CACHE_D1
+  const row = await env.D1_DB
     .prepare("SELECT slug FROM cms_entry_search WHERE entryId = ?")
     .bind(entryId)
     .first<{ slug: string }>();

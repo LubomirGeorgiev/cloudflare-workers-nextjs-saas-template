@@ -5,7 +5,7 @@ export const VINEXT_CACHE_PREFIX = "vinext-cache";
 export const MARKDOWN_PAGE_CACHE_PREFIX = "md-page:";
 
 /**
- * Every key space app code owns in NEXT_INC_CACHE_KV, in one place.
+ * Every key space app code owns in KV_STORE, in one place.
  *
  * `OAUTH_KV` is a second binding onto this same namespace (the OAuth provider hardcodes the name),
  * so the only thing keeping the two apart is prefix disjointness. Key builders import from here

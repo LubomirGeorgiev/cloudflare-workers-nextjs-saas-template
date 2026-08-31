@@ -39,11 +39,11 @@ const OAUTH_GRANT_CACHE: PrincipalCache = {
 export async function getPrincipalCacheKV() {
   const { env } = await getCloudflareContext();
 
-  if (!env.NEXT_INC_CACHE_KV) {
+  if (!env.KV_STORE) {
     throw new Error("Can't connect to KV store");
   }
 
-  return env.NEXT_INC_CACHE_KV;
+  return env.KV_STORE;
 }
 
 function getSnapshotKey({ cache, id }: { cache: PrincipalCache; id: string }): string {

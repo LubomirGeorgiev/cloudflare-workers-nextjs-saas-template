@@ -42,9 +42,9 @@ const COMBINING_MARK_CASES: Array<{ language: string; text: string; query: strin
 ];
 
 async function indexBody(body: string): Promise<void> {
-  await env.NEXT_TAG_CACHE_D1.batch([
-    env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_search WHERE entryId = ?").bind(ROW_ID),
-    env.NEXT_TAG_CACHE_D1
+  await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM cms_entry_search WHERE entryId = ?").bind(ROW_ID),
+    env.D1_DB
       .prepare(
         "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)",
       )
@@ -55,7 +55,7 @@ async function indexBody(body: string): Promise<void> {
 /** The same `token*` clause `buildCmsSearchMatchQuery` sends. */
 async function ftsMatches(query: string): Promise<boolean> {
   const tokens = tokenizeSearchQuery(query);
-  const row = await env.NEXT_TAG_CACHE_D1
+  const row = await env.D1_DB
     .prepare("SELECT count(*) as count FROM cms_entry_search WHERE entryId = ? AND cms_entry_search MATCH ?")
     .bind(ROW_ID, tokens.map((token) => `${token}*`).join(" AND "))
     .first<{ count: number | string }>();
@@ -71,7 +71,7 @@ function inMemoryMatches({ text, query }: { text: string; query: string }): bool
 }
 
 beforeEach(async () => {
-  await env.NEXT_TAG_CACHE_D1.prepare("DELETE FROM cms_entry_search WHERE entryId = ?").bind(ROW_ID).run();
+  await env.D1_DB.prepare("DELETE FROM cms_entry_search WHERE entryId = ?").bind(ROW_ID).run();
 });
 
 test.each(FOLDING_CASES)("$language: both halves match $query", async ({ text, query }) => {

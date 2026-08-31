@@ -301,7 +301,8 @@ Cloudflare bindings are defined in `wrangler.jsonc` and exposed to server code t
 
 Bindings worth knowing about when you fork:
 
-- `OAUTH_KV` — a **second binding onto the same KV namespace** as `NEXT_INC_CACHE_KV`, not a new namespace. `@cloudflare/workers-oauth-provider` hardcodes the binding name, and its keys are prefix-scoped (see `OAUTH_RESERVED_KV_PREFIXES` in `src/constants.ts`), so nothing collides with the app's own keys. Point it at your own namespace id together with `NEXT_INC_CACHE_KV`.
+- `D1_DB`, `KV_STORE`, and `R2_BUCKET` — the app database, the shared KV namespace, and the media bucket. They were named `NEXT_TAG_CACHE_D1`, `NEXT_INC_CACHE_KV`, and `NEXT_INC_CACHE_R2_BUCKET` before; rename them in your own `wrangler.jsonc` when you merge this change. The resource ids do not change, so no data moves.
+- `OAUTH_KV` — a **second binding onto the same KV namespace** as `KV_STORE`, not a new namespace. `@cloudflare/workers-oauth-provider` hardcodes the binding name, and its keys are prefix-scoped (see `OAUTH_RESERVED_KV_PREFIXES` in `src/constants.ts`), so nothing collides with the app's own keys. Point it at your own namespace id together with `KV_STORE`.
 - The `global_fetch_strictly_public` compatibility flag is required by the OAuth provider's client-metadata fetches; leave it in place.
 
 ## Things to change and customize before deploying to production

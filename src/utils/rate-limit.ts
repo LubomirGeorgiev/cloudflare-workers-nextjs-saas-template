@@ -76,7 +76,7 @@ export async function checkRateLimit({
   const { env } = await getCloudflareContext();
   const now = Math.floor(Date.now() / 1000);
 
-  if (!env?.NEXT_INC_CACHE_KV) {
+  if (!env?.KV_STORE) {
     throw new Error("Can't connect to KV store");
   }
 
@@ -87,7 +87,7 @@ export async function checkRateLimit({
     now,
   });
 
-  const currentCount = parseInt((await env.NEXT_INC_CACHE_KV.get(windowKey)) || "0");
+  const currentCount = parseInt((await env.KV_STORE.get(windowKey)) || "0");
   const reset = (Math.floor(now / options.windowInSeconds) + 1) * options.windowInSeconds;
 
   if (currentCount >= options.limit) {
@@ -99,7 +99,7 @@ export async function checkRateLimit({
     };
   }
 
-  const writeCountPromise = env.NEXT_INC_CACHE_KV.put(windowKey, (currentCount + 1).toString(), {
+  const writeCountPromise = env.KV_STORE.put(windowKey, (currentCount + 1).toString(), {
     expirationTtl: options.windowInSeconds,
   });
 
@@ -131,12 +131,12 @@ export async function resetRateLimit({
 }): Promise<void> {
   const { env } = await getCloudflareContext();
 
-  if (!env?.NEXT_INC_CACHE_KV) {
+  if (!env?.KV_STORE) {
     throw new Error("Can't connect to KV store");
   }
 
   const now = Math.floor(Date.now() / 1000);
   const windowKey = buildWindowKey({ key, identifier, windowInSeconds, now });
 
-  await env.NEXT_INC_CACHE_KV.delete(windowKey);
+  await env.KV_STORE.delete(windowKey);
 }

@@ -12,7 +12,7 @@ import { openApiDocument } from "./tools/openapi-document.ts";
 import { getSchedulerQueueName } from "./tools/wrangler-config.ts";
 
 const VINEXT_VITE_CACHE_DIR = "node_modules/.vite-vinext";
-const VINEXT_CACHE_KV_BINDING = "NEXT_INC_CACHE_KV";
+const VINEXT_CACHE_KV_BINDING = "KV_STORE";
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
 const MARKDOWN_BUILD_ID =
   process.env.GITHUB_SHA?.trim() ||

@@ -40,12 +40,12 @@ export default defineConfig({
           TEST_MIGRATIONS: readNestedD1Migrations("src/db/migrations"),
         },
         d1Databases: {
-          NEXT_TAG_CACHE_D1: {
+          D1_DB: {
             id: "billing-integration-db",
           },
         },
         kvNamespaces: {
-          NEXT_INC_CACHE_KV: {
+          KV_STORE: {
             id: "billing-integration-kv",
           },
           // Mirrors wrangler.jsonc: a second binding onto the same namespace id, so the tests

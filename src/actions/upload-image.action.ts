@@ -98,7 +98,7 @@ export const uploadImageAction = actionClient
 
         const { env } = await getCloudflareContext();
 
-        if (!env.NEXT_INC_CACHE_R2_BUCKET) {
+        if (!env.R2_BUCKET) {
           throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
         }
 
@@ -128,7 +128,7 @@ export const uploadImageAction = actionClient
         }
 
         // Upload to R2
-        await env.NEXT_INC_CACHE_R2_BUCKET.put(r2Key, arrayBuffer, {
+        await env.R2_BUCKET.put(r2Key, arrayBuffer, {
           httpMetadata: {
             contentType: actualMimeType,
             cacheControl: "public, max-age=31536000, immutable",

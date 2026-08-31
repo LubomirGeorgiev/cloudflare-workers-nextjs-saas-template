@@ -65,7 +65,7 @@ describe("the grant snapshot contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     kv = createKV();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
   });
 
   test("an envelope round-trips, and keeps the stamp beside the payload", async () => {
@@ -169,7 +169,7 @@ describe("the API-key snapshot contract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     kv = createKV();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
   });
 
   // Stored bare, with no envelope and no stamp: these entries are invalidated by deletion, so a

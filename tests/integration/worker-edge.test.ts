@@ -207,7 +207,7 @@ describe("worker edge integration", () => {
   test("renders a public JSX page as Markdown and caches it in KV", async () => {
     // Derived, not literal: the key space and the build id are the two things under test.
     const cacheKey = `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:/terms`;
-    await env.NEXT_INC_CACHE_KV.delete(cacheKey);
+    await env.KV_STORE.delete(cacheKey);
     innerFetchMock.mockImplementationOnce(async (request: Request) => {
       expect(new URL(request.url).pathname).toBe("/terms");
       expect(request.headers.get("accept-language")).toBe("en");
@@ -243,7 +243,7 @@ describe("worker edge integration", () => {
 
     // The KV write is now a `waitUntil` task, so it settles after the response.
     await waitOnExecutionContext(ctx);
-    expect(await env.NEXT_INC_CACHE_KV.get(cacheKey)).not.toBeNull();
+    expect(await env.KV_STORE.get(cacheKey)).not.toBeNull();
 
     const cachedResponse = await worker.fetch(
       new Request("https://example.com/terms.md"),
@@ -259,7 +259,7 @@ describe("worker edge integration", () => {
   // neither a 500 nor a 404: it is a 406, and HTML must never leave under this URL.
   test("answers 406 with a problem document when the page cannot be converted", async () => {
     const cacheKey = `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:/privacy`;
-    await env.NEXT_INC_CACHE_KV.delete(cacheKey);
+    await env.KV_STORE.delete(cacheKey);
     const html = "<html><head><title>Privacy</title></head><body><p>No main element</p></body></html>";
     innerFetchMock.mockImplementationOnce(async () => {
       return new Response(html, {
@@ -284,7 +284,7 @@ describe("worker edge integration", () => {
     expect(body.status).toBe(MARKDOWN_UNAVAILABLE_STATUS);
 
     await waitOnExecutionContext(ctx);
-    expect(await env.NEXT_INC_CACHE_KV.get(cacheKey)).toBeNull();
+    expect(await env.KV_STORE.get(cacheKey)).toBeNull();
   });
 
   // The public API now sits behind the OAuth provider, which rejects credential-less requests

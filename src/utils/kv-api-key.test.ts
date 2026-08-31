@@ -100,7 +100,7 @@ describe("API key principal from a cached snapshot", () => {
     vi.clearAllMocks();
     store.clear();
     resetApiKeyUsageThrottleForTests();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
   });
 
   test("carries the granted scopes and the key's own audience", async () => {
@@ -142,7 +142,7 @@ describe("API key usage stamping", () => {
     vi.clearAllMocks();
     store.clear();
     resetApiKeyUsageThrottleForTests();
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
   });
 
   afterEach(() => {

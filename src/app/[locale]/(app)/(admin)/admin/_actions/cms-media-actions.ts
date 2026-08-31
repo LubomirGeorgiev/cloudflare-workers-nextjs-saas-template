@@ -299,7 +299,7 @@ export const deleteCmsMediaAction = actionClient
       const db = getDB();
       const { env } = await getCloudflareContext();
 
-      if (!env.NEXT_INC_CACHE_R2_BUCKET) {
+      if (!env.R2_BUCKET) {
         throw new ActionError("INTERNAL_SERVER_ERROR", "R2 bucket not configured");
       }
 
@@ -326,7 +326,7 @@ export const deleteCmsMediaAction = actionClient
       }
 
       // Delete from R2
-      await env.NEXT_INC_CACHE_R2_BUCKET.delete(media.bucketKey);
+      await env.R2_BUCKET.delete(media.bucketKey);
 
       // Delete from database
       await db

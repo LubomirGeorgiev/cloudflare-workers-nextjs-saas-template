@@ -22,7 +22,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("cloudflare:workers", () => ({
   env: {
-    NEXT_INC_CACHE_KV: {
+    KV_STORE: {
       delete: kvDeleteMock,
       list: async ({ prefix }: { prefix: string }) => ({
         keys: Array.from(kvStore)

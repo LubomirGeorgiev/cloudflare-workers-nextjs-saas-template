@@ -27,7 +27,7 @@ describe("WebAuthn challenge storage", () => {
     vi.clearAllMocks();
     getCloudflareContextMock.mockResolvedValue({
       env: {
-        NEXT_INC_CACHE_KV: kv,
+        KV_STORE: kv,
       },
     });
   });

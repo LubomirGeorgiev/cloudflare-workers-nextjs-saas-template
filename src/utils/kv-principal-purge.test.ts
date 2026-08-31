@@ -83,7 +83,7 @@ describe("purging one user's bearer snapshots", () => {
     vi.clearAllMocks();
     kv = createKV();
     stubApiKeyHashes([]);
-    getCloudflareContextMock.mockResolvedValue({ env: { NEXT_INC_CACHE_KV: kv } });
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
   });
 
   // The reason invalidation replaced enumeration on the grant side: the session refresh runs on

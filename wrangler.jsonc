@@ -79,7 +79,7 @@
     ],
     "d1_databases": [
         {
-            "binding": "NEXT_TAG_CACHE_D1",
+            "binding": "D1_DB",
             "database_name": "cloudflare-workers-nextjs-saas",
             "database_id": "db968793-55f4-481e-b281-7e1907a775b1",
             "migrations_dir": "src/db/migrations",
@@ -88,7 +88,7 @@
     ],
     "kv_namespaces": [
         {
-            "binding": "NEXT_INC_CACHE_KV",
+            "binding": "KV_STORE",
             "id": "e922d6e22f4a46b6a92be653e90c6ca1"
         },
         // Second binding onto the SAME namespace: @cloudflare/workers-oauth-provider hardcodes the
@@ -112,7 +112,7 @@
     ],
     "r2_buckets": [
         {
-            "binding": "NEXT_INC_CACHE_R2_BUCKET",
+            "binding": "R2_BUCKET",
             "bucket_name": "cloudflare-workers-nextjs-saas-template"
         }
     ]

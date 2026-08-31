@@ -17,7 +17,7 @@ import {
 /** The buckets an unauthenticated edge caller can be charged against. */
 export type ApiRateLimitName = keyof typeof RATE_LIMITS;
 
-// The app's KV limiter (`rate-limit:` prefix on NEXT_INC_CACHE_KV). Two buckets, because the two
+// The app's KV limiter (`rate-limit:` prefix on KV_STORE). Two buckets, because the two
 // failure modes are different: a valid credential hammering the API, and an anonymous client
 // spraying tokens at it. `consumeRateLimit` owns the prod/test-mode bypass and the 429 it throws.
 const UNKNOWN_IP_KEY = "unknown-ip";

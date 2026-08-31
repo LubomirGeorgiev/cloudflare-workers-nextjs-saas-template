@@ -59,7 +59,7 @@ export interface KVSession {
 
 async function getKV() {
   const { env } = await getCloudflareContext();
-  return env.NEXT_INC_CACHE_KV;
+  return env.KV_STORE;
 }
 
 export interface CreateKVSessionParams extends Omit<KVSession, "id" | "createdAt" | "expiresAt" | "selectedTeam"> {

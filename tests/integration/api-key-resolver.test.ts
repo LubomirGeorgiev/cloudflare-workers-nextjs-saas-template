@@ -107,7 +107,7 @@ async function seedTeam(): Promise<string> {
 }
 
 function readSnapshot(keyHash: string) {
-  return env.NEXT_INC_CACHE_KV.get(`apikey:${keyHash}`);
+  return env.KV_STORE.get(`apikey:${keyHash}`);
 }
 
 beforeEach(() => {
@@ -115,7 +115,7 @@ beforeEach(() => {
 });
 
 test("a malformed token is rejected without any storage lookup", async () => {
-  const kvGet = vi.spyOn(env.NEXT_INC_CACHE_KV, "get");
+  const kvGet = vi.spyOn(env.KV_STORE, "get");
 
   expect(await getApiKeyPrincipal("garbage")).toBeNull();
   expect(await getApiKeyPrincipal("")).toBeNull();
@@ -211,7 +211,7 @@ test("a snapshot from an older cache version is ignored and rebuilt", async () =
   const userId = await seedUser();
   const key = await seedKey({ userId });
 
-  await env.NEXT_INC_CACHE_KV.put(
+  await env.KV_STORE.put(
     `apikey:${key.hash}`,
     JSON.stringify({
       version: CURRENT_API_KEY_CACHE_VERSION - 1,
@@ -284,7 +284,7 @@ test("an expired snapshot is discarded and rebuilt from D1", async () => {
   await getApiKeyPrincipal(key.secret);
   const snapshot = JSON.parse((await readSnapshot(key.hash))!);
 
-  await env.NEXT_INC_CACHE_KV.put(
+  await env.KV_STORE.put(
     `apikey:${key.hash}`,
     JSON.stringify({ ...snapshot, expiresAt: Date.now() - 1, keyId: "akey_stale" }),
     { expirationTtl: API_KEY_CACHE_TTL_SECONDS },

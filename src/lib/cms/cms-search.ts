@@ -127,11 +127,11 @@ export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion
 }
 
 async function getSearchDatabase(): Promise<D1Database> {
-  if (!workerEnv.NEXT_TAG_CACHE_D1) {
+  if (!workerEnv.D1_DB) {
     throw new Error("D1 database not found");
   }
 
-  return workerEnv.NEXT_TAG_CACHE_D1;
+  return workerEnv.D1_DB;
 }
 
 async function optimizeCmsSearchIndex(d1: D1Database): Promise<void> {
