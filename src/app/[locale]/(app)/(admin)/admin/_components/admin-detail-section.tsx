@@ -2,8 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface AdminUserSectionProps {
+interface AdminDetailSectionProps {
   icon: LucideIcon;
   title: string;
   description: string;
@@ -13,16 +14,17 @@ interface AdminUserSectionProps {
   children: ReactNode;
 }
 
-// The card chrome the three revocable-credential sections repeat around their tables; only the
-// heading and the table itself differ, so only those are props.
-export function AdminUserSection({
+// The card chrome every admin detail page repeats around a table — the user page's credential
+// sections and the team page's members, invitations, and keys. Only the heading and the table
+// itself differ, so only those are props.
+export function AdminDetailSection({
   icon: Icon,
   title,
   description,
   emptyMessage,
   isEmpty,
   children,
-}: AdminUserSectionProps) {
+}: AdminDetailSectionProps) {
   return (
     <Card>
       <CardHeader>
@@ -36,5 +38,22 @@ export function AdminUserSection({
         {isEmpty ? <p className="text-sm text-muted-foreground">{emptyMessage}</p> : children}
       </CardContent>
     </Card>
+  );
+}
+
+/** One card per section, so the fallback matches the shape that replaces it. */
+export function AdminDetailSectionsSkeleton() {
+  return (
+    <div className="grid gap-6">
+      {[0, 1, 2].map((index) => (
+        <Card key={index}>
+          <CardContent className="space-y-3 py-6">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-full max-w-xl" />
+            <Skeleton className="h-24 w-full" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }

@@ -219,12 +219,26 @@ function logRenameFollowUpFailure(step: string) {
   };
 }
 
-// Renaming deliberately leaves `slug` alone: the slug is the team's URL, and regenerating it
-// would break bookmarks, shared links, and invitation emails already in flight.
-export async function renameTeam(
-  { teamId, name }: { teamId: string; name: string },
-): Promise<TeamSummary> {
-  const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS);
+/** The renamed row, as every rename caller needs it. */
+interface RenamedTeam {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  avatarUrl: string | null;
+  stripeCustomerId: string | null;
+}
+
+// The rename itself, minus the team-permission check: an admin acting from the admin panel is
+// authorized by their system role, not by a membership they do not have. Same split, and for the
+// same reason, as `deleteTeamMembership` in `./team-members.ts`.
+//
+// Carries no authorization of its own: only call it behind one.
+// `actingUserId` is the member doing the rename, or null on the admin path, where the acting staff
+// user is in none of the sessions this rename touches.
+export async function applyTeamRename(
+  { teamId, name, actingUserId }: { teamId: string; name: string; actingUserId: string | null },
+): Promise<RenamedTeam> {
   const db = getDB();
 
   const [renamedTeam] = await db
@@ -240,22 +254,43 @@ export async function renameTeam(
       stripeCustomerId: teamTable.stripeCustomerId,
     });
 
-  // Defensive, not the primary path: requireTeamPermission already rejects an unknown team with
-  // FORBIDDEN (no membership row can exist for it), so this only fires when the team is deleted
-  // in the race window between that check and this update.
+  // For the member path this is defensive, not the primary path: requireTeamPermission already
+  // rejects an unknown team with FORBIDDEN (no membership row can exist for it), so it only fires
+  // when the team is deleted in the race window. The admin path has no such check ahead of it, so
+  // this is where an unknown team id is refused.
   if (!renamedTeam) {
     throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFound" });
   }
 
-  // D1 has no transactions, so the rename above is already durable: none of these independent
-  // follow-ups may fail it. The acting user's sessions refresh so their own team switcher updates
-  // immediately; every other member's cached name and Stripe's copy catch up out of band.
-  await Promise.all([
-    updateAllSessionsOfUser(session.userId).catch(logRenameFollowUpFailure("acting user sessions")),
+  // D1 has no transactions, so the rename above is already durable: no follow-up may fail it.
+  // Every member's cached name and Stripe's copy catch up out of band.
+  const followUps: Promise<unknown>[] = [
     syncStripeCustomerName({ stripeCustomerId: renamedTeam.stripeCustomerId, name })
       .catch(logRenameFollowUpFailure("Stripe customer sync")),
     enqueueTeamSessionsRefresh(teamId).catch(logRenameFollowUpFailure("team sessions refresh enqueue")),
-  ]);
+  ];
+
+  // The acting user's own sessions refresh so their team switcher updates immediately, rather than
+  // waiting for the queued refresh every other member gets.
+  if (actingUserId) {
+    followUps.push(
+      updateAllSessionsOfUser(actingUserId).catch(logRenameFollowUpFailure("acting user sessions")),
+    );
+  }
+
+  await Promise.all(followUps);
+
+  return renamedTeam;
+}
+
+// Renaming deliberately leaves `slug` alone: the slug is the team's URL, and regenerating it
+// would break bookmarks, shared links, and invitation emails already in flight.
+export async function renameTeam(
+  { teamId, name }: { teamId: string; name: string },
+): Promise<TeamSummary> {
+  const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS);
+
+  const renamedTeam = await applyTeamRename({ teamId, name, actingUserId: session.userId });
 
   // The same summary shape `createTeam` and `getUserTeams` return, so no caller has to re-read the
   // team and patch the new name over a stale listing. The membership is the request-cached one

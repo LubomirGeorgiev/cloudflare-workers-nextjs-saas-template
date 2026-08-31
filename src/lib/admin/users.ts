@@ -123,6 +123,71 @@ export async function getAdminUserSummary({ userId }: { userId: string }): Promi
   return toSummary(user);
 }
 
+/** Adds the columns only the one-user page shows to the listing projection. */
+const ADMIN_USER_DETAIL_COLUMNS = {
+  ...ADMIN_USER_COLUMNS,
+  avatar: true,
+  updatedAt: true,
+  signUpIpAddress: true,
+  googleAccountId: true,
+  passwordHash: true,
+} as const;
+
+const ADMIN_PASSKEY_COLUMNS = {
+  id: true,
+  aaguid: true,
+  counter: true,
+  userAgent: true,
+  createdAt: true,
+} as const;
+
+interface AdminUserDetail {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  avatar: string | null;
+  role: UserRole;
+  emailVerified: Date | null;
+  /** The hash itself never leaves this module; the page only reports whether one is set. */
+  hasPassword: boolean;
+  googleAccountId: string | null;
+  signUpIpAddress: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lastActiveAt: Date | null;
+  passkeys: AdminUserPasskey[];
+}
+
+export interface AdminUserPasskey {
+  id: string;
+  aaguid: string | null;
+  counter: number;
+  userAgent: string | null;
+  createdAt: Date;
+}
+
+export async function getAdminUserDetail({ userId }: { userId: string }): Promise<AdminUserDetail> {
+  const db = getDB();
+
+  const [user, passkeys] = await Promise.all([
+    db.query.userTable.findFirst({ where: { id: userId }, columns: ADMIN_USER_DETAIL_COLUMNS }),
+    db.query.passKeyCredentialTable.findMany({
+      where: { userId },
+      columns: ADMIN_PASSKEY_COLUMNS,
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  if (!user) {
+    throw new ActionError("NOT_FOUND", "User not found");
+  }
+
+  const { passwordHash, ...rest } = user;
+
+  return { ...rest, hasPassword: Boolean(passwordHash), passkeys };
+}
+
 function logDemotionCleanupFailure(step: string) {
   return (error: unknown) => {
     console.error(`Role demotion cleanup failed: ${step}`, error);

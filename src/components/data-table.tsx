@@ -3,6 +3,7 @@
 import * as React from "react"
 import {
   ColumnDef,
+  RowSelectionState,
   SortingState,
   VisibilityState,
   flexRender,
@@ -55,6 +56,12 @@ interface DataTableProps<TData, TValue> {
   filterComponents?: React.ReactNode
   // Hovering one grouped row highlights visible siblings only when 2+ rows share its key.
   getRowGroupKey?: (row: TData) => string | null | undefined
+  /**
+   * Opt-in row selection. Pass a slot and the table owns the selection, then renders the slot
+   * above itself while any row is selected. The selection covers the rows on screen only: it
+   * resets whenever `data` changes, so it never outlives the page it was made on.
+   */
+  renderSelectionToolbar?: (props: { selectedRows: TData[]; clearSelection: () => void }) => React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -73,11 +80,22 @@ export function DataTable<TData, TValue>({
   excludeClickableColumns = ["actions"],
   filterComponents,
   getRowGroupKey,
+  renderSelectionToolbar,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [hoveredGroupKey, setHoveredGroupKey] = React.useState<string | null>(null)
+
+  // A selection key is a row index on the page it was made on, so a new page must start empty.
+  // Guarded on a non-empty selection, or an unstable `data` reference would re-render forever.
+  const selectedDataRef = React.useRef(data)
+  if (selectedDataRef.current !== data) {
+    selectedDataRef.current = data
+    if (Object.keys(rowSelection).length > 0) {
+      setRowSelection({})
+    }
+  }
 
   // Count how many visible rows share each group key, so we only treat a key as a
   // "group" (worth cross-highlighting) when siblings actually exist on this page.
@@ -115,6 +133,11 @@ export function DataTable<TData, TValue>({
       },
     },
   })
+
+  const clearSelection = React.useCallback(() => setRowSelection({}), [])
+  const selectedRows = renderSelectionToolbar
+    ? table.getSelectedRowModel().rows.map((row) => row.original)
+    : []
 
   const rowsPerPageSelect = (
     <div className="flex items-center space-x-2">
@@ -174,6 +197,9 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
+      {renderSelectionToolbar && selectedRows.length > 0
+        ? renderSelectionToolbar({ selectedRows, clearSelection })
+        : null}
       <div className="flex items-center py-4">
         {filterComponents ? (
           <>
@@ -323,8 +349,6 @@ export function DataTable<TData, TValue>({
             </Button>
           </div>
         </div>
-      </div>
-      <div className="flex items-center justify-between">
       </div>
     </div>
   )

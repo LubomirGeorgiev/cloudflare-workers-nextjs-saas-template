@@ -1,4 +1,10 @@
-import { ID_MAX_LENGTH, SLUG_MAX_LENGTH, TOKEN_MAX_LENGTH } from "@/constants";
+import {
+  DEFAULT_ADMIN_TABLE_PAGE_SIZE,
+  ID_MAX_LENGTH,
+  MAX_ADMIN_TABLE_PAGE_SIZE,
+  SLUG_MAX_LENGTH,
+  TOKEN_MAX_LENGTH,
+} from "@/constants";
 import { minMaxString, v, validationKey } from "@/lib/validation";
 
 // Field rules shared by more than one schema. A rule stated once here cannot drift between the
@@ -36,3 +42,16 @@ export function sessionIdField() {
 export const teamIdParamSchema = v.object({
   teamId: teamIdField(),
 });
+
+/**
+ * The page/pageSize pair every admin listing schema takes. Spread it into the object; the bounds
+ * are the DataTable's own page-size options, so a hand-edited request cannot ask D1 for more rows
+ * than the UI can ever show.
+ */
+export const adminTablePaginationFields = {
+  page: v.optional(v.pipe(v.number(), v.minValue(1)), 1),
+  pageSize: v.optional(
+    v.pipe(v.number(), v.minValue(1), v.maxValue(MAX_ADMIN_TABLE_PAGE_SIZE)),
+    DEFAULT_ADMIN_TABLE_PAGE_SIZE,
+  ),
+};

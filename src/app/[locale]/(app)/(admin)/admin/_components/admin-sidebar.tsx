@@ -2,7 +2,7 @@
 
 import { type ComponentType } from "react"
 import type { Route } from 'next'
-import { Bug, CalendarClock, FileText, Image, PanelLeft, Plug, Shield, Tags, Terminal, Users } from "lucide-react"
+import { Bug, Building2, CalendarClock, FileText, Image, PanelLeft, Plug, Shield, Tags, Terminal, Users } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -51,6 +51,11 @@ const adminNavItems: NavMainItem[] = [
     url: "/admin",
     icon: Users,
     isActive: true,
+  },
+  {
+    title: "Teams",
+    url: "/admin/teams",
+    icon: Building2,
   },
   {
     title: "Debug",

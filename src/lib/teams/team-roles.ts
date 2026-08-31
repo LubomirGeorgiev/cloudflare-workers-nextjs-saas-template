@@ -14,6 +14,11 @@ import { requireTeamPermission } from "@/utils/team-auth";
 // a caller reading a member's `roleId: "owner"` still needs to find it here.
 const NON_ASSIGNABLE_SYSTEM_ROLES: readonly string[] = [SYSTEM_ROLES_ENUM.OWNER];
 
+// D1 caps bound parameters at SQLite's 100 per statement, and a role id costs one. A listing spans
+// as many distinct custom roles as it has memberships, and nothing bounds that, so the lookup
+// chunks rather than trust a ceiling no caller promised.
+const ROLE_ID_CHUNK_SIZE = 50;
+
 interface TeamRoleSummary {
   roleId: string;
   name: string | null;
@@ -53,4 +58,52 @@ export async function listTeamRoles(teamId: string): Promise<TeamRoleSummary[]> 
       permissions: filterActiveTeamPermissions(role.permissions),
     })),
   ];
+}
+
+interface RoleBearingMembership {
+  roleId: string;
+  isSystemRole: boolean;
+  teamId: string;
+}
+
+/**
+ * The custom-role name lookup every membership listing needs. Custom role ids are per-team rows,
+ * so their names take a second read; system roles carry no stored name and are labelled from the
+ * id at the render site, which is why this returns null for them.
+ *
+ * One read for a whole listing, not one per membership. Carries no authorization: only call it
+ * behind one.
+ */
+export async function createCustomRoleNameResolver(
+  memberships: RoleBearingMembership[],
+): Promise<(membership: RoleBearingMembership) => string | null> {
+  const customRoleIds = Array.from(new Set(
+    memberships.filter((membership) => !membership.isSystemRole).map((membership) => membership.roleId),
+  ));
+
+  const db = getDB();
+  const customRoleById = new Map<string, { id: string; name: string; teamId: string }>();
+
+  for (let start = 0; start < customRoleIds.length; start += ROLE_ID_CHUNK_SIZE) {
+    const roles = await db.query.teamRoleTable.findMany({
+      where: { id: { in: customRoleIds.slice(start, start + ROLE_ID_CHUNK_SIZE) } },
+      columns: { id: true, name: true, teamId: true },
+    });
+
+    for (const role of roles) {
+      customRoleById.set(role.id, role);
+    }
+  }
+
+  return (membership) => {
+    if (membership.isSystemRole) {
+      return null;
+    }
+
+    // A custom role names a membership only on its own team. A roleId that points at another
+    // team's role has no name here, the same rule `resolveMembershipPermissions` applies.
+    const role = customRoleById.get(membership.roleId);
+
+    return role && role.teamId === membership.teamId ? role.name : null;
+  };
 }

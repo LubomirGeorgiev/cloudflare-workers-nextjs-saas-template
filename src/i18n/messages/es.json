@@ -2,7 +2,8 @@
   "Client": {
     "Common": {
       "cancel": "Cancelar",
-      "copied": "Copiado"
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar al portapapeles"
     },
     "ApiScopes": {
       "profile:read": "Leer el perfil, las sesiones y las preferencias de tu cuenta.",
@@ -1043,12 +1044,10 @@
         "toastDeleteError": "No se pudo eliminar la app"
       },
       "UserDetail": {
-        "loadError": "No se pudieron cargar las apps conectadas, las claves de API ni los equipos de este usuario",
         "columnAction": "Acción",
         "columnScopes": "Permisos",
         "revoke": "Revocar",
         "revoking": "Revocando...",
-        "never": "Nunca",
         "connectedAppsTitle": "Apps conectadas ({count})",
         "connectedAppsDescription": "Concesiones de OAuth que este usuario ha aprobado. Al revocar una se elimina la concesión y todos los tokens emitidos a partir de ella.",
         "connectedAppsEmpty": "Este usuario no ha conectado ninguna app",
@@ -1066,15 +1065,8 @@
         "apiKeysTitle": "Claves de API ({count})",
         "apiKeysDescription": "Claves activas de este usuario, personales y de equipo. Una clave revocada deja de funcionar en todas partes en un plazo de {minutes} minutos.",
         "apiKeysEmpty": "Este usuario no tiene claves de API activas",
-        "columnName": "Nombre",
-        "columnKey": "Clave",
         "columnTeam": "Equipo",
-        "columnCreated": "Creada",
-        "columnLastUsed": "Último uso",
-        "columnExpires": "Caduca",
         "personalKey": "Personal",
-        "revokeKeyTitle": "Revocar clave de API",
-        "revokeKeyDescription": "{name} dejará de funcionar y no se puede restaurar. Todo lo que la use necesitará una clave nueva.",
         "toastRevokeKeySuccess": "Clave de API revocada",
         "toastRevokeKeyError": "No se pudo revocar la clave de API",
         "teamsTitle": "Equipos ({count})",

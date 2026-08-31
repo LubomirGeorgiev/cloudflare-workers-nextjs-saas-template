@@ -2,7 +2,8 @@
   "Client": {
     "Common": {
       "cancel": "Cancel",
-      "copied": "Copied"
+      "copied": "Copied",
+      "copyFailed": "Could not copy to the clipboard"
     },
     "ApiScopes": {
       "profile:read": "Read your account profile, sessions, and preferences.",
@@ -1043,12 +1044,10 @@
         "toastDeleteError": "Failed to delete the app"
       },
       "UserDetail": {
-        "loadError": "Failed to load this user's connected apps, API keys, and teams",
         "columnAction": "Action",
         "columnScopes": "Scopes",
         "revoke": "Revoke",
         "revoking": "Revoking...",
-        "never": "Never",
         "connectedAppsTitle": "Connected apps ({count})",
         "connectedAppsDescription": "OAuth grants this user has approved. Revoking one deletes the grant and every token minted from it.",
         "connectedAppsEmpty": "This user has not connected any apps",
@@ -1066,15 +1065,8 @@
         "apiKeysTitle": "API keys ({count})",
         "apiKeysDescription": "Live keys this user owns, personal and team-scoped. A revoked key stops working everywhere within {minutes} minutes.",
         "apiKeysEmpty": "This user has no active API keys",
-        "columnName": "Name",
-        "columnKey": "Key",
         "columnTeam": "Team",
-        "columnCreated": "Created",
-        "columnLastUsed": "Last used",
-        "columnExpires": "Expires",
         "personalKey": "Personal",
-        "revokeKeyTitle": "Revoke API key",
-        "revokeKeyDescription": "{name} stops working and cannot be restored. Anything using it has to be issued a new key.",
         "toastRevokeKeySuccess": "API key revoked",
         "toastRevokeKeyError": "Failed to revoke the API key",
         "teamsTitle": "Teams ({count})",

@@ -20,7 +20,7 @@ import {
 import type { ConnectedApp } from "@/lib/oauth/connected-apps";
 import { revokeUserConnectedAppAction } from "../../_actions/user-credentials-actions";
 import { RelativeDateCell } from "../relative-date-cell";
-import { AdminUserSection } from "./admin-user-section";
+import { AdminDetailSection } from "../admin-detail-section";
 
 export function UserConnectedApps({ userId, apps }: { userId: string; apps: ConnectedApp[] }) {
   const t = useTranslations("Client.Admin.UserDetail");
@@ -37,7 +37,7 @@ export function UserConnectedApps({ userId, apps }: { userId: string; apps: Conn
   });
 
   return (
-    <AdminUserSection
+    <AdminDetailSection
       icon={Plug}
       title={t("connectedAppsTitle", { count: apps.length })}
       description={t("connectedAppsDescription")}
@@ -99,6 +99,6 @@ export function UserConnectedApps({ userId, apps }: { userId: string; apps: Conn
           ))}
         </TableBody>
       </Table>
-    </AdminUserSection>
+    </AdminDetailSection>
   );
 }

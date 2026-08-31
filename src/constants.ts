@@ -153,6 +153,7 @@ export const ADMIN_OAUTH_APPS_PATH = "/admin/oauth-apps" satisfies Route;
 /** Staff-only reference for the internal admin API and MCP endpoints, and where their keys are minted. */
 export const ADMIN_API_DOCS_PATH = "/admin/api" satisfies Route;
 export const ADMIN_USERS_PATH = "/admin/users" satisfies Route;
+export const ADMIN_TEAMS_PATH = "/admin/teams" satisfies Route;
 // Gemma 4 26B (A4B, instruction-tuned): chat-completions model used for SEO descriptions and CMS
 export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfies keyof AiModels;
 

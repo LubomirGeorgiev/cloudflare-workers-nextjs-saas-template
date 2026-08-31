@@ -2,18 +2,10 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import type { InferSafeActionFnResult } from "next-safe-action"
-import { MoreHorizontal } from "lucide-react"
+import { CopyActionsCell } from "../copy-actions-cell"
 import { RelativeDateCell } from "../relative-date-cell"
 import type { getUsersAction } from "../../_actions/get-users.action"
 
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 
 // Derive the row model from the action's return DTO so the table stays in sync.
@@ -66,32 +58,13 @@ export const columns: ColumnDef<User>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const user = row.original
-
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button variant="ghost" className="h-8 w-8 p-0" />}
-          >
-              <span className="sr-only">Open menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.id)}
-            >
-              Copy user ID
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(user.email || "")}
-            >
-              Copy email
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
+    cell: ({ row }) => (
+      <CopyActionsCell
+        actions={[
+          { label: "Copy user ID", value: row.original.id },
+          { label: "Copy email", value: row.original.email || "" },
+        ]}
+      />
+    ),
   },
 ]

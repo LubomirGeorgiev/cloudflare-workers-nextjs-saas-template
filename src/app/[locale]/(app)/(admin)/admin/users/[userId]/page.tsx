@@ -1,10 +1,10 @@
-import { getUserData } from "../../_actions/get-user.action"
 import { cache, Suspense } from "react"
-import {
-  UserCredentialsSection,
-  UserCredentialsSkeleton,
-} from "../../_components/users/user-credentials-section"
+import { AdminDetailSectionsSkeleton } from "../../_components/admin-detail-section"
+import { UserCredentialsSection } from "../../_components/users/user-credentials-section"
 import { PageHeader } from "@/components/page-header"
+import { ActionError } from "@/lib/action-error"
+import { getAdminUserDetail, type AdminUserPasskey } from "@/lib/admin/users"
+import { requireAdmin } from "@/utils/auth"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,32 +22,38 @@ import {
   Globe,
   Key
 } from "lucide-react"
-import type { InferSelectModel } from "drizzle-orm"
-import type { passKeyCredentialTable } from "@/db/schema"
-
-
-type PasskeyCredential = InferSelectModel<typeof passKeyCredentialTable>
 
 interface UserDetailPageProps {
   params: Promise<{ userId: string }>
 }
 
-const getCachedUserData = cache(async (userId: string) => {
-  return getUserData({ userId })
+// generateMetadata and the render both need the user, and both run in the same RSC pass. Only a
+// missing user resolves to null: any other failure (a D1 blip) has to reach the error boundary
+// rather than render a confident 404.
+const readUserDetail = cache(async (userId: string) => {
+  await requireAdmin()
+
+  try {
+    return await getAdminUserDetail({ userId })
+  } catch (error) {
+    if (error instanceof ActionError && error.code === "NOT_FOUND") {
+      return null
+    }
+
+    throw error
+  }
 })
 
 export async function generateMetadata({ params }: UserDetailPageProps): Promise<Metadata> {
   const { userId } = await params
 
-  const { data, serverError } = await getCachedUserData(userId)
-  if (serverError || !data) {
+  const user = await readUserDetail(userId)
+  if (!user) {
     return {
       title: "User Not Found",
       description: "The requested user could not be found",
     }
   }
-
-  const { user } = data
 
   return {
     title: `${user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email} - User Details`,
@@ -58,14 +64,14 @@ export async function generateMetadata({ params }: UserDetailPageProps): Promise
 export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const { userId } = await params
 
-  const { data, serverError } = await getCachedUserData(userId)
-  if (serverError || !data) {
+  const user = await readUserDetail(userId)
+  if (!user) {
     notFound()
   }
 
-  const { user, passkeys } = data
+  const { passkeys } = user
 
-  const displayName = user?.firstName && user?.lastName
+  const displayName = user.firstName && user.lastName
     ? `${user.firstName} ${user.lastName}`
     : user.email
 
@@ -173,7 +179,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Password</label>
-                <p className="text-sm">{user.passwordHash ? "Set" : "Not set"}</p>
+                <p className="text-sm">{user.hasPassword ? "Set" : "Not set"}</p>
               </div>
               {user.googleAccountId && (
                 <div>
@@ -206,7 +212,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                 <p className="text-sm text-muted-foreground">No passkeys configured</p>
               ) : (
                 <div className="space-y-3">
-                  {passkeys.map((passkey: PasskeyCredential) => (
+                  {passkeys.map((passkey: AdminUserPasskey) => (
                     <div key={passkey.id} className="border rounded-lg p-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">Passkey</span>
@@ -241,7 +247,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
           </Card>
         </div>
 
-        <Suspense fallback={<UserCredentialsSkeleton />}>
+        <Suspense fallback={<AdminDetailSectionsSkeleton />}>
           <UserCredentialsSection userId={user.id} />
         </Suspense>
       </div>

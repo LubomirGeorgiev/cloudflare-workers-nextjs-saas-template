@@ -11,9 +11,9 @@ import {
   type ConnectedApp,
 } from "@/lib/oauth/connected-apps";
 import { deleteTeamMembership } from "@/lib/teams/team-members";
+import { createCustomRoleNameResolver } from "@/lib/teams/team-roles";
 import { requireAdmin } from "@/utils/auth";
 import { deleteApiKeyCache } from "@/utils/kv-api-key";
-import { resolveMembershipPermissions } from "@/utils/team-membership";
 
 // Same projection as the owner-facing list plus the team a key is scoped to: an admin looking at
 // one user needs to see personal and team keys side by side, which no single user surface shows.
@@ -102,32 +102,14 @@ async function listUserTeamMemberships(userId: string): Promise<AdminTeamMembers
     with: { team: { columns: { name: true, slug: true } } },
   });
 
-  // Custom role ids are per-team rows, so their names need a second read; system roles carry no
-  // stored name and are labelled from the id by the caller.
-  const customRoleIds = Array.from(new Set(
-    memberships.filter((membership) => !membership.isSystemRole).map((membership) => membership.roleId),
-  ));
+  const rows = memberships.map((membership) => ({
+    ...membership,
+    isSystemRole: Boolean(membership.isSystemRole),
+  }));
+  const resolveRoleName = await createCustomRoleNameResolver(rows);
 
-  const customRoles = customRoleIds.length === 0
-    ? []
-    : await db.query.teamRoleTable.findMany({
-        where: { id: { in: customRoleIds } },
-        columns: { id: true, name: true, teamId: true, permissions: true },
-      });
-
-  const customRoleById = new Map(customRoles.map((role) => [role.id, role]));
-
-  return memberships.map((membership) => {
-    const isSystemRole = Boolean(membership.isSystemRole);
-
-    // resolveMembershipPermissions enforces that a custom role belongs to this membership's team;
-    // a roleId pointing at another team's role resolves to no name.
-    const { roleName } = resolveMembershipPermissions({
-      isSystemRole,
-      roleId: membership.roleId,
-      teamId: membership.teamId,
-      customRole: (isSystemRole ? null : customRoleById.get(membership.roleId)) ?? null,
-    });
+  return rows.map((membership) => {
+    const { isSystemRole } = membership;
 
     return {
       membershipId: membership.id,
@@ -135,7 +117,7 @@ async function listUserTeamMemberships(userId: string): Promise<AdminTeamMembers
       teamName: membership.team.name,
       teamSlug: membership.team.slug,
       roleId: membership.roleId,
-      roleName: isSystemRole ? null : (roleName || null),
+      roleName: resolveRoleName(membership),
       isSystemRole,
       isActive: Boolean(membership.isActive),
       joinedAt: membership.joinedAt,
@@ -157,20 +139,22 @@ export async function revokeUserConnectedApp({
   return { success: true };
 }
 
+// Returns the key's team so the caller can invalidate the team page too: a team-scoped key is
+// listed on both admin pages, and either one can revoke it.
 export async function revokeUserApiKey({
   userId,
   keyId,
 }: {
   userId: string;
   keyId: string;
-}): Promise<{ success: true }> {
+}): Promise<{ success: true; teamId: string | null }> {
   await requireAdmin();
 
   const db = getDB();
 
   const key = await db.query.apiKeyTable.findFirst({
     where: { id: keyId },
-    columns: { id: true, userId: true, keyHash: true, revokedAt: true },
+    columns: { id: true, userId: true, keyHash: true, revokedAt: true, teamId: true },
   });
 
   // The owner is part of the request, not just the key id: it keeps a stale page from revoking a
@@ -187,7 +171,7 @@ export async function revokeUserApiKey({
   // before the cache TTL would have expired it (still ≤60s of KV propagation).
   await deleteApiKeyCache({ keyHash: key.keyHash });
 
-  return { success: true };
+  return { success: true, teamId: key.teamId };
 }
 
 export async function removeUserFromTeam({
