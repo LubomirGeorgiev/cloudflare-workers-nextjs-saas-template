@@ -36,7 +36,7 @@
       }
     },
     "upload_source_maps": true,
-    "placement": { "mode": "smart" },
+    "placement": { "mode": "off" },
     "triggers": {
       "crons": ["*/5 * * * *"]
     },
