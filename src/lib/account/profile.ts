@@ -22,6 +22,7 @@ const UPDATED_USER_COLUMNS = {
   preferredLocale: userTable.preferredLocale,
   createdAt: userTable.createdAt,
   updatedAt: userTable.updatedAt,
+  bannedAt: userTable.bannedAt,
 };
 
 async function writeUserProfile({ userId, input }: { userId: string; input: UserSettingsSchema }) {

@@ -50,7 +50,10 @@ function BannerPositioner({ children, isCollapsed }: BannerPositionerProps) {
   return (
     <div
       className={cn(
-        "fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[100] print:hidden",
+        // Below the dialog layer (z-50), not above it. At z-[100] this decorative banner floated over
+        // every modal, and any dialog whose footer reached the bottom-right corner had its buttons
+        // swallowed by it.
+        "fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-40 print:hidden",
         isCollapsed && "pointer-events-none" // Make entire container click-through when collapsed
       )}
     >

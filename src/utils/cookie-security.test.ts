@@ -10,10 +10,6 @@ vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
 
-vi.mock("./is-prod", () => ({
-  default: true,
-}));
-
 const { shouldUseSecureCookies } = await import("./cookie-security");
 
 describe("secure cookie policy", () => {

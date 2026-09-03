@@ -92,6 +92,7 @@ function createSession({ role }: { role: "admin" | "user" }) {
       emailVerified: null,
       avatar: null,
       preferredLocale: null,
+      bannedAt: null,
       createdAt: now,
       updatedAt: now,
     },

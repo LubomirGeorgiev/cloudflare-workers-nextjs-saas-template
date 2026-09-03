@@ -82,6 +82,7 @@ function createSession({ now }: { now: Date }) {
       emailVerified: null,
       avatar: null,
       preferredLocale: null,
+      bannedAt: null,
       createdAt: now,
       updatedAt: now,
     },

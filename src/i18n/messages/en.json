@@ -69,7 +69,8 @@
         "toastSignInSuccess": "Signed in successfully",
         "errorInvalidCredentials": "Invalid email or password",
         "errorUseGoogle": "Please sign in with your Google account instead.",
-        "errorUsePasskey": "Please sign in with your passkey instead."
+        "errorUsePasskey": "Please sign in with your passkey instead.",
+        "errorAccountSuspended": "This account is suspended. Contact support for help."
       },
       "SignUp": {
         "meta": {
@@ -100,7 +101,8 @@
         "errorCreateSession": "Failed to create session after signup",
         "errorAccountExists": "An account with this email already exists",
         "errorInvalidRegistrationSession": "Invalid registration session",
-        "errorRegisterFailed": "Failed to register passkey"
+        "errorRegisterFailed": "Failed to register passkey",
+        "errorEmailNotAllowed": "This email address cannot be used to register."
       },
       "ForgotPassword": {
         "meta": {
@@ -452,7 +454,8 @@
       "apiKeyInvalidScope": "Unknown scope",
       "apiKeyInvalidExpiry": "Choose a valid expiry",
       "apiKeyExpiryMaxDays": "Expiry cannot be more than {max} days",
-      "apiKeyIdRequired": "API key is required"
+      "apiKeyIdRequired": "API key is required",
+      "invalidEmailPattern": "Enter an address, *@example.com, or *@*.example.com"
     },
     "Sidebar": {
       "toggle": "Toggle Sidebar",
@@ -626,7 +629,8 @@
         "renameNameLabel": "Team Name",
         "toastRenaming": "Renaming team...",
         "toastRenameSuccess": "Team renamed successfully",
-        "toastRenameError": "Failed to rename team"
+        "toastRenameError": "Failed to rename team",
+        "errorInvitationEmailNotAllowed": "This email address cannot be used to register."
       },
       "Billing": {
         "breadcrumbDashboard": "Dashboard",

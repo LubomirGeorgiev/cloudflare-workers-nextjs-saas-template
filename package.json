@@ -22,7 +22,7 @@
     "email:preview": "node scripts/preview-emails.mjs",
     "metrics:report": "node scripts/render-metrics-report.mjs",
     "typecheck": "tsc --noEmit",
-    "deploy": "vinext-cloudflare deploy",
+    "deploy": "node scripts/check-deploy-site-url.mjs && vinext-cloudflare deploy",
     "preview": "NEXT_PUBLIC_SITE_URL=http://localhost:8787 pnpm build && wrangler dev --port 8787 --host localhost:8787 ${WRANGLER_DEV_ARGS:-}",
     "deploy:dryrun": "pnpm build && wrangler deploy --outdir worker-dist --dry-run",
     "cf-typegen": "wrangler types --env-file .env.example",

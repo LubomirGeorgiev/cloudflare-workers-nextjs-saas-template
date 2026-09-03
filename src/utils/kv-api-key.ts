@@ -6,6 +6,7 @@ import ms from "ms";
 import { CURRENT_API_KEY_CACHE_VERSION } from "@/constants";
 import { getDB } from "@/db";
 import { apiKeyTable } from "@/db/schema";
+import { isBanned } from "@/lib/account/ban";
 import { toApiAudience, type ApiPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes } from "@/lib/api/admin-scopes";
 import { scopesForAudience } from "@/lib/api/scopes";
@@ -58,6 +59,11 @@ function isUsableSnapshot(cached: CachedApiKey | null): cached is CachedApiKey {
     return false;
   }
   if (typeof cached.revokedAt === "number") {
+    return false;
+  }
+  // A ban revokes every key of the user, so this is the second layer: it also stops a snapshot
+  // that was rebuilt from a row banned by a direct database edit.
+  if (isBanned(cached.user)) {
     return false;
   }
 
@@ -138,7 +144,7 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
 
   const identity = await loadPrincipalIdentity(key.userId);
 
-  if (!identity) {
+  if (!identity || isBanned(identity.user)) {
     return null;
   }
 

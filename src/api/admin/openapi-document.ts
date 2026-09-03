@@ -17,6 +17,8 @@ const ADMIN_SECURITY_SCHEME_BEARER = "adminApiKey";
 
 export const ADMIN_API_TAGS = {
   users: "Users",
+  blockedEmails: "Blocked emails",
+  teams: "Teams",
   oauthApps: "OAuth apps",
   cms: "CMS",
 } as const;

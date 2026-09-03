@@ -3,6 +3,7 @@ import "server-only";
 import { ROLES_ENUM } from "@/app/enums";
 import { getDB } from "@/db";
 import { ActionError } from "@/lib/action-error";
+import { isBanned } from "@/lib/account/ban";
 import { hasScope, requirePrincipal, type ApiPrincipal } from "@/lib/api/principal";
 import type { AdminScope } from "@/lib/api/admin-scopes";
 
@@ -34,10 +35,12 @@ function missingAdminScopeDetail(scope: AdminScope): string {
 export async function isLiveAdmin(userId: string): Promise<boolean> {
   const user = await getDB().query.userTable.findFirst({
     where: { id: userId },
-    columns: { role: true },
+    columns: { role: true, bannedAt: true },
   });
 
-  return user?.role === ROLES_ENUM.ADMIN;
+  // The ban is read from the same row as the role, so it costs nothing extra. Banning an admin is
+  // refused anyway (staff demote first), which makes this the repair for a direct database ban.
+  return user?.role === ROLES_ENUM.ADMIN && !isBanned(user);
 }
 
 /**

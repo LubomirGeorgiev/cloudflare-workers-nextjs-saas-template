@@ -18,7 +18,7 @@ vi.mock("vinext/server/fetch-handler", () => ({
   default: { fetch: innerFetchMock },
 }));
 
-vi.mock("@/utils/is-prod", () => ({ default: true }));
+vi.mock("@/utils/is-local", () => ({ isLocalhost: false }));
 vi.mock("@/utils/is-test-mode", () => ({ isTestMode: () => false }));
 
 vi.mock("@/utils/rate-limit", async (importOriginal) => {

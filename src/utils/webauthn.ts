@@ -9,11 +9,12 @@ import type {
 import { getDB } from "@/db";
 import { passKeyCredentialTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import isProd from "./is-prod";
 import { SITE_NAME, SITE_DOMAIN, SITE_URL } from "@/constants";
 
 const rpName = SITE_NAME;
-const rpID = isProd ? SITE_DOMAIN : "localhost";
+// The relying party is always the origin the browser is on, and SITE_DOMAIN already resolves
+// to "localhost" for `pnpm dev` and `pnpm preview`. No environment branch is needed.
+const rpID = SITE_DOMAIN;
 const origin = SITE_URL;
 
 export async function generatePasskeyRegistrationOptions(userId: string, email: string) {

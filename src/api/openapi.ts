@@ -39,6 +39,11 @@ function problemResponse(description: string) {
   };
 }
 
+/** For an operation that refuses on the resource's current state; not in the common set. */
+export function preconditionFailedResponse(description: string): ResponsesWithResolver {
+  return { [PROBLEM_BY_CODE.PRECONDITION_FAILED.status]: problemResponse(description) };
+}
+
 // Declared on every authenticated operation so an agent reading the document knows the failure
 // modes without calling anything. All five share the RFC 9457 problem shape.
 //

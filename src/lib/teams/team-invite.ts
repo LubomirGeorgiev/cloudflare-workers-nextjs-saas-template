@@ -15,6 +15,7 @@ import {
   hashInvitationToken,
 } from "@/lib/teams/invitation-tokens";
 import { normalizeEmail } from "@/lib/validation";
+import { isEmailBlocked } from "@/lib/auth/blocked-email-guard";
 import { createRandomId } from "@/utils/random-token";
 import {
   buildInvitationInsert,
@@ -100,6 +101,13 @@ export async function inviteUserToTeam({
     lastName: session.user.lastName || "",
     fullName: `${session.user.firstName || ""} ${session.user.lastName || ""}`.trim() || session.user.email,
   };
+
+  // A blocked address gets the uniform success shape and nothing else: no row, no token, no
+  // email. Refusing out loud here would break the non-revealing contract INVITE_SUCCESS exists
+  // for, turning the invite form into a probe for the blocklist.
+  if (await isEmailBlocked(email)) {
+    return INVITE_SUCCESS;
+  }
 
   // Fresh bearer token per invite. Only the hash is stored; the raw token goes into the email
   // link and is never persisted or returned.

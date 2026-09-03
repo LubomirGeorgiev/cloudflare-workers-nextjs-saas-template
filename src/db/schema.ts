@@ -16,6 +16,8 @@ import {
 import type { ScheduledJobPayload, ScheduledJobType } from "@/lib/scheduler/jobs";
 import type { CollectionsUnion } from "../../cms.config";
 import { createRandomId } from "@/utils/random-token";
+import type { BlockedEmailKind } from "@/utils/email-pattern";
+import { BAN_REASON_MAX_LENGTH, BLOCKED_EMAIL_REASON_MAX_LENGTH } from "@/constants";
 
 const roleTuple = Object.values(ROLES_ENUM) as [string, ...string[]];
 
@@ -69,11 +71,75 @@ export const userTable = sqliteTable("user", {
   // Usage hint, not an audit trail: stamped from getCurrentSession at most every
   // USER_ACTIVITY_UPDATE_INTERVAL (see src/utils/user-activity.ts). Null = never seen.
   lastActiveAt: integer({ mode: "timestamp" }),
+  // Set when staff ban this account. Null = not banned. The one authoritative ban fact; every
+  // KV snapshot mirrors it, and `user_ban_event` records how it got that way. A column rather
+  // than a join because every enforcement point reads it off a row it already loads.
+  bannedAt: integer({ mode: "timestamp" }),
 }, (table) => ([
   index('google_account_id_idx').on(table.googleAccountId),
   index('role_idx').on(table.role),
   index('user_created_at_idx').on(table.createdAt),
+  index('user_banned_at_idx').on(table.bannedAt),
   uniqueIndex('user_email_unique').on(table.email),
+]));
+
+export type UserBanEventAction = "ban" | "unban";
+
+// Append-only record of every ban and unban. State lives on `user.bannedAt`; the reason, the
+// actor, and the notice facts live here, one row per action, never updated after its facts are
+// stamped and never deleted. A ban -> unban -> ban cycle therefore keeps every round, which is
+// the shape abuse work actually deals with.
+export const userBanEventTable = sqliteTable("user_ban_event", {
+  ...commonColumns,
+  // Runtime default instead of commonColumns' SQL DEFAULT: new tables must not introduce
+  // database-level defaults (see CLAUDE.md D1 schema-change safety).
+  updateCounter: integer().$defaultFn(() => 0).$onUpdate(() => sql`updateCounter + 1`),
+  id: text().primaryKey().$defaultFn(() => `bevt_${createRandomId()}`).notNull(),
+  userId: text().notNull().references(() => userTable.id),
+  // "ban" | "unban". Plain text, not an enum: a SQLite CHECK constraint would force a table
+  // rebuild to extend the set later.
+  action: text({ length: 20 }).$type<UserBanEventAction>().notNull(),
+  // Staff-only. Required for both actions. No code path copies this into an email payload.
+  internalReason: text({ length: BAN_REASON_MAX_LENGTH }).notNull(),
+  // What the user is told, verbatim. Null = the notice carried no reason, either because staff
+  // wrote none or because no notice was sent at all.
+  externalReason: text({ length: BAN_REASON_MAX_LENGTH }),
+  // The admin who acted. Plain text rather than a second FK to `user`: an actor who is later
+  // deleted must not be able to block the write, and this is a record, not a relation.
+  actorUserId: text({ length: 255 }),
+  // Null = no notice was sent, either because staff chose silence or because the account had
+  // no email address. Set when the notice was queued.
+  noticeQueuedAt: integer({ mode: "timestamp" }),
+  // Ban events only: how many owned-team subscriptions this ban cancelled. The unban notice
+  // reads it from the most recent ban event.
+  cancelledSubscriptionCount: integer(),
+}, (table) => ([
+  // The only access pattern: one user's events, newest first.
+  index("user_ban_event_user_created_at_idx").on(table.userId, table.createdAt),
+]));
+
+// Email patterns that may not create an account. Governs registration only: an existing account
+// is stopped by a ban, never by a row here. `value` is the parsed form the matcher compares
+// against (see src/utils/email-pattern.ts), so every lookup is an indexed equality.
+export const bannedEmailTable = sqliteTable("banned_email", {
+  ...commonColumns,
+  // Runtime default instead of commonColumns' SQL DEFAULT: new tables must not introduce
+  // database-level defaults (see CLAUDE.md D1 schema-change safety).
+  updateCounter: integer().$defaultFn(() => 0).$onUpdate(() => sql`updateCounter + 1`),
+  id: text().primaryKey().$defaultFn(() => `bmail_${createRandomId()}`).notNull(),
+  // "email" | "domain" | "domain-suffix". Plain text, not an enum: a SQLite CHECK constraint
+  // would force a table rebuild to extend the set later.
+  kind: text({ length: 20 }).$type<BlockedEmailKind>().notNull(),
+  // The normalized value the matcher compares against: a full address for "email", a bare
+  // domain for the two domain kinds. Never the raw `*@` pattern.
+  value: text({ length: 255 }).notNull(),
+  // What the admin typed, kept for the UI so the list reads back as it was entered.
+  pattern: text({ length: 255 }).notNull(),
+  reason: text({ length: BLOCKED_EMAIL_REASON_MAX_LENGTH }),
+  createdByUserId: text({ length: 255 }),
+}, (table) => ([
+  uniqueIndex('banned_email_kind_value_unique').on(table.kind, table.value),
+  index('banned_email_created_at_idx').on(table.createdAt),
 ]));
 
 export const passKeyCredentialTable = sqliteTable("passkey_credential", {
@@ -265,6 +331,8 @@ export const teamInvitationTable = sqliteTable("team_invitation", {
     .on(table.teamId, table.email)
     .where(sql`${table.acceptedAt} IS NULL`),
   uniqueIndex('team_invitation_token_unique').on(table.token),
+  // Ban revokes the pending invitations the banned user sent, so `invitedBy` is a lookup key.
+  index('team_invitation_invited_by_idx').on(table.invitedBy),
 ]));
 
 // Trial reservation table. Reserved atomically BEFORE Stripe subscription creation so the
@@ -570,6 +638,7 @@ export const cmsEntryTagTable = sqliteTable("cms_entry_tag", {
 
 const relationSchema = {
   apiKeyTable,
+  bannedEmailTable,
   cmsNavigationItemTable,
   cmsNavigationRedirectTable,
   cmsEntryMediaTable,
@@ -586,6 +655,7 @@ const relationSchema = {
   teamRoleTable,
   teamTable,
   teamTrialReservationTable,
+  userBanEventTable,
   userTable,
 };
 
@@ -852,6 +922,17 @@ export const relations = defineRelations(relationSchema, (r) => ({
       from: r.userTable.id,
       to: r.cmsTagTable.createdBy,
     }),
+    banEvents: r.many.userBanEventTable({
+      from: r.userTable.id,
+      to: r.userBanEventTable.userId,
+    }),
+  },
+  userBanEventTable: {
+    user: r.one.userTable({
+      from: r.userBanEventTable.userId,
+      to: r.userTable.id,
+      optional: false,
+    }),
   },
   passKeyCredentialTable: {
     user: r.one.userTable({
@@ -898,3 +979,7 @@ export type CmsNavigationItem = InferSelectModel<typeof cmsNavigationItemTable>;
 export type CmsNavigationRedirect = InferSelectModel<typeof cmsNavigationRedirectTable>;
 // oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
 export type ScheduledJob = InferSelectModel<typeof scheduledJobTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type UserBanEvent = InferSelectModel<typeof userBanEventTable>;
+// oxlint-disable-next-line project/no-unused-module-exports -- Drizzle schema model types are exported as app/tooling contracts.
+export type BannedEmail = InferSelectModel<typeof bannedEmailTable>;

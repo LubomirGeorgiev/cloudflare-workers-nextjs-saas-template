@@ -210,5 +210,6 @@ export function reviveUserDates(user: KVSession["user"]): KVSession["user"] {
     createdAt: user.createdAt ? new Date(user.createdAt) : user.createdAt,
     updatedAt: user.updatedAt ? new Date(user.updatedAt) : user.updatedAt,
     emailVerified: user.emailVerified ? new Date(user.emailVerified) : user.emailVerified,
+    bannedAt: user.bannedAt ? new Date(user.bannedAt) : user.bannedAt,
   };
 }

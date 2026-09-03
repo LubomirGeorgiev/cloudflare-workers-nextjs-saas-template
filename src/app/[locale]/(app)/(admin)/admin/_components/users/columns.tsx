@@ -35,7 +35,13 @@ export const columns: ColumnDef<User>[] = [
   {
     accessorKey: "status",
     header: "Status",
+    // A ban takes precedence over the verification badge: it is the fact staff are scanning for,
+    // and a banned-but-verified account showing a plain "active" badge reads as a live account.
     cell: ({ row }) => {
+      if (row.original.bannedAt) {
+        return <Badge variant="destructive">Banned</Badge>
+      }
+
       const status = row.getValue("status") as string
       return (
         <Badge variant={status === "active" ? "default" : "destructive"}>

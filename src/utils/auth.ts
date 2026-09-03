@@ -2,7 +2,7 @@ import "server-only";
 
 import ms from "ms"
 import { cookies } from "next/headers";
-import isProd from "@/utils/is-prod";
+import { isLocalhost } from "@/utils/is-local";
 import {
   createKVSession,
   deleteKVSession,
@@ -19,11 +19,12 @@ import {
   SESSION_COOKIE_NAME,
 } from "@/constants";
 import { ActionError } from "@/lib/action-error";
+import { assertNotBanned, isBanned } from "@/lib/account/ban";
 import { getBearerPrincipal, principalToSession } from "@/lib/api/principal";
 import { touchUserLastActiveAt } from "@/utils/user-activity";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
-import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
+import { getUserBannedAt, getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { createBase64UrlToken, hashToken } from "@/utils/random-token";
 import { shouldUseSecureCookies } from "./cookie-security";
 
@@ -113,6 +114,48 @@ export async function createAndStoreSession(
   });
 }
 
+interface CreateSessionUnlessBannedParams {
+  userId: string;
+  authenticationType?: CreateKVSessionParams["authenticationType"];
+  passkeyCredentialId?: CreateKVSessionParams["passkeyCredentialId"];
+}
+
+/**
+ * The session write for every sign-in chokepoint that has already checked the ban.
+ *
+ * A ban landing between that check and this write would leave a current-version session that the
+ * ban's key listing had already passed: nothing rebuilds it from D1, so it would authenticate
+ * until it expired. Re-read the flag, roll the session back, and refuse with the same error.
+ */
+export async function createSessionUnlessBanned({
+  userId,
+  authenticationType,
+  passkeyCredentialId,
+}: CreateSessionUnlessBannedParams): Promise<void> {
+  const sessionToken = generateSessionToken();
+  const session = await createSession({
+    token: sessionToken,
+    userId,
+    authenticationType,
+    passkeyCredentialId,
+  });
+
+  const bannedAt = await getUserBannedAt(userId);
+
+  if (isBanned({ bannedAt })) {
+    await deleteKVSession(session.id, userId);
+  }
+
+  // Throws the refusal the chokepoint's own check throws, before any cookie exists to clean up.
+  assertNotBanned({ bannedAt });
+
+  await setSessionTokenCookie({
+    token: sessionToken,
+    userId,
+    expiresAt: new Date(session.expiresAt),
+  });
+}
+
 async function validateSessionToken(token: string, userId: string): Promise<KVSession | null> {
   const sessionId = await generateSessionId(token);
 
@@ -128,10 +171,25 @@ async function validateSessionToken(token: string, userId: string): Promise<KVSe
     return null;
   }
 
+  // Belt and braces behind the ban itself, which deletes every session of the user, and behind
+  // `createSessionUnlessBanned`, which rolls back a sign-in that raced it. Neither covers a key
+  // the ban's eventually-consistent KV listing missed; that session lives until it expires.
+  if (isBanned(session.user)) {
+    await deleteKVSession(sessionId, userId);
+    return null;
+  }
+
   if (!session.version || session.version !== CURRENT_SESSION_VERSION) {
     const updatedSession = await updateKVSession(sessionId, userId, new Date(session.expiresAt));
 
     if (!updatedSession) {
+      return null;
+    }
+
+    // The refresh rebuilds the snapshot from D1, so the check above only tested the stale copy.
+    // Without this re-test a stale-version session of a banned user authenticates one request.
+    if (isBanned(updatedSession.user)) {
+      await deleteKVSession(sessionId, userId);
       return null;
     }
 
@@ -160,14 +218,14 @@ export async function setSessionTokenCookie({ token, userId, expiresAt }: SetSes
   const secure = await shouldUseSecureCookies();
   cookieStore.set(SESSION_COOKIE_NAME, encodeSessionCookie(userId, token), {
     httpOnly: true,
-    sameSite: isProd ? "strict" : "lax",
+    sameSite: isLocalhost ? "lax" : "strict",
     secure,
     expires: expiresAt,
     path: "/",
   });
   cookieStore.set(AUTH_SESSION_PRESENT_COOKIE_NAME, "1", {
     httpOnly: false,
-    sameSite: isProd ? "strict" : "lax",
+    sameSite: isLocalhost ? "lax" : "strict",
     secure,
     expires: expiresAt,
     path: "/",
@@ -298,8 +356,13 @@ const getRequiredAdmin = cache(async (doNotThrowError = false) => {
   return session;
 });
 
+// Same overload pair as `requireVerifiedEmail`, and for the same reason: the default (throwing)
+// form always resolves to a session, so an admin caller that needs the acting user's id does not
+// have to write a dead null guard to get at it.
+export function requireAdmin(options: { doNotThrowError: true }): Promise<CurrentSession | null>;
+export function requireAdmin(options?: { doNotThrowError?: false }): Promise<CurrentSession>;
 export function requireAdmin({
   doNotThrowError = false,
-}: RequireSessionOptions = {}) {
+}: RequireSessionOptions = {}): Promise<CurrentSession | null> {
   return getRequiredAdmin(doNotThrowError);
 }

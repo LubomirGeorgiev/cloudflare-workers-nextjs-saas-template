@@ -32,7 +32,10 @@ import {
   updateAddonQuantitySchema,
 } from "@/schemas/billing.schema";
 import { getLocale } from "next-intl/server";
-import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
+import {
+  getStripeSubscriptionTransitionPolicy,
+  REVENUE_PRESERVING_CANCEL_PARAMS,
+} from "@/constants/subscription-lifecycle";
 import { SITE_URL } from "@/constants";
 
 // Reads the invoice's confirmation_secret client secret from an expanded subscription.
@@ -404,9 +407,13 @@ export const cancelSubscriptionAction = actionClient
       const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       try {
+        // Immediate cancellation states both flags. With both left at their `false` defaults
+        // Stripe deletes pending prorations — the add-on units a team bought mid-period and then
+        // cancelled before the cycle closed were never invoiced. The `atPeriodEnd` branch is
+        // unaffected: pending prorations stay in place and bill when the period closes.
         const updated = atPeriodEnd
           ? await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true })
-          : await stripe.subscriptions.cancel(subscriptionId);
+          : await stripe.subscriptions.cancel(subscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS);
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.
         await reconcileTeamFromSubscription({ subscription: updated });

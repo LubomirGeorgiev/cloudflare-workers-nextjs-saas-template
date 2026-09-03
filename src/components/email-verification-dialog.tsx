@@ -14,7 +14,7 @@ import { sendVerificationAction } from "@/app/[locale]/(auth)/send-verification.
 import { toast } from "sonner";
 import { useState } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
-import isProd from "@/utils/is-prod";
+import { isLocalhost } from "@/utils/is-local";
 import { usePathname } from "@/i18n/navigation";
 import { Route } from "next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -79,7 +79,7 @@ export function EmailVerificationDialog() {
           <DialogDescription>
             {t("description", { email: session.user.email ?? "", hours: expirationHours })}
 
-            {!isProd && (
+            {isLocalhost && (
               <Alert className="mt-4 mb-2">
                 <AlertTitle>{t("devModeTitle")}</AlertTitle>
                 <AlertDescription>

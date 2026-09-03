@@ -11,11 +11,13 @@ const {
   renderTransactionalEmailMock,
   sendTransactionalEmailNowMock,
   refreshTeamMemberSessionsMock,
+  cancelTeamSubscriptionAsAdminMock,
 } = vi.hoisted(() => ({
   publishScheduledCmsEntryIfDueMock: vi.fn(),
   renderTransactionalEmailMock: vi.fn(),
   sendTransactionalEmailNowMock: vi.fn(),
   refreshTeamMemberSessionsMock: vi.fn(),
+  cancelTeamSubscriptionAsAdminMock: vi.fn(),
 }));
 
 vi.mock("@/lib/cms/cms-scheduled-publishing", () => ({
@@ -31,11 +33,27 @@ vi.mock("@/utils/kv-session", () => ({
   refreshTeamMemberSessions: refreshTeamMemberSessionsMock,
 }));
 
+vi.mock("@/lib/admin/team-billing-admin", () => ({
+  cancelTeamSubscriptionAsAdmin: cancelTeamSubscriptionAsAdminMock,
+}));
+
 const { runScheduledJob } = await import("@/lib/scheduler/job-handlers");
 
 describe("scheduled job handlers", () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  test("routes a billing cancellation retry to the shared staff cancel", async () => {
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION,
+      payload: { teamId: "team-1", subscriptionId: "sub_1" },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(cancelTeamSubscriptionAsAdminMock).toHaveBeenCalledWith(
+      expect.objectContaining({ teamId: "team-1", subscriptionId: "sub_1" }),
+    );
   });
 
   test("routes CMS publish jobs to the CMS publisher", async () => {

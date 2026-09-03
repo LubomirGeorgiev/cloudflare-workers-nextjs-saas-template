@@ -15,8 +15,11 @@ const SESSION_PREFIX = APP_KV_PREFIXES.session;
 // Refreshing a member runs several D1 reads and D1 allows only ~6 concurrent
 // queries per invocation, so large teams are processed in small batches.
 const TEAM_SESSION_REFRESH_BATCH_SIZE = 5;
-// Bump when KVSession changes so stored KV sessions are refreshed.
-export const CURRENT_SESSION_VERSION = 6;
+// Deleting is one KV call per session, so this batch can be wider than the refresh one above.
+const SESSION_DELETE_BATCH_SIZE = 10;
+// Bump when KVSession changes so stored KV sessions are refreshed. v7: the user snapshot carries
+// `bannedAt`, which `validateSessionToken` refuses on.
+export const CURRENT_SESSION_VERSION = 7;
 
 function getSessionKey(userId: string, sessionId: string): string {
   return `${SESSION_PREFIX}${userId}:${sessionId}`;
@@ -176,6 +179,10 @@ export async function getKVSession(sessionId: string, userId: string): Promise<K
     session.user.emailVerified = new Date(session.user.emailVerified);
   }
 
+  if (session?.user?.bannedAt) {
+    session.user.bannedAt = new Date(session.user.bannedAt);
+  }
+
   return session;
 }
 
@@ -323,6 +330,32 @@ export async function updateAllSessionsOfUser(userId: string) {
       await updateKVSession(sessionId, userId, sessionObj.absoluteExpiration, newUserData, teamsWithPermissions);
     }
   }));
+}
+
+/**
+ * Delete every KV session of one user, for the ban path.
+ *
+ * It deletes; it deliberately does NOT refresh. A refreshed session would still authenticate, and
+ * a ban has to end the sessions, not update them. `updateAllSessionsOfUser` is the unban twin.
+ *
+ * Bounded like every other per-user KV fan-out: a user is capped at MAX_SESSIONS_PER_USER, but
+ * the batch keeps this inside the Worker's subrequest budget either way.
+ */
+export async function deleteAllSessionsOfUser(userId: string): Promise<void> {
+  const sessions = await getAllSessionIdsOfUser(userId);
+  const kv = await getKV();
+
+  if (!kv) {
+    throw new Error("Can't connect to KV store");
+  }
+
+  await mapInBatches({
+    items: sessions,
+    batchSize: SESSION_DELETE_BATCH_SIZE,
+    // By key, not by id: `deleteKVSession` re-reads each session first, which is a wasted round
+    // trip when the whole point is that none of them may survive.
+    fn: (session) => kv.delete(session.key),
+  });
 }
 
 // Re-fetch every member of a team (no request context needed) and refresh their KV

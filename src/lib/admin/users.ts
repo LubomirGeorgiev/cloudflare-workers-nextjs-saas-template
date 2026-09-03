@@ -1,11 +1,12 @@
 import "server-only";
 
-import { eq, like, sql } from "drizzle-orm";
+import { and, eq, isNotNull, like, sql } from "drizzle-orm";
 
 import { ROLES_ENUM, type UserRole } from "@/app/enums";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
+import { isBanned } from "@/lib/account/ban";
 import { revokeInternalApiKeysForUser } from "@/lib/admin/admin-api-keys";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 
@@ -28,6 +29,7 @@ const ADMIN_USER_COLUMNS = {
   emailVerified: true,
   createdAt: true,
   lastActiveAt: true,
+  bannedAt: true,
 } as const;
 
 export interface AdminUserSummary {
@@ -35,9 +37,15 @@ export interface AdminUserSummary {
   email: string | null;
   name: string | null;
   role: UserRole;
+  /**
+   * Email verification, and only that. Deliberately NOT widened to mean "banned": it is already
+   * published in `adminUserSchema`, so adding a field is compatible and redefining one is not.
+   */
   status: "active" | "inactive";
   createdAt: Date;
   lastActiveAt: Date | null;
+  /** Set = suspended. Takes precedence over `status` wherever both are shown. */
+  bannedAt: Date | null;
 }
 
 export interface AdminUserPage {
@@ -57,6 +65,7 @@ interface AdminUserRow {
   emailVerified: Date | null;
   createdAt: Date;
   lastActiveAt: Date | null;
+  bannedAt: Date | null;
 }
 
 function toSummary(user: AdminUserRow): AdminUserSummary {
@@ -68,6 +77,7 @@ function toSummary(user: AdminUserRow): AdminUserSummary {
     status: user.emailVerified ? "active" : "inactive",
     createdAt: user.createdAt,
     lastActiveAt: user.lastActiveAt,
+    bannedAt: user.bannedAt,
   };
 }
 
@@ -75,26 +85,41 @@ export async function listAdminUsers({
   page,
   pageSize,
   emailFilter,
+  bannedOnly,
 }: {
   page: number;
   pageSize: number;
   emailFilter?: string;
+  /** Narrows to suspended accounts, which is how staff work through an abuse wave. */
+  bannedOnly?: boolean;
 }): Promise<AdminUserPage> {
   const db = getDB();
   const offset = (page - 1) * pageSize;
 
-  // The count and the page must filter identically, so the pattern is written once and both sides
-  // express it with a drizzle `like`, rather than one raw SQL fragment beside one relational filter.
+  // The count and the page must filter identically, so each condition is written once and both
+  // sides express it — one as a drizzle operator, one as a relational filter.
   const emailPattern = emailFilter ? `%${emailFilter}%` : null;
+
+  const countConditions = [
+    emailPattern ? like(userTable.email, emailPattern) : undefined,
+    bannedOnly ? isNotNull(userTable.bannedAt) : undefined,
+  ].filter((condition) => condition !== undefined);
 
   const [[{ count }], users] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)` })
       .from(userTable)
-      .where(emailPattern ? like(userTable.email, emailPattern) : undefined),
+      .where(countConditions.length > 0 ? and(...countConditions) : undefined),
     db.query.userTable.findMany({
       columns: ADMIN_USER_COLUMNS,
-      where: emailPattern ? { email: { like: emailPattern } } : undefined,
+      // An empty filter object and no filter at all are not the same request to drizzle, so an
+      // unfiltered listing passes `undefined` rather than `{}`.
+      where: countConditions.length > 0
+        ? {
+            ...(emailPattern ? { email: { like: emailPattern } } : {}),
+            ...(bannedOnly ? { bannedAt: { isNotNull: true } } : {}),
+          }
+        : undefined,
       orderBy: { createdAt: "desc" },
       limit: pageSize,
       offset,
@@ -156,6 +181,7 @@ interface AdminUserDetail {
   createdAt: Date;
   updatedAt: Date;
   lastActiveAt: Date | null;
+  bannedAt: Date | null;
   passkeys: AdminUserPasskey[];
 }
 
@@ -222,6 +248,10 @@ async function revokeInternalOAuthGrants(userId: string): Promise<number> {
  * Step 2 runs whenever the new role is not admin, rather than only on an admin-to-user transition.
  * A user who was never an admin cannot hold either credential, so the reads find nothing — and if
  * one ever did survive a direct database demotion, this repairs it.
+ *
+ * Promotion is guarded first: this and `banUser` are the two writes that can break the invariant
+ * "a banned account is never an admin", so both refuse. Demotion of a banned account stays allowed
+ * — it only ever moves toward the invariant.
  */
 export async function setUserRole({
   userId,
@@ -231,6 +261,26 @@ export async function setUserRole({
   role: UserRole;
 }): Promise<AdminUserSummary> {
   const db = getDB();
+
+  // Read before the write, or ban → promote → unban walks around `banUser`'s refusal and yields
+  // an admin. Only the promotion needs it, so a demotion still costs one statement.
+  if (role === ROLES_ENUM.ADMIN) {
+    const target = await db.query.userTable.findFirst({
+      where: { id: userId },
+      columns: { bannedAt: true },
+    });
+
+    if (!target) {
+      throw new ActionError("NOT_FOUND", "User not found");
+    }
+
+    if (isBanned(target)) {
+      throw new ActionError(
+        "PRECONDITION_FAILED",
+        "This account is banned. Unban it before giving it the admin role.",
+      );
+    }
+  }
 
   const updated = await db
     .update(userTable)

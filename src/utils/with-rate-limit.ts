@@ -2,7 +2,7 @@ import "server-only";
 import { checkRateLimit, resetRateLimit } from "./rate-limit";
 import { getIP } from "./get-IP";
 import ms from "ms";
-import isProd from "./is-prod";
+import { isLocalhost } from "./is-local";
 import { isTestMode } from "./is-test-mode";
 
 const UNKNOWN_IP_RATE_LIMIT_KEY = "unknown-ip";
@@ -253,7 +253,7 @@ async function chargeBucket(
 export async function consumeRateLimit(
   config: RateLimitConfig
 ): Promise<RateLimitSnapshot | null> {
-  if (!isProd || isTestMode()) {
+  if (isLocalhost || isTestMode()) {
     return null;
   }
 
@@ -264,7 +264,7 @@ export async function withRateLimit<T>(
   action: () => Promise<T>,
   config: RateLimitConfig
 ): Promise<T> {
-  if (!isProd || isTestMode()) {
+  if (isLocalhost || isTestMode()) {
     return action();
   }
 

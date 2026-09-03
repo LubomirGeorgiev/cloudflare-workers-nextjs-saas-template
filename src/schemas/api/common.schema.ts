@@ -75,3 +75,16 @@ export function integerQueryField({
 
   return v.optional(max === undefined ? bounded : v.pipe(bounded, v.maxValue(max)), fallback);
 }
+
+/**
+ * The boolean twin of `integerQueryField`, for the same reason: the query map carries `"true"`,
+ * while an MCP tool argument carries a real boolean, and `v.boolean()` alone refuses one of them.
+ * The `v.unknown()` base keeps the published parameter type a plain `boolean`.
+ */
+export function booleanQueryField() {
+  return v.pipe(
+    v.unknown(),
+    v.transform((value) => (typeof value === "string" ? value === "true" : Boolean(value))),
+    v.boolean(),
+  );
+}

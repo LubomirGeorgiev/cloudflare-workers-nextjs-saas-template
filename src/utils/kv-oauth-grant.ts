@@ -4,6 +4,7 @@ import {
   CURRENT_OAUTH_GRANT_CACHE_VERSION,
   OAUTH_GRANT_GENERATION_TTL_SECONDS,
 } from "@/constants";
+import { isBanned } from "@/lib/account/ban";
 import { PERSONAL_AUDIENCE, type ApiPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";
 import type { OAuthBearerProps } from "@/lib/oauth/bearer-props";
@@ -31,7 +32,10 @@ function isUsableSnapshot(cached: CachedOAuthGrant | null): cached is CachedOAut
     cached &&
       cached.version === CURRENT_OAUTH_GRANT_CACHE_VERSION &&
       cached.userId &&
-      cached.user,
+      cached.user &&
+      // A ban revokes every grant of the user; this also stops a snapshot rebuilt from a row
+      // banned by a direct database edit.
+      !isBanned(cached.user),
   );
 }
 
@@ -68,7 +72,7 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
 
   const identity = await loadPrincipalIdentity(props.userId);
 
-  if (!identity) {
+  if (!identity || isBanned(identity.user)) {
     return null;
   }
 

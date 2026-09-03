@@ -69,7 +69,8 @@
         "toastSignInSuccess": "Sesión iniciada correctamente",
         "errorInvalidCredentials": "Correo electrónico o contraseña no válidos",
         "errorUseGoogle": "Inicia sesión con tu cuenta de Google.",
-        "errorUsePasskey": "Inicia sesión con tu passkey."
+        "errorUsePasskey": "Inicia sesión con tu passkey.",
+        "errorAccountSuspended": "Esta cuenta está suspendida. Contacta con el soporte para obtener ayuda."
       },
       "SignUp": {
         "meta": {
@@ -100,7 +101,8 @@
         "errorCreateSession": "No se pudo crear la sesión después del registro",
         "errorAccountExists": "Ya existe una cuenta con este correo electrónico",
         "errorInvalidRegistrationSession": "Sesión de registro no válida",
-        "errorRegisterFailed": "No se pudo registrar la passkey"
+        "errorRegisterFailed": "No se pudo registrar la passkey",
+        "errorEmailNotAllowed": "Esta dirección de correo electrónico no se puede usar para registrarse."
       },
       "ForgotPassword": {
         "meta": {
@@ -452,7 +454,8 @@
       "apiKeyInvalidScope": "Permiso desconocido",
       "apiKeyInvalidExpiry": "Elige una caducidad válida",
       "apiKeyExpiryMaxDays": "La caducidad no puede superar los {max} días",
-      "apiKeyIdRequired": "La clave de API es obligatoria"
+      "apiKeyIdRequired": "La clave de API es obligatoria",
+      "invalidEmailPattern": "Introduce una dirección, *@example.com o *@*.example.com"
     },
     "Sidebar": {
       "toggle": "Mostrar u ocultar la barra lateral",
@@ -626,7 +629,8 @@
         "renameNameLabel": "Nombre del equipo",
         "toastRenaming": "Renombrando equipo...",
         "toastRenameSuccess": "Equipo renombrado correctamente",
-        "toastRenameError": "No se pudo renombrar el equipo"
+        "toastRenameError": "No se pudo renombrar el equipo",
+        "errorInvitationEmailNotAllowed": "Esta dirección de correo electrónico no se puede usar para registrarse."
       },
       "Billing": {
         "breadcrumbDashboard": "Panel",

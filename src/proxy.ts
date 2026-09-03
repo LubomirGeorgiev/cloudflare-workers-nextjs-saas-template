@@ -9,6 +9,11 @@ import { isOgImageRequest } from "@/lib/og/og-paths";
 
 const intlMiddleware = createMiddleware(routing);
 
+// Deliberately no ban check here, and none in `worker-entrypoint.ts` either. Neither layer has a
+// database context, and the session cookie is opaque to both, so a check would cost a D1 read on
+// every request — including cached public pages. Bans are enforced where the session and the
+// bearer credentials are resolved; see `src/lib/account/ban.ts`.
+
 export default function proxy(request: NextRequest) {
   if (!shouldLocalizePathname(request.nextUrl.pathname)) {
     return NextResponse.next();

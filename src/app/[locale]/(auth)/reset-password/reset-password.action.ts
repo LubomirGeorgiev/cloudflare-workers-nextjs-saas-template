@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { getResetTokenKey } from "@/utils/auth-utils";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
+import { assertNotBanned } from "@/lib/account/ban";
 
 export const resetPasswordAction = actionClient
   .inputSchema(resetPasswordSchema)
@@ -40,6 +41,10 @@ export const resetPasswordAction = actionClient
           if (!user) {
             throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
           }
+
+          // The token holder has proved they control the address, so naming the suspension here
+          // reveals nothing they could not already learn from the sign-in form.
+          assertNotBanned(user);
 
           const passwordHash = await hashPassword({ password: input.password });
           await db.update(userTable)

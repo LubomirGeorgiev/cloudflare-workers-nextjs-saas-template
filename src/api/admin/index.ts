@@ -2,8 +2,10 @@ import "server-only";
 
 import { Hono } from "hono";
 
+import { adminBlockedEmailRoutes } from "@/api/admin/routes/blocked-emails";
 import { adminCmsRoutes } from "@/api/admin/routes/cms";
 import { adminOAuthAppRoutes } from "@/api/admin/routes/oauth-apps";
+import { adminTeamRoutes } from "@/api/admin/routes/teams";
 import { adminUserRoutes } from "@/api/admin/routes/users";
 import { apiAuth } from "@/api/middleware/auth";
 import { problemJsonErrorHandler, problemJsonNotFoundHandler } from "@/api/middleware/problem-json";
@@ -45,6 +47,8 @@ function createAdminApiApp(): ApiApp {
   app.use("*", authedRateLimit);
 
   app.route("/", adminUserRoutes);
+  app.route("/", adminBlockedEmailRoutes);
+  app.route("/", adminTeamRoutes);
   app.route("/", adminOAuthAppRoutes);
   app.route("/", adminCmsRoutes);
 

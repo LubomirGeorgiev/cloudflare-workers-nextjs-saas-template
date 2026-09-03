@@ -1,5 +1,5 @@
-import { EMAIL_MAX_LENGTH, TEAM_NAME_MAX_LENGTH } from "@/constants";
-import { maxString, trimmedString, v } from "@/lib/validation";
+import { BAN_REASON_MAX_LENGTH, EMAIL_MAX_LENGTH, TEAM_NAME_MAX_LENGTH } from "@/constants";
+import { maxString, minMaxString, trimmedString, v } from "@/lib/validation";
 import { adminTablePaginationFields, idField } from "@/schemas/fields";
 
 // Admin-only inputs: never typed by a customer, so the messages stay inline rather than becoming
@@ -28,3 +28,16 @@ export const removeTeamMemberSchema = v.object({
   teamId: teamIdField,
   userId: userIdField,
 });
+
+export const cancelTeamSubscriptionSchema = v.object({
+  teamId: teamIdField,
+  // Reaches Stripe as `cancellation_details.comment`, so it becomes part of the billing record.
+  // Required: an unexplained staff cancellation is not something finance can reconstruct later.
+  reason: minMaxString({
+    min: 1,
+    max: BAN_REASON_MAX_LENGTH,
+    minMessage: "A reason is required",
+  }),
+});
+
+export type CancelTeamSubscriptionSchema = v.InferOutput<typeof cancelTeamSubscriptionSchema>;

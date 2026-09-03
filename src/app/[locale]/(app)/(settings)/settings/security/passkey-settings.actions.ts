@@ -11,7 +11,8 @@ import { passKeyCredentialTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { requireVerifiedEmail, createAndStoreSession } from "@/utils/auth";
+import { requireVerifiedEmail, createSessionUnlessBanned } from "@/utils/auth";
+import { assertNotBanned } from "@/lib/account/ban";
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
@@ -130,7 +131,11 @@ export const verifyRegistrationAction = actionClient
           userAgent: (await headers()).get("user-agent"),
           ipAddress: await getIP(),
         });
-        await createAndStoreSession(user.id, "passkey", input.response.id);
+        await createSessionUnlessBanned({
+          userId: user.id,
+          authenticationType: "passkey",
+          passkeyCredentialId: input.response.id,
+        });
         return { success: true };
       } catch (error) {
         if (error instanceof ActionError) {
@@ -255,7 +260,26 @@ export const verifyAuthenticationAction = actionClient
           throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorAuthFailed" });
         }
 
-        await createAndStoreSession(credential.userId, "passkey", input.response.id);
+        // After the assertion verifies. The credential's owner is not on the row this path loads,
+        // so this is the one sign-in chokepoint that pays for its own read.
+        const owner = await getDB().query.userTable.findFirst({
+          where: { id: credential.userId },
+          columns: { bannedAt: true },
+        });
+
+        // A missing row means the account was deleted mid-flight. Refuse with the generic auth
+        // failure: a fabricated ban stamp would tell a deleted account it was suspended.
+        if (!owner) {
+          throw new ActionError("FORBIDDEN", { key: "Client.Settings.Security.errorAuthFailed" });
+        }
+
+        assertNotBanned(owner);
+
+        await createSessionUnlessBanned({
+          userId: credential.userId,
+          authenticationType: "passkey",
+          passkeyCredentialId: input.response.id,
+        });
         return { success: true };
       } catch (error) {
         if (error instanceof ActionError) {

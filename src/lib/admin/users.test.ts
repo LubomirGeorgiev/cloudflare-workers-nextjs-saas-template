@@ -53,7 +53,7 @@ const { listAdminUsers, setUserRole } = await import("@/lib/admin/users");
 
 const USER_ID = "usr_1";
 
-function summaryRow(role: string) {
+function summaryRow(role: string, bannedAt: Date | null = null) {
   return {
     id: USER_ID,
     email: "user@example.com",
@@ -63,6 +63,7 @@ function summaryRow(role: string) {
     emailVerified: new Date(),
     createdAt: new Date(),
     lastActiveAt: null,
+    bannedAt,
   };
 }
 
@@ -119,6 +120,42 @@ test("promotion revokes nothing but still refreshes sessions", async () => {
 
   expect(revokeInternalApiKeysForUserMock).not.toHaveBeenCalled();
   expect(revokeInternalOAuthGrantsForUserMock).not.toHaveBeenCalled();
+  expect(updateAllSessionsOfUserMock).toHaveBeenCalledWith(USER_ID);
+});
+
+// The other half of "a banned account is never an admin": `banUser` refuses to ban an admin, so
+// promotion has to refuse a banned account, or ban → promote → unban leaves one.
+test("a banned user cannot be promoted, and the role row is never written", async () => {
+  dbMock.query.userTable.findFirst.mockResolvedValue(summaryRow(ROLES_ENUM.USER, new Date()));
+
+  await expect(setUserRole({ userId: USER_ID, role: ROLES_ENUM.ADMIN })).rejects.toMatchObject({
+    code: "PRECONDITION_FAILED",
+  });
+
+  expect(dbMock.update).not.toHaveBeenCalled();
+  expect(updateAllSessionsOfUserMock).not.toHaveBeenCalled();
+});
+
+test("a missing user is still NOT_FOUND on promotion", async () => {
+  dbMock.query.userTable.findFirst.mockResolvedValue(undefined);
+
+  await expect(setUserRole({ userId: USER_ID, role: ROLES_ENUM.ADMIN })).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+
+  expect(dbMock.update).not.toHaveBeenCalled();
+});
+
+// Demotion only ever moves toward the invariant, so a ban must never block it.
+test("a banned user can still be demoted to user", async () => {
+  dbMock.query.userTable.findFirst.mockResolvedValue(summaryRow(ROLES_ENUM.USER, new Date()));
+
+  await expect(setUserRole({ userId: USER_ID, role: ROLES_ENUM.USER })).resolves.toMatchObject({
+    id: USER_ID,
+    role: ROLES_ENUM.USER,
+  });
+
+  expect(revokeInternalApiKeysForUserMock).toHaveBeenCalledWith(USER_ID);
   expect(updateAllSessionsOfUserMock).toHaveBeenCalledWith(USER_ID);
 });
 

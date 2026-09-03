@@ -14,3 +14,20 @@ export async function enqueueTeamSessionsRefresh(teamId: string): Promise<void> 
     runAt: new Date(),
   }));
 }
+
+// A ban must never be blocked by a Stripe network call, so a failed cancel is retried here
+// instead of thrown. The handler is idempotent: re-cancelling an already-cancelled subscription
+// is a no-op, and one Stripe no longer knows counts as done.
+export async function enqueueBillingCancelSubscription({
+  teamId,
+  subscriptionId,
+}: {
+  teamId: string;
+  subscriptionId: string;
+}): Promise<void> {
+  await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
+    type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION,
+    payload: { teamId, subscriptionId },
+    runAt: new Date(),
+  }));
+}

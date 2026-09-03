@@ -14,10 +14,12 @@ import {
 import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
 import { userTable } from "@/db/schema";
-import { createAndStoreSession } from "@/utils/auth";
+import { createAndStoreSession, createSessionUnlessBanned } from "@/utils/auth";
 import { isGoogleSSOEnabled } from "@/flags";
 import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
+import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
+import { assertNotBanned } from "@/lib/account/ban";
 
 export const googleSSOCallbackAction = actionClient
   .inputSchema(googleSSOCallbackSchema)
@@ -72,7 +74,13 @@ export const googleSSOCallbackAction = actionClient
         });
 
         if (existingUserWithGoogle?.id) {
-          await createAndStoreSession(existingUserWithGoogle.id, "google-oauth");
+          // After Google proved the identity, so the refusal reveals nothing to a stranger.
+          assertNotBanned(existingUserWithGoogle);
+
+          await createSessionUnlessBanned({
+            userId: existingUserWithGoogle.id,
+            authenticationType: "google-oauth",
+          });
           return { success: true };
         }
 
@@ -82,6 +90,8 @@ export const googleSSOCallbackAction = actionClient
         });
 
         if (existingUserWithEmail?.id) {
+          assertNotBanned(existingUserWithEmail);
+
           // User exists but hasn't linked Google - let's link their account
           const [updatedUser] = await db
             .update(userTable)
@@ -93,11 +103,17 @@ export const googleSSOCallbackAction = actionClient
             .where(eq(userTable.id, existingUserWithEmail.id))
             .returning();
 
-          await createAndStoreSession(updatedUser.id, "google-oauth");
+          await createSessionUnlessBanned({
+            userId: updatedUser.id,
+            authenticationType: "google-oauth",
+          });
           return { success: true };
         }
 
-        // No existing user found - create a new one
+        // No existing user found - create a new one. The blocklist is checked ONLY here: the two
+        // branches above sign an existing account in, and the lever for one of those is a ban.
+        await assertEmailNotBlocked({ email });
+
         const [user] = await db.insert(userTable)
           .values({
             googleAccountId,

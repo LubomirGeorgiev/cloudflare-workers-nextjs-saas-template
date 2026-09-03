@@ -5,8 +5,8 @@
 // never calls the wrapped handler, so the Hono middleware inside `src/api` never sees a production
 // authentication failure — only the entrypoint does. These tests exist to keep it that way.
 //
-// `withRateLimit` no-ops unless `isProd` and outside test mode, and the integration environment is
-// both non-prod and `APP_TEST_MODE: "true"`. Both switches are mocked off here so the limiter, the
+// `withRateLimit` no-ops on localhost or in test mode, and the integration environment is both
+// localhost and `APP_TEST_MODE: "true"`. Both switches are mocked off here so the limiter, the
 // KV counter, and the 429 are all real; nothing else about the limiter is stubbed.
 //
 // Assertions derive from the app's own constants so a fork that retunes the bucket or moves the
@@ -29,7 +29,7 @@ vi.mock("vinext/server/fetch-handler", () => ({
   default: { fetch: innerFetchMock },
 }));
 
-vi.mock("@/utils/is-prod", () => ({ default: true }));
+vi.mock("@/utils/is-local", () => ({ isLocalhost: false }));
 
 vi.mock("@/utils/is-test-mode", () => ({ isTestMode: () => false }));
 

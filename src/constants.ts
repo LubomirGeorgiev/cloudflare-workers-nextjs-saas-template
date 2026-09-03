@@ -28,7 +28,8 @@ export const MAX_API_KEYS_PER_TEAM = 20;
 export const API_KEY_CACHE_TTL_SECONDS = 300;
 // Bump when the cached API-key snapshot shape or its permission semantics change. v2: the stored
 // `teamId` became the key's enforced audience, so v1 snapshots must not be read under the new rules.
-export const CURRENT_API_KEY_CACHE_VERSION = 2;
+// v3: the snapshot carries `bannedAt`, and a v2 entry cannot report a ban it never stored.
+export const CURRENT_API_KEY_CACHE_VERSION = 3;
 
 // Public machine API (Hono app in `src/api/`). The base path is edge-routed in
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
@@ -127,6 +128,9 @@ export * from "@/constants/oauth";
 // Both KV key-space registries live in `constants/kv-prefixes.ts` — import them from there.
 
 export const SITE_DOMAIN = new URL(SITE_URL).hostname
+// Compared against SITE_DOMAIN by `isLocalhost`, and by the deploy guard in
+// `scripts/check-deploy-site-url.mjs`. `URL.hostname` keeps the brackets on an IPv6 literal.
+export const LOCAL_HOSTNAMES: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
 export const PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS = 24 * 60 * 60 // 24 hours
 export const EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS = 24 * 60 * 60 // 24 hours
 export const MAX_SESSIONS_PER_USER = 5;
@@ -154,6 +158,7 @@ export const ADMIN_OAUTH_APPS_PATH = "/admin/oauth-apps" satisfies Route;
 export const ADMIN_API_DOCS_PATH = "/admin/api" satisfies Route;
 export const ADMIN_USERS_PATH = "/admin/users" satisfies Route;
 export const ADMIN_TEAMS_PATH = "/admin/teams" satisfies Route;
+export const ADMIN_BLOCKED_EMAILS_PATH = "/admin/blocked-emails" satisfies Route;
 // Gemma 4 26B (A4B, instruction-tuned): chat-completions model used for SEO descriptions and CMS
 export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfies keyof AiModels;
 
@@ -199,6 +204,21 @@ export const SLUG_MAX_LENGTH = 255;
 // settings) so the limit and its validation copy stay in one place.
 export const NAME_MIN_LENGTH = 2;
 export const NAME_MAX_LENGTH = 255;
+
+// Ban and unban each record a staff-only internal reason and an optional external one the
+// account holder is sent verbatim. One ceiling for both: they are the same kind of bounded free
+// text, and both ride on a queue payload that has to stay small.
+export const BAN_REASON_MAX_LENGTH = 1000;
+// The most recent ban/unban events the admin card and the internal listing return for one user.
+export const USER_BAN_EVENT_PAGE_SIZE = 20;
+// What staff type into the blocklist form: `spam@example.com`, `*@example.com`, or
+// `*@*.example.com`. Two characters wider than an address so the wildcard prefix always fits.
+export const BLOCKED_EMAIL_PATTERN_MAX_LENGTH = 255;
+// Why a pattern is on the blocklist. Staff-only free text, never shown to a would-be registrant.
+export const BLOCKED_EMAIL_REASON_MAX_LENGTH = 1000;
+// Bounds the parent-domain candidate list the blocklist matcher builds for one address, so a
+// hostile address with hundreds of labels cannot turn one lookup into hundreds of bound values.
+export const MAX_EMAIL_DOMAIN_LABELS = 10;
 
 // Shared by team create and team rename so both paths enforce one limit.
 export const TEAM_NAME_MAX_LENGTH = 100;

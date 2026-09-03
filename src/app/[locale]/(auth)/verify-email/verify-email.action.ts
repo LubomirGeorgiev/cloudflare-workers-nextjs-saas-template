@@ -11,6 +11,7 @@ import { verifyEmailSchema } from "@/schemas/verify-email.schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
+import { assertNotBanned } from "@/lib/account/ban";
 
 export const verifyEmailAction = actionClient
   .inputSchema(verifyEmailSchema)
@@ -36,6 +37,8 @@ export const verifyEmailAction = actionClient
         if (!user) {
           throw new ActionError("NOT_FOUND", { key: "Client.Errors.userNotFound" });
         }
+
+        assertNotBanned(user);
 
         try {
           await db.update(userTable)

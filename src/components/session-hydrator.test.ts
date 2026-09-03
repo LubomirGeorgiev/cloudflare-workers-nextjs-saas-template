@@ -105,6 +105,7 @@ function createSession({
       emailVerified,
       avatar: null,
       preferredLocale: null,
+      bannedAt: null,
       createdAt: now,
       updatedAt: updatedAt ?? now,
     },

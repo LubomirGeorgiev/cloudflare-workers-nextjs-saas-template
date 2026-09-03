@@ -50,4 +50,5 @@ export const OAUTH_GRANT_CACHE_TTL_SECONDS = 300;
 // it, so a read finding no stamp can accept the snapshot it has. That is the cache TTL plus the
 // ~60s KV needs to propagate a write to every PoP.
 export const OAUTH_GRANT_GENERATION_TTL_SECONDS = OAUTH_GRANT_CACHE_TTL_SECONDS + 60;
-export const CURRENT_OAUTH_GRANT_CACHE_VERSION = 1;
+// v2: the snapshot carries `bannedAt`, and a v1 entry cannot report a ban it never stored.
+export const CURRENT_OAUTH_GRANT_CACHE_VERSION = 2;

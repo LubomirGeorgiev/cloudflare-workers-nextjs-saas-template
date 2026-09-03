@@ -35,8 +35,23 @@ export async function getUserFromDB(userId: string) {
       preferredLocale: true,
       createdAt: true,
       updatedAt: true,
+      // Mirrored into every session and bearer snapshot so the ban checks in `validateSessionToken`
+      // and the two credential resolvers cost no extra read.
+      bannedAt: true,
     },
   });
+}
+
+// Deliberately uncached and column-narrow: `createSessionUnlessBanned` calls this to see a ban
+// that a snapshot, or a row read earlier in the same request, is too old to carry.
+export async function getUserBannedAt(userId: string): Promise<Date | null> {
+  const db = getDB();
+  const user = await db.query.userTable.findFirst({
+    where: { id: userId },
+    columns: { bannedAt: true },
+  });
+
+  return user?.bannedAt ?? null;
 }
 
 export async function getUserTeamsWithPermissions(userId: string) {

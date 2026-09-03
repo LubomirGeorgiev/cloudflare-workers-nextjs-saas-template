@@ -12,8 +12,8 @@ const {
 
 vi.mock("server-only", () => ({}));
 
-vi.mock("./is-prod", () => ({
-  default: true,
+vi.mock("./is-local", () => ({
+  isLocalhost: false,
 }));
 
 vi.mock("./is-test-mode", () => ({

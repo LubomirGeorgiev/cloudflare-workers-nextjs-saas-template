@@ -14,6 +14,7 @@ import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { completePasskeyRegistrationSchema, passkeyEmailSchema } from "@/schemas/passkey.schema";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
+import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
 import {
   consumeWebAuthnChallenge,
@@ -41,6 +42,9 @@ export const startPasskeyRegistrationAction = actionClient
             throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Auth.Common.errorCaptcha" })
           }
         }
+
+        // Same position as the password path: after the captcha, before the account lookup.
+        await assertEmailNotBlocked({ email: input.email });
 
         const db = getDB();
 

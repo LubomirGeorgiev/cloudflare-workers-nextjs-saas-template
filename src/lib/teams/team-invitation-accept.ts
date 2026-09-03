@@ -11,6 +11,7 @@ import type { CurrentSession } from "@/types";
 import { MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { hashInvitationToken } from "@/lib/teams/invitation-tokens";
 import { normalizeEmail } from "@/lib/validation";
+import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 import { createRandomId } from "@/utils/random-token";
 import {
   buildInvitationAcceptance,
@@ -67,6 +68,13 @@ async function acceptResolvedInvitation({
   if (sessionEmail !== normalizeEmail(invitation.email)) {
     throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorInvitationWrongEmail" });
   }
+
+  // Belt and braces for a pattern added after the invitation went out. The invite path writes no
+  // row for a blocked address, so this only ever catches an entry created in between.
+  await assertEmailNotBlocked({
+    email: sessionEmail,
+    messageKey: "Client.Dashboard.Teams.errorInvitationEmailNotAllowed",
+  });
 
   const existingMembership = await db.query.teamMembershipTable.findFirst({
     where: {

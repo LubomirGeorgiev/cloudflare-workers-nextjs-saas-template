@@ -4,6 +4,7 @@ import {
   AUTH_SESSION_PRESENT_COOKIE_NAME,
   SESSION_COOKIE_NAME,
 } from "@/constants";
+import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./request-protocol";
 
 const cookieStore = {
   delete: vi.fn(),
@@ -14,6 +15,10 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => cookieStore),
+  // Local HTTP, so the cookies below are the unsecured, sameSite=lax pair.
+  headers: vi.fn(async () => new Headers({
+    [__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]: "http",
+  })),
 }));
 
 vi.mock("react", () => ({

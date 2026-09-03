@@ -7,8 +7,10 @@ import { getUsersAction } from "../../_actions/get-users.action"
 import { useAction } from "next-safe-action/hooks"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ADMIN_TABLE_PAGE_SIZE_OPTIONS } from "@/constants"
-import { useQueryState } from "nuqs"
+import { parseAsBoolean, useQueryState } from "nuqs"
 import { AdminTableShell } from "../admin-table-shell"
 import { useAdminTablePagination } from "../use-admin-table-pagination"
 
@@ -22,6 +24,10 @@ export function UsersTable() {
     resetToFirstPage,
   } = useAdminTablePagination()
   const [emailFilter, setEmailFilter] = useQueryState("email", { defaultValue: "" })
+  const [bannedOnly, setBannedOnly] = useQueryState(
+    "banned",
+    parseAsBoolean.withDefault(false),
+  )
 
   const { execute: fetchUsers, result, status } = useAction(getUsersAction, {
     onError: ({ error }) => {
@@ -32,11 +38,16 @@ export function UsersTable() {
   const error = result.serverError
 
   useEffect(() => {
-    fetchUsers({ page, pageSize, emailFilter })
-  }, [fetchUsers, page, pageSize, emailFilter])
+    fetchUsers({ page, pageSize, emailFilter, bannedOnly })
+  }, [fetchUsers, page, pageSize, emailFilter, bannedOnly])
 
   const handleEmailFilterChange = (value: string) => {
     setEmailFilter(value)
+    resetToFirstPage()
+  }
+
+  const handleBannedOnlyChange = (value: boolean) => {
+    setBannedOnly(value)
     resetToFirstPage()
   }
 
@@ -49,13 +60,25 @@ export function UsersTable() {
       header={
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-3xl font-bold">Users</h1>
-          <Input
-            placeholder="Filter emails..."
-            type="search"
-            value={emailFilter}
-            onChange={(event) => handleEmailFilterChange(event.target.value)}
-            className="max-w-sm"
-          />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="banned-only"
+                checked={bannedOnly}
+                onCheckedChange={(checked) => handleBannedOnlyChange(Boolean(checked))}
+              />
+              <Label htmlFor="banned-only" className="text-sm font-normal">
+                Banned only
+              </Label>
+            </div>
+            <Input
+              placeholder="Filter emails..."
+              type="search"
+              value={emailFilter}
+              onChange={(event) => handleEmailFilterChange(event.target.value)}
+              className="max-w-sm"
+            />
+          </div>
         </div>
       }
       isLoading={status === 'executing' || status === 'idle'}

@@ -12,6 +12,7 @@ import { requireAdmin } from "@/utils/auth"
 import { AdminDetailSectionsSkeleton } from "../../_components/admin-detail-section"
 import { RenameTeam } from "../../_components/teams/rename-team"
 import { TeamOverviewCards } from "../../_components/teams/team-overview-cards"
+import { TeamBillingCard } from "../../_components/teams/team-billing-card"
 import { TeamSections } from "../../_components/teams/team-sections"
 
 interface TeamDetailPageProps {
@@ -104,6 +105,12 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
           stripeCustomerId={team.stripeCustomerId}
           stripeSubscriptionId={team.stripeSubscriptionId}
         />
+
+        {team.stripeSubscriptionId ? (
+          <Suspense fallback={<AdminDetailSectionsSkeleton />}>
+            <TeamBillingCard teamId={team.id} />
+          </Suspense>
+        ) : null}
 
         <Suspense fallback={<AdminDetailSectionsSkeleton />}>
           <TeamSections teamId={team.id} teamName={team.name} memberCount={team.memberCount} />

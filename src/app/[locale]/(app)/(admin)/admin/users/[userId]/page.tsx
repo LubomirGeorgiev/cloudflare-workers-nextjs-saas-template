@@ -1,6 +1,7 @@
 import { cache, Suspense } from "react"
 import { AdminDetailSectionsSkeleton } from "../../_components/admin-detail-section"
 import { UserCredentialsSection } from "../../_components/users/user-credentials-section"
+import { UserBanSection } from "../../_components/users/user-ban-section"
 import { PageHeader } from "@/components/page-header"
 import { ActionError } from "@/lib/action-error"
 import { getAdminUserDetail, type AdminUserPasskey } from "@/lib/admin/users"
@@ -108,6 +109,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
                 <Badge variant={user.role === "admin" ? "default" : "secondary"}>
                   {user.role}
                 </Badge>
+                {user.bannedAt ? <Badge variant="destructive">Banned</Badge> : null}
                 <Badge variant={user.emailVerified ? "default" : "destructive"}>
                   {user.emailVerified ? "Verified" : "Unverified"}
                 </Badge>
@@ -246,6 +248,11 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Its own boundary: the impact read touches D1, KV, and Stripe. */}
+        <Suspense fallback={<AdminDetailSectionsSkeleton />}>
+          <UserBanSection userId={user.id} />
+        </Suspense>
 
         <Suspense fallback={<AdminDetailSectionsSkeleton />}>
           <UserCredentialsSection userId={user.id} />

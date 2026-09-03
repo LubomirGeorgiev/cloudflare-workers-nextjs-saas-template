@@ -19,7 +19,44 @@ import {
   SCHEDULED_JOB_TYPES,
   type EmailSendJobPayload,
 } from "@/lib/scheduler/jobs";
-import isProd from "./is-prod";
+import { isLocalhost } from "./is-local";
+
+// The ban and unban notices are deliberately English only, and are the one documented exception
+// to "customer-facing email goes through next-intl with a row in every locale catalog".
+//
+// The reason a staff member types is free English text. Wrapping English staff prose in
+// translated chrome produces a half-translated email, and staff cannot review copy they cannot
+// read. So the whole message is English, with no catalog rows. Do not "fix" this.
+//
+// A literal, not DEFAULT_LOCALE: a fork can change its default locale, and this copy stays
+// English either way.
+const BAN_EMAIL_LOCALE = "en";
+
+// "Contact support", never "reply to this email": the reply-to header is only set when
+// EMAIL_REPLY_TO is configured, and the copy has to read correctly when it is not.
+const BAN_NOTICE_COPY = {
+  title: `Your ${SITE_NAME} account has been suspended`,
+  intro:
+    `Your ${SITE_NAME} account has been suspended. You can no longer sign in, and the API keys ` +
+    "and connected applications on your account have been revoked.",
+  subscriptionCancelled: "Any active subscription on the teams you own has been cancelled.",
+  secondary: `If you believe this is a mistake, contact ${SITE_DOMAIN} support.`,
+  footer: `This is an automated message from ${SITE_DOMAIN}.`,
+} as const;
+
+const UNBAN_NOTICE_COPY = {
+  title: `Your ${SITE_NAME} account has been restored`,
+  intro: `Your ${SITE_NAME} account has been restored. You can sign in again.`,
+  // The point of this email: what did NOT come back. Without it the recipient returns to an
+  // account whose integrations are dead and whose team quietly dropped to the free plan.
+  notRestored:
+    "Some things were not restored automatically: the API keys and connected applications on " +
+    "your account were revoked and must be created again.",
+  subscriptionCancelled:
+    "Any subscription on the teams you own was cancelled and must be set up again.",
+  secondary: `If you have any questions, contact ${SITE_DOMAIN} support.`,
+  footer: `This is an automated message from ${SITE_DOMAIN}.`,
+} as const;
 
 // The queue consumer has no request context (no cookies/headers), so it can't
 // call getUserLocale()/getTranslations(). `loadCatalog` keeps one explicit `import()`
@@ -106,7 +143,28 @@ export async function sendTransactionalEmailNow({
   await env.EMAIL.send(message);
 }
 
+// Local delivery for every transactional email. The EMAIL binding is `remote: true`, so a queued
+// message leaves the developer machine and reaches a real inbox — from `pnpm preview` too, which
+// builds as production.
+function logTransactionalEmail({ to, subject, text, html, type }: TransactionalEmailOptions): void {
+  console.warn([
+    `\n\n=== ${type} email - logged, not sent (localhost) ===`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "",
+    text ?? html ?? "",
+    "=== end of email ===\n",
+  ].join("\n"));
+}
+
 async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
+  // The one gate every sender below passes through, so no template can miss it.
+  if (isLocalhost) {
+    logTransactionalEmail(await renderTransactionalEmail(payload));
+
+    return;
+  }
+
   const { env } = await getCloudflareContext();
 
   await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
@@ -116,38 +174,59 @@ async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<vo
   }));
 }
 
+/** The call to action, grouped so a notice with nothing to click can omit all three at once. */
+interface EmailCallToAction {
+  label: string;
+  url: string;
+  /** The "button not working?" line printed above the raw URL. */
+  fallbackText: string;
+}
+
 function buildEmailTemplate({
   locale,
   title,
   greeting,
   intro,
-  buttonLabel,
-  buttonUrl,
+  details,
+  cta,
   secondaryText,
-  fallbackText,
   footerText,
 }: {
-  locale: Locale;
+  /** The `<html lang>` value. A fixed-language template passes its own literal, not the default. */
+  locale: string;
   title: string;
   greeting: string;
   intro: string;
-  buttonLabel: string;
-  buttonUrl: string;
+  /** An indented quoted block between the intro and the secondary text; omitted when absent. */
+  details?: string;
+  /** Omitted for a notice with no action — no button, no fallback line, no raw URL. */
+  cta?: EmailCallToAction;
   secondaryText: string;
-  fallbackText: string;
   footerText: string;
 }): EmailTemplate {
   const escapedTitle = escapeHtml(title);
   const escapedGreeting = escapeHtml(greeting);
   const escapedIntro = escapeHtml(intro);
-  const escapedButtonLabel = escapeHtml(buttonLabel);
-  const escapedButtonUrl = escapeHtml(buttonUrl);
   const escapedSecondaryText = escapeHtml(secondaryText);
-  const escapedFallbackText = escapeHtml(fallbackText);
   const escapedFooterText = escapeHtml(footerText);
   // Alt text, not a translated string: the product name is the same in every locale, so it needs
   // no catalog row, and it is what the reader sees while remote images are still blocked.
   const escapedSiteName = escapeHtml(SITE_NAME);
+
+  // Every field goes through `escapeHtml` here and nowhere else, which is what makes an
+  // admin-typed reason safe to render: there is one place that builds the markup.
+  const detailsHtml = details
+    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e6ebf1;background-color:#f6f9fc;font-size:16px;line-height:24px;">${escapeHtml(details)}</blockquote>`
+    : "";
+  const ctaHtml = cta
+    ? `<div style="margin:30px 0;text-align:center;">
+        <a href="${escapeHtml(cta.url)}" style="display:inline-block;padding:13px 40px;border-radius:5px;background-color:#000000;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${escapeHtml(cta.label)}</a>
+      </div>`
+    : "";
+  const ctaFallbackHtml = cta
+    ? `<p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapeHtml(cta.fallbackText)}</p>
+      <p style="margin:16px 0 30px;font-size:14px;line-height:22px;text-align:center;word-break:break-all;color:#556cd6;text-decoration:underline;">${escapeHtml(cta.url)}</p>`
+    : "";
 
   return {
     html: `<!DOCTYPE html>
@@ -165,12 +244,10 @@ function buildEmailTemplate({
       <h1 style="margin:0 0 30px;font-size:18px;line-height:1.5;text-align:center;color:#525f7f;">${escapedTitle}</h1>
       <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedGreeting}</p>
       <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedIntro}</p>
-      <div style="margin:30px 0;text-align:center;">
-        <a href="${escapedButtonUrl}" style="display:inline-block;padding:13px 40px;border-radius:5px;background-color:#000000;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${escapedButtonLabel}</a>
-      </div>
+      ${detailsHtml}
+      ${ctaHtml}
       <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedSecondaryText}</p>
-      <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedFallbackText}</p>
-      <p style="margin:16px 0 30px;font-size:14px;line-height:22px;text-align:center;word-break:break-all;color:#556cd6;text-decoration:underline;">${escapedButtonUrl}</p>
+      ${ctaFallbackHtml}
     </div>
     <p style="margin:20px auto 0;max-width:600px;font-size:12px;line-height:16px;text-align:center;color:#8898aa;">${escapedFooterText}</p>
   </body>
@@ -181,12 +258,11 @@ function buildEmailTemplate({
       greeting,
       "",
       intro,
-      "",
-      `${buttonLabel}: ${buttonUrl}`,
+      ...(details ? ["", details] : []),
+      ...(cta ? ["", `${cta.label}: ${cta.url}`] : []),
       "",
       secondaryText,
-      "",
-      fallbackText,
+      ...(cta ? ["", cta.fallbackText] : []),
       "",
       footerText,
     ].join("\n"),
@@ -196,20 +272,24 @@ function buildEmailTemplate({
 export async function renderTransactionalEmail(
   payload: EmailSendJobPayload,
 ): Promise<TransactionalEmailOptions> {
-  const { locale, t } = await getEmailTranslator(payload.locale);
-
+  // Resolved per case, not once above the switch: the ban and unban notices are fixed English
+  // and carry no `locale` field at all, so loading a message catalog for them would be dead work
+  // and would force a field onto their payloads purely to satisfy this call.
   switch (payload.template) {
     case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET: {
+      const { locale, t } = await getEmailTranslator(payload.locale);
       const resetUrl = `${absoluteLocalizedUrl({ pathname: "/reset-password", locale })}?token=${payload.data.resetToken}`;
       const emailTemplate = buildEmailTemplate({
         locale,
         title: t("PasswordReset.title", { siteDomain: SITE_DOMAIN }),
         greeting: t("Common.greeting", { username: payload.data.username }),
         intro: t("PasswordReset.intro", { siteDomain: SITE_DOMAIN }),
-        buttonLabel: t("PasswordReset.buttonLabel"),
-        buttonUrl: resetUrl,
+        cta: {
+          label: t("PasswordReset.buttonLabel"),
+          url: resetUrl,
+          fallbackText: t("Common.fallbackText"),
+        },
         secondaryText: t("PasswordReset.secondaryText", { siteDomain: SITE_DOMAIN }),
-        fallbackText: t("Common.fallbackText"),
         footerText: t("PasswordReset.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
@@ -222,6 +302,7 @@ export async function renderTransactionalEmail(
       };
     }
     case EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION: {
+      const { locale, t } = await getEmailTranslator(payload.locale);
       const verificationUrl = `${absoluteLocalizedUrl({ pathname: "/verify-email", locale })}?token=${payload.data.verificationToken}`;
       const expirationHours = EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60 / 60;
       const emailTemplate = buildEmailTemplate({
@@ -229,10 +310,12 @@ export async function renderTransactionalEmail(
         title: t("EmailVerification.title", { siteDomain: SITE_DOMAIN }),
         greeting: t("Common.greeting", { username: payload.data.username }),
         intro: t("EmailVerification.intro", { siteDomain: SITE_DOMAIN }),
-        buttonLabel: t("EmailVerification.buttonLabel"),
-        buttonUrl: verificationUrl,
+        cta: {
+          label: t("EmailVerification.buttonLabel"),
+          url: verificationUrl,
+          fallbackText: t("EmailVerification.fallbackText", { siteDomain: SITE_DOMAIN }),
+        },
         secondaryText: t("EmailVerification.secondaryText", { expirationHours }),
-        fallbackText: t("EmailVerification.fallbackText", { siteDomain: SITE_DOMAIN }),
         footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
@@ -245,6 +328,7 @@ export async function renderTransactionalEmail(
       };
     }
     case EMAIL_TEMPLATE_TYPES.TEAM_INVITATION: {
+      const { locale, t } = await getEmailTranslator(payload.locale);
       const inviteUrl = `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${payload.data.invitationToken}`;
       const emailTemplate = buildEmailTemplate({
         locale,
@@ -255,16 +339,68 @@ export async function renderTransactionalEmail(
           teamName: payload.data.teamName,
           siteDomain: SITE_DOMAIN,
         }),
-        buttonLabel: t("TeamInvitation.buttonLabel"),
-        buttonUrl: inviteUrl,
+        cta: {
+          label: t("TeamInvitation.buttonLabel"),
+          url: inviteUrl,
+          fallbackText: t("TeamInvitation.fallbackText"),
+        },
         secondaryText: t("TeamInvitation.secondaryText", { recipientEmail: payload.to }),
-        fallbackText: t("TeamInvitation.fallbackText"),
         footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
       });
 
       return {
         to: payload.to,
         subject: t("TeamInvitation.subject", { siteDomain: SITE_DOMAIN }),
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        type: payload.template,
+      };
+    }
+    case EMAIL_TEMPLATE_TYPES.BAN_NOTICE: {
+      // No `cta`, by design: there is nothing a suspended account should be invited to click, and
+      // a large black call-to-action button is the wrong tone for a suspension notice.
+      const emailTemplate = buildEmailTemplate({
+        locale: BAN_EMAIL_LOCALE,
+        title: BAN_NOTICE_COPY.title,
+        greeting: `Hi ${payload.data.username},`,
+        intro: payload.data.subscriptionCancelled
+          ? `${BAN_NOTICE_COPY.intro} ${BAN_NOTICE_COPY.subscriptionCancelled}`
+          : BAN_NOTICE_COPY.intro,
+        details: payload.data.externalReason
+          ? `Reason: ${payload.data.externalReason}`
+          : undefined,
+        secondaryText: BAN_NOTICE_COPY.secondary,
+        footerText: BAN_NOTICE_COPY.footer,
+      });
+
+      return {
+        to: payload.to,
+        subject: BAN_NOTICE_COPY.title,
+        html: emailTemplate.html,
+        text: emailTemplate.text,
+        type: payload.template,
+      };
+    }
+    case EMAIL_TEMPLATE_TYPES.UNBAN_NOTICE: {
+      const notRestored = payload.data.cancelledSubscriptionCount > 0
+        ? `${UNBAN_NOTICE_COPY.notRestored} ${UNBAN_NOTICE_COPY.subscriptionCancelled}`
+        : UNBAN_NOTICE_COPY.notRestored;
+
+      const emailTemplate = buildEmailTemplate({
+        locale: BAN_EMAIL_LOCALE,
+        title: UNBAN_NOTICE_COPY.title,
+        greeting: `Hi ${payload.data.username},`,
+        intro: payload.data.externalReason
+          ? `${UNBAN_NOTICE_COPY.intro} ${payload.data.externalReason}`
+          : UNBAN_NOTICE_COPY.intro,
+        details: notRestored,
+        secondaryText: UNBAN_NOTICE_COPY.secondary,
+        footerText: UNBAN_NOTICE_COPY.footer,
+      });
+
+      return {
+        to: payload.to,
+        subject: UNBAN_NOTICE_COPY.title,
         html: emailTemplate.html,
         text: emailTemplate.text,
         type: payload.template,
@@ -286,14 +422,6 @@ export async function sendPasswordResetEmail({
   username: string;
   locale?: Locale;
 }) {
-  const resetUrl = `${absoluteLocalizedUrl({ pathname: "/reset-password", locale })}?token=${resetToken}`;
-
-  if (!isProd) {
-    console.warn('\n\n\nPassword reset url: ', resetUrl)
-
-    return
-  }
-
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
@@ -318,14 +446,6 @@ export async function sendVerificationEmail({
   username: string;
   locale?: Locale;
 }) {
-  const verificationUrl = `${absoluteLocalizedUrl({ pathname: "/verify-email", locale })}?token=${verificationToken}`;
-
-  if (!isProd) {
-    console.warn('\n\n\nVerification url: ', verificationUrl)
-
-    return
-  }
-
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
@@ -352,13 +472,6 @@ export async function sendTeamInvitationEmail({
   inviterName: string;
   locale?: Locale;
 }) {
-  const inviteUrl = `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${invitationToken}`;
-
-  if (!isProd) {
-    console.warn('\n\n\nTeam invitation url: ', inviteUrl)
-    return
-  }
-
   await queueTransactionalEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
@@ -368,5 +481,42 @@ export async function sendTeamInvitationEmail({
       inviterName,
       teamName,
     },
+  });
+}
+
+export async function sendBanNoticeEmail({
+  email,
+  username,
+  externalReason,
+  subscriptionCancelled,
+}: {
+  email: string;
+  username: string;
+  /** Staff-written, sent verbatim. Absent = the notice carries no reason block. */
+  externalReason?: string;
+  subscriptionCancelled: boolean;
+}): Promise<void> {
+  await queueTransactionalEmail({
+    to: email,
+    template: EMAIL_TEMPLATE_TYPES.BAN_NOTICE,
+    data: { username, externalReason, subscriptionCancelled },
+  });
+}
+
+export async function sendUnbanNoticeEmail({
+  email,
+  username,
+  externalReason,
+  cancelledSubscriptionCount,
+}: {
+  email: string;
+  username: string;
+  externalReason?: string;
+  cancelledSubscriptionCount: number;
+}): Promise<void> {
+  await queueTransactionalEmail({
+    to: email,
+    template: EMAIL_TEMPLATE_TYPES.UNBAN_NOTICE,
+    data: { username, externalReason, cancelledSubscriptionCount },
   });
 }

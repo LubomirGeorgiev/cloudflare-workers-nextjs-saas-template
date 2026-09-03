@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const {
   andMock,
-  createAndStoreSessionMock,
+  createSessionUnlessBannedMock,
   eqMock,
   findPasskeyMock,
   findUserMock,
@@ -22,7 +22,7 @@ const {
 
   return {
     andMock: vi.fn((...conditions: unknown[]) => ({ conditions })),
-    createAndStoreSessionMock: vi.fn(),
+    createSessionUnlessBannedMock: vi.fn(),
     eqMock: vi.fn((column: unknown, value: unknown) => ({ column, value })),
     findPasskeyMock: vi.fn(),
     findUserMock: vi.fn(),
@@ -75,7 +75,7 @@ vi.mock("@/db/schema", () => ({
 }));
 
 vi.mock("@/utils/auth", () => ({
-  createAndStoreSession: createAndStoreSessionMock,
+  createSessionUnlessBanned: createSessionUnlessBannedMock,
 }));
 
 vi.mock("@/utils/password-hasher", () => ({
@@ -180,7 +180,10 @@ describe("signInWithPassword", () => {
       password: "current-password",
     });
 
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "password");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      authenticationType: "password",
+    });
     expect(resetRateLimitMock).toHaveBeenCalledOnce();
   });
 
@@ -209,7 +212,10 @@ describe("signInWithPassword", () => {
 
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "password");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      authenticationType: "password",
+    });
   });
 
   test("upgrades a valid legacy hash with a compare-and-set update", async () => {
@@ -240,7 +246,10 @@ describe("signInWithPassword", () => {
       { column: "user.passwordHash", value: LEGACY_HASH },
     );
     expect(whereMock).toHaveBeenCalledOnce();
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "password");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      authenticationType: "password",
+    });
   });
 
   test("does not upgrade or create a session for an invalid password", async () => {
@@ -258,7 +267,7 @@ describe("signInWithPassword", () => {
 
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
-    expect(createAndStoreSessionMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
     // Expected ActionError failures must not be logged as unexpected errors.
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
@@ -280,7 +289,29 @@ describe("signInWithPassword", () => {
 
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
-    expect(createAndStoreSessionMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("refuses a banned account after the password verifies, and writes no session", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    findUserMock.mockResolvedValue({
+      bannedAt: new Date("2026-01-01T00:00:00.000Z"),
+      googleAccountId: null,
+      id: "user-1",
+      passwordHash: CURRENT_HASH,
+    });
+
+    await expect(signInWithPassword({
+      email: "user@example.com",
+      password: "current-password",
+    })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      messageKey: "Client.Auth.SignIn.errorAccountSuspended",
+    });
+
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
@@ -303,7 +334,10 @@ describe("signInWithPassword", () => {
       "Failed to upgrade password hash after sign-in",
       expect.any(Error),
     );
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "password");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      authenticationType: "password",
+    });
     consoleError.mockRestore();
   });
 });

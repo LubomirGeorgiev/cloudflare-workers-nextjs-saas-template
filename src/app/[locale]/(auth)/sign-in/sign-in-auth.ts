@@ -3,10 +3,11 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 
 import { ActionError } from "@/lib/action-error";
+import { assertNotBanned } from "@/lib/account/ban";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/utils/password-hasher";
-import { createAndStoreSession } from "@/utils/auth";
+import { createSessionUnlessBanned } from "@/utils/auth";
 import { hashToken } from "@/utils/random-token";
 import { normalizeEmail } from "@/lib/validation";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
@@ -22,6 +23,7 @@ interface PasswordSignInUser {
   googleAccountId: string | null;
   id: string;
   passwordHash: string | null;
+  bannedAt: Date | null;
 }
 
 function invalidCredentialsError(): ActionError {
@@ -50,6 +52,7 @@ async function getPasswordSignInUser({
       googleAccountId: true,
       id: true,
       passwordHash: true,
+      bannedAt: true,
     },
   });
 
@@ -150,6 +153,10 @@ async function authenticateWithPassword({
     storedHash: user.passwordHash,
   });
 
+  // After the password verifies, never before: checking first would tell an anonymous caller
+  // which addresses are banned. By here they have already proved they know the credential.
+  assertNotBanned(user);
+
   await requirePasswordSignIn({ db, userId: user.id });
 
   if (needsRehash) {
@@ -161,7 +168,9 @@ async function authenticateWithPassword({
     });
   }
 
-  await createAndStoreSession(user.id, "password");
+  // Re-checks the ban after it writes the session, so a ban landing since the check above cannot
+  // leave a live session behind.
+  await createSessionUnlessBanned({ userId: user.id, authenticationType: "password" });
 
   return { success: true };
 }

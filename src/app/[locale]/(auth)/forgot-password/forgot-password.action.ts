@@ -12,6 +12,7 @@ import { PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { isTurnstileEnabled } from "@/flags";
 import { createExpiringToken } from "@/utils/kv-token";
 import { getUserLocale } from "@/i18n/locale";
+import { isBanned } from "@/lib/account/ban";
 
 export const forgotPasswordAction = actionClient
   .inputSchema(forgotPasswordSchema)
@@ -38,8 +39,10 @@ export const forgotPasswordAction = actionClient
             where: { email: input.email.toLowerCase() },
           });
 
-          // Even if user is not found, return success to prevent email enumeration
-          if (!user) {
+          // Even if user is not found, return success to prevent email enumeration. A banned
+          // account takes the same branch: it gets no reset link, and the response must not tell
+          // the caller which of the two happened.
+          if (!user || isBanned(user)) {
             return { success: true };
           }
 

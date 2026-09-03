@@ -12,6 +12,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
+import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 
 export const signUpAction = actionClient
   .inputSchema(signUpSchema)
@@ -31,6 +32,10 @@ export const signUpAction = actionClient
             throw new ActionError("INPUT_PARSE_ERROR", { key: "Client.Auth.Common.errorCaptcha" })
           }
         }
+
+        // After the captcha, before the account lookup: the blocklist governs account creation,
+        // so it refuses here rather than anywhere a session is minted.
+        await assertEmailNotBlocked({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
           where: { email: input.email },

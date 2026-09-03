@@ -61,6 +61,17 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
   "Client.Dashboard.Teams.errorCannotRemoveOwner":
     "The team owner cannot be removed. Transfer ownership first.",
 
+  "Client.Dashboard.Teams.errorInvitationEmailNotAllowed":
+    "This email address is blocked, so it cannot join a team. Ask an administrator to remove " +
+    "the block, or invite a different address.",
+
+  // Account lifecycle: suspension and the registration blocklist.
+  "Client.Auth.SignIn.errorAccountSuspended":
+    "This account is suspended. Contact support; no credential can restore access.",
+  "Client.Auth.SignUp.errorEmailNotAllowed":
+    "This email address is blocked, so it cannot create an account. Use a different address, " +
+    "or ask an administrator to remove the block.",
+
   // Account and credentials.
   "Client.Settings.ApiKeys.errorKeyNotFound": "No API key exists with that id on this account.",
   // Deliberately does not name the scope that made the key uneditable: a caller reaching this over
