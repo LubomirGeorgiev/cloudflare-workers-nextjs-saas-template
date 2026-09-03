@@ -60,9 +60,6 @@ const resolveCachedDocsPage = cache(async (slugCacheKey: string, locale: Locale)
   return resolveCurrentDocsPage(slugParts.length > 0 ? slugParts : undefined, locale);
 });
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: DocsPageProps): Promise<Metadata> {

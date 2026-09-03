@@ -27,7 +27,11 @@ import {
   EDGE_CACHED_METADATA_ROUTE_TAGS,
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
 } from "./src/constants/cache-control";
+import { I18N_ENABLED } from "./src/constants";
+import { stripLocalePrefix } from "./src/i18n/locale-prefix";
+import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
+import { isOgImageRequest } from "./src/lib/og/og-paths";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
@@ -47,6 +51,53 @@ function handleCustomEdge(pathname: string): Response | null {
   }
 
   return null;
+}
+
+// With i18n disabled, locale-prefixed URLs collapse to one canonical bare path. Decided from the
+// URL alone, so it answers here rather than in `src/proxy.ts`. 307 so indexed and bookmarked
+// prefixes keep working without caching a permanent mapping if i18n is re-enabled.
+function collapseDisabledLocalePrefix(url: URL): Response | null {
+  if (I18N_ENABLED || !shouldLocalizePathname(url.pathname)) {
+    return null;
+  }
+
+  const stripped = stripLocalePrefix(url.pathname);
+  if (stripped === null) {
+    return null;
+  }
+
+  const target = new URL(url);
+  target.pathname = stripped;
+
+  return Response.redirect(target.toString(), 307);
+}
+
+// An OG card is a public image whose locale is already in its path, so the locale cookie next-intl
+// sets buys it nothing — and Workers Caching bypasses any response carrying Set-Cookie. Social
+// crawlers never send cookies back, so without this every crawl re-renders (satori + resvg). Safe
+// as a blanket delete only because no other cookie is set on these routes, and because a page URL
+// shaped like a card (`/blog/opengraph-image-launch`) is excluded by the request itself.
+function withoutOgCardCookie({
+  headers,
+  pathname,
+  response,
+}: {
+  headers: Headers;
+  pathname: string;
+  response: Response;
+}): Response {
+  if (!response.headers.has("set-cookie") || !isOgImageRequest({ pathname, headers })) {
+    return response;
+  }
+
+  const stripped = new Headers(response.headers);
+  stripped.delete("set-cookie");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: stripped,
+  });
 }
 
 // The OpenAPI document is deliberately readable without a credential (it is what agent clients and
@@ -227,14 +278,14 @@ async function getThrottleGates() {
 
 async function handleEarlyEdgeRequest({
   method,
-  origin,
-  pathname,
+  url,
 }: {
   method: string;
-  origin: string;
-  pathname: string;
+  url: URL;
 }): Promise<Response | null> {
-  const customResponse = handleCustomEdge(pathname);
+  const { origin, pathname } = url;
+
+  const customResponse = handleCustomEdge(pathname) ?? collapseDisabledLocalePrefix(url);
   if (customResponse) {
     return customResponse;
   }
@@ -304,11 +355,7 @@ const worker = {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    const earlyResponse = await handleEarlyEdgeRequest({
-      method: request.method,
-      origin: url.origin,
-      pathname,
-    });
+    const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, url });
     if (earlyResponse) {
       return earlyResponse;
     }
@@ -359,7 +406,7 @@ const worker = {
     const withDiscovery = await withHtmlAgentDiscovery({
       method: request.method,
       pathname,
-      response,
+      response: withoutOgCardCookie({ headers: request.headers, pathname, response }),
     });
 
     return withMetadataRouteEdgeCache({ method: request.method, pathname, response: withDiscovery });

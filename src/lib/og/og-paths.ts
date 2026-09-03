@@ -1,15 +1,15 @@
 /**
  * Which requests are for a generated OpenGraph card.
  *
- * Import-free and pure: `src/proxy.ts` reaches this on every request, so it sits on the startup
+ * Import-free and pure: `worker-entrypoint.ts` reaches this on every request, so it sits on the startup
  * graph (see docs/worker-hot-path-and-bundle-size.md and tools/startup-import-closure.test.ts).
  */
 
 // Next.js serves these as `<segment>/opengraph-image` plus a per-route dedup suffix
 // (`opengraph-image-v2by4x`). The suffix is a 6-character base36 hash — see `getMetadataRouteSuffix`
 // in `next/dist/lib/metadata/get-metadata-route`. `twitter-image` is listed because the same file
-// convention produces it, even though the template ships none today. No extension arm: the only
-// caller runs behind `shouldLocalizePathname`, which drops every dotted path that is not `.md`.
+// convention produces it, even though the template ships none today. No extension arm: the pattern
+// is anchored, so a dotted last segment such as `opengraph-image.png` never matches.
 const OG_IMAGE_SEGMENT_PATTERN = /^(?:opengraph|twitter)-image(?:-[0-9a-z]{6})?$/i
 
 export function isOgImageRequest({

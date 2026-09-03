@@ -59,9 +59,6 @@ const getCachedResolvedBlogEntry = cache(async (slug: string, locale: Locale) =>
   })
 })
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: BlogPostPageProps): Promise<Metadata> {

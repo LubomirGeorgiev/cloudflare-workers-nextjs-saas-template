@@ -65,7 +65,7 @@ describe("accept header matching", () => {
 
 // One equality, but on the derived string, so a fork may retune the seconds. `no-store` is the
 // regression this guards: it dropped the whole cache entry and every `vary: accept` variant with it,
-// so one agent request cold-flushed the page HTML. See docs/page-caching.md.
+// so one agent request cold-flushed the page HTML. See docs/edge-caching.md.
 test("stays shared-storable", () => {
   expect(MARKDOWN_NEGOTIATION_CACHE_CONTROL).toBe(
     `public, max-age=0, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}`,

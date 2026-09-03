@@ -10,11 +10,16 @@ import { buildSiteOpenGraph } from "@/utils/i18n-metadata";
 import { buildRootMetadata } from "@/utils/root-metadata";
 
 // The one and only root layout; `app/layout.tsx` intentionally does not exist, because a layout
-// above this one would run before the locale is known, and resolving it without the URL segment
-// reads request headers, which stops every page being cached — see `@/i18n/translator`.
+// above this one runs before the locale is known, so it could not set `<html lang>` from the URL
+// segment and would have to read request headers instead.
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
+
+// Every page renders on each request: a `"use cache"` read below would otherwise hand the page its
+// own `s-maxage`, and a shared-cache hit skips the locale redirect in `src/proxy.ts`. A child
+// segment can override this, so `tests/e2e/cache-headers.test.ts` checks the public pages.
+export const dynamic = "force-dynamic";
 
 // Metadata coerces an unknown segment instead of calling `notFound()`: the layout below rejects it
 // anyway, and the metadata built here is thrown away with the 404 page. Coercing keeps the tag
@@ -31,8 +36,8 @@ export async function generateMetadata({
   const { locale } = await params;
   const resolved = resolveLocale(locale);
   // Seeds next-intl's cache slot so its own implicit-locale APIs (a server-rendered `<Link>`) skip
-  // the `headers()` read that would make this route uncacheable. Best effort only: the slot misses
-  // at random, so nothing may rely on it for locale resolution — our calls pass an explicit locale.
+  // a `headers()` read. Best effort only: the slot misses at random, so nothing may rely on it for
+  // locale resolution — our calls pass an explicit locale.
   setRequestLocale(resolved);
 
   return {

@@ -20,8 +20,7 @@ const translatorsForLocale = lazyValueByKey(async (locale: Locale) => {
 
 // The one server translator. It needs no request context, so it also works outside the App Router
 // — the Hono API and the MCP server are plain Worker handlers, where `getTranslations` resolves to
-// next-intl's client build and throws. Its explicit locale is also what keeps a page cacheable: one
-// call that reads the locale from request headers opts the whole tree out.
+// next-intl's client build and throws.
 export async function getTranslator<
   NestedKey extends TranslatorNamespace = never,
 >({ locale, namespace }: { locale: Locale; namespace: NestedKey }) {

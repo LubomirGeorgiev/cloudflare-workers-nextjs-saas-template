@@ -8,9 +8,6 @@ import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
 import { DocsCrossLinks } from "../_components/docs-cross-links";
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {

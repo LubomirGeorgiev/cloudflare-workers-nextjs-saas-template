@@ -5,7 +5,6 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
-import { cdnAdapter } from "@vinext/cloudflare/cache/cdn-adapter";
 import { VINEXT_CACHE_PREFIX } from "./src/constants/kv-prefixes.ts";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
@@ -87,7 +86,6 @@ export default defineConfig({
     openApiDocument(),
     vinext({
       cache: {
-        cdn: cdnAdapter(),
         data: kvDataAdapter({
           binding: VINEXT_CACHE_KV_BINDING,
           appPrefix: VINEXT_CACHE_PREFIX,

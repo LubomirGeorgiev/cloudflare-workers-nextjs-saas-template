@@ -1,6 +1,6 @@
 "use client";
 
-// Keep "use client" — tools/oxlint-rules/no-implicit-locale-translations.js explains why not-found needs it.
+// "use client" on purpose: not-found gets no `params`, so the locale comes from `NextIntlClientProvider`.
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";

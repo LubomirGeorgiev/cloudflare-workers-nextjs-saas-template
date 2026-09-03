@@ -27,6 +27,8 @@ import {
   STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
 } from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
+import { I18N_ENABLED } from "@/constants";
+import { LOCALES, LOCALE_COOKIE_NAME } from "@/i18n/config";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import {
   MARKDOWN_UNAVAILABLE_CODE,
@@ -85,6 +87,76 @@ describe("worker edge integration", () => {
     );
 
     await expect(response.json()).resolves.toEqual({ ok: true });
+    expect(innerFetchMock).not.toHaveBeenCalled();
+  });
+
+  // The card route is the one place next-intl's locale cookie must not reach the response: a
+  // `Set-Cookie` keeps the card out of Workers Caching, and a crawler never sends it back anyway.
+  test("strips the locale cookie from an OpenGraph card fetched by a crawler", async () => {
+    innerFetchMock.mockImplementationOnce(async () =>
+      new Response("png", {
+        headers: {
+          "content-type": "image/png",
+          "set-cookie": `${LOCALE_COOKIE_NAME}=en; Path=/`,
+        },
+      }),
+    );
+
+    const response = await worker.fetch(
+      new Request("https://example.com/blog/opengraph-image", { headers: { accept: "image/*" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(response.headers.get("content-type")).toBe("image/png");
+  });
+
+  test("keeps the locale cookie on a card-shaped path that a browser navigates to", async () => {
+    innerFetchMock.mockImplementationOnce(async () =>
+      new Response("<html></html>", {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          "set-cookie": `${LOCALE_COOKIE_NAME}=en; Path=/`,
+        },
+      }),
+    );
+
+    const response = await worker.fetch(
+      new Request("https://example.com/blog/opengraph-image", { headers: { accept: "text/html" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.headers.getSetCookie()).toEqual([`${LOCALE_COOKIE_NAME}=en; Path=/`]);
+  });
+
+  // Flag-aware pair: with i18n on, a prefixed path is the app's to route; with it off, the edge
+  // collapses the prefix before anything else runs.
+  test.runIf(I18N_ENABLED)("passes a locale-prefixed page path through to the app", async () => {
+    const [locale] = LOCALES;
+    const response = await worker.fetch(
+      new Request(`https://example.com/${locale}/blog`),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(innerFetchMock).toHaveBeenCalledTimes(1);
+    expect(new URL(innerFetchMock.mock.calls[0][0].url).pathname).toBe(`/${locale}/blog`);
+  });
+
+  test.runIf(!I18N_ENABLED)("collapses a locale-prefixed page path to the bare path", async () => {
+    const [locale] = LOCALES;
+    const response = await worker.fetch(
+      new Request(`https://example.com/${locale}/blog?page=2`, { redirect: "manual" }),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://example.com/blog?page=2");
     expect(innerFetchMock).not.toHaveBeenCalled();
   });
 

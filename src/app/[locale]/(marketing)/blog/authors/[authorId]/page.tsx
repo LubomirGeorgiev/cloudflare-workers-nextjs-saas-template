@@ -34,9 +34,6 @@ const getCachedBlogEntriesWithAuthors = cache(async (locale: Locale) => {
   return getBlogEntriesWithAuthors({ locale, includeTags: true })
 })
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {

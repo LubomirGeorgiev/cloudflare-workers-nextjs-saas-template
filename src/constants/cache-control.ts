@@ -7,7 +7,7 @@
  * route cannot drift from its test.
  *
  * How the edge reads these headers — Workers Caching, `Vary` variants, and purge identity — is in
- * `docs/page-caching.md`. Read it before you change a directive here.
+ * `docs/edge-caching.md`. Read it before you change a directive here.
  */
 
 import { CACHE_TAGS } from "@/constants/cache-tags";
@@ -29,7 +29,7 @@ export const MARKDOWN_PAGE_CACHE_CONTROL =
 
 // A `no-store` 303 dropped the whole cache entry, and every `vary: accept` variant with it, so one
 // agent request cold-flushed the page HTML for every visitor in that data center. Measured against
-// production, not inferred — the A/B probe is in docs/page-caching.md. Storing makes it a variant.
+// production, not inferred — the A/B probe is in docs/edge-caching.md. Storing makes it a variant.
 export const MARKDOWN_NEGOTIATION_CACHE_CONTROL =
   `public, max-age=0, s-maxage=${MARKDOWN_PAGE_CACHE_TTL_SECONDS}`;
 
@@ -41,9 +41,8 @@ export const DOCS_SEARCH_CACHE_CONTROL =
 export const SESSION_NO_STORE_CACHE_CONTROL =
   "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0";
 
-// Metadata routes never reach the Cloudflare CDN adapter every other cacheable response goes
-// through, so vinext hands them back uncacheable and `worker-entrypoint.ts` stamps the edge policy
-// itself. `CDN-Cache-Control` form, hence `max-age` rather than `s-maxage`.
+// Vinext pins every metadata route to a browser-revalidate policy, so `worker-entrypoint.ts` stamps
+// the edge policy itself. `CDN-Cache-Control` form, hence `max-age` rather than `s-maxage`.
 export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 

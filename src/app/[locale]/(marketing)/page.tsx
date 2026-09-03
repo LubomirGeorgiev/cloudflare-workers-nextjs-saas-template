@@ -10,9 +10,6 @@ import { buildAlternates } from "@/utils/i18n-metadata";
 import { buildFaqQuestions } from "@/lib/seo/faq-json-ld";
 import { buildPageGraph, JsonLd } from "@/lib/seo/json-ld";
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {

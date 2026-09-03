@@ -42,9 +42,6 @@ const FILTER_BAR_RULE = cn(
   "xl:after:bg-linear-to-r xl:after:from-border xl:after:from-70% xl:after:to-transparent",
 );
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {

@@ -7,9 +7,9 @@ import {
   SESSION_NO_STORE_CACHE_CONTROL,
 } from "../../src/constants/cache-control";
 import { CACHE_TAGS } from "../../src/constants/cache-tags";
-import { LLMS_TXT_PATH } from "../../src/constants";
+import { I18N_ENABLED, LLMS_TXT_PATH } from "../../src/constants";
 import { OG_IMAGE_CACHE_CONTROL, OG_IMAGE_CONTENT_TYPE } from "../../src/constants/og-image";
-import { LOCALE_COOKIE_NAME } from "../../src/i18n/config";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "../../src/i18n/config";
 import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 // A crawler or an `<img>` never asks for HTML, which is exactly how `isOgImageRequest`
@@ -45,11 +45,6 @@ function getCacheDirectives(response: Response): CacheDirectives {
 
 function getSetCookies(response: Response): string[] {
   return response.headers.getSetCookie();
-}
-
-function expectPositiveSeconds(value: string | true | undefined): void {
-  expect(typeof value).toBe("string");
-  expect(Number(value)).toBeGreaterThan(0);
 }
 
 // Directive order carries no meaning, so compare the parsed sets against the constant the
@@ -124,8 +119,8 @@ test("serves the root llms.txt export with its shared cache policy", async () =>
   expectCachePolicy(response, DOCS_LLMS_TXT_CACHE_CONTROL);
 });
 
-// Vinext pins a metadata route to the browser-revalidate policy and skips the CDN adapter, so
-// without the Worker's stamp the edge revalidates against the origin on every crawler hit.
+// Vinext pins a metadata route to the browser-revalidate policy, so without the Worker's stamp the
+// edge revalidates against the origin on every crawler hit.
 test.each([
   ["/sitemap.xml", CACHE_TAGS.SITEMAP],
   ["/robots.txt", null],
@@ -155,41 +150,62 @@ test("keeps the session endpoint out of every cache", async () => {
   expect(response.headers.get("cdn-cache-control")).toBeNull();
 });
 
-// `export const revalidate` reaches the CDN through `CDN-Cache-Control`, never through
-// `Cache-Control` — the browser copy stays `max-age=0, must-revalidate` so a revalidation
-// is always visible to the user. Assert the shape, not the seconds, since a fork retunes them.
+// A public page renders on every request. `src/proxy.ts` owns the locale redirect and the locale
+// cookie, and a shared-cache hit would skip it, so no page may carry a `public` policy. The data
+// behind the page is what KV caches — see docs/edge-caching.md.
 test.each([
   ["landing page", "/"],
   ["docs entry", SEEDED_DOCS_ENTRY_PATH],
   ["blog entry", SEEDED_BLOG_ENTRY_PATH],
-  ["blog authors index", "/blog/authors"],
   ["blog index", "/blog"],
-  ["paginated blog index", "/blog/2"],
-])("caches the %s at the CDN with a revalidating browser copy", async (_label, path) => {
+])("never marks the %s publicly cacheable", async (_label, path) => {
   const response = await fetchAppPath(path, { headers: PAGE_HEADERS });
 
   expect(response.status).toBe(200);
 
-  const browserDirectives = getCacheDirectives(response);
-  expect(browserDirectives.public).toBe(true);
-  expect(browserDirectives["max-age"]).toBe("0");
-  expect(browserDirectives["must-revalidate"]).toBe(true);
-
-  const cdnDirectives = parseCacheControl(response.headers.get("cdn-cache-control"));
-  expect(cdnDirectives.public).toBe(true);
-  expectPositiveSeconds(cdnDirectives["max-age"]);
-  expectPositiveSeconds(cdnDirectives["stale-while-revalidate"]);
+  const directives = getCacheDirectives(response);
+  expect(directives.public).toBeUndefined();
+  expect(directives["s-maxage"]).toBeUndefined();
+  expect(response.headers.get("cdn-cache-control")).toBeNull();
 });
 
-// The blog index reads no `searchParams` — one such read opts the whole route out of the ISR
-// asserted above. Any query string must therefore be ignored and the page stay cacheable.
-test("ignores a query string on the blog index and stays cacheable", async () => {
-  const response = await fetchAppPath("/blog?page=2", { headers: PAGE_HEADERS });
+// The behavior the policy above protects: a visitor who signals another locale is redirected to
+// it on the bare path. Derived from the enabled set, so a single-locale fork skips this.
+const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
-  expect(response.status).toBe(200);
-  expect(getCacheDirectives(response)["no-store"]).toBeUndefined();
-  expect(parseCacheControl(response.headers.get("cdn-cache-control")).public).toBe(true);
-});
+function locationPathname(response: Response): string | null {
+  const location = response.headers.get("location");
+
+  return location ? new URL(location, "https://placeholder.invalid").pathname : null;
+}
+
+test.runIf(I18N_ENABLED && ALTERNATE_LOCALE !== undefined)(
+  "redirects a visitor with a matching Accept-Language to their locale",
+  async () => {
+    const response = await fetchAppPath("/", {
+      headers: { ...PAGE_HEADERS, "accept-language": `${ALTERNATE_LOCALE},en;q=0.5` },
+      redirect: "manual",
+    });
+
+    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBeLessThan(400);
+    expect(locationPathname(response)).toBe(`/${ALTERNATE_LOCALE}`);
+  }
+);
+
+test.runIf(I18N_ENABLED && ALTERNATE_LOCALE !== undefined)(
+  "redirects a visitor with a locale cookie to their locale",
+  async () => {
+    const response = await fetchAppPath("/blog", {
+      headers: { ...PAGE_HEADERS, cookie: `${LOCALE_COOKIE_NAME}=${ALTERNATE_LOCALE}` },
+      redirect: "manual",
+    });
+
+    expect(response.status).toBeGreaterThanOrEqual(300);
+    expect(response.status).toBeLessThan(400);
+    expect(locationPathname(response)).toBe(`/${ALTERNATE_LOCALE}/blog`);
+  }
+);
 
 test.each([["/dashboard"], ["/settings"]])(
   "never marks %s publicly cacheable",

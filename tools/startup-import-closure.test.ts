@@ -31,6 +31,12 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/constants/cache-control.ts",
       "src/constants/cache-tags.ts",
       "src/constants/oauth.ts",
+      // Two URL-only rules the proxy used to own: the disabled-i18n prefix collapse and the
+      // OpenGraph cookie strip. Both run on every request, so neither can sit behind an `import()`.
+      "src/i18n/config.ts",
+      "src/i18n/locale-prefix.ts",
+      "src/i18n/localized-paths.ts",
+      "src/lib/og/og-paths.ts",
       // Two string constants and their catalog. The entry builds the internal endpoints' bearer
       // challenge and RFC 9728 document itself — it cannot do that from behind an `import()`,
       // because both are stamped on responses the provider has already produced.
@@ -53,9 +59,6 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/i18n/config.ts",
       "src/i18n/localized-paths.ts",
       "src/i18n/routing.ts",
-      // One import-free regex: the proxy strips Set-Cookie from OG cards on every request, so it
-      // cannot sit behind an `import()`.
-      "src/lib/og/og-paths.ts",
     ],
   },
   // next-intl's request config is reached from the proxy above, so its tail is startup cost too.

@@ -17,9 +17,6 @@ import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 import { buildBlogAuthorsGraph } from "@/lib/seo/blog-json-ld"
 import { JsonLd } from "@/lib/seo/json-ld"
 
-// Cached for an hour — see docs/page-caching.md.
-export const revalidate = 3600;
-
 export async function generateMetadata({
   params,
 }: {
