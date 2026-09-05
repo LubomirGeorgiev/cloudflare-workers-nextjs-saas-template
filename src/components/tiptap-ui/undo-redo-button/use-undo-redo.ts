@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import { type Editor } from "@tiptap/react"
 
@@ -66,8 +68,14 @@ export function executeUndoRedoAction(
     return false
   }
 
-  const chain = editor.chain().focus()
-  return action === "undo" ? chain.undo().run() : chain.redo().run()
+  return runTiptapCommand({
+    id: "undo-redo",
+    message: `Could not ${action} the change`,
+    command: () => {
+      const chain = editor.chain().focus()
+      return action === "undo" ? chain.undo().run() : chain.redo().run()
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

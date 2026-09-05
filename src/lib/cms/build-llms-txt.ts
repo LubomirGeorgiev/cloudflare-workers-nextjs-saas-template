@@ -13,6 +13,8 @@ import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository"
 import { singleLine } from "@/lib/markdown-pages/markdown-document";
 import { buildAbsoluteMarkdownPageUrl } from "@/lib/markdown-pages/page-paths";
 import { CMS_NAVIGATION_NODE_TYPES, type CmsNavigationNodeType } from "@/types/cms-navigation";
+import { getBlogFacetPageCounts } from "@/lib/cms/blog-facet-pages";
+import { getBlogCollectionPagePath } from "@/lib/blog-routing";
 import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url";
 import { RATE_LIMITS } from "@/utils/with-rate-limit";
 
@@ -180,6 +182,20 @@ function appendNodeLines({
   }
 }
 
+function appendBlogFacetLines({ lines, basePath, totalPages, title, description }: {
+  lines: string[];
+  basePath: string;
+  totalPages: number;
+  title: string;
+  description: string;
+}) {
+  for (let page = 1; page <= totalPages; page++) {
+    const pathname = getBlogCollectionPagePath({ pathname: basePath, page });
+    const label = page === 1 ? title : `${title} (${page})`;
+    lines.push(`- [${escapeMarkdownLinkText(label)}](${buildAbsoluteMarkdownPageUrl({ pathname })}): ${singleLine(description)}`);
+  }
+}
+
 async function appendBlogLines({
   blogEntries,
   lines,
@@ -198,6 +214,7 @@ async function appendBlogLines({
     getTranslator({ locale: DEFAULT_LOCALE, namespace: "Blog.AuthorDetail.meta" }),
     getTranslator({ locale: DEFAULT_LOCALE, namespace: "Blog.AuthorDetail" }),
   ]);
+  const pageCounts = getBlogFacetPageCounts(blogEntries);
   const tags = new Map<string, NonNullable<CmsCollectionListItem["tags"]>[number]["tag"]>();
   const authors = new Map<string, NonNullable<CmsCollectionListItem["createdByUser"]>>();
 
@@ -227,9 +244,8 @@ async function appendBlogLines({
     for (const tag of tags.values()) {
       const title = tTag("title", { name: tag.name });
       const description = tag.description?.trim() || tTag("description", { name: tag.name });
-      lines.push(
-        `- [${escapeMarkdownLinkText(title)}](${buildAbsoluteMarkdownPageUrl({ pathname: `/blog/tags/${tag.slug}` })}): ${singleLine(description)}`,
-      );
+      const basePath = `/blog/tags/${tag.slug}`;
+      appendBlogFacetLines({ lines, basePath, totalPages: pageCounts.get(basePath) ?? 1, title, description });
     }
   }
 
@@ -239,9 +255,8 @@ async function appendBlogLines({
       const name = getAuthorDisplayName(author, tAuthorDetail("unknownAuthor"));
       const title = tAuthor("title", { name });
       const description = tAuthor("description", { name });
-      lines.push(
-        `- [${escapeMarkdownLinkText(title)}](${buildAbsoluteMarkdownPageUrl({ pathname: `/blog/authors/${getAuthorRouteParam(author)}` })}): ${singleLine(description)}`,
-      );
+      const basePath = `/blog/authors/${getAuthorRouteParam(author)}`;
+      appendBlogFacetLines({ lines, basePath, totalPages: pageCounts.get(basePath) ?? 1, title, description });
     }
   }
 

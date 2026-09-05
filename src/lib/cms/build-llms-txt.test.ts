@@ -1,11 +1,14 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { API_CATALOG_PATH, API_OPENAPI_SPEC_PATH, SITE_URL } from "@/constants";
+import { BLOG_POSTS_PER_PAGE, API_CATALOG_PATH, API_OPENAPI_SPEC_PATH, SITE_URL } from "@/constants";
 import { getMcpEndpointUrl } from "@/constants/agent-clients";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import { loadCatalog } from "@/i18n/message-catalogs";
+import { getAuthorRouteParam } from "@/utils/blog-author-url";
+import { getBlogFacetPageCounts } from "@/lib/cms/blog-facet-pages";
+import { markdownAlternateFor } from "@/lib/markdown-pages/markdown-alternate";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
 
 vi.mock("server-only", () => ({}));
@@ -143,4 +146,24 @@ describe("buildLlmsTxtContent", () => {
       ].join("\n"),
     );
   });
+});
+
+test("discovers numbered author and topic pages with distinct Markdown URLs", async () => {
+  const author = { id: "test-author", firstName: "Ada", lastName: null, email: null, avatar: null };
+  const blogEntries = Array.from({ length: BLOG_POSTS_PER_PAGE + 1 }, (_, index) => ({
+    id: `post-${index}`, collection: "blog", slug: `post-${index}`, title: `Post ${index}`,
+    seoDescription: "A post.", createdByUser: author,
+    tags: [{ tag: { id: "topic", slug: "topic", name: "Topic" } }],
+  })) as Parameters<typeof buildLlmsTxtContent>[0]["blogEntries"];
+  const authorPath = `/blog/authors/${getAuthorRouteParam(author)}`;
+  const counts = getBlogFacetPageCounts(blogEntries);
+  expect(counts.get(authorPath)).toBe(2);
+  expect(counts.get("/blog/tags/topic")).toBe(2);
+  const body = await buildLlmsTxtContent({ blogEntries, docsNodes: [] });
+  for (const pathname of [authorPath, "/blog/tags/topic"]) {
+    expect(body).toContain(`${SITE_URL}${pathname}/2.md`);
+    expect(markdownAlternateFor({ pathname: `${pathname}/2`, locale: DEFAULT_LOCALE })?.path)
+      .toBe(`${pathname}/2.md`);
+    expect(body).not.toContain(`${SITE_URL}${pathname}/3.md`);
+  }
 });

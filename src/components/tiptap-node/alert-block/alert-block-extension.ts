@@ -1,14 +1,16 @@
-import { mergeAttributes, Node } from "@tiptap/core"
+import { Node } from "@tiptap/core"
 import type { MarkdownToken } from "@tiptap/core"
 
 import {
   ALERT_BLOCK_NODE_NAME,
-  ALERT_BLOCK_VARIANTS,
   DEFAULT_ALERT_BLOCK_BODY,
   DEFAULT_ALERT_BLOCK_TITLE,
   DEFAULT_ALERT_BLOCK_VARIANT,
   type AlertBlockAttrs,
+  normalizeAlertBlockVariant,
 } from "@/components/tiptap-node/alert-block/alert-block-types"
+
+import { alertBlockDomSpec } from "./alert-block"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -32,22 +34,8 @@ function normalizeMarkdownText(value: string): string {
   return value.replace(/\r\n/g, "\n").trim()
 }
 
-function normalizeAlertVariant(value: unknown): NonNullable<AlertBlockAttrs["variant"]> {
-  if (typeof value !== "string") {
-    return DEFAULT_ALERT_BLOCK_VARIANT
-  }
-
-  const normalizedVariant = normalizeMarkdownText(value).toLowerCase()
-
-  return ALERT_BLOCK_VARIANTS.includes(
-    normalizedVariant as (typeof ALERT_BLOCK_VARIANTS)[number]
-  )
-    ? (normalizedVariant as (typeof ALERT_BLOCK_VARIANTS)[number])
-    : DEFAULT_ALERT_BLOCK_VARIANT
-}
-
 function getNormalizedAlertMarkdownAttrs(attrs?: Record<string, unknown>): NormalizedAlertMarkdownAttrs {
-  const variant = normalizeAlertVariant(attrs?.variant)
+  const variant = normalizeAlertBlockVariant(attrs?.variant)
 
   return {
     title:
@@ -111,7 +99,7 @@ function parseAlertTokenBody(raw: string): string {
 function parseAlertTokenVariant(raw?: string): AlertBlockAttrs["variant"] {
   const variantMatch = raw?.match(/^> \[!([A-Z]+)\]/)
 
-  return normalizeAlertVariant(variantMatch?.[1])
+  return normalizeAlertBlockVariant(variantMatch?.[1])
 }
 
 export const AlertBlockExtension = Node.create({
@@ -131,12 +119,18 @@ export const AlertBlockExtension = Node.create({
     return {
       title: {
         default: DEFAULT_ALERT_BLOCK_TITLE,
+        rendered: false,
+        parseHTML: (element) => element.querySelector("[data-alert-title]")?.textContent ?? element.getAttribute("title") ?? "",
       },
       body: {
         default: DEFAULT_ALERT_BLOCK_BODY,
+        rendered: false,
+        parseHTML: (element) => element.querySelector("[data-alert-body]")?.textContent ?? element.getAttribute("body") ?? "",
       },
       variant: {
         default: DEFAULT_ALERT_BLOCK_VARIANT,
+        rendered: false,
+        parseHTML: (element) => normalizeAlertBlockVariant(element.getAttribute("data-variant") ?? element.getAttribute("variant")),
       },
     }
   },
@@ -145,16 +139,8 @@ export const AlertBlockExtension = Node.create({
     return [{ tag: 'div[data-type="alert-block"]' }]
   },
 
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "div",
-      mergeAttributes(
-        {
-          "data-type": "alert-block",
-        },
-        HTMLAttributes
-      ),
-    ]
+  renderHTML({ node, HTMLAttributes }) {
+    return alertBlockDomSpec({ attrs: node.attrs, HTMLAttributes, editable: false, target: "html" })
   },
 
   markdownTokenizer: {

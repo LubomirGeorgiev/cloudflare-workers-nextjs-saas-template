@@ -19,7 +19,7 @@ vi.mock("@/i18n/navigation", async () => {
 
 const NON_DEFAULT_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) as Locale;
 
-const { buildAlternates, noindexNonDefaultLocale } = await import("./i18n-metadata");
+const { buildAlternates, buildPaginatedAlternates, noindexNonDefaultLocale } = await import("./i18n-metadata");
 
 describe("buildAlternates", () => {
   test("advertises a Markdown alternate for a supported public page", () => {
@@ -220,5 +220,44 @@ describe("fallback-render metadata composition (blog/docs untranslated pages)", 
     const languages = alternates!.languages as Record<string, string>;
     expect(languages[DEFAULT_LOCALE]).toBeDefined();
     expect(languages[NON_DEFAULT_LOCALE]).toBeUndefined();
+  });
+});
+
+describe("buildPaginatedAlternates", () => {
+  const options = { pathname: "/blog", locale: DEFAULT_LOCALE, availableLocales: LOCALES };
+
+  test("keeps the full alternates on page one", () => {
+    expect(buildPaginatedAlternates({ ...options, page: 1 })).toEqual(buildAlternates(options));
+  });
+
+  test("keeps the canonical of a numbered page", () => {
+    const alternates = buildPaginatedAlternates({ ...options, pathname: "/blog/2", page: 2 });
+
+    expect(alternates!.canonical).toBe(`${SITE_URL}/blog/2`);
+  });
+
+  test.skipIf(!I18N_ENABLED)("advertises a numbered page in every locale that has it", () => {
+    const alternates = buildPaginatedAlternates({ ...options, pathname: "/blog/2", page: 2 });
+    const languages = alternates!.languages as Record<string, string>;
+
+    for (const locale of LOCALES) {
+      expect(languages[locale]).toBeDefined();
+    }
+    expect(languages["x-default"]).toBe(`${SITE_URL}/blog/2`);
+  });
+
+  test.skipIf(!I18N_ENABLED)("omits a locale that runs out of pages, and x-default with the default locale", () => {
+    const alternates = buildPaginatedAlternates({
+      ...options,
+      pathname: "/blog/2",
+      locale: NON_DEFAULT_LOCALE,
+      availableLocales: [NON_DEFAULT_LOCALE],
+      page: 2,
+    });
+    const languages = alternates!.languages as Record<string, string>;
+
+    expect(languages).toEqual({
+      [NON_DEFAULT_LOCALE]: `${SITE_URL}/${NON_DEFAULT_LOCALE}/blog/2`,
+    });
   });
 });

@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import { useHotkeys } from "react-hotkeys-hook"
 import { type Editor } from "@tiptap/react"
@@ -51,17 +53,19 @@ export function insertImage(editor: Editor | null): boolean {
     return false
   }
 
-  try {
-    return editor
-      .chain()
-      .focus()
-      .insertContent({
-        type: "imageUpload",
-      })
-      .run()
-  } catch {
-    return false
-  }
+  return runTiptapCommand({
+    id: "insert-image",
+    message: "Could not insert the image block",
+    command: () => {
+      return editor
+        .chain()
+        .focus()
+        .insertContent({
+          type: "imageUpload",
+        })
+        .run()
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

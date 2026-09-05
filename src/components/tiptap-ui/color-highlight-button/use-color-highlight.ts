@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import { type Editor } from "@tiptap/react"
 import { useHotkeys } from "react-hotkeys-hook"
@@ -183,11 +185,17 @@ export function removeHighlight(
     return false
   }
 
-  if (mode === "mark") {
-    return editor.chain().focus().unsetMark("highlight").run()
-  } else {
-    return editor.chain().focus().unsetNodeBackgroundColor().run()
-  }
+  return runTiptapCommand({
+    id: "remove-highlight",
+    message: "Could not remove the highlight",
+    command: () => {
+      if (mode === "mark") {
+        return editor.chain().focus().unsetMark("highlight").run()
+      } else {
+        return editor.chain().focus().unsetNodeBackgroundColor().run()
+      }
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
@@ -262,18 +270,26 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
       if (editor.state.storedMarks) {
         const highlightMarkType = editor.schema.marks.highlight
         if (highlightMarkType) {
-          editor.view.dispatch(
-            editor.state.tr.removeStoredMark(highlightMarkType)
-          )
+          const success = runTiptapCommand({
+            id: "set-highlight",
+            message: "Could not change the highlight",
+            command: () => {
+              editor.view.dispatch(editor.state.tr.removeStoredMark(highlightMarkType))
+              return true
+            },
+          })
+          if (!success) {
+            return false
+          }
         }
       }
 
       setTimeout(() => {
-        const success = editor
-          .chain()
-          .focus()
-          .toggleMark("highlight", { color: highlightColor })
-          .run()
+        const success = runTiptapCommand({
+          id: "set-highlight",
+          message: "Could not change the highlight",
+          command: () => editor.chain().focus().toggleMark("highlight", { color: highlightColor }).run(),
+        })
         if (success) {
           onApplied?.({ color: highlightColor, label, mode })
         }
@@ -282,11 +298,11 @@ export function useColorHighlight(config: UseColorHighlightConfig) {
 
       return true
     } else {
-      const success = editor
-        .chain()
-        .focus()
-        .toggleNodeBackgroundColor(highlightColor)
-        .run()
+      const success = runTiptapCommand({
+        id: "set-highlight",
+        message: "Could not change the highlight",
+        command: () => editor.chain().focus().toggleNodeBackgroundColor(highlightColor).run(),
+      })
 
       if (success) {
         onApplied?.({ color: highlightColor, label, mode })

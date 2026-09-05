@@ -2,7 +2,7 @@ import "server-only"
 import { getTranslator } from "@/i18n/translator";
 import { Link, redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getCmsCollection } from "@/lib/cms/entry"
+import { getBlogAuthors } from "@/lib/cms/blog-list-artifacts"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MARKDOWN_DIRECTIVES } from "@/constants/markdown-directives"
@@ -59,49 +59,13 @@ export default async function BlogAuthorsPage({
   const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
   const unknownAuthor = tAuthor("unknownAuthor")
 
-  const blogEntries = await getCmsCollection({
-    collectionSlug: 'blog',
-    includeRelations: { createdByUser: true },
-    locale,
-  })
+  const { authors, hasPosts } = await getBlogAuthors(locale)
 
   // Empty only in this locale still renders the localized empty state; redirect
   // home only when the blog has no published posts at all.
-  if (blogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
+  if (!hasPosts && !(await hasPublishedBlogPosts())) {
     redirect({ href: "/", locale })
   }
-
-  // Group entries by author
-  const authorMap = new Map<string, {
-    id: string
-    firstName: string | null
-    lastName: string | null
-    email: string | null
-    avatar: string | null
-    postCount: number
-  }>()
-
-  blogEntries.forEach(entry => {
-    if (entry.createdByUser) {
-      const authorId = entry.createdByUser.id
-      const existing = authorMap.get(authorId)
-
-      if (existing) {
-        existing.postCount++
-      } else {
-        authorMap.set(authorId, {
-          id: entry.createdByUser.id,
-          firstName: entry.createdByUser.firstName,
-          lastName: entry.createdByUser.lastName,
-          email: entry.createdByUser.email,
-          avatar: entry.createdByUser.avatar,
-          postCount: 1,
-        })
-      }
-    }
-  })
-
-  const authors = Array.from(authorMap.values()).sort((a, b) => b.postCount - a.postCount)
 
   const graph = await buildBlogAuthorsGraph({ locale, authors })
 

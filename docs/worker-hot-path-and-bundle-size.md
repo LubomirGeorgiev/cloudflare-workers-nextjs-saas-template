@@ -43,6 +43,32 @@ Do the same for anything the entry needs only on some invocations — a callback
 
 **Never `import()` inside a per-request loop.** Hoist it to the handler.
 
+## Public page results
+
+Blog and docs bodies use cached HTML. The cache stores the table of contents with the body.
+The blog cache also stores the description and entry summary. Its result excludes the source
+content and custom fields. Each key includes the locale and the renderer build ID.
+Entry cache tags refresh these results after CMS changes.
+
+The HTML converter uses the shared TipTap extensions and their `renderHTML` methods.
+It adds heading IDs through a global attribute extension. Static code highlights replace only
+CodeBlockLowlight's content slot, because its browser plugin does not run during static output.
+The shared Lowlight helper also serves the standalone code component.
+
+The alert extension and its React editor view use one DOM definition and Lucide's icon data.
+TipTap converts that definition to HTML on the server and React elements in the editor.
+The public article receives static HTML. It does not hydrate the TipTap editor or alert node view.
+Only the admin editor attaches alert edit controls and event handlers.
+CMS images use widths from `src/constants/images.ts`, which also configures the optimizer.
+Vinext beta.9 exposes `getImageProps` as a client reference in RSC, so the HTML converter cannot call it.
+
+Author and tag pages cache filtered post lists and return at most `BLOG_POSTS_PER_PAGE` posts.
+Numbered paths preserve distinct HTML and Markdown results. `llms.txt` includes those paths; the sitemap lists page one only.
+Docs page results cache compact breadcrumbs and previous/next links under navigation and redirect tags.
+
+The API reference models and serialized site JSON-LD contain no request data. Lazy values reuse
+these results within each isolate. Credential reads and locale detection still run for each request.
+
 ## Measure before and after
 
 Cheap and worth it for anything touching the entry, a shared service, or a dependency:

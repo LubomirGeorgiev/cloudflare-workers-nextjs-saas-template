@@ -1,4 +1,4 @@
-import { getBlogPagePath } from "@/lib/blog-routing"
+import { getBlogCollectionPagePath } from "@/lib/blog-routing"
 import { getTranslator } from "@/i18n/translator";
 import { getPathname } from "@/i18n/navigation"
 import type { Locale } from "@/i18n/config"
@@ -13,16 +13,18 @@ import {
 } from "@/components/ui/pagination"
 
 interface BlogPaginationServerProps {
+  // Locale-agnostic list path (e.g. "/blog", "/blog/tags/x") the page links are built from.
+  pathname: string;
   currentPage: number;
   totalPages: number;
   locale: Locale;
 }
 
-export async function BlogPaginationServer({ currentPage, totalPages, locale }: BlogPaginationServerProps) {
+export async function BlogPaginationServer({ currentPage, totalPages, locale, pathname }: BlogPaginationServerProps) {
   const t = await getTranslator({ locale, namespace: "Client.Pagination" });
   // `PaginationLink` renders a plain `<a href>`, so the href must already carry
   // any active locale prefix or pagination can drop the visitor's locale.
-  const pageHref = (page: number) => getPathname({ href: getBlogPagePath({ page }), locale })
+  const pageHref = (page: number) => getPathname({ href: getBlogCollectionPagePath({ pathname, page }), locale })
   const pageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
     const showEllipsisThreshold = 7;

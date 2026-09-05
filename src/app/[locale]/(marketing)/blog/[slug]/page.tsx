@@ -4,13 +4,12 @@ import { Link, redirect as redirectLocalized } from "@/i18n/navigation"
 import { cache } from "react"
 import { formatDate } from "@/utils/format-date"
 import type { Metadata } from "next"
-import { getCmsEntryBySlug, getEntryLocales } from "@/lib/cms/entry"
+import { getEntryLocales } from "@/lib/cms/entry"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { resolveLocalizedEntry } from "@/lib/cms/resolve-localized-entry"
-import { CmsEntryBody } from "@/components/cms-entry-body"
+import { CmsHtmlBody } from "@/components/cms-html-body"
 import { ContentTableOfContentsNav } from "@/components/content-table-of-contents-nav"
-import { generateMetaDescription } from "@/lib/cms/extract-text-from-content"
-import type { JSONContent } from "@tiptap/core"
+import { getCachedBlogEntryArtifacts } from "@/lib/cms/blog-entry-artifacts"
 import Image from "next/image"
 import { SITE_URL } from "@/constants"
 import { buildBlogPostGraph } from "@/lib/seo/blog-json-ld"
@@ -29,8 +28,6 @@ import { getBlogPagePath } from "@/lib/blog-routing"
 import { getValidPageNumber } from "@/utils/get-valid-page-number"
 import { getAuthorDisplayName, getAuthorRouteParam } from "@/utils/blog-author-url"
 import { getCmsEntryDates } from "@/utils/cms-entry-dates"
-import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree"
-import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents"
 
 type BlogPostPageProps = {
   params: Promise<{
@@ -39,15 +36,6 @@ type BlogPostPageProps = {
   }>
 }
 
-const getCachedBlogEntryBySlug = cache(async (slug: string, locale: Locale) => {
-  return getCmsEntryBySlug({
-    collectionSlug: "blog",
-    slug,
-    locale,
-    includeRelations: { tags: true, createdByUser: true },
-  })
-})
-
 // Resolves the active-locale post, falling back to the default-locale post
 // under the active locale's URL (no redirect) when untranslated — redirecting
 // to the unprefixed URL infinite-loops under `localeDetection: true`.
@@ -55,7 +43,7 @@ const getCachedResolvedBlogEntry = cache(async (slug: string, locale: Locale) =>
   return resolveLocalizedEntry({
     locale,
     defaultLocale: DEFAULT_LOCALE,
-    getEntry: ({ locale: entryLocale }) => getCachedBlogEntryBySlug(slug, entryLocale),
+    getEntry: ({ locale: entryLocale }) => getCachedBlogEntryArtifacts({ slug, locale: entryLocale }),
   })
 })
 
@@ -81,7 +69,7 @@ export async function generateMetadata({
 
   const { entry, isFallback } = resolved
 
-  const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
+  const description = entry.description
   const featuredImageUrl = entry.featuredImageUrl ? `${SITE_URL}${entry.featuredImageUrl}` : undefined
   const author = entry.createdByUser
   // Empty unknown-label on purpose: OG omits `authors` when the name is
@@ -189,10 +177,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   })
-  const tableOfContents = extractTableOfContents(entry.content as JSONContent)
-  const tableOfContentsTree = buildTableOfContentsTree(tableOfContents)
+  const { html, tableOfContents, tableOfContentsTree } = entry
 
-  const description = entry.seoDescription || generateMetaDescription(entry.content as JSONContent)
+  const description = entry.description
 
   const graph = await buildBlogPostGraph({
     locale,
@@ -277,10 +264,9 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </div>
             )}
 
-            <CmsEntryBody
-              content={entry.content as JSONContent}
+            <CmsHtmlBody
+              html={html}
               className="blog-content"
-              tableOfContents={tableOfContents}
             />
           </article>
 

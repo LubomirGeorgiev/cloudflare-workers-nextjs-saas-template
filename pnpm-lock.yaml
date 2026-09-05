@@ -29,6 +29,9 @@ importers:
       '@icons-pack/react-simple-icons':
         specifier: ^13.13.0
         version: 13.13.0(react@19.2.8)
+      '@lucide/icons':
+        specifier: 1.25.0
+        version: 1.25.0
       '@marsidev/react-turnstile':
         specifier: ^1.5.2
         version: 1.5.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1551,6 +1554,9 @@ packages:
 
   '@levischuck/tiny-cbor@0.2.11':
     resolution: {integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==}
+
+  '@lucide/icons@1.25.0':
+    resolution: {integrity: sha512-Haxsml91j5P1gDQg67WZA2YK8AX5HtgHYtsQLrMDvFJY5vKfCOs5R2m8efH+BehHPPRx/udVl5k5IE90iohmmQ==}
 
   '@marsidev/react-turnstile@1.5.4':
     resolution: {integrity: sha512-2+ulBzQPYcC5jZ4Pghlcc6a6+CQ6L0cgTxtbavZbcHcG5/wSQsTAM+vDudF94L9AUPG4uSNQF1kotmvx0Ns/QA==}
@@ -6051,6 +6057,8 @@ snapshots:
       jsbi: 4.3.2
 
   '@levischuck/tiny-cbor@0.2.11': {}
+
+  '@lucide/icons@1.25.0': {}
 
   '@marsidev/react-turnstile@1.5.4(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:

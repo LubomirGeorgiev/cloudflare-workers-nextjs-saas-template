@@ -1,3 +1,4 @@
+import { reportTiptapError } from "@/lib/tiptap-errors"
 import { mergeAttributes, Node } from "@tiptap/react"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import { ImageUploadNode as ImageUploadNodeComponent } from "@/components/tiptap-node/image-upload-node/image-upload-node"
@@ -49,7 +50,7 @@ export const ImageUploadNode = Node.create<ImageUploadNodeOptions>({
       limit: 1,
       maxSize: 0,
       upload: undefined,
-      onError: undefined,
+      onError: (error) => reportTiptapError({ id: "image-upload-failed", message: "Image upload failed", error }),
       onSuccess: undefined,
       HTMLAttributes: {},
     }

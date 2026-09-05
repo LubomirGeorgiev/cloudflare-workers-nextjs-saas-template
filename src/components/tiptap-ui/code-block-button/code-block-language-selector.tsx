@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -58,15 +60,15 @@ export function CodeBlockLanguageSelector({
 
     const handleUpdate = () => {
       const { $from } = editor.state.selection
-      
+
       // Traverse up the tree to find the code block
       for (let depth = $from.depth; depth > 0; depth--) {
         const node = $from.node(depth)
-        
+
         if (node.type.name === "codeBlock") {
           const attrs = node.attrs as { language?: string | null }
           const language = attrs?.language
-          
+
           // Only update if we have a valid language, otherwise keep current or default to plaintext
           if (language !== null && language !== undefined && language !== "") {
             setCurrentLanguage(language)
@@ -76,7 +78,7 @@ export function CodeBlockLanguageSelector({
           return
         }
       }
-      
+
       // If no code block found in parents, default to plaintext
       setCurrentLanguage("plaintext")
     }
@@ -97,18 +99,18 @@ export function CodeBlockLanguageSelector({
       if (!language || language.trim() === "") {
         return;
       }
-      
+
       if (!editor) {
         return
       }
 
-      editor
-        .chain()
-        .focus()
-        .updateAttributes("codeBlock", { language })
-        .run()
-
-      setCurrentLanguage(language)
+      if (runTiptapCommand({
+        id: "set-code-language",
+        message: "Could not change the code language",
+        command: () => editor.chain().focus().updateAttributes("codeBlock", { language }).run(),
+      })) {
+        setCurrentLanguage(language)
+      }
     },
     [editor]
   )
@@ -120,13 +122,13 @@ export function CodeBlockLanguageSelector({
 
   // Ensure the current language is valid, otherwise use plaintext
   const normalizedLanguage = LANGUAGE_ALIASES[currentLanguage] ?? currentLanguage
-  const validLanguage = COMMON_LANGUAGES.some(lang => lang.value === normalizedLanguage) 
-    ? normalizedLanguage 
+  const validLanguage = COMMON_LANGUAGES.some(lang => lang.value === normalizedLanguage)
+    ? normalizedLanguage
     : "plaintext"
 
   return (
-    <Select 
-      value={validLanguage} 
+    <Select
+      value={validLanguage}
       onValueChange={handleLanguageChange}
     >
       <SelectTrigger className="w-[180px] h-8 text-xs">

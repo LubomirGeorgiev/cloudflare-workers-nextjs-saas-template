@@ -2,21 +2,18 @@ import { type Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Route } from "next";
-import type { JSONContent } from "@tiptap/core";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getTranslator } from "@/i18n/translator";
 
 import { CopyDocsMarkdownButton } from "@/app/[locale]/(marketing)/docs/_components/copy-docs-markdown-button";
-import { DocsArticleBody } from "@/app/[locale]/(marketing)/docs/_components/docs-article-body";
 import { DocsOnThisPageNav } from "@/app/[locale]/(marketing)/docs/_components/docs-on-this-page-nav";
+import { CmsHtmlBody } from "@/components/cms-html-body";
 import { SITE_URL } from "@/constants";
 import { buildAbsoluteMarkdownPageUrl } from "@/lib/markdown-pages/page-paths";
 import { getCachedDocsEntryArtifacts } from "@/lib/cms/docs-entry-artifacts";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getEntryLocales } from "@/lib/cms/entry";
 import {
-  getCmsNavigationAncestors,
-  getCmsNavigationPrevNext,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
@@ -57,7 +54,7 @@ function getNavigationItemDescription(node: CmsNavigationTreeNode): string | nul
 
 const resolveCachedDocsPage = cache(async (slugCacheKey: string, locale: Locale) => {
   const slugParts = JSON.parse(slugCacheKey) as string[];
-  return resolveCurrentDocsPage(slugParts.length > 0 ? slugParts : undefined, locale);
+  return resolveCurrentDocsPage({ slugParts: slugParts.length > 0 ? slugParts : undefined, locale });
 });
 
 export async function generateMetadata({
@@ -189,17 +186,13 @@ export default async function DocsPage({ params }: DocsPageProps) {
     notFound();
   }
 
-  const { node, navigationTree } = result;
+  const { node, breadcrumbs, previous, next } = result;
   const urlLocale = result.type === "page" && result.isFallback ? DEFAULT_LOCALE : locale;
   const nodeTitle = getNavigationNodeDisplayTitle(node);
-  const breadcrumbs = getCmsNavigationAncestors({
-    nodeId: node.id,
-    nodes: navigationTree,
-  });
   // Shared by both branches below: the crumbs under the docs root, which both docs builders prepend.
   const docsTrail = breadcrumbs.map((crumb) => ({
     pathname: crumb.resolvedPath ?? docsBasePath,
-    name: getNavigationNodeDisplayTitle(crumb),
+    name: crumb.title,
   }));
   const docsPathname = node.resolvedPath ?? docsBasePath;
 
@@ -210,9 +203,9 @@ export default async function DocsPage({ params }: DocsPageProps) {
         <div key={crumb.id} className="flex items-center gap-2">
           <span>/</span>
           {crumb.resolvedPath ? (
-            <Link href={crumb.resolvedPath}>{getNavigationNodeDisplayTitle(crumb)}</Link>
+            <Link href={crumb.resolvedPath}>{crumb.title}</Link>
           ) : (
-            <span>{getNavigationNodeDisplayTitle(crumb)}</span>
+            <span>{crumb.title}</span>
           )}
         </div>
       ))}
@@ -308,19 +301,13 @@ export default async function DocsPage({ params }: DocsPageProps) {
   }
 
   const {
-    content: entryContent,
+    html,
     markdown,
     tableOfContents,
     tableOfContentsTree,
   } = artifacts;
-  const { previous, next } = getCmsNavigationPrevNext({
-    currentNodeId: node.id,
-    nodes: navigationTree,
-  });
-  const previousSeoDescription = previous
-    ? getNavigationItemDescription(previous)
-    : null;
-  const nextSeoDescription = next ? getNavigationItemDescription(next) : null;
+  const previousSeoDescription = previous?.description;
+  const nextSeoDescription = next?.description;
   const markdownApiUrl = buildAbsoluteMarkdownPageUrl({
     pathname: node.resolvedPath ?? docsBasePath,
   });
@@ -365,10 +352,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
               </div>
             </header>
 
-            <DocsArticleBody
-              content={entryContent as JSONContent}
-              tableOfContents={tableOfContents}
-            />
+            <CmsHtmlBody html={html} className="prose prose-neutral max-w-none dark:prose-invert" />
 
             {(previous || next) ? (
               <div className="mt-12 grid gap-4 pt-8 md:grid-cols-2">
@@ -386,7 +370,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                           {tPagination("previous")}
                         </p>
                         <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
-                          {getNavigationNodeDisplayTitle(previous)}
+                          {previous.title}
                         </p>
                         {previousSeoDescription ? (
                           <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
@@ -421,7 +405,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                           {tPagination("next")}
                         </p>
                         <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
-                          {getNavigationNodeDisplayTitle(next)}
+                          {next.title}
                         </p>
                         {nextSeoDescription ? (
                           <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">

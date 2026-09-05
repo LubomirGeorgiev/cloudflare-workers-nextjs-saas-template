@@ -48,6 +48,15 @@ function parseFencedBlock(markdown: string): { fence: string; language: string; 
 }
 
 describe("renderContentToMarkdown", () => {
+  test("keeps text around an incomplete image upload", () => {
+    const markdown = renderContentToMarkdown({ type: "doc", content: [
+      { type: "imageUpload" },
+      { type: "paragraph", content: [{ type: "text", text: "Keep this text." }] },
+    ] });
+
+    expect(markdown.trim()).toBe("Keep this text.");
+  });
+
   test("keeps repeated equals signs in prose literal", () => {
     const markdown = renderContentToMarkdown(paragraphDoc([{ type: "text", text: "a == b == c" }]));
 

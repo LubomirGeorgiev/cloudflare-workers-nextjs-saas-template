@@ -1,5 +1,7 @@
 "use client"
 
+import { reportTiptapError, runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -108,18 +110,27 @@ export function useLinkHandler(props: LinkHandlerProps) {
       return
     }
 
-    const { selection } = editor.state
-    const isEmpty = selection.empty
+    const success = runTiptapCommand({
+      id: "set-link",
+      message: "Could not set the link",
+      command: () => {
+        const { selection } = editor.state
+        const isEmpty = selection.empty
 
-    let chain = editor.chain().focus()
+        let chain = editor.chain().focus()
 
-    chain = chain.extendMarkRange("link").setLink({ href: url })
+        chain = chain.extendMarkRange("link").setLink({ href: url })
 
-    if (isEmpty) {
-      chain = chain.insertContent({ type: "text", text: url })
+        if (isEmpty) {
+          chain = chain.insertContent({ type: "text", text: url })
+        }
+
+        return chain.run()
+      },
+    })
+    if (!success) {
+      return
     }
-
-    chain.run()
 
     setUrl(null)
 
@@ -130,13 +141,22 @@ export function useLinkHandler(props: LinkHandlerProps) {
     if (!editor) {
       return
     }
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .unsetLink()
-      .setMeta("preventAutolink", true)
-      .run()
+    const success = runTiptapCommand({
+      id: "remove-link",
+      message: "Could not remove the link",
+      command: () => {
+        return editor
+          .chain()
+          .focus()
+          .extendMarkRange("link")
+          .unsetLink()
+          .setMeta("preventAutolink", true)
+          .run()
+      },
+    })
+    if (!success) {
+      return
+    }
     setUrl("")
   }, [editor])
 
@@ -149,6 +169,8 @@ export function useLinkHandler(props: LinkHandlerProps) {
       const safeUrl = sanitizeUrl(url, window.location.href)
       if (safeUrl !== "#") {
         window.open(safeUrl, target, features)
+      } else {
+        reportTiptapError({ id: "open-link", message: "The link URL is invalid" })
       }
     },
     [url]

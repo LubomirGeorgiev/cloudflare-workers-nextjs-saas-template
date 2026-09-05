@@ -22,3 +22,18 @@ export interface AlertBlockAttrs {
   body?: string
   variant?: AlertVariant
 }
+
+export function normalizeAlertBlockAttrs(attrs: Record<string, unknown>): Required<AlertBlockAttrs> {
+  return {
+    title: typeof attrs.title === "string" ? attrs.title : DEFAULT_ALERT_BLOCK_TITLE,
+    body: typeof attrs.body === "string" ? attrs.body : DEFAULT_ALERT_BLOCK_BODY,
+    variant: normalizeAlertBlockVariant(attrs.variant),
+  };
+}
+
+export function normalizeAlertBlockVariant(value: unknown): AlertVariant {
+  const variant = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return ALERT_BLOCK_VARIANTS.includes(variant as AlertVariant)
+    ? variant as AlertVariant
+    : DEFAULT_ALERT_BLOCK_VARIANT;
+}

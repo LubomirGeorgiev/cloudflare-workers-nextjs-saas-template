@@ -1,16 +1,23 @@
 import "server-only"
 import { getTranslator } from "@/i18n/translator";
-import { cache } from "react"
 import { notFound } from "next/navigation"
 import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getBlogEntriesWithAuthors, resolveBlogAuthor } from "@/lib/cms/resolve-blog-author"
+import { getBlogFacetPage, getBlogPageCounts } from "@/lib/cms/blog-list-artifacts"
+import { BlogPaginationServer } from "@/components/blog-pagination-server"
+import {
+  getLocalesWithBlogPage,
+  isBlogPageOutOfRange,
+  requireBlogCollectionPage,
+  sliceBlogPage,
+} from "@/lib/blog-pagination"
+import { getBlogCollectionPagePath } from "@/lib/blog-routing"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getInitials } from "@/utils/name-initials"
 import { BlogCard } from "@/components/blog-card"
 import { BlogBackLink } from "@/components/blog-back-link"
-import { SITE_URL } from "@/constants"
+import { BLOG_POSTS_PER_PAGE, SITE_URL } from "@/constants"
 import { buildBlogAuthorGraph } from "@/lib/seo/blog-json-ld"
 import { JsonLd } from "@/lib/seo/json-ld"
 import {
@@ -18,26 +25,23 @@ import {
   getAuthorRouteParam,
   parseAuthorIdFromRouteParam,
 } from "@/utils/blog-author-url"
-import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
-import { buildAlternates } from "@/utils/i18n-metadata"
+import { getOpenGraphLocales, type Locale } from "@/i18n/config"
+import { buildPaginatedAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 
 type AuthorPageProps = {
   params: Promise<{
+    page?: string
     locale: Locale
     authorId: string
   }>
 }
 
-// `includeTags` because the cards below render tag pills; the OG card asks for the author alone.
-const getCachedBlogEntriesWithAuthors = cache(async (locale: Locale) => {
-  return getBlogEntriesWithAuthors({ locale, includeTags: true })
-})
-
 export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
-  const { locale, authorId: authorRouteParam } = await params
+  const { locale, authorId: authorRouteParam, page: pageParam } = await params
+  const page = requireBlogCollectionPage({ pathname: `/blog/authors/${authorRouteParam}`, pageParam, locale });
   const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail.meta" })
   const tDetail = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)
@@ -48,20 +52,18 @@ export async function generateMetadata({
     }
   }
 
-  const resolved = resolveBlogAuthor({
-    entries: await getCachedBlogEntriesWithAuthors(locale),
-    authorRouteParam,
-  })
-
-  if (!resolved) {
-    return {
-      title: t("notFound"),
-    }
+  const facetPage = await getBlogFacetPage({ locale, facet: { type: "author", authorId: parsedAuthorId } });
+  if (!facetPage) {
+    return { title: t("notFound") };
   }
+  const author = facetPage.subject;
 
-  const { author } = resolved
   const authorName = getAuthorDisplayName(author, tDetail("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
+  const basePath = `/blog/authors/${canonicalAuthorParam}`
+  // An author has fewer posts in some locales, so a numbered page exists only in
+  // the locales whose count reaches it.
+  const pageCounts = await getBlogPageCounts({ pathname: basePath })
 
   const avatarUrl = author.avatar ? `${SITE_URL}${author.avatar}` : undefined
 
@@ -71,19 +73,18 @@ export async function generateMetadata({
   return {
     title,
     description,
-    // This listing page renders in every locale, so every locale gets an
-    // hreflang entry.
-    alternates: buildAlternates({
-      pathname: `/blog/authors/${canonicalAuthorParam}`,
+    alternates: buildPaginatedAlternates({
+      pathname: getBlogCollectionPagePath({ pathname: basePath, page }),
       locale,
-      availableLocales: LOCALES,
+      availableLocales: getLocalesWithBlogPage({ pageCounts, page }),
+      page,
     }),
     openGraph: {
       ...getOpenGraphLocales(locale),
       title,
       description,
       type: "profile",
-      url: absoluteLocalizedUrl({ pathname: `/blog/authors/${canonicalAuthorParam}`, locale }),
+      url: absoluteLocalizedUrl({ pathname: getBlogCollectionPagePath({ pathname: basePath, page }), locale }),
       ...(avatarUrl && {
         images: [avatarUrl],
       }),
@@ -100,7 +101,8 @@ export async function generateMetadata({
 }
 
 export default async function AuthorPage({ params }: AuthorPageProps) {
-  const { locale, authorId: authorRouteParam } = await params
+  const { locale, authorId: authorRouteParam, page: pageParam } = await params
+  const page = requireBlogCollectionPage({ pathname: `/blog/authors/${authorRouteParam}`, pageParam, locale });
   const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
   // Ahead of the empty-blog redirect below on purpose: a malformed param must 404, not go home.
@@ -110,29 +112,33 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
     notFound()
   }
 
-  const blogEntries = await getCachedBlogEntriesWithAuthors(locale)
+  const facetPage = await getBlogFacetPage({ locale, facet: { type: "author", authorId: parsedAuthorId } });
 
-  // Empty only in this locale falls through to the per-author notFound below;
-  // redirect home only when the blog has no published posts at all.
-  if (blogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
-    redirect({ href: "/", locale })
+  if (!facetPage) {
+    // An empty blog uses the same rule as the main list; a real unknown author 404s.
+    if (!(await hasPublishedBlogPosts())) {
+      redirect({ href: "/", locale });
+    }
+    notFound();
   }
 
-  const resolved = resolveBlogAuthor({ entries: blogEntries, authorRouteParam })
+  const author = facetPage.subject;
+  const totalCount = facetPage.posts.length;
+  const totalPages = Math.ceil(totalCount / BLOG_POSTS_PER_PAGE);
+  const authorEntries = sliceBlogPage({ items: facetPage.posts, page });
 
-  if (!resolved) {
-    notFound()
+  if (isBlogPageOutOfRange({ page, totalCount })) {
+    notFound();
   }
 
-  const { author, entries: authorEntries } = resolved
   const authorName = getAuthorDisplayName(author, t("unknownAuthor"))
   const canonicalAuthorParam = getAuthorRouteParam(author)
 
   if (authorRouteParam !== canonicalAuthorParam) {
-    redirect({ href: `/blog/authors/${canonicalAuthorParam}`, locale })
+    redirect({ href: getBlogCollectionPagePath({ pathname: `/blog/authors/${canonicalAuthorParam}`, page }), locale })
   }
 
-  const graph = await buildBlogAuthorGraph({ locale, author })
+  const graph = await buildBlogAuthorGraph({ locale, author, page })
 
   return (
     <>
@@ -152,7 +158,7 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
                 {authorName}
               </h1>
               <p className="mt-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-                {tCommon("postCount", { count: authorEntries.length })}
+                {tCommon("postCount", { count: totalCount })}
               </p>
             </div>
           </div>
@@ -163,6 +169,12 @@ export default async function AuthorPage({ params }: AuthorPageProps) {
             <BlogCard key={entry.id} locale={locale} entry={entry} showAuthor={false} />
           ))}
         </div>
+        <BlogPaginationServer
+          pathname={`/blog/authors/${canonicalAuthorParam}`}
+          currentPage={page}
+          totalPages={totalPages}
+          locale={locale}
+        />
       </div>
     </>
   )

@@ -1,3 +1,4 @@
+import { reportTiptapError, runTiptapCommand } from "@/lib/tiptap-errors"
 import { Extension } from '@tiptap/core'
 import type { Content, Node } from '@tiptap/core'
 import { Fragment } from '@tiptap/pm/model'
@@ -43,11 +44,14 @@ export const PasteMarkdown = Extension.create({
 
               if (editor?.markdown?.parse) {
                 const json = editor.markdown.parse(text)
-                editor.commands.insertContent(json as Node | Content | Fragment)
-                return true
+                return runTiptapCommand({
+                  id: "markdown-paste",
+                  message: "Could not paste Markdown",
+                  command: () => editor.commands.insertContent(json as Node | Content | Fragment),
+                })
               }
             } catch (error) {
-              console.error('Failed to parse markdown:', error)
+              reportTiptapError({ id: "markdown-paste", message: "Could not paste Markdown", error })
             }
 
             return false

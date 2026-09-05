@@ -19,6 +19,8 @@ import { sharedLowlight, type LowlightInstance } from "@/lib/lowlight"
 interface GetBaseExtensionsOptions {
   lowlight?: LowlightInstance
   alertBlockExtension?: AnyExtension
+  codeBlockExtension?: AnyExtension
+  imageExtension?: AnyExtension
   starterKitConfig?: {
     link?: {
       openOnClick?: boolean
@@ -30,6 +32,8 @@ interface GetBaseExtensionsOptions {
 export function getTiptapBaseExtensions({
   lowlight = sharedLowlight,
   alertBlockExtension = AlertBlockExtension,
+  codeBlockExtension = CodeBlockLowlight,
+  imageExtension = Image,
   starterKitConfig,
 }: GetBaseExtensionsOptions = {}): Extension[] {
   return [
@@ -40,7 +44,7 @@ export function getTiptapBaseExtensions({
         link: starterKitConfig.link,
       }),
     }),
-    CodeBlockLowlight.configure({
+    codeBlockExtension.configure({
       lowlight,
       enableTabIndentation: true,
       tabSize: 2,
@@ -50,7 +54,7 @@ export function getTiptapBaseExtensions({
     TaskList,
     TaskItem.configure({ nested: true }),
     Highlight.configure({ multicolor: true }),
-    Image,
+    imageExtension,
     Typography,
     Superscript,
     Subscript,

@@ -1,5 +1,7 @@
 "use client"
 
+import { reportTiptapError } from "@/lib/tiptap-errors"
+
 import { useState } from "react"
 import { renderToMarkdown } from "@tiptap/static-renderer/pm/markdown"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -26,7 +28,7 @@ export function CopyMarkdownButton() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error("Failed to copy markdown:", error)
+      reportTiptapError({ id: "copy-markdown", message: "Could not copy Markdown", error })
     }
   }
 

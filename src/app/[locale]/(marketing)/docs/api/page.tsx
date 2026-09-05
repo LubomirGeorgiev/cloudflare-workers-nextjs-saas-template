@@ -21,6 +21,7 @@ import { PROBLEM_JSON_CONTENT_TYPE } from "@/lib/api/errors";
 import { JSON_CONTENT_TYPE } from "@/lib/api/openapi-walk";
 import { buildApiReferenceView } from "@/lib/api/reference-model";
 import { markdownAlternateFor } from "@/lib/markdown-pages/markdown-alternate";
+import { lazyValue } from "@/utils/lazy-value";
 import { cn } from "@/lib/utils";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { buildAlternates } from "@/utils/i18n-metadata";
@@ -41,6 +42,16 @@ const FILTER_BAR_RULE = cn(
   "xl:after:pointer-events-none xl:after:absolute xl:after:inset-x-0 xl:after:bottom-0 xl:after:h-px",
   "xl:after:bg-linear-to-r xl:after:from-border xl:after:from-70% xl:after:to-transparent",
 );
+
+// The document has no request data and changes only with a build.
+const getReferenceView = lazyValue(async () => {
+  const document = apiDocument();
+  // MCP owns the tool names. The reference model only displays them.
+  return buildApiReferenceView({
+    document,
+    mcpToolNames: mcpToolNameByOperationId(document),
+  });
+});
 
 export async function generateMetadata({
   params,
@@ -67,16 +78,10 @@ export default async function ApiReferencePage({
   const tMeta = await getTranslator({ locale, namespace: "Client.Docs.ApiReference.meta" });
   // Every operation renders the same strings, so the page owns the one label set for all of them.
   const operationLabels = buildApiOperationLabels(t);
-  const document = apiDocument();
   // Same resolver the `Link` header and the metadata alternate use, so the link never points at a
   // `.md` URL the Worker would not serve.
   const markdownAlternate = markdownAlternateFor({ pathname: API_DOCS_PATH, locale });
-  // The MCP derivation owns which operations become tools and what they are called; the view model
-  // only labels them, so the mapping is passed in rather than reached for from the docs layer.
-  const view = buildApiReferenceView({
-    document,
-    mcpToolNames: mcpToolNameByOperationId(document),
-  });
+  const view = await getReferenceView();
 
   // Every documented operation becomes a section heading, so the reference lists its own
   // surface rather than presenting as one opaque page.

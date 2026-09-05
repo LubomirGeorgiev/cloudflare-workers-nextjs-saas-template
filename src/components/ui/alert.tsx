@@ -25,6 +25,9 @@ export const alertVariants = cva(
   }
 )
 
+export const alertTitleClassName = "mb-1 font-medium leading-none tracking-tight"
+export const alertDescriptionClassName = "text-sm [&_p]:leading-relaxed"
+
 export type AlertVariant = NonNullable<
   VariantProps<typeof alertVariants>["variant"]
 >
@@ -48,7 +51,7 @@ const AlertTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h5
     ref={ref}
-    className={cn("mb-1 font-medium leading-none tracking-tight", className)}
+    className={cn(alertTitleClassName, className)}
     {...props}
   />
 ))
@@ -60,7 +63,7 @@ const AlertDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <div
     ref={ref}
-    className={cn("text-sm [&_p]:leading-relaxed", className)}
+    className={cn(alertDescriptionClassName, className)}
     {...props}
   />
 ))

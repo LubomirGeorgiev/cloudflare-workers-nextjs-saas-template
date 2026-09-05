@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { ChainedCommands } from "@tiptap/react"
 import { type Editor } from "@tiptap/react"
@@ -98,12 +100,14 @@ export function setTextAlign(editor: Editor | null, align: TextAlign): boolean {
     return false
   }
 
-  const chain = editor.chain().focus()
-  if (hasSetTextAlign(chain)) {
-    return chain.setTextAlign(align).run()
-  }
-
-  return false
+  return runTiptapCommand({
+    id: "set-text-align",
+    message: "Could not change the text alignment",
+    command: () => {
+      const chain = editor.chain().focus()
+      return hasSetTextAlign(chain) && chain.setTextAlign(align).run()
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

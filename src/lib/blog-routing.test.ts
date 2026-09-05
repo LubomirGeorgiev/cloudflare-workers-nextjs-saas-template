@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest"
 
-import { getBlogPagePath } from "./blog-routing"
+import { getBlogCollectionPagePath, getBlogPagePath } from "./blog-routing"
 
 describe("getBlogPagePath", () => {
   // Page one is the bare list path, never `/blog/1` — the two would be duplicate URLs for one page.
@@ -12,3 +12,10 @@ describe("getBlogPagePath", () => {
     expect(getBlogPagePath({ page: 2 })).toBe("/blog/2")
   })
 })
+
+describe("getBlogCollectionPagePath", () => {
+  test.each(["/blog/authors/author", "/blog/tags/topic"])("uses numbered paths for %s", (pathname) => {
+    expect(getBlogCollectionPagePath({ pathname, page: 1 })).toBe(pathname);
+    expect(getBlogCollectionPagePath({ pathname, page: 2 })).toBe(`${pathname}/2`);
+  });
+});

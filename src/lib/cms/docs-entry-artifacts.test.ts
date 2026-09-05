@@ -25,6 +25,8 @@ vi.mock("@/utils/cache", () => ({
   setCacheScope: setCacheScopeMock,
 }));
 
+vi.stubGlobal("__MARKDOWN_BUILD_ID__", "test-build-id");
+
 const { buildDocsEntryArtifacts, getCachedDocsEntryArtifacts } = await import("./docs-entry-artifacts");
 const { buildCmsEntryMarkdown } = await import("./build-cms-entry-markdown-response");
 
@@ -74,8 +76,8 @@ describe("docs entry artifacts", () => {
     } as unknown as GetCmsCollectionResult;
   }
 
-  test("builds the framed markdown and the table-of-contents artifacts", () => {
-    const artifacts = buildDocsEntryArtifacts({
+  test("builds the framed markdown, HTML, and the table-of-contents artifacts", async () => {
+    const artifacts = await buildDocsEntryArtifacts({
       entry: docsEntry(),
       sourceUrl: "https://example.com/docs/getting-started/introduction",
     });
@@ -99,6 +101,9 @@ describe("docs entry artifacts", () => {
         ],
       },
     ]);
+    expect(artifacts.html).toContain('id="getting-started"');
+    expect(artifacts.html).toContain('id="configure-cloudflare"');
+    expect(artifacts).not.toHaveProperty("content");
     // The golden document of the copy button, framed exactly like `GET <path>.md`.
     expect(artifacts.markdown).toBe(
       "# Introduction\n\nStart here.\n\n"
@@ -109,11 +114,11 @@ describe("docs entry artifacts", () => {
     );
   });
 
-  test("copies the same bytes the Markdown route serves", () => {
+  test("copies the same bytes the Markdown route serves", async () => {
     const entry = docsEntry();
     const sourceUrl = "https://example.com/docs/getting-started/introduction";
 
-    expect(buildDocsEntryArtifacts({ entry, sourceUrl }).markdown).toBe(
+    expect((await buildDocsEntryArtifacts({ entry, sourceUrl })).markdown).toBe(
       buildCmsEntryMarkdown({ entry, sourceUrl }),
     );
   });

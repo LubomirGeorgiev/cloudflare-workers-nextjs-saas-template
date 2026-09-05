@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -36,12 +38,13 @@ export function insertHorizontalRule(editor: Editor | null): boolean {
     return false
   }
 
-  try {
-    editor.chain().focus().setHorizontalRule().run()
-    return true
-  } catch {
-    return false
-  }
+  return runTiptapCommand({
+    id: "insert-horizontal-rule",
+    message: "Could not insert the horizontal rule",
+    command: () => {
+      return editor.chain().focus().setHorizontalRule().run()
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

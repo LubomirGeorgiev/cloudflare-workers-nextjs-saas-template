@@ -10,6 +10,7 @@ import { buildApiReferenceView } from "@/lib/api/reference-model";
 import { mcpToolNameByOperationId } from "@/mcp/derive-tools";
 import { formatApiKeyHint } from "@/utils/api-key-format";
 import { requireAdminOrRedirectHome } from "@/utils/auth-redirect";
+import { lazyValue } from "@/utils/lazy-value";
 import { formatDate } from "@/utils/format-date";
 
 import { AdminApiReference } from "../_components/api/admin-api-reference";
@@ -34,13 +35,21 @@ function toScopeOptions(): { name: string; description: string }[] {
   return ADMIN_SCOPE_NAMES.map((name) => ({ name, description: ADMIN_SCOPES[name].description }));
 }
 
+// Only the fixed document belongs here. Credentials still require fresh reads.
+const getReference = lazyValue(async () => {
+  const document = adminApiDocument();
+  return {
+    view: buildApiReferenceView({ document }),
+    mcpToolNames: Object.fromEntries(mcpToolNameByOperationId(document)),
+  };
+});
+
 export default async function AdminApiPage() {
   // The page is inside `(admin)`, which the layout already gates; asserted again here because this
   // page reads the internal document, and that must never depend on a parent staying in place.
   await requireAdminOrRedirectHome();
 
-  const document = adminApiDocument();
-  const view = buildApiReferenceView({ document });
+  const { view, mcpToolNames } = await getReference();
   // Independent reads of the two stores an internal credential can live in.
   const [keys, grants] = await Promise.all([listAdminApiKeys(), listAdminOAuthGrants()]);
 
@@ -107,7 +116,7 @@ export default async function AdminApiPage() {
 
         <AdminApiReference
           view={view}
-          mcpToolNames={Object.fromEntries(mcpToolNameByOperationId(document))}
+          mcpToolNames={mcpToolNames}
         />
       </div>
     </>

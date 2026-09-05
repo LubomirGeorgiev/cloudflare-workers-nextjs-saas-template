@@ -9,10 +9,12 @@ import { BlogCard } from "@/components/blog-card"
 import { BlogEmptyState } from "@/components/blog-empty-state"
 import { BlogPaginationServer } from "@/components/blog-pagination-server"
 import { BLOG_POSTS_PER_PAGE } from "@/constants"
-import { getBlogPagePath } from "@/lib/blog-routing"
+import { BLOG_BASE_PATH, getBlogPagePath } from "@/lib/blog-routing"
+import { getLocalesWithBlogPage, isBlogPageOutOfRange } from "@/lib/blog-pagination"
+import { getBlogPageCounts } from "@/lib/cms/blog-list-artifacts"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
-import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
-import { buildAlternates } from "@/utils/i18n-metadata"
+import { getOpenGraphLocales, type Locale } from "@/i18n/config"
+import { buildPaginatedAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 import { buildBlogListGraph } from "@/lib/seo/blog-json-ld"
 import { JsonLd } from "@/lib/seo/json-ld"
@@ -28,13 +30,19 @@ export async function getBlogListPageMetadata({ page, locale }: { page: number; 
   const title = isFirstPage ? t("title") : t("titleWithPage", { page })
   const description = t("description")
   const pagePath = getBlogPagePath({ page })
+  // Page one renders in every locale; a numbered page only where that locale has
+  // enough posts, so hreflang names just those locales.
+  const pageCounts = await getBlogPageCounts({ pathname: BLOG_BASE_PATH })
 
   return {
     title,
     description,
-    // The listing page itself renders in every locale (localized chrome +
-    // locale-filtered posts), so every locale gets an hreflang entry.
-    alternates: buildAlternates({ pathname: pagePath, locale, availableLocales: LOCALES }),
+    alternates: buildPaginatedAlternates({
+      pathname: pagePath,
+      locale,
+      availableLocales: getLocalesWithBlogPage({ pageCounts, page }),
+      page,
+    }),
     openGraph: {
       ...getOpenGraphLocales(locale),
       title,
@@ -77,7 +85,7 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
     redirect({ href: "/", locale })
   }
 
-  if (page < 1 || (page > 1 && (totalCount === 0 || page > totalPages))) {
+  if (isBlogPageOutOfRange({ page, totalCount })) {
     notFound()
   }
 
@@ -136,6 +144,7 @@ export async function BlogListPage({ page, locale }: BlogListPageProps) {
 
             <div className="mt-14">
               <BlogPaginationServer
+                pathname={BLOG_BASE_PATH}
                 currentPage={page}
                 totalPages={totalPages}
                 locale={locale}

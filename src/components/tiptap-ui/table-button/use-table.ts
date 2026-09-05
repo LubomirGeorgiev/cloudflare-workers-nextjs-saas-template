@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -42,15 +44,17 @@ export function insertTable(
     return false
   }
 
-  try {
-    return editor.commands.insertTable({
-      rows: options?.rows ?? 3,
-      cols: options?.cols ?? 3,
-      withHeaderRow: options?.withHeaderRow ?? true,
-    })
-  } catch {
-    return false
-  }
+  return runTiptapCommand({
+    id: "insert-table",
+    message: "Could not insert the table",
+    command: () => {
+      return editor.commands.insertTable({
+        rows: options?.rows ?? 3,
+        cols: options?.cols ?? 3,
+        withHeaderRow: options?.withHeaderRow ?? true,
+      })
+    },
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

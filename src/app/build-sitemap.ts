@@ -8,7 +8,9 @@ import type { MetadataRoute } from "next"
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
 import { cmsConfig, type CollectionsUnion, type CmsNavigationKey } from "@/../cms.config"
 import type { DefineCmsCollection } from "@/lib/cms/cms-models"
-import { getAuthorRouteParam } from "@/utils/blog-author-url"
+import { getBlogPageCountsByPath } from "@/lib/cms/blog-list-artifacts"
+import { BLOG_BASE_PATH } from "@/lib/blog-routing"
+import { DEFAULT_LOCALE } from "@/i18n/config"
 import { getValidDateOrNow } from "@/utils/cms-entry-dates"
 import {
   flattenCmsNavigationTree,
@@ -32,6 +34,9 @@ interface NavigationPageNode {
   resolvedPath: string
   entry: NonNullable<CmsNavigationTreeNode["entry"]>
 }
+
+// Pages per blog list path, keyed by the locale-agnostic base pathname.
+type BlogPageCounts = Awaited<ReturnType<typeof getBlogPageCountsByPath>>
 
 interface EntryLocaleTarget {
   collectionSlug: CollectionsUnion
@@ -122,49 +127,30 @@ function dedupeSitemapUrls(entries: MetadataRoute.Sitemap): MetadataRoute.Sitema
   return Array.from(uniqueUrls.values())
 }
 
-function getBlogPosts() {
-  return getCmsCollection({
-    collectionSlug: "blog",
-    includeRelations: { tags: true, createdByUser: true },
-  })
+// Page one of every facet stays sourced from the default locale: an author or tag with
+// no default-locale posts has no unprefixed URL to advertise.
+function getBlogFacetUrls(pageCounts: BlogPageCounts): MetadataRoute.Sitemap {
+  const facetPaths = Object.keys(pageCounts).filter(basePath => basePath !== BLOG_BASE_PATH)
+
+  return facetPaths.map(basePath => localizedSitemapEntry({
+    pathname: basePath,
+    changeFrequency: BLOG_FACET_CHANGE_FREQUENCY,
+    priority: BLOG_FACET_PRIORITY,
+  }))
 }
 
-type BlogPosts = Awaited<ReturnType<typeof getBlogPosts>>
-type BlogAuthor = NonNullable<BlogPosts[number]["createdByUser"]>
-
-function getBlogFacetUrls(posts: BlogPosts): MetadataRoute.Sitemap {
-  const uniqueTags = new Set<string>()
-  const uniqueAuthors = new Map<string, BlogAuthor>()
-
-  posts.forEach(post => {
-    post.tags?.forEach(({ tag }) => uniqueTags.add(tag.slug))
-    if (post.createdByUser) {
-      uniqueAuthors.set(post.createdByUser.id, post.createdByUser)
-    }
-  })
-
-  return [
-    ...Array.from(uniqueTags).map(tagSlug => `/blog/tags/${tagSlug}`),
-    ...Array.from(uniqueAuthors.values()).map(
-      author => `/blog/authors/${getAuthorRouteParam(author)}`
-    ),
-  ].map(pathname =>
-    localizedSitemapEntry({
-      pathname,
-      changeFrequency: BLOG_FACET_CHANGE_FREQUENCY,
-      priority: BLOG_FACET_PRIORITY,
-    })
-  )
-}
-
-function getBlogUrls(posts: BlogPosts): MetadataRoute.Sitemap {
+function getBlogUrls(pageCounts: BlogPageCounts): MetadataRoute.Sitemap {
   const blogCollection = cmsConfig.collections.blog as DefineCmsCollection
+  const hasDefaultLocalePosts = (pageCounts[BLOG_BASE_PATH] ?? 0) > 0
 
-  if (blogCollection.includeInSitemap === false || posts.length === 0) {
+  if (blogCollection.includeInSitemap === false || !hasDefaultLocalePosts) {
     return []
   }
 
-  return [...BLOG_LISTING_ROUTES.map(localizedSitemapEntry), ...getBlogFacetUrls(posts)]
+  return [
+    ...BLOG_LISTING_ROUTES.map(localizedSitemapEntry),
+    ...getBlogFacetUrls(pageCounts),
+  ]
 }
 
 async function getCmsEntryUrls(): Promise<MetadataRoute.Sitemap> {
@@ -266,8 +252,8 @@ export async function buildSitemap(): Promise<MetadataRoute.Sitemap> {
 
   const navigations = getCmsNavigations()
 
-  const [blogPosts, cmsEntryUrls, navigationUrls] = await Promise.all([
-    getBlogPosts(),
+  const [blogPageCounts, cmsEntryUrls, navigationUrls] = await Promise.all([
+    getBlogPageCountsByPath(DEFAULT_LOCALE),
     getCmsEntryUrls(),
     Promise.all(navigations.map((navigation) => getNavigationUrls(navigation.navigationKey))),
   ])
@@ -279,7 +265,7 @@ export async function buildSitemap(): Promise<MetadataRoute.Sitemap> {
   return dedupeSitemapUrls([
     ...STATIC_PUBLIC_ROUTES.map(localizedSitemapEntry),
     ...getAgentPlatformDocsUrls((navigationUrls[docsNavigationIndex]?.length ?? 0) > 0),
-    ...getBlogUrls(blogPosts),
+    ...getBlogUrls(blogPageCounts),
     ...cmsEntryUrls,
     ...navigationUrls.flat(),
   ])

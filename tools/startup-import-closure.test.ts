@@ -45,6 +45,7 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/lib/oauth/provider-config.ts",
       "src/utils/api-key-format.ts",
       "src/utils/cf-context-fields.ts",
+      "src/utils/cms-image-source.ts",
       "src/utils/random-token.ts",
       "src/utils/request-protocol.ts",
       "src/utils/trusted-client-ip.ts",

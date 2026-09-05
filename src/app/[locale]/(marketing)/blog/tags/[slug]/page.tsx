@@ -3,20 +3,29 @@ import { getTranslator } from "@/i18n/translator";
 import { notFound } from "next/navigation"
 import { redirect } from "@/i18n/navigation"
 import type { Metadata } from "next"
-import { getCmsCollection } from "@/lib/cms/entry"
+import { getBlogFacetPage, getBlogPageCounts } from "@/lib/cms/blog-list-artifacts"
+import { BlogPaginationServer } from "@/components/blog-pagination-server"
+import {
+  getLocalesWithBlogPage,
+  isBlogPageOutOfRange,
+  requireBlogCollectionPage,
+  sliceBlogPage,
+} from "@/lib/blog-pagination"
+import { getBlogCollectionPagePath } from "@/lib/blog-routing"
 import { hasPublishedBlogPosts } from "@/lib/blog-visibility"
-import { getCmsTags } from "@/lib/cms/tags"
 import { BlogCard } from "@/components/blog-card"
 import { BlogBackLink } from "@/components/blog-back-link"
 import { BlogEmptyState } from "@/components/blog-empty-state"
-import { getOpenGraphLocales, LOCALES, type Locale } from "@/i18n/config"
-import { buildAlternates } from "@/utils/i18n-metadata"
+import { BLOG_POSTS_PER_PAGE } from "@/constants"
+import { getOpenGraphLocales, type Locale } from "@/i18n/config"
+import { buildPaginatedAlternates } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 import { buildBlogTagGraph } from "@/lib/seo/blog-json-ld"
 import { JsonLd } from "@/lib/seo/json-ld"
 
 type TagPageProps = {
   params: Promise<{
+    page?: string
     locale: Locale
     slug: string
   }>
@@ -25,10 +34,11 @@ type TagPageProps = {
 export async function generateMetadata({
   params,
 }: TagPageProps): Promise<Metadata> {
-  const { locale, slug } = await params
+  const { locale, slug, page: pageParam } = await params
+  const page = requireBlogCollectionPage({ pathname: `/blog/tags/${slug}`, pageParam, locale });
   const tMeta = await getTranslator({ locale, namespace: "Blog.TagDetail.meta" })
-  const tags = await getCmsTags({ locale })
-  const tag = tags.find(t => t.slug === slug)
+  const facetPage = await getBlogFacetPage({ locale, facet: { type: "tag", slug } })
+  const tag = facetPage?.subject
 
   if (!tag) {
     return {
@@ -38,19 +48,25 @@ export async function generateMetadata({
 
   const title = tMeta("title", { name: tag.name })
   const description = tag.description || tMeta("description", { name: tag.name })
+  // A tag has fewer posts in some locales, so a numbered page exists only in the
+  // locales whose count reaches it.
+  const pageCounts = await getBlogPageCounts({ pathname: `/blog/tags/${slug}` })
 
   return {
     title,
     description,
-    // This listing page renders in every locale, so every locale gets an
-    // hreflang entry.
-    alternates: buildAlternates({ pathname: `/blog/tags/${slug}`, locale, availableLocales: LOCALES }),
+    alternates: buildPaginatedAlternates({
+      pathname: getBlogCollectionPagePath({ pathname: `/blog/tags/${slug}`, page }),
+      locale,
+      availableLocales: getLocalesWithBlogPage({ pageCounts, page }),
+      page,
+    }),
     openGraph: {
       ...getOpenGraphLocales(locale),
       title,
       description,
       type: "website",
-      url: absoluteLocalizedUrl({ pathname: `/blog/tags/${slug}`, locale }),
+      url: absoluteLocalizedUrl({ pathname: getBlogCollectionPagePath({ pathname: `/blog/tags/${slug}`, page }), locale }),
     },
     twitter: {
       card: "summary",
@@ -61,34 +77,30 @@ export async function generateMetadata({
 }
 
 export default async function TagPage({ params }: TagPageProps) {
-  const { locale, slug } = await params
+  const { locale, slug, page: pageParam } = await params
+  const page = requireBlogCollectionPage({ pathname: `/blog/tags/${slug}`, pageParam, locale });
   const t = await getTranslator({ locale, namespace: "Blog.TagDetail" })
   const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
 
-  const tags = await getCmsTags({ locale })
-  const tag = tags.find(t => t.slug === slug)
-
-  if (!tag) {
-    notFound()
+  const facetPage = await getBlogFacetPage({ locale, facet: { type: "tag", slug } })
+  if (!facetPage) {
+    notFound();
   }
 
-  const allBlogEntries = await getCmsCollection({
-    collectionSlug: 'blog',
-    includeRelations: { tags: true, createdByUser: true },
-    locale,
-  })
-
-  // Empty only in this locale still renders the localized empty state below;
-  // redirect home only when the blog has no published posts at all.
-  if (allBlogEntries.length === 0 && !(await hasPublishedBlogPosts())) {
-    redirect({ href: "/", locale })
+  const tag = facetPage.subject;
+  if (!facetPage.hasPosts && !(await hasPublishedBlogPosts())) {
+    redirect({ href: "/", locale });
   }
 
-  const blogEntries = allBlogEntries.filter(entry =>
-    entry.tags?.some(entryTag => entryTag.tag.id === tag.id)
-  )
+  const totalCount = facetPage.posts.length;
+  const totalPages = Math.ceil(totalCount / BLOG_POSTS_PER_PAGE);
+  const blogEntries = sliceBlogPage({ items: facetPage.posts, page });
 
-  const graph = await buildBlogTagGraph({ locale, tag, posts: blogEntries })
+  if (isBlogPageOutOfRange({ page, totalCount })) {
+    notFound();
+  }
+
+  const graph = await buildBlogTagGraph({ locale, tag, posts: blogEntries, page })
 
   return (
     <>
@@ -109,7 +121,7 @@ export default async function TagPage({ params }: TagPageProps) {
               {tag.name}
             </h1>
             <span className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-              {tCommon("postCount", { count: blogEntries.length })}
+              {tCommon("postCount", { count: totalCount })}
             </span>
           </div>
           {tag.description && (
@@ -128,6 +140,12 @@ export default async function TagPage({ params }: TagPageProps) {
             ))}
           </div>
         )}
+        <BlogPaginationServer
+          pathname={`/blog/tags/${slug}`}
+          currentPage={page}
+          totalPages={totalPages}
+          locale={locale}
+        />
       </div>
     </>
   )

@@ -1,3 +1,4 @@
+import { reportTiptapError } from "@/lib/tiptap-errors"
 import type { Node as PMNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
 import {
@@ -9,12 +10,12 @@ import {
 import { cellAround, CellSelection } from "@tiptap/pm/tables"
 import {
   findParentNodeClosestToPos,
+  type ChainedCommands,
   type Editor,
   type NodeWithPos,
 } from "@tiptap/react"
 import { uploadImageAction } from "@/actions/upload-image.action"
-
-export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+import { CMS_IMAGE_MAX_FILE_SIZE } from "@/constants"
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.
 export const MAC_SYMBOLS: Record<string, string> = {
@@ -189,12 +190,12 @@ export function findNodeAtPosition(editor: Editor, position: number) {
     }
     return node
   } catch (error) {
-    console.error(`Error getting node at position ${position}:`, error)
+    reportTiptapError({ id: "find-editor-block", message: "Could not find the editor block", error })
     return null
   }
 }
 
-export function findNodePosition(props: {
+function findNodePosition(props: {
   editor: Editor | null
   node?: PMNode | null
   nodePos?: number | null
@@ -319,9 +320,9 @@ export const handleImageUpload = async (
     throw new Error("No file provided")
   }
 
-  if (file.size > MAX_FILE_SIZE) {
+  if (file.size > CMS_IMAGE_MAX_FILE_SIZE) {
     throw new Error(
-      `File size exceeds maximum allowed (${MAX_FILE_SIZE / (1024 * 1024)}MB)`
+      `File size exceeds maximum allowed (${CMS_IMAGE_MAX_FILE_SIZE / (1024 * 1024)}MB)`
     )
   }
 
@@ -548,4 +549,66 @@ export function getSelectedNodesOfType(
   }
 
   return results
+}
+
+/**
+ * Normalizes the selection to the whole block node, then runs `toggle` on the
+ * resulting chain. Shared by the block-type toggles (heading, list, blockquote,
+ * code block) so a cursor inside a block converts the block, not the text run.
+ */
+export function withNormalizedBlockSelection(props: {
+  editor: Editor
+  toggle: (chain: ChainedCommands) => boolean
+}): boolean {
+  const { editor, toggle } = props
+
+  const view = editor.view
+  let state = view.state
+  let tr = state.tr
+
+  // No selection, find the cursor position
+  if (state.selection.empty || state.selection instanceof TextSelection) {
+    const pos = findNodePosition({
+      editor,
+      node: state.selection.$anchor.node(1),
+    })?.pos
+    if (!isValidPosition(pos)) {
+      return false
+    }
+
+    tr = tr.setSelection(NodeSelection.create(state.doc, pos))
+    view.dispatch(tr)
+    state = view.state
+  }
+
+  const selection = state.selection
+
+  let chain = editor.chain().focus()
+
+  // Handle NodeSelection
+  if (selection instanceof NodeSelection) {
+    const firstChild = selection.node.firstChild?.firstChild
+    const lastChild = selection.node.lastChild?.lastChild
+
+    const from = firstChild
+      ? selection.from + firstChild.nodeSize
+      : selection.from + 1
+
+    const to = lastChild ? selection.to - lastChild.nodeSize : selection.to - 1
+
+    const resolvedFrom = state.doc.resolve(from)
+    const resolvedTo = state.doc.resolve(to)
+
+    chain = chain
+      .setTextSelection(TextSelection.between(resolvedFrom, resolvedTo))
+      .clearNodes()
+  }
+
+  if (!toggle(chain)) {
+    return false
+  }
+
+  editor.chain().focus().selectTextblockEnd().run()
+
+  return true
 }

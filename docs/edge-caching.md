@@ -60,6 +60,14 @@ Each of these responses is a pure function of its URL, so a hit that skips the W
 The constants live in `src/constants/cache-control.ts`, and `tests/e2e/cache-headers.test.ts`
 asserts each route against the constant it uses, so a route cannot drift from its test.
 
+## CMS image optimization
+
+The Worker routes CMS sources at `/_next/image` through the existing CMS image route.
+That route validates the R2 path and applies its rate limit. Vinext still validates widths,
+quality, and content types and sets its image cache and security headers.
+This path needs a separate source reader because the default optimizer only reads `ASSETS`.
+Other images continue through the configured Vinext adapter.
+
 ## Metadata routes do not get a timer
 
 `sitemap.xml` and `robots.txt` are metadata routes, not pages, so `export const revalidate` does

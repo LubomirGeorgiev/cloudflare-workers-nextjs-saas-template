@@ -16,6 +16,7 @@ import {
   ADMIN_API_BASE_PATH,
   ADMIN_MCP_PATH,
   HTML_CONTENT_TYPE,
+  IMAGE_OPTIMIZATION_PATH,
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_EXTENSION,
   MCP_PATH,
@@ -31,6 +32,7 @@ import { I18N_ENABLED } from "./src/constants";
 import { stripLocalePrefix } from "./src/i18n/locale-prefix";
 import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
+import { isCmsImageSource } from "./src/utils/cms-image-source";
 import { isOgImageRequest } from "./src/lib/og/og-paths";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
@@ -350,6 +352,28 @@ async function handleMarkdownEdgeRequest({
     .markdownNegotiationRedirect({ accept, pathname });
 }
 
+async function fetchAppRequest({ request, url, env, ctx }: {
+  request: Request;
+  url: URL;
+  env: Env;
+  ctx: ExecutionContext;
+}): Promise<Response> {
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    url.pathname === IMAGE_OPTIMIZATION_PATH &&
+    isCmsImageSource({ source: url.searchParams.get("url"), base: url })
+  ) {
+    // The default optimizer reads ASSETS, while CMS images live behind the R2 route.
+    const { optimizeCmsImage } = await import("./src/lib/cms/optimize-cms-image");
+    return optimizeCmsImage({
+      request,
+      images: env.IMAGES,
+      fetchSource: (source) => oauthProvider.fetch(source, env, ctx),
+    });
+  }
+  return oauthProvider.fetch(request, env, ctx);
+}
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -385,9 +409,8 @@ const worker = {
     }
 
     // The provider owns /oauth/token, /oauth/register, both discovery documents, and bearer
-    // validation for `apiHandlers`; everything else falls through to the Next app. `/_next/image`
-    // optimization is handled inside the wrapped fetch-handler via the Cloudflare Images adapter.
-    const response = await oauthProvider.fetch(forwarded, env, ctx);
+    // validation for `apiHandlers`; everything else falls through to the Next app.
+    const response = await fetchAppRequest({ request: forwarded, url, env, ctx });
 
     if (response.status === 401 && isProviderApiPath(pathname)) {
       const challenged = isInternalApiPath(pathname)

@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -104,8 +106,13 @@ export function AlertBlockVariantSelector({
         return
       }
 
-      editor.chain().focus().updateAttributes(ALERT_BLOCK_NODE_NAME, { variant }).run()
-      setCurrentVariant(variant)
+      if (runTiptapCommand({
+        id: "set-alert-variant",
+        message: "Could not change the alert style",
+        command: () => editor.chain().focus().updateAttributes(ALERT_BLOCK_NODE_NAME, { variant }).run(),
+      })) {
+        setCurrentVariant(variant)
+      }
     },
     [editor]
   )

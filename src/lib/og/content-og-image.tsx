@@ -59,7 +59,7 @@ export async function renderDocsOgImage({
   locale: Locale
   slugParts?: string[]
 }): Promise<ImageResponse> {
-  const result = await resolveCurrentDocsPage(slugParts, locale)
+  const result = await resolveCurrentDocsPage({ slugParts, locale })
   // A fallback page shows default-locale content, so the eyebrow follows the body's real
   // language — one card must not mix two languages.
   const displayLocale = result.type === "page" && result.isFallback ? DEFAULT_LOCALE : locale

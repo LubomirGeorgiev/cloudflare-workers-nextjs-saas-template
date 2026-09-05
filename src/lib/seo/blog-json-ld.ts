@@ -3,7 +3,7 @@ import "server-only";
 import { BLOG_POSTS_PER_PAGE, SITE_URL } from "@/constants";
 import type { Locale } from "@/i18n/config";
 import { getTranslator } from "@/i18n/translator";
-import { getBlogPagePath } from "@/lib/blog-routing";
+import { getBlogCollectionPagePath, getBlogPagePath } from "@/lib/blog-routing";
 import {
   getAuthorDisplayName,
   getAuthorRouteParam,
@@ -323,9 +323,11 @@ export async function buildBlogListGraph({ locale, page, posts }: BlogListGraphO
 export async function buildBlogAuthorGraph({
   locale,
   author,
+  page = 1,
 }: {
   locale: Locale;
   author: BlogAuthorInput;
+  page?: number;
 }) {
   const [tDetail, labels] = await Promise.all([
     getTranslator({ locale, namespace: "Blog.AuthorDetail" }),
@@ -335,7 +337,7 @@ export async function buildBlogAuthorGraph({
 
   return buildPageGraph({
     locale,
-    pathname: authorPathname(getAuthorRouteParam(author)),
+    pathname: getBlogCollectionPagePath({ pathname: authorPathname(getAuthorRouteParam(author)), page }),
     name: person.name,
     description: tDetail("meta.description", { name: person.name }),
     pageTypes: ["ProfilePage"],
@@ -393,10 +395,12 @@ export async function buildBlogTagGraph({
   locale,
   tag,
   posts,
+  page = 1,
 }: {
   locale: Locale;
   tag: BlogTagInput;
   posts: readonly BlogPostInput[];
+  page?: number;
 }) {
   const [t, labels] = await Promise.all([
     getTranslator({ locale, namespace: "Blog.TagDetail.meta" }),
@@ -406,7 +410,7 @@ export async function buildBlogTagGraph({
 
   return buildPageGraph({
     locale,
-    pathname: tagPathname(tag.slug),
+    pathname: getBlogCollectionPagePath({ pathname: tagPathname(tag.slug), page }),
     name: t("title", { name: tag.name }),
     description: tag.description || t("description", { name: tag.name }),
     pageTypes: ["CollectionPage"],
@@ -424,7 +428,7 @@ export async function buildBlogTagGraph({
 
         return {
           "@type": "ListItem",
-          position: index + 1,
+          position: (page - 1) * BLOG_POSTS_PER_PAGE + index + 1,
           url: summary.url,
           item: summary.node,
         };

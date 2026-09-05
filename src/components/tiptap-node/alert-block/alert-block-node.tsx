@@ -1,21 +1,14 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useRef } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
+import { domOutputSpecToReactElement } from "@tiptap/static-renderer/pm/react"
 
-import { alertBlockIconByVariant } from "@/components/tiptap-node/alert-block/alert-block"
-import {
-  DEFAULT_ALERT_BLOCK_BODY,
-  DEFAULT_ALERT_BLOCK_TITLE,
-  DEFAULT_ALERT_BLOCK_VARIANT,
-  type AlertBlockAttrs,
-} from "@/components/tiptap-node/alert-block/alert-block-types"
+import { alertBlockDomSpec } from "@/components/tiptap-node/alert-block/alert-block"
+import { normalizeAlertBlockAttrs } from "./alert-block-types"
 import { setActiveAlertBlockState } from "@/components/tiptap-node/alert-block/alert-block-toolbar-state"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 import type { AlertVariant } from "@/components/ui/alert"
 
@@ -24,33 +17,42 @@ export function AlertBlockNode({
   selected,
   updateAttributes,
 }: NodeViewProps) {
-  const attrs = node.attrs as AlertBlockAttrs
-  const title = attrs.title ?? DEFAULT_ALERT_BLOCK_TITLE
-  const body = attrs.body ?? DEFAULT_ALERT_BLOCK_BODY
-  const variant = attrs.variant ?? DEFAULT_ALERT_BLOCK_VARIANT
-  const Icon = alertBlockIconByVariant[variant]
+  const { title, body, variant } = normalizeAlertBlockAttrs(node.attrs)
   const alertRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const draftTitleRef = useRef(title)
   const draftBodyRef = useRef(body)
 
+  const updateAlert = useCallback((attrs: Parameters<typeof updateAttributes>[0]) => {
+    return runTiptapCommand({
+      id: "alert-block-update",
+      message: "Could not update the alert",
+      command: () => {
+        updateAttributes(attrs)
+        return true
+      },
+    })
+  }, [updateAttributes])
+
   const setFocusedAlertState = useCallback(
     (nextVariant: AlertVariant = variant) => {
       setActiveAlertBlockState({
         variant: nextVariant,
         setVariant: (updatedVariant) => {
-          updateAttributes({ variant: updatedVariant })
+          if (!updateAlert({ variant: updatedVariant })) {
+            return
+          }
           setActiveAlertBlockState({
             variant: updatedVariant,
             setVariant: (newVariant) => {
-              updateAttributes({ variant: newVariant })
+              updateAlert({ variant: newVariant })
             },
           })
         },
       })
     },
-    [updateAttributes, variant]
+    [updateAlert, variant]
   )
 
   useEffect(() => {
@@ -106,12 +108,12 @@ export function AlertBlockNode({
   )
 
   const handleTitleBlur = useCallback(() => {
-    updateAttributes({ title: draftTitleRef.current })
-  }, [updateAttributes])
+    updateAlert({ title: draftTitleRef.current })
+  }, [updateAlert])
 
   const handleBodyBlur = useCallback(() => {
-    updateAttributes({ body: draftBodyRef.current })
-  }, [updateAttributes])
+    updateAlert({ body: draftBodyRef.current })
+  }, [updateAlert])
 
   const handleFocusCapture = useCallback(() => {
     setFocusedAlertState()
@@ -131,45 +133,45 @@ export function AlertBlockNode({
       className="not-prose my-6"
       contentEditable={false}
     >
-      <Alert
-        ref={alertRef}
-        variant={variant}
-        className={cn(
-          "my-0 cursor-text",
-          selected && "ring-2 ring-ring ring-offset-2"
-        )}
-        onFocusCapture={handleFocusCapture}
-        onBlurCapture={handleBlurCapture}
-      >
-        <Icon className="size-4" />
-        <AlertTitle
-          ref={titleRef}
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck
-          className="rounded-sm px-0.5 outline-none"
-          onInput={handleTitleInput}
-          onBlur={handleTitleBlur}
-          onKeyDown={(event) => {
+      {domOutputSpecToReactElement(alertBlockDomSpec({
+        attrs: node.attrs,
+        editable: true,
+        target: "react",
+        HTMLAttributes: {
+          ref: alertRef,
+          class: cn("my-0 cursor-text", selected && "ring-2 ring-ring ring-offset-2"),
+          onFocusCapture: handleFocusCapture,
+          onBlurCapture: handleBlurCapture,
+        },
+        titleAttributes: {
+          ref: titleRef,
+          role: "textbox",
+          "aria-label": "Alert title",
+          contentEditable: true,
+          suppressContentEditableWarning: true,
+          spellCheck: true,
+          class: "rounded-sm px-0.5 outline-none",
+          onInput: handleTitleInput,
+          onBlur: handleTitleBlur,
+          onKeyDown: (event: React.KeyboardEvent<HTMLHeadingElement>) => {
             if (event.key === "Enter") {
               event.preventDefault()
             }
-          }}
-        >
-          {title}
-        </AlertTitle>
-        <AlertDescription
-          ref={bodyRef}
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck
-          className="min-h-6 whitespace-pre-wrap rounded-sm px-0.5 outline-none"
-          onInput={handleBodyInput}
-          onBlur={handleBodyBlur}
-        >
-          {body}
-        </AlertDescription>
-      </Alert>
+          },
+        },
+        bodyAttributes: {
+          ref: bodyRef,
+          role: "textbox",
+          "aria-label": "Alert body",
+          "aria-multiline": true,
+          contentEditable: true,
+          suppressContentEditableWarning: true,
+          spellCheck: true,
+          class: "min-h-6 rounded-sm px-0.5 outline-none",
+          onInput: handleBodyInput,
+          onBlur: handleBodyBlur,
+        },
+      }))()}
     </NodeViewWrapper>
   )
 }

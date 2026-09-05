@@ -60,6 +60,6 @@ export const BLOG_LISTING_ROUTES = [
 // once, and the sitemap and the `.md` surface both follow.
 export const DYNAMIC_BLOG_PAGE_PATTERNS = [
   /^\/blog\/\d+$/,
-  /^\/blog\/tags\/[^/]+$/,
-  /^\/blog\/authors\/[^/]+$/,
+  /^\/blog\/tags\/[^/]+(?:\/\d+)?$/,
+  /^\/blog\/authors\/[^/]+(?:\/\d+)?$/,
 ] as const;

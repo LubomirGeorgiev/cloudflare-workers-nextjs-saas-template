@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -84,7 +86,11 @@ export function toggleMark(editor: Editor | null, type: Mark): boolean {
     return false
   }
 
-  return editor.chain().focus().toggleMark(type).run()
+  return runTiptapCommand({
+    id: "toggle-mark",
+    message: "Could not change the text format",
+    command: () => editor.chain().focus().toggleMark(type).run(),
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

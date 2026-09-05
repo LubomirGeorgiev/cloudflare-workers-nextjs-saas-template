@@ -1,8 +1,9 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import { type Editor } from "@tiptap/react"
-import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -14,11 +15,10 @@ import { ListTodoIcon } from "@/components/tiptap-icons/list-todo-icon"
 
 // --- Lib ---
 import {
-  findNodePosition,
   isNodeInSchema,
   isNodeTypeSelected,
-  isValidPosition,
   selectionWithinConvertibleTypes,
+  withNormalizedBlockSelection,
 } from "@/lib/tiptap-utils"
 
 export type ListType = "bulletList" | "orderedList" | "taskList"
@@ -132,81 +132,41 @@ export function toggleList(editor: Editor | null, type: ListType): boolean {
     return false
   }
 
-  try {
-    const view = editor.view
-    let state = view.state
-    let tr = state.tr
-
-    // No selection, find the the cursor position
-    if (state.selection.empty || state.selection instanceof TextSelection) {
-      const pos = findNodePosition({
+  return runTiptapCommand({
+    id: "toggle-list",
+    message: "Could not change the list",
+    command: () =>
+      withNormalizedBlockSelection({
         editor,
-        node: state.selection.$anchor.node(1),
-      })?.pos
-      if (!isValidPosition(pos)) {
-        return false
-      }
+        toggle: (chain) => {
+          if (editor.isActive(type)) {
+            // Unwrap list
+            chain
+              .liftListItem("listItem")
+              .lift("bulletList")
+              .lift("orderedList")
+              .lift("taskList")
+              .run()
 
-      tr = tr.setSelection(NodeSelection.create(state.doc, pos))
-      view.dispatch(tr)
-      state = view.state
-    }
+            return true
+          }
 
-    const selection = state.selection
+          // Wrap in specific list type
+          const toggleMap: Record<ListType, () => typeof chain> = {
+            bulletList: () => chain.toggleBulletList(),
+            orderedList: () => chain.toggleOrderedList(),
+            taskList: () => chain.toggleList("taskList", "taskItem"),
+          }
 
-    let chain = editor.chain().focus()
+          const toggle = toggleMap[type]
+          if (!toggle) {
+            return false
+          }
 
-    // Handle NodeSelection
-    if (selection instanceof NodeSelection) {
-      const firstChild = selection.node.firstChild?.firstChild
-      const lastChild = selection.node.lastChild?.lastChild
-
-      const from = firstChild
-        ? selection.from + firstChild.nodeSize
-        : selection.from + 1
-
-      const to = lastChild
-        ? selection.to - lastChild.nodeSize
-        : selection.to - 1
-
-      const resolvedFrom = state.doc.resolve(from)
-      const resolvedTo = state.doc.resolve(to)
-
-      chain = chain
-        .setTextSelection(TextSelection.between(resolvedFrom, resolvedTo))
-        .clearNodes()
-    }
-
-    if (editor.isActive(type)) {
-      // Unwrap list
-      chain
-        .liftListItem("listItem")
-        .lift("bulletList")
-        .lift("orderedList")
-        .lift("taskList")
-        .run()
-    } else {
-      // Wrap in specific list type
-      const toggleMap: Record<ListType, () => typeof chain> = {
-        bulletList: () => chain.toggleBulletList(),
-        orderedList: () => chain.toggleOrderedList(),
-        taskList: () => chain.toggleList("taskList", "taskItem"),
-      }
-
-      const toggle = toggleMap[type]
-      if (!toggle) {
-        return false
-      }
-
-      toggle().run()
-    }
-
-    editor.chain().focus().selectTextblockEnd().run()
-
-    return true
-  } catch {
-    return false
-  }
+          return toggle().run()
+        },
+      }),
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

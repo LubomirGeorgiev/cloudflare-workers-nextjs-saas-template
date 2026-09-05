@@ -1,8 +1,9 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
-import { NodeSelection, TextSelection } from "@tiptap/pm/state"
 
 // --- Hooks ---
 import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
@@ -12,11 +13,10 @@ import { BlockquoteIcon } from "@/components/tiptap-icons/blockquote-icon"
 
 // --- UI Utils ---
 import {
-  findNodePosition,
   isNodeInSchema,
   isNodeTypeSelected,
-  isValidPosition,
   selectionWithinConvertibleTypes,
+  withNormalizedBlockSelection,
 } from "@/lib/tiptap-utils"
 
 export const BLOCKQUOTE_SHORTCUT_KEY = "mod+shift+b"
@@ -75,63 +75,21 @@ export function toggleBlockquote(editor: Editor | null): boolean {
     return false
   }
 
-  try {
-    const view = editor.view
-    let state = view.state
-    let tr = state.tr
-
-    // No selection, find the the cursor position
-    if (state.selection.empty || state.selection instanceof TextSelection) {
-      const pos = findNodePosition({
+  return runTiptapCommand({
+    id: "toggle-blockquote",
+    message: "Could not change the blockquote",
+    command: () =>
+      withNormalizedBlockSelection({
         editor,
-        node: state.selection.$anchor.node(1),
-      })?.pos
-      if (!isValidPosition(pos)) {
-        return false
-      }
+        toggle: (chain) => {
+          const toggle = editor.isActive("blockquote")
+            ? chain.lift("blockquote")
+            : chain.wrapIn("blockquote")
 
-      tr = tr.setSelection(NodeSelection.create(state.doc, pos))
-      view.dispatch(tr)
-      state = view.state
-    }
-
-    const selection = state.selection
-
-    let chain = editor.chain().focus()
-
-    // Handle NodeSelection
-    if (selection instanceof NodeSelection) {
-      const firstChild = selection.node.firstChild?.firstChild
-      const lastChild = selection.node.lastChild?.lastChild
-
-      const from = firstChild
-        ? selection.from + firstChild.nodeSize
-        : selection.from + 1
-
-      const to = lastChild
-        ? selection.to - lastChild.nodeSize
-        : selection.to - 1
-
-      const resolvedFrom = state.doc.resolve(from)
-      const resolvedTo = state.doc.resolve(to)
-
-      chain = chain
-        .setTextSelection(TextSelection.between(resolvedFrom, resolvedTo))
-        .clearNodes()
-    }
-
-    const toggle = editor.isActive("blockquote")
-      ? chain.lift("blockquote")
-      : chain.wrapIn("blockquote")
-
-    toggle.run()
-
-    editor.chain().focus().selectTextblockEnd().run()
-
-    return true
-  } catch {
-    return false
-  }
+          return toggle.run()
+        },
+      }),
+  })
 }
 
 // oxlint-disable-next-line project/no-unused-module-exports -- Tiptap editor modules intentionally expose composable APIs.

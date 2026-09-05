@@ -16,7 +16,9 @@
     // The internal document's generator config. Loaded by path from
     // `scripts/generate-openapi.mjs`, exactly as `src/api/openapi.ts` is — that one is also
     // imported normally by `src/api/operation.ts`, so only this one looks unreachable.
-    "src/api/admin/openapi.ts"
+    "src/api/admin/openapi.ts",
+    // Metadata routes call these exports through dynamic imports.
+    "src/lib/og/content-og-image.tsx"
   ],
   "health": {
     "ignore": [

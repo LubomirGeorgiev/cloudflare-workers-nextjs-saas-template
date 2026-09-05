@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useRef, useState } from "react"
 import type { NodeViewProps } from "@tiptap/react"
 import { NodeViewWrapper } from "@tiptap/react"
@@ -405,14 +407,22 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
           }
         })
 
-        props.editor
-          .chain()
-          .focus()
-          .deleteRange({ from: pos, to: pos + props.node.nodeSize })
-          .insertContentAt(pos, imageNodes)
-          .run()
-
-        focusNextNode(props.editor)
+        runTiptapCommand({
+          id: "image-insert",
+          message: "Could not insert the image",
+          command: () => {
+            const success = props.editor
+              .chain()
+              .focus()
+              .deleteRange({ from: pos, to: pos + props.node.nodeSize })
+              .insertContentAt(pos, imageNodes)
+              .run()
+            if (success) {
+              focusNextNode(props.editor)
+            }
+            return success
+          },
+        })
       }
     }
   }
@@ -438,14 +448,22 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
         },
       }
 
-      props.editor
-        .chain()
-        .focus()
-        .deleteRange({ from: pos, to: pos + props.node.nodeSize })
-        .insertContentAt(pos, imageNode)
-        .run()
-
-      focusNextNode(props.editor)
+      runTiptapCommand({
+        id: "image-insert",
+        message: "Could not insert the image",
+        command: () => {
+          const success = props.editor
+            .chain()
+            .focus()
+            .deleteRange({ from: pos, to: pos + props.node.nodeSize })
+            .insertContentAt(pos, imageNode)
+            .run()
+          if (success) {
+            focusNextNode(props.editor)
+          }
+          return success
+        },
+      })
     }
   }
 

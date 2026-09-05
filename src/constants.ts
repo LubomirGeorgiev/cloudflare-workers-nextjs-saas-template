@@ -165,7 +165,10 @@ export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfi
 // CMS Image Upload Configuration
 export const CMS_IMAGES_BASE_PATH = "cms-images" as const;
 export const CMS_IMAGES_API_ROUTE = `/api/${CMS_IMAGES_BASE_PATH}` as const;
+export const IMAGE_OPTIMIZATION_PATH = "/_next/image";
 export const CMS_IMAGE_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+// Allow multipart metadata in addition to the largest supported image.
+export const SERVER_ACTION_BODY_SIZE_LIMIT = CMS_IMAGE_MAX_FILE_SIZE + 1024 * 1024;
 export const CMS_ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",

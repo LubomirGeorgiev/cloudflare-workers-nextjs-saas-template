@@ -3,10 +3,13 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { buildCmsEntryMarkdown } from "@/lib/cms/build-cms-entry-markdown-response";
+import { cmsRendererBuildId } from "@/lib/cms/cms-renderer-build-id";
+import {
+  buildCmsHtmlArtifacts,
+  keepRendererBuildIdInCacheKey,
+  type CmsHtmlArtifacts,
+} from "@/lib/cms/cms-entry-artifacts";
 import { getCmsEntryBySlug, type GetCmsCollectionResult } from "@/lib/cms/entry";
-import { extractTableOfContents } from "@/lib/cms/extract-table-of-contents";
-import { buildTableOfContentsTree } from "@/lib/cms/table-of-contents-tree";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
@@ -24,23 +27,25 @@ interface GetCachedDocsEntryArtifactsParams {
   sourcePathname: string;
 }
 
-export function buildDocsEntryArtifacts({
+interface DocsEntryArtifacts extends CmsHtmlArtifacts {
+  markdown: string;
+}
+
+export async function buildDocsEntryArtifacts({
   entry,
   sourceUrl,
 }: {
   entry: GetCmsCollectionResult;
   sourceUrl: string;
-}) {
-  const content = entry.content as JSONContent;
-  const tableOfContents = extractTableOfContents(content);
+}): Promise<DocsEntryArtifacts> {
+  const [{ buildCmsEntryMarkdown }, htmlArtifacts] = await Promise.all([
+    import("@/lib/cms/build-cms-entry-markdown-response"),
+    buildCmsHtmlArtifacts({ content: entry.content as JSONContent }),
+  ]);
 
   return {
-    // Return the source content too, so the page body renders from here instead of
-    // the navigation tree — letting the tree drop the heavy `content` column.
-    content,
+    ...htmlArtifacts,
     markdown: buildCmsEntryMarkdown({ entry, sourceUrl }),
-    tableOfContents,
-    tableOfContentsTree: buildTableOfContentsTree(tableOfContents),
   };
 }
 
@@ -50,7 +55,24 @@ export async function getCachedDocsEntryArtifacts({
   slug,
   sourcePathname,
 }: GetCachedDocsEntryArtifactsParams) {
+  return loadCachedDocsEntryArtifacts({
+    collectionSlug,
+    locale,
+    slug,
+    sourcePathname,
+    rendererBuildId: cmsRendererBuildId(),
+  });
+}
+
+async function loadCachedDocsEntryArtifacts({
+  collectionSlug,
+  locale,
+  slug,
+  sourcePathname,
+  rendererBuildId,
+}: GetCachedDocsEntryArtifactsParams & { rendererBuildId: string }): Promise<DocsEntryArtifacts | null> {
   "use cache: remote";
+  keepRendererBuildIdInCacheKey(rendererBuildId);
   setCacheScope({
     tags: [
       CACHE_TAGS.cmsEntry({ collectionSlug, slug }),

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { reportTiptapError } from "@/lib/tiptap-errors"
 import type { Content } from "@tiptap/core"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 
@@ -71,7 +72,8 @@ import { useIsBreakpoint } from "@/hooks/use-is-breakpoint"
 import { useCursorVisibility } from "@/hooks/use-cursor-visibility"
 
 // --- Lib ---
-import { handleImageUpload, MAX_FILE_SIZE } from "@/lib/tiptap-utils"
+import { handleImageUpload } from "@/lib/tiptap-utils"
+import { CMS_IMAGE_MAX_FILE_SIZE } from "@/constants"
 import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions"
 import { syncEditorContentFromProps } from "./simple-editor-content-sync"
 
@@ -84,6 +86,8 @@ type SimpleEditorProps = {
   editable?: boolean
   collection?: string
 }
+
+const CONTENT_ERROR_MESSAGE = "Could not load the editor content"
 
 const MainToolbarContent = ({
   onHighlighterClick,
@@ -195,6 +199,10 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
 
   const editor = useEditor({
     immediatelyRender: false,
+    enableContentCheck: true,
+    onContentError: ({ error }) => {
+      reportTiptapError({ id: "editor-content", message: CONTENT_ERROR_MESSAGE, error })
+    },
     editable,
     editorProps: {
       attributes: {
@@ -220,11 +228,10 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
       PasteMarkdown,
       ImageUploadNode.configure({
         accept: "image/*",
-        maxSize: MAX_FILE_SIZE,
+        maxSize: CMS_IMAGE_MAX_FILE_SIZE,
         limit: 3,
         upload: (file, onProgress, abortSignal) =>
           handleImageUpload(file, collection, onProgress, abortSignal),
-        onError: (error) => console.error("Upload failed:", error),
       }),
     ],
     content: content || { type: "doc", content: [] },
@@ -240,14 +247,18 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
       return
     }
 
-    lastSyncedContentKeyRef.current = syncEditorContentFromProps({
-      getEditorContent: () => editor.getJSON(),
-      setEditorContent: (nextContent) => {
-        editor.commands.setContent(nextContent as Content)
-      },
-      content,
-      lastSyncedContentKey: lastSyncedContentKeyRef.current,
-    })
+    try {
+      lastSyncedContentKeyRef.current = syncEditorContentFromProps({
+        getEditorContent: () => editor.getJSON(),
+        setEditorContent: (nextContent) => {
+          editor.commands.setContent(nextContent as Content)
+        },
+        content,
+        lastSyncedContentKey: lastSyncedContentKeyRef.current,
+      })
+    } catch (error) {
+      reportTiptapError({ id: "editor-content", message: CONTENT_ERROR_MESSAGE, error })
+    }
   }, [editor, content])
 
   useCursorVisibility({

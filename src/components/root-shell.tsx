@@ -14,7 +14,7 @@ import { HTML_DISCOVERY_RELATIONS } from "@/constants";
 import { getPublicConfig } from "@/flags";
 import { getClientMessages } from "@/i18n/client-messages";
 import type { Locale } from "@/i18n/config";
-import { buildSiteJsonLd, JsonLd } from "@/lib/seo/json-ld";
+import { SiteJsonLd } from "@/lib/seo/json-ld";
 
 async function PublicConfigRootHydrator() {
   const publicConfig = await getPublicConfig();
@@ -31,10 +31,7 @@ interface RootShellProps {
 // Every route lives under that root so React can keep the DOM — and this `<Toaster>` — alive across
 // navigations; a second root would tear the document down and destroy any toast raised before it.
 export async function RootShell({ locale, children }: RootShellProps) {
-  const [messages, siteJsonLd] = await Promise.all([
-    getClientMessages(locale),
-    buildSiteJsonLd(),
-  ]);
+  const messages = await getClientMessages(locale);
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -47,7 +44,7 @@ export async function RootShell({ locale, children }: RootShellProps) {
         ))}
         {/* Site-wide Organization + WebSite graph, on every page because it describes the site,
             not the route. Page-level schema references these by `@id` rather than repeating them. */}
-        <JsonLd graph={siteJsonLd} />
+        <SiteJsonLd />
         <NextIntlClientProvider locale={locale} messages={messages}>
           <PublicConfigRootHydrator />
           <StreamedMetadataHoister />

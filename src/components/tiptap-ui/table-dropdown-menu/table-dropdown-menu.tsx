@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useState } from "react"
 import { type Editor } from "@tiptap/react"
 
@@ -63,38 +65,73 @@ export function TableDropdownMenu({
   )
 
   const handleAddColumnBefore = useCallback(() => {
-    editor?.chain().focus().addColumnBefore().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "add-column-before",
+      message: "Could not add the column",
+      command: () => editor.chain().focus().addColumnBefore().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleAddColumnAfter = useCallback(() => {
-    editor?.chain().focus().addColumnAfter().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "add-column-after",
+      message: "Could not add the column",
+      command: () => editor.chain().focus().addColumnAfter().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleDeleteColumn = useCallback(() => {
-    editor?.chain().focus().deleteColumn().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "delete-column",
+      message: "Could not delete the column",
+      command: () => editor.chain().focus().deleteColumn().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleAddRowBefore = useCallback(() => {
-    editor?.chain().focus().addRowBefore().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "add-row-before",
+      message: "Could not add the row",
+      command: () => editor.chain().focus().addRowBefore().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleAddRowAfter = useCallback(() => {
-    editor?.chain().focus().addRowAfter().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "add-row-after",
+      message: "Could not add the row",
+      command: () => editor.chain().focus().addRowAfter().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleDeleteRow = useCallback(() => {
-    editor?.chain().focus().deleteRow().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "delete-row",
+      message: "Could not delete the row",
+      command: () => editor.chain().focus().deleteRow().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   const handleDeleteTable = useCallback(() => {
-    editor?.chain().focus().deleteTable().run()
-    setIsOpen(false)
+    if (editor && runTiptapCommand({
+      id: "delete-table",
+      message: "Could not delete the table",
+      command: () => editor.chain().focus().deleteTable().run(),
+    })) {
+      setIsOpen(false)
+    }
   }, [editor])
 
   if (!isVisible) {

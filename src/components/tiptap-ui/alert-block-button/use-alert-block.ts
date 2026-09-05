@@ -1,5 +1,7 @@
 "use client"
 
+import { runTiptapCommand } from "@/lib/tiptap-errors"
+
 import { useCallback, useEffect, useState } from "react"
 import type { Editor } from "@tiptap/react"
 
@@ -41,12 +43,13 @@ export function insertAlertBlock(editor: Editor | null): boolean {
     return false
   }
 
-  try {
-    editor.chain().focus().setAlertBlock().run()
-    return true
-  } catch {
-    return false
-  }
+  return runTiptapCommand({
+    id: "insert-alert-block",
+    message: "Could not insert the alert block",
+    command: () => {
+      return editor.chain().focus().setAlertBlock().run()
+    },
+  })
 }
 
 function shouldShowButton(props: {

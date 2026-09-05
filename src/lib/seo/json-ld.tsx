@@ -1,5 +1,7 @@
 import "server-only";
 
+import { lazyValue } from "@/utils/lazy-value";
+
 import type { ImageObject, Organization, SoftwareApplication, WebSite } from "schema-dts";
 
 import { GITHUB_REPO_URL, SITE_NAME, SITE_URL } from "@/constants";
@@ -64,6 +66,10 @@ interface ContentLocaleOptions {
   isFallback?: boolean;
 }
 
+// This graph depends only on build constants and the fixed default catalog.
+export const buildSiteJsonLd = lazyValue(createSiteJsonLd);
+const getSiteJsonLdHtml = lazyValue(async () => serializeJsonLd(await buildSiteJsonLd()));
+
 /**
  * A fallback render canonicalizes to the default-locale URL, so its `@id`s must too. Decided only here.
  */
@@ -119,7 +125,7 @@ function jsonLdGraph(nodes: readonly JsonLdNode[]): JsonLdGraph {
 // Every value stays locale-invariant because the `@id`s are: `/en/...` and `/es/...` publish these
 // nodes under the same ids, so a per-locale property would make the merged entity depend on which
 // URL a crawler reached first. No pathname either — `headers()` would make every route dynamic.
-export async function buildSiteJsonLd(): Promise<JsonLdGraph> {
+async function createSiteJsonLd(): Promise<JsonLdGraph> {
   const t = await getTranslator({ locale: DEFAULT_LOCALE, namespace: "Landing.meta" });
   const description = t("description");
 
@@ -178,6 +184,11 @@ export async function buildSiteJsonLd(): Promise<JsonLdGraph> {
   // The one widening in the codebase: schema-dts checked these four shapes, and its interfaces
   // carry no index signature, so composing them into the graph needs the cast.
   return jsonLdGraph([organization, website, software, logo] as JsonLdNode[]);
+}
+
+export async function SiteJsonLd() {
+  const html = await getSiteJsonLdHtml();
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 export interface BreadcrumbTrailItem {

@@ -71,6 +71,23 @@ export function buildAlternates({
   };
 }
 
+// Same alternates as `buildAlternates`, with `availableLocales` naming the locales
+// whose post count actually reaches this page. On a numbered page the default locale
+// can run out of pages first, and then `x-default` would point at a 404.
+export function buildPaginatedAlternates({
+  pathname,
+  locale,
+  availableLocales,
+  page,
+}: BuildAlternatesOptions & { page: number }): Metadata["alternates"] {
+  const alternates = buildAlternates({ pathname, locale, availableLocales });
+  if (page <= 1 || !alternates?.languages || availableLocales.includes(DEFAULT_LOCALE)) {
+    return alternates;
+  }
+  const { "x-default": __xDefault, ...languages } = alternates.languages as Record<string, string>;
+  return { ...alternates, languages };
+}
+
 // Fallback for an entry that exists only in the default locale: it serves the
 // default-locale body under a non-default prefix (mixed-language), so the caller marks
 // that render `noindex` and canonicalizes to the real default-locale URL.

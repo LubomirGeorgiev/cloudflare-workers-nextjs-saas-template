@@ -7,7 +7,7 @@ import { DOCS_SLUG } from "@/lib/cms/docs-config";
 
 vi.mock("server-only", () => ({}));
 
-const { buildPageGraph, buildSiteJsonLd, serializeJsonLd } = await import("./json-ld");
+const { buildPageGraph, buildSiteJsonLd, serializeJsonLd, SiteJsonLd } = await import("./json-ld");
 const {
   buildBlogAuthorGraph,
   buildBlogAuthorsGraph,
@@ -299,4 +299,12 @@ test("serialization cannot close the surrounding script tag", async () => {
 
   expect(serialized).not.toContain("</script>");
   expect(JSON.parse(serialized)).toEqual(graph);
+});
+
+test("reuses fixed site data and emits the same safe bytes on later requests", async () => {
+  const first = await buildSiteJsonLd();
+  expect(await buildSiteJsonLd()).toBe(first);
+  const element = await SiteJsonLd();
+  expect(element.props.dangerouslySetInnerHTML.__html).toBe(serializeJsonLd(first));
+  expect((await SiteJsonLd()).props.dangerouslySetInnerHTML.__html).toBe(element.props.dangerouslySetInnerHTML.__html);
 });
