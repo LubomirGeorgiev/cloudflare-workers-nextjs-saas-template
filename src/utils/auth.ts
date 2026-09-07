@@ -1,6 +1,7 @@
 import "server-only";
 
 import ms from "ms"
+import { parse as parseCookieHeader } from "hono/utils/cookie";
 import { cookies } from "next/headers";
 import { isLocalhost } from "@/utils/is-local";
 import {
@@ -238,10 +239,7 @@ export async function deleteSessionTokenCookie(): Promise<void> {
   cookieStore.delete(AUTH_SESSION_PRESENT_COOKIE_NAME);
 }
 
-const getCookieSession = cache(async (): Promise<CookieSession | null> => {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-
+async function sessionFromCookieValue(sessionCookie: string | undefined): Promise<KVSession | null> {
   if (!sessionCookie) {
     return null;
   }
@@ -252,10 +250,27 @@ const getCookieSession = cache(async (): Promise<CookieSession | null> => {
     return null;
   }
 
-  const session = await validateSessionToken(decoded.token, decoded.userId);
+  return validateSessionToken(decoded.token, decoded.userId);
+}
+
+const getCookieSession = cache(async (): Promise<CookieSession | null> => {
+  const cookieStore = await cookies();
+  const session = await sessionFromCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 
   return session && { ...session, kind: "cookie" };
 })
+
+/**
+ * `getCurrentSession`'s cookie half for a plain Worker handler that cannot call `cookies()`.
+ * Not memoized: React `cache` needs the request scope this caller does not have.
+ */
+export async function getSessionFromRequestCookies(request: Request): Promise<KVSession | null> {
+  const header = request.headers.get("cookie");
+
+  return sessionFromCookieValue(
+    header ? parseCookieHeader(header, SESSION_COOKIE_NAME)[SESSION_COOKIE_NAME] : undefined,
+  );
+}
 
 /**
  * This function can only be called in a Server Components, Server Action or Route Handler

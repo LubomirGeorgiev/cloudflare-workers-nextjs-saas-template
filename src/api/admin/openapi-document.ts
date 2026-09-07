@@ -21,6 +21,7 @@ export const ADMIN_API_TAGS = {
   teams: "Teams",
   oauthApps: "OAuth apps",
   cms: "CMS",
+  system: "System",
 } as const;
 
 export function securityForAdminScope(scope: AdminScope): OpenAPIV3_1.SecurityRequirementObject[] {

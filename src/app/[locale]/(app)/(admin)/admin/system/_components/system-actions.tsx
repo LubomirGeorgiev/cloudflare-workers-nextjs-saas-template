@@ -5,7 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { runCmsSystemAction } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-system-actions";
+import { runSystemAction } from "@/app/[locale]/(app)/(admin)/admin/_actions/system-actions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,11 +28,11 @@ type ActionKey =
   | "purge-vinext-kv-cache"
   | "purge-workers-cdn-cache";
 
-type CmsSystemActionInput = NonNullable<Parameters<typeof runCmsSystemAction>[0]>;
+type SystemActionInput = NonNullable<Parameters<typeof runSystemAction>[0]>;
 
 interface PendingConfirm {
   key: ActionKey;
-  input: CmsSystemActionInput;
+  input: SystemActionInput;
   title: string;
   description: string;
   destructive?: boolean;
@@ -47,7 +47,7 @@ const GLOBAL_ACTIONS = [
       "Rebuilds search indexes for all searchable collections. Run this after bulk content changes.",
     variant: "outline" as const,
     confirm: {
-      input: { type: "rebuild-search-index" } satisfies CmsSystemActionInput,
+      input: { type: "rebuild-search-index" } satisfies SystemActionInput,
       title: "Rebuild all search indexes?",
       description:
         "This rebuilds search indexes for every searchable collection. It can take a moment after large content updates.",
@@ -61,7 +61,7 @@ const GLOBAL_ACTIONS = [
       "Removes cached search results for all collections. New queries will re-run against the index.",
     variant: "outline" as const,
     confirm: {
-      input: { type: "clear-search-cache" } satisfies CmsSystemActionInput,
+      input: { type: "clear-search-cache" } satisfies SystemActionInput,
       title: "Clear search cache for all collections?",
       description:
         "Cached search results will be removed. The next searches will read fresh data from the indexes.",
@@ -75,7 +75,7 @@ const GLOBAL_ACTIONS = [
       "Revalidates cached CMS content. Pages will re-fetch from the database on the next request.",
     variant: "outline" as const,
     confirm: {
-      input: { type: "clear-cms-cache" } satisfies CmsSystemActionInput,
+      input: { type: "clear-cms-cache" } satisfies SystemActionInput,
       title: "Clear all CMS cache?",
       description:
         "Cached CMS content will be revalidated. Traffic may briefly hit the database until caches warm again.",
@@ -89,7 +89,7 @@ const GLOBAL_ACTIONS = [
       "Deletes every Vinext data-cache and Markdown page-cache key in KV. Cache entries rebuild on demand.",
     variant: "destructive" as const,
     confirm: {
-      input: { type: "purge-vinext-kv-cache" } satisfies CmsSystemActionInput,
+      input: { type: "purge-vinext-kv-cache" } satisfies SystemActionInput,
       title: "Purge the Vinext and Markdown KV caches?",
       description: `This permanently deletes every KV key matching ${VINEXT_CACHE_PREFIX}* or ${MARKDOWN_PAGE_CACHE_PREFIX}*. Cached pages and data will be rebuilt as they are requested.`,
       destructive: true,
@@ -103,7 +103,7 @@ const GLOBAL_ACTIONS = [
       "Calls Workers Cache purgeEverything. Edge-cached HTML, RSC, and route responses are dropped globally.",
     variant: "destructive" as const,
     confirm: {
-      input: { type: "purge-workers-cdn-cache" } satisfies CmsSystemActionInput,
+      input: { type: "purge-workers-cdn-cache" } satisfies SystemActionInput,
       title: "Purge the entire Workers CDN cache?",
       description:
         "This invalidates every response stored in this Worker's CDN cache. Traffic will miss until pages warm again. Unavailable outside Workers Cache.",
@@ -112,17 +112,17 @@ const GLOBAL_ACTIONS = [
   },
 ] as const;
 
-export function CmsSystemActions() {
+export function SystemActions() {
   const [activeAction, setActiveAction] = useState<ActionKey | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
 
-  const { execute } = useAction(runCmsSystemAction, {
+  const { execute } = useAction(runSystemAction, {
     onSuccess: ({ data }) => {
-      toast.success(data?.message || "CMS maintenance task completed");
+      toast.success(data?.message || "System maintenance task completed");
       setActiveAction(null);
     },
     onError: ({ error }) => {
-      toast.error(error.serverError?.message || "CMS maintenance task failed");
+      toast.error(error.serverError?.message || "System maintenance task failed");
       setActiveAction(null);
     },
   });

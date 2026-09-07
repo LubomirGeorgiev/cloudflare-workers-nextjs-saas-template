@@ -2,7 +2,7 @@
 
 import { type ComponentType } from "react"
 import type { Route } from 'next'
-import { Bug, Building2, CalendarClock, FileText, Image, PanelLeft, Plug, Shield, ShieldOff, Tags, Terminal, Users } from "lucide-react"
+import { Bug, Building2, CalendarClock, FileText, Image, PanelLeft, Plug, Shield, ShieldOff, Tags, Terminal, Users, Zap } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -71,6 +71,11 @@ const adminNavItems: NavMainItem[] = [
     title: "Scheduled Jobs",
     url: "/admin/jobs",
     icon: CalendarClock,
+  },
+  {
+    title: "System",
+    url: "/admin/system",
+    icon: Zap,
   },
   {
     title: "OAuth apps",

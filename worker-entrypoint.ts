@@ -14,6 +14,7 @@ import {
   API_OPENAPI_SPEC_PATH,
   API_V1_BASE_PATH,
   ADMIN_API_BASE_PATH,
+  ADMIN_API_OPENAPI_PATH,
   ADMIN_MCP_PATH,
   HTML_CONTENT_TYPE,
   IMAGE_OPTIMIZATION_PATH,
@@ -116,6 +117,18 @@ function isApiCatalogRequest({ method, pathname }: { method: string; pathname: s
   return pathname === API_CATALOG_PATH && CATALOG_METHODS.has(method);
 }
 
+// Split from the request test below on purpose: the *path* is what must never be advertised, on
+// every method, while the method decides only whether the document is served.
+function isAdminOpenApiPath(pathname: string): boolean {
+  return pathname === ADMIN_API_OPENAPI_PATH;
+}
+
+// The internal document is a static read like the public one, so the same two methods serve it and
+// every other method falls through to the internal app's 404.
+function isAdminOpenApiRequest({ method, pathname }: { method: string; pathname: string }): boolean {
+  return isAdminOpenApiPath(pathname) && OPENAPI_SPEC_METHODS.has(method);
+}
+
 // Everything the provider does not claim: the whole Next app, including our own consent page at
 // /oauth/authorize. Kept as an ExportedHandler so the provider can call it directly.
 const nextAppHandler = {
@@ -155,8 +168,17 @@ const apiCatalogHandler = {
 // same provider funnel deliberately: an admin API key is resolved by `resolveExternalToken` exactly
 // as any other key is, so there is one credential path, not a second one to keep in step.
 const adminApiHandler = {
-  fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
-    (await import("./src/api/admin")).adminApiApp.fetch(request, env, ctx),
+  fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
+    // Answered from the wrapper rather than as a Hono route, so the internal app still publishes no
+    // document route. The provider has already validated the credential onto `ctx.props`, which is
+    // what makes this the same credential path every other internal request takes.
+    if (isAdminOpenApiRequest({ method: request.method, pathname: new URL(request.url).pathname })) {
+      return (await import("./src/api/admin/openapi-endpoint"))
+        .adminOpenApiBearerResponse({ props: ctx.props, request });
+    }
+
+    return (await import("./src/api/admin")).adminApiApp.fetch(request, env, ctx);
+  },
 };
 
 const adminMcpHandler = {
@@ -255,6 +277,67 @@ function withInternalBearerChallenge({
     statusText: response.statusText,
     headers,
   });
+}
+
+// The document path answers every refusal itself, because the provider's 401 carries a challenge
+// naming the path. Only the two methods that serve the document get the cookie door; every other
+// method gets the same problem+json with no challenge.
+async function adminOpenApiRefusalAnswer({
+  method,
+  request,
+}: {
+  method: string;
+  request: Request;
+}): Promise<Response> {
+  const endpoint = await import("./src/api/admin/openapi-endpoint");
+
+  return OPENAPI_SPEC_METHODS.has(method)
+    ? endpoint.adminOpenApiCookieResponse(request)
+    : endpoint.adminOpenApiRefusalResponse(request);
+}
+
+// The one provider refusal that is not final: a browser sends no bearer token, so the internal
+// document's admin-cookie door runs here, on the provider's 401. Its answer replaces the
+// challenge-carrying 401, which keeps the endpoint unadvertised.
+//
+// That door depends on the provider refusing a credential-less request with exactly 401. A library
+// upgrade that answered 403 would skip this branch silently, so
+// `tests/integration/admin-openapi-endpoint.test.ts` pins the coupling.
+async function handleApiRefusal({
+  origin,
+  pathname,
+  request,
+  response,
+}: {
+  origin: string;
+  pathname: string;
+  request: Request;
+  response: Response;
+}): Promise<Response> {
+  const answer = isAdminOpenApiPath(pathname)
+    ? await adminOpenApiRefusalAnswer({ method: request.method, request })
+    : withInternalBearerChallengeIfNeeded({ origin, pathname, response });
+
+  // An admin who authenticated is not a failed attempt, so it charges no anonymous bucket.
+  if (answer.ok) {
+    return answer;
+  }
+
+  return (await getThrottleGates()).getAnonThrottleResponse({ request, response: answer });
+}
+
+function withInternalBearerChallengeIfNeeded({
+  origin,
+  pathname,
+  response,
+}: {
+  origin: string;
+  pathname: string;
+  response: Response;
+}): Response {
+  return isInternalApiPath(pathname)
+    ? withInternalBearerChallenge({ response, origin, pathname })
+    : response;
 }
 
 const oauthProvider = new OAuthProvider<Env>({
@@ -413,12 +496,7 @@ const worker = {
     const response = await fetchAppRequest({ request: forwarded, url, env, ctx });
 
     if (response.status === 401 && isProviderApiPath(pathname)) {
-      const challenged = isInternalApiPath(pathname)
-        ? withInternalBearerChallenge({ response, origin: url.origin, pathname })
-        : response;
-
-      return (await getThrottleGates())
-        .getAnonThrottleResponse({ request: forwarded, response: challenged });
+      return handleApiRefusal({ origin: url.origin, pathname, request: forwarded, response });
     }
 
     if (request.method === "POST" && response.status === 201 && pathname === OAUTH_REGISTER_PATH) {

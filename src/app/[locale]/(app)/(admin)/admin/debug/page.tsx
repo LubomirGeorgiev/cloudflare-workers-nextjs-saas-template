@@ -84,7 +84,7 @@ export default function AdminDebugPage() {
           <h1 className="text-3xl font-bold tracking-tight">Environment Debug</h1>
           <p className="mt-2 text-muted-foreground">
             Runtime Worker env bindings and process environment variables. Cache purge tools live
-            under CMS System Actions.
+            under System.
           </p>
         </div>
         <EnvDump value={envDump} />

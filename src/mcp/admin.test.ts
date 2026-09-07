@@ -33,9 +33,9 @@ vi.mock("@/api/admin", () => ({ adminApiApp: {} }));
 vi.mock("@/api/admin/generated-document", () => ({ adminApiDocument: () => ({}) }));
 vi.mock("@/mcp/derived-server", () => ({ buildDerivedMcpServer: vi.fn() }));
 
-const assertAdminPrincipal = vi.fn();
+const assertAnyAdminPrincipal = vi.fn();
 vi.mock("@/lib/admin/admin-principal", () => ({
-  assertAdminPrincipal: (params: unknown) => assertAdminPrincipal(params),
+  assertAnyAdminPrincipal: (params: unknown) => assertAnyAdminPrincipal(params),
 }));
 
 const principalFromBearerProps = vi.fn();
@@ -70,34 +70,34 @@ async function callHandler(props: unknown): Promise<Response> {
 describe("adminMcpApiHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assertAdminPrincipal.mockResolvedValue(undefined);
+    assertAnyAdminPrincipal.mockResolvedValue(undefined);
   });
 
   test("a write-only credential opens a session", async () => {
-    principalFromBearerProps.mockResolvedValue(principalWithScopes(["admin:write"]));
+    const principal = principalWithScopes(["admin:write"]);
+    principalFromBearerProps.mockResolvedValue(principal);
 
     const response = await callHandler({ credentialKind: "api-key" });
 
-    expect(assertAdminPrincipal).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: "admin:write" }),
-    );
+    expect(assertAnyAdminPrincipal).toHaveBeenCalledWith({ principal });
     expect(mcpHandler).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(200);
   });
 
-  test("a credential holding nothing internal is asserted against the read scope", async () => {
-    principalFromBearerProps.mockResolvedValue(principalWithScopes(["profile:read"]));
+  // No scope is named here on purpose: the guard owns the "any internal scope" rule, so this
+  // boundary hands every credential over rather than deciding a scope for it.
+  test("a credential holding nothing internal is handed to the guard unchanged", async () => {
+    const principal = principalWithScopes(["profile:read"]);
+    principalFromBearerProps.mockResolvedValue(principal);
 
     await callHandler({ credentialKind: "api-key" });
 
-    expect(assertAdminPrincipal).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: "admin:read" }),
-    );
+    expect(assertAnyAdminPrincipal).toHaveBeenCalledWith({ principal });
   });
 
   test("a refused credential gets a problem+json 403, not the handler", async () => {
     principalFromBearerProps.mockResolvedValue(principalWithScopes(["admin:read"]));
-    assertAdminPrincipal.mockRejectedValue(new ActionError("FORBIDDEN", "Not authorized."));
+    assertAnyAdminPrincipal.mockRejectedValue(new ActionError("FORBIDDEN", "Not authorized."));
 
     const response = await callHandler({ credentialKind: "api-key" });
 

@@ -6,8 +6,8 @@ import { adminApiApp } from "@/api/admin";
 import { adminApiDocument } from "@/api/admin/generated-document";
 import { ADMIN_MCP_PATH, SITE_NAME } from "@/constants";
 import { ActionError } from "@/lib/action-error";
-import { assertAdminPrincipal } from "@/lib/admin/admin-principal";
-import { isAdminScope, type AdminScope } from "@/lib/api/admin-scopes";
+import { assertAnyAdminPrincipal } from "@/lib/admin/admin-principal";
+import { isAdminScope } from "@/lib/api/admin-scopes";
 import { actionErrorToProblem, toProblemResponse } from "@/lib/api/errors";
 import type { ApiPrincipal } from "@/lib/api/principal";
 import { buildDerivedMcpServer } from "@/mcp/derived-server";
@@ -22,20 +22,6 @@ import { requireMcpPrincipal, resolveMcpPrincipal } from "@/mcp/principal";
 // The refusal below keeps that property: it adds no challenge header and names no endpoint.
 
 const MISSING_CREDENTIAL = "The admin MCP endpoint requires an authenticated credential.";
-
-// The scope named when a credential carries nothing internal at all. Only a live admin ever reads
-// it; every other caller is refused on audience or role first, with the neutral sentence.
-const SESSION_SCOPE_FALLBACK: AdminScope = "admin:read";
-
-/**
- * Any internal scope opens a session, not `admin:read` specifically: `adminSetUserRole`,
- * `adminSetOAuthAppVerified`, and `adminPublishCmsEntry` declare `admin:write` alone, so a
- * write-only key is mintable and must be able to connect. `isReachable` then hides the tools it
- * cannot call, and each call re-asserts its own scope through the route's own guard.
- */
-function sessionScope(principal: ApiPrincipal): AdminScope {
-  return principal.scopes.find(isAdminScope) ?? SESSION_SCOPE_FALLBACK;
-}
 
 /**
  * Fails closed. Every internal operation declares an `admin:*` scope, so a descriptor whose scope
@@ -105,7 +91,9 @@ async function refuseUnauthorized({
       throw new ActionError("NOT_AUTHORIZED", MISSING_CREDENTIAL);
     }
 
-    await assertAdminPrincipal({ scope: sessionScope(principal), principal });
+    // Any internal scope opens a session; `isReachable` above then hides the tools this credential
+    // cannot call, and each call re-asserts its own scope through the route's own guard.
+    await assertAnyAdminPrincipal({ principal });
 
     return null;
   } catch (error) {

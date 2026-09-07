@@ -33,7 +33,8 @@ in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `s
 | Internal scope catalog (`server-only`) | `src/lib/api/admin-scopes.ts` |
 | Internal route declaration and guard | `src/api/admin/operation.ts`, `src/lib/admin/admin-principal.ts` |
 | Internal Hono app and its routes | `src/api/admin/index.ts`, `src/api/admin/routes/` |
-| Internal document (never served) | `src/api/admin/generated-document.ts` |
+| Internal document, and the producer for its one route | `src/api/admin/generated-document.ts` |
+| Internal document route (admin cookie session or admin bearer) | `src/api/admin/openapi-endpoint.ts` |
 | Internal MCP server | `src/mcp/admin.ts` |
 | Internal key minting | `src/lib/admin/admin-api-keys.ts` |
 | Server-side OAuth lifecycle tuning | `src/constants/oauth.ts` |
@@ -148,11 +149,42 @@ component is a build error rather than a tree-shaking assumption.
 `{"public": ..., "admin": ...}`, and the vite plugin splits it into `virtual:api-openapi-document`
 and `virtual:admin-openapi-document`. Before printing, the generator asserts the public half
 contains no admin scope name and no admin path — the one point both documents exist in the same
-process, and where a leak would actually be introduced. The internal document is read only by
-`src/mcp/admin.ts` and the `/admin/api` page; nothing serves it over HTTP, authenticated or not.
+process, and where a leak would actually be introduced. The internal document is read by
+`src/mcp/admin.ts`, by the `/admin/api` page, and over HTTP at `ADMIN_API_OPENAPI_PATH` — and by
+nothing else.
+
+**The internal document over HTTP.** `ADMIN_API_OPENAPI_PATH` (`/api/admin/v1/openapi.json`) is the
+one internal path a browser may read. `src/api/admin/openapi-endpoint.ts` has two doors, because
+the two credential kinds arrive by different routes:
+
+- **Cookie.** The OAuth provider refuses a request that carries no bearer token before any handler
+  runs, so a browser never reaches the funnel. `handleApiRefusal` in `worker-entrypoint.ts` gives
+  that refusal a second chance: it resolves the session from the raw `Cookie` header with
+  `getSessionFromRequestCookies` and re-reads the role from D1 with `isLiveAdmin`. This door
+  depends on the provider answering a credential-less request with exactly 401; a library upgrade
+  that returns 403 would skip it, which is why the integration test sends a real cookie request.
+- **Bearer.** An admin API key or an OAuth grant is validated by the provider onto `ctx.props`
+  exactly as for every other internal request, and `adminApiHandler` answers from the wrapper
+  before it builds the Hono app. `assertAnyAdminPrincipal` gates it: any internal scope reads the
+  document, not `admin:read` specifically, because a write-only key is mintable and must be able
+  to see the reference.
+
+The document path answers its own refusal on every method, not only the two that serve it. The
+provider stamps a `WWW-Authenticate` challenge on each `apiHandlers` 401, so an unsafe method that
+fell through would advertise the path; `handleApiRefusal` matches the path alone and replaces that
+401 with the same problem+json a credential-less `GET` receives.
+
+The route is *not* a Hono route on `adminApiApp`, so the internal app still publishes no document
+route and `tests/integration/admin-api-route-policy.test.ts` keeps auditing that every mounted
+internal route went through `adminOperation`. Like `/mcp/admin`, the endpoint stays unadvertised:
+every refusal is problem+json with no `WWW-Authenticate` challenge and no endpoint name, the
+response is `Cache-Control: no-store`, and the path appears in no published document.
+`tests/integration/admin-openapi-endpoint.test.ts` pins all of it.
 
 **Authorization is two independent facts.** `assertAdminPrincipal` requires the operation's
-`admin:*` scope *and* re-reads the account's role from D1 on every request. It reads the principal
+`admin:*` scope *and* re-reads the account's role from D1 on every request. `assertAnyAdminPrincipal`
+is the same gate for the two entry points that admit any internal scope, the MCP session and the
+document route; both share one role check. It reads the principal
 passed to it rather than ambient state: a route runs inside `runWithPrincipal`, but the internal MCP
 server asserts once while *building* a session, before any dispatch has entered that storage. The role is not taken
 from `principal.user.role`, which travels on a KV snapshot under a TTL — reading D1 is what makes a

@@ -16,8 +16,11 @@ import { tokenizeSearchQuery } from "@/lib/cms/search-tokens";
 
 const DEFAULT_CMS_SEARCH_LIMIT = 8;
 const CMS_SEARCH_CACHE_TTL = "6 hours";
-/** Inserts per rebuild batch: one batch over a large collection can pass a D1 or request limit. */
-const CMS_SEARCH_REBUILD_CHUNK_SIZE = 50;
+/**
+ * Entries per rebuild batch: one batch over a large collection can pass a D1 or request limit.
+ * Keep it under 100: the batch's leading delete binds one parameter per entry id.
+ */
+export const CMS_SEARCH_REBUILD_CHUNK_SIZE = 50;
 const INSERT_CMS_ENTRY_SEARCH_SQL =
   "INSERT INTO cms_entry_search(entryId, collection, slug, title, seoDescription, body) VALUES (?, ?, ?, ?, ?, ?)";
 
@@ -72,6 +75,13 @@ interface CmsSearchRow {
   snippet: string | null;
 }
 
+/** Every collection a fork turned search on for. The one list the rebuild and the cache purge share. */
+export function getSearchableCollections(): CollectionsUnion[] {
+  return Object.entries(cmsConfig.collections)
+    .filter(([, collection]) => "enableSearch" in collection && collection.enableSearch)
+    .map(([slug]) => slug as CollectionsUnion);
+}
+
 export function isCollectionSearchEnabled(collectionSlug: CollectionsUnion): boolean {
   return Object.values(cmsConfig.collections).some(
     (collection) =>
@@ -115,11 +125,7 @@ function getCmsSearchCollectionConfig(collectionSlug: CollectionsUnion): CmsSear
 }
 
 export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion): Promise<void> {
-  const collectionSlugs = collectionSlug
-    ? [collectionSlug]
-    : Object.entries(cmsConfig.collections)
-      .filter(([, collection]) => "enableSearch" in collection && collection.enableSearch)
-      .map(([slug]) => slug as CollectionsUnion);
+  const collectionSlugs = collectionSlug ? [collectionSlug] : getSearchableCollections();
 
   await Promise.all(
     collectionSlugs.map((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)))
@@ -159,6 +165,21 @@ function prepareCmsEntrySearchInsert({
     );
 }
 
+/** `cms_entry_search` is an FTS5 table with no unique index, so a rebuild deletes before it writes. */
+function prepareCmsEntrySearchChunkDelete({
+  d1,
+  entryIds,
+}: {
+  d1: D1Database;
+  entryIds: string[];
+}): D1PreparedStatement {
+  const placeholders = entryIds.map(() => "?").join(", ");
+
+  return d1
+    .prepare(`DELETE FROM cms_entry_search WHERE entryId IN (${placeholders})`)
+    .bind(...entryIds);
+}
+
 export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): Promise<void> {
   const db = getDB();
   const entries = await db.query.cmsEntryTable.findMany({
@@ -174,15 +195,21 @@ export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): P
   });
 
   const d1 = await getSearchDatabase();
-  // The delete commits alone and first: a chunk that fails later then leaves gaps, never duplicates.
+  // Commits alone and first, because it is the only step that drops rows for entries which no
+  // longer exist. Each chunk below deletes its own entry ids again, so a chunk that fails or
+  // overlaps another rebuild leaves gaps, never duplicates.
   await d1.prepare("DELETE FROM cms_entry_search WHERE collection = ?").bind(collectionSlug).run();
 
   // One chunk at a time: these are D1 writes, so they stay sequential.
   for (let start = 0; start < entries.length; start += CMS_SEARCH_REBUILD_CHUNK_SIZE) {
     const chunk = entries.slice(start, start + CMS_SEARCH_REBUILD_CHUNK_SIZE);
 
-    await d1.batch(
-      chunk.map((entry) =>
+    // A batch is one transaction, so the chunk replaces its own rows atomically. That makes the
+    // rebuild safe to repeat and safe to overlap: a second rebuild removes what the first wrote
+    // for these entries before it inserts its own.
+    await d1.batch([
+      prepareCmsEntrySearchChunkDelete({ d1, entryIds: chunk.map((entry) => entry.id) }),
+      ...chunk.map((entry) =>
         prepareCmsEntrySearchInsert({
           d1,
           entryId: entry.id,
@@ -192,8 +219,8 @@ export async function rebuildCmsSearchIndex(collectionSlug: CollectionsUnion): P
           seoDescription: entry.seoDescription,
           content: entry.content,
         })
-      )
-    );
+      ),
+    ]);
   }
 
   await optimizeCmsSearchIndex(d1);

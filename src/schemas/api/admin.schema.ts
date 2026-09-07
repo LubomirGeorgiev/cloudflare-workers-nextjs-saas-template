@@ -216,6 +216,33 @@ export const adminBlockedEmailListSchema = v.object({
   totalPages: v.number(),
 });
 
+// ---------------------------------------------------------------------------
+// System maintenance.
+//
+// Only the two collection-scoped routes document a body. A route that documents one rejects a
+// request without it, so the routes with no field to fill take none at all — and `collection` is
+// optional, so a caller that wants every collection still has to send `{}`.
+// ---------------------------------------------------------------------------
+
+export const adminSystemCollectionBodySchema = v.object({
+  collection: v.optional(collectionSchema),
+});
+
+// The panel puts both purges behind a destructive dialog. A machine caller has no dialog, so it
+// states the same intent in the body: without `confirm: true` the request is a rejected field.
+export const adminSystemPurgeConfirmBodySchema = v.object({
+  confirm: v.literal(true),
+});
+
+export const adminSystemActionResultSchema = v.object({
+  message: v.string(),
+});
+
+export const adminPurgeKvPageCacheResultSchema = v.object({
+  message: v.string(),
+  deletedKeyCount: v.number(),
+});
+
 export const adminTeamIdParamSchema = v.object({
   teamId: idField("Team ID is required"),
 });

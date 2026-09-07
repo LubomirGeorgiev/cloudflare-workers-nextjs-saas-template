@@ -52,6 +52,10 @@ export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
 export const STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 
+// The internal document is answered per credential, so no cache may keep a copy a later request
+// could be served without being authorized again — not a shared one, not the browser's.
+export const INTERNAL_API_DOCUMENT_CACHE_CONTROL = "no-store";
+
 // The tag to purge each edge copy under, or `null` for content that changes on deploy alone.
 export const EDGE_CACHED_METADATA_ROUTE_TAGS: Readonly<Record<string, string | null>> = {
   "/sitemap.xml": CACHE_TAGS.SITEMAP,

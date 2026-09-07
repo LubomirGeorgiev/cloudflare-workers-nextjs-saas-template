@@ -87,8 +87,10 @@ test("no internal path is mounted on the public app, and vice versa", () => {
   }
 });
 
-// The internal document is a build-time artifact read by the admin panel and the internal MCP
-// server. Serving it would publish the entire internal surface to anyone who guessed the path.
+// The internal document is served at `ADMIN_API_OPENAPI_PATH`, but from the entrypoint wrapper
+// through `src/api/admin/openapi-endpoint.ts` — never as a route here. That split is what lets the
+// audit above stay absolute: every route on this app is an operation declared by `adminOperation`.
+// `tests/integration/admin-openapi-endpoint.test.ts` covers the endpoint itself.
 test("the internal app publishes no discovery document", () => {
   for (const route of adminApiApp.routes) {
     expect(route.path).not.toContain("openapi");

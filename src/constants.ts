@@ -72,13 +72,13 @@ export const MCP_PATH = "/mcp";
 export const MCP_DOCS_PATH = "/docs/mcp";
 
 // ---------------------------------------------------------------------------
-// Internal admin surface. Neither path appears in the OpenAPI document, the RFC 9727 catalog,
+// Internal admin surface. No path here appears in the OpenAPI document, the RFC 9727 catalog,
 // `llms.txt`, the sitemap, or any `WWW-Authenticate` challenge a public route sends. They are
 // documented for staff at `ADMIN_API_DOCS_PATH` and nowhere else.
 //
 // Not secret paths — a guessed path answers 401/403 like any other — but unadvertised ones: the
 // authorization is `assertAdminPrincipal` (an `admin:*` scope AND a live admin role), never the
-// obscurity. Both are edge-routed in `worker-entrypoint.ts` onto the same OAuth provider funnel as
+// obscurity. All are edge-routed in `worker-entrypoint.ts` onto the same OAuth provider funnel as
 // the public surface, so an admin API key authenticates through exactly one code path.
 // ---------------------------------------------------------------------------
 // Every scope name in either catalog is far shorter; this is the ceiling an unvalidated scope
@@ -86,6 +86,10 @@ export const MCP_DOCS_PATH = "/docs/mcp";
 export const API_SCOPE_NAME_MAX_LENGTH = 64;
 export const ADMIN_API_BASE_PATH = "/api/admin/v1";
 export const ADMIN_MCP_PATH = "/mcp/admin";
+// The internal document. Served only to an admin cookie session or an admin bearer credential, and
+// refused with no `WWW-Authenticate` challenge, so reading it still needs staff access rather than
+// the path. Edge-routed in `worker-entrypoint.ts`; the admin panel's reference page links it.
+export const ADMIN_API_OPENAPI_PATH = `${ADMIN_API_BASE_PATH}/openapi.json`;
 // Version of the published API contract, not of the app; it is the OpenAPI `info.version`.
 export const API_VERSION = "1.0.0";
 // RFC 9727. One document naming every API this deployment publishes — the REST API and the MCP

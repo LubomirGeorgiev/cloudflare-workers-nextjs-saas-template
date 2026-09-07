@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { adminBlockedEmailRoutes } from "@/api/admin/routes/blocked-emails";
 import { adminCmsRoutes } from "@/api/admin/routes/cms";
 import { adminOAuthAppRoutes } from "@/api/admin/routes/oauth-apps";
+import { adminSystemRoutes } from "@/api/admin/routes/system";
 import { adminTeamRoutes } from "@/api/admin/routes/teams";
 import { adminUserRoutes } from "@/api/admin/routes/users";
 import { apiAuth } from "@/api/middleware/auth";
@@ -21,9 +22,9 @@ import { ADMIN_API_BASE_PATH } from "@/constants";
 // into the service layer, per-credential rate limiting, and problem+json errors are all one
 // implementation, so an admin credential is resolved by exactly the code that resolves every other.
 //
-// There is no `/openapi.json` route here, and there must never be one. The internal document is a
-// build-time artifact rendered inside the admin panel by a server component; nothing serves it over
-// HTTP, authenticated or not.
+// No `/openapi.json` route here, ever. `ADMIN_API_OPENAPI_PATH` is answered by `worker-entrypoint.ts`
+// through `src/api/admin/openapi-endpoint.ts`, so every route mounted below went through
+// `adminOperation`, which is what the route-table audit checks.
 
 // ---------------------------------------------------------------------------
 // Extension seam for downstream projects.
@@ -51,6 +52,7 @@ function createAdminApiApp(): ApiApp {
   app.route("/", adminTeamRoutes);
   app.route("/", adminOAuthAppRoutes);
   app.route("/", adminCmsRoutes);
+  app.route("/", adminSystemRoutes);
 
   registerCustomAdminRoutes(app);
 
