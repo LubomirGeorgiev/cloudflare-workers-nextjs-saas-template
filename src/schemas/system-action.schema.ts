@@ -8,6 +8,8 @@ const GLOBAL_ACTION_TYPES = [
   "clear-cms-cache",
   "purge-vinext-kv-cache",
   "purge-workers-cdn-cache",
+  "purge-edge-html-cache",
+  "purge-cloudflare-cdn-cache",
 ] as const;
 
 // Strict arms, because a plain object would strip `collection` instead of refusing it.

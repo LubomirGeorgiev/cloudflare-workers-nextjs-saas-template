@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
+import { I18N_ENABLED } from "@/constants";
 import { BLOG_LISTING_ROUTES } from "@/constants/public-routes";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { BLOG_BASE_PATH, getBlogCollectionPagePath } from "@/lib/blog-routing";
+import type { DefineCmsCollection } from "@/lib/cms/cms-models";
 
 const {
   getBlogPageCountsByPath,
@@ -101,5 +104,61 @@ describe("blog sitemap rows", () => {
     const urls = await buildSitemapUrls();
 
     expect(urls.some((url) => url.includes(BLOG_BASE_PATH))).toBe(false);
+  });
+});
+
+/** The first collection this install advertises through its own preview path. */
+const SITEMAP_COLLECTION = (
+  Object.entries(cmsConfig.collections) as Array<[CollectionsUnion, DefineCmsCollection]>
+).find(
+  ([, collection]) =>
+    collection.includeInSitemap !== false && !collection.navigationKey && collection.previewUrl,
+);
+
+const ENTRY_SLUG = "launch-day";
+
+// The page collector carries only `(collection, slug)`; the locale lookup that turns those into
+// hreflang rows is a sitemap concern, so the admin edge-HTML purge never pays for it.
+describe.skipIf(!SITEMAP_COLLECTION)("CMS entry alternates", () => {
+  const [collectionSlug, collection] = SITEMAP_COLLECTION as NonNullable<typeof SITEMAP_COLLECTION>;
+  const entryPath = collection.previewUrl?.(ENTRY_SLUG) as string;
+
+  beforeEach(() => {
+    getCmsCollection.mockImplementation(async (params: { collectionSlug: CollectionsUnion }) =>
+      params.collectionSlug === collectionSlug
+        ? [{ slug: ENTRY_SLUG, updatedAt: new Date() }]
+        : [],
+    );
+  });
+
+  test("resolves the locales of every entry slug in one lookup per collection", async () => {
+    const urls = await buildSitemapUrls();
+
+    expect(getEntryLocalesForSlugs).toHaveBeenCalledWith({ collectionSlug, slugs: [ENTRY_SLUG] });
+    expect(urls).toContain(urlFor({ pathname: entryPath, locale: DEFAULT_LOCALE }));
+  });
+
+  // A fallback render serves default-locale content and is `noindex`, so it gets no hreflang row.
+  test("advertises no alternate for a locale the entry has no row in", async () => {
+    const rows = await buildSitemap();
+    const entryRow = rows.find(
+      (row) => row.url === urlFor({ pathname: entryPath, locale: DEFAULT_LOCALE }),
+    );
+
+    expect(entryRow?.alternates?.languages).toEqual({});
+  });
+
+  // Single-locale mode advertises no hreflang at all, so there is nothing to assert there.
+  test.skipIf(!I18N_ENABLED)("advertises the locales the entry really has", async () => {
+    getEntryLocalesForSlugs.mockResolvedValue(new Map([[ENTRY_SLUG, new Set(ENABLED_LOCALES)]]));
+
+    const rows = await buildSitemap();
+    const entryRow = rows.find(
+      (row) => row.url === urlFor({ pathname: entryPath, locale: DEFAULT_LOCALE }),
+    );
+
+    ENABLED_LOCALES.forEach((locale) => {
+      expect(entryRow?.alternates?.languages?.[locale]).toBe(urlFor({ pathname: entryPath, locale }));
+    });
   });
 });

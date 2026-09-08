@@ -1,6 +1,8 @@
 import { type ReactNode } from "react";
 
+import { ClientMessagesProvider } from "@/components/client-messages-provider";
 import NavFooterLayout from "@/layouts/NavFooterLayout";
+import { CLIENT_MESSAGE_SCOPES } from "@/i18n/client-namespaces";
 import type { Locale } from "@/i18n/config";
 
 export default function LegalLayout({
@@ -11,14 +13,16 @@ export default function LegalLayout({
   params: Promise<{ locale: Locale }>;
 }) {
   return (
-    <NavFooterLayout params={params}>
-      <div className="min-h-screen bg-background px-4 py-12">
-        <div className="max-w-3xl mx-auto px-6 bg-muted/50 rounded-xl shadow-lg py-12">
-          <div className="prose prose-gray dark:prose-invert max-w-none">
-            {children}
+    <ClientMessagesProvider params={params} namespaces={CLIENT_MESSAGE_SCOPES.legal.namespaces}>
+      <NavFooterLayout params={params}>
+        <div className="min-h-screen bg-background px-4 py-12">
+          <div className="max-w-3xl mx-auto px-6 bg-muted/50 rounded-xl shadow-lg py-12">
+            <div className="prose prose-gray dark:prose-invert max-w-none">
+              {children}
+            </div>
           </div>
         </div>
-      </div>
-    </NavFooterLayout>
+      </NavFooterLayout>
+    </ClientMessagesProvider>
   );
 }

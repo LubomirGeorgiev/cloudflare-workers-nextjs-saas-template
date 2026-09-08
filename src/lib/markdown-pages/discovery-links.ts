@@ -108,12 +108,16 @@ function htmlDiscoveryLinkValues(alternate: MarkdownAlternate | null): string[] 
 
 /**
  * Stamps the discovery `Link`s, plus `vary: accept` when this URL really has two representations.
+ * `preloadLinks` are the Early Hints values the caller resolved; they lead, because a hint that
+ * arrives after the header is capped is a hint the browser never acts on.
  */
 export function withHtmlDiscoveryLinkHeader({
   pathname,
+  preloadLinks = [],
   response,
 }: {
   pathname: string;
+  preloadLinks?: readonly string[];
   response: Response;
 }): Response {
   const alternate = response.ok ? markdownAlternateFor({ pathname }) : null;
@@ -123,7 +127,7 @@ export function withHtmlDiscoveryLinkHeader({
     apply: (headers) => {
       const linked = appendLinkHeaderValues({
         headers,
-        values: htmlDiscoveryLinkValues(alternate),
+        values: [...preloadLinks, ...htmlDiscoveryLinkValues(alternate)],
       });
       const varied = alternate ? applyAcceptVary(headers) : false;
 

@@ -40,6 +40,8 @@ const GENERATOR = "scripts/generate-openapi.mjs";
 // Project-relative sources that can change the document, so a dev server regenerates instead of
 // serving a stale one. Much wider than `src/api/`: the generator evaluates the whole API app, so
 // routes drag in feature schemas, service code, i18n, and the constants the info block reads.
+// `src/app/enums.ts` is here because schemas read it; the test below walks the graph and fails when
+// that set changes.
 const DOCUMENT_SOURCES =
   /^(?:cms\.config\.ts|src\/app\/enums\.ts|src\/(?:api|constants|db|i18n|lib|mcp|schemas|types|utils)(?:\.ts$|\/))/;
 /** The document is small and generation is ~1s; anything slower means the generator is stuck. */

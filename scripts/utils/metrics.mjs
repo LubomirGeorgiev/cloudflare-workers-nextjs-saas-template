@@ -30,6 +30,9 @@ const STARTUP_BUNDLE_PATTERN = new RegExp(
 const STARTUP_ACTIVE_PATTERN =
   /Active:\s*([0-9.]+)\s*ms(?:\s*\(including\s*([0-9.]+)\s*ms\s*garbage collection\))?/i;
 const STARTUP_SAMPLES_PATTERN = /Samples:\s*([0-9]+)/i;
+// One line per measured route from `scripts/measure-ttfb.mjs`; skipped routes print another shape.
+const TTFB_TARGET_PATTERN =
+  /^TTFB target=([A-Za-z][A-Za-z0-9]*)\s+path=\S+\s+status=[0-9]+\s+cold=([0-9.]+)\s*ms\s+warm=([0-9.]+)\s*ms/gm;
 
 export function stripAnsi(text) {
   return text.replace(ANSI_PATTERN, "");
@@ -112,6 +115,29 @@ export function parseStartupProfileMetrics(log) {
     startupIdleMs: matchDurationMs(sanitizedLog, "Idle"),
     startupSamples: Number(samplesMatch[1]),
   };
+}
+
+/**
+ * Flat `ttfb<Target>ColdMs` / `ttfb<Target>WarmMs` keys, so one deploy row holds every route.
+ * A route the measurement skipped contributes no key rather than a zero.
+ */
+export function parseTtfbMetrics(log) {
+  const matches = [...stripAnsi(log).matchAll(TTFB_TARGET_PATTERN)];
+
+  if (matches.length === 0) {
+    throw new Error("Could not find TTFB measurements in TTFB output.");
+  }
+
+  const metrics = {};
+
+  for (const [, target, coldMs, warmMs] of matches) {
+    const name = `${target[0].toUpperCase()}${target.slice(1)}`;
+
+    metrics[`ttfb${name}ColdMs`] = Number(coldMs);
+    metrics[`ttfb${name}WarmMs`] = Number(warmMs);
+  }
+
+  return metrics;
 }
 
 export function readRunIdentity(env = process.env) {

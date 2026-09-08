@@ -17,6 +17,19 @@ test("a collection is accepted only by the two search actions", () => {
   expect(
     v.safeParse(systemActionSchema, { type: "purge-workers-cdn-cache", collection }).success,
   ).toBe(false);
+  expect(
+    v.safeParse(systemActionSchema, { type: "purge-edge-html-cache", collection }).success,
+  ).toBe(false);
+  expect(
+    v.safeParse(systemActionSchema, { type: "purge-cloudflare-cdn-cache", collection }).success,
+  ).toBe(false);
+});
+
+// The three edge purges clear independent stores, so each one is its own action type.
+test("every edge purge is accepted without a collection", () => {
+  expect(v.safeParse(systemActionSchema, { type: "purge-workers-cdn-cache" }).success).toBe(true);
+  expect(v.safeParse(systemActionSchema, { type: "purge-edge-html-cache" }).success).toBe(true);
+  expect(v.safeParse(systemActionSchema, { type: "purge-cloudflare-cdn-cache" }).success).toBe(true);
 });
 
 test("an unknown action type is rejected", () => {

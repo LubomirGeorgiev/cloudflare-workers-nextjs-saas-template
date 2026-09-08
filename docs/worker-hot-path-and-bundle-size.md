@@ -10,7 +10,7 @@ Three separate budgets. Know which one your change spends.
 
 Uploaded is not the same as evaluated. A 250 KiB chunk behind `await import()` costs upload only, and only on the route that reaches it.
 
-**Why an `import()` is nearly free here.** The build runs `no_bundle: true` with an `ESModule` rule over `**/*.js`, so wrangler uploads every chunk as its own module in the Worker bundle — 639 files today, and `Total Upload` matches the bytes on disk exactly. There is no filesystem and no runtime fetch: `import()` resolves against modules the isolate already holds. What it actually costs is compiling and evaluating that module's top level, once per isolate. That is the whole reason moving a static import to a dynamic one shifts cost off the startup budget instead of merely relocating a download.
+**Why an `import()` is nearly free here.** The build runs `no_bundle: true` with an `ESModule` rule over `**/*.js`, so wrangler uploads every chunk as its own module in the Worker bundle — 651 files today, and `Total Upload` matches the bytes on disk exactly. There is no filesystem and no runtime fetch: `import()` resolves against modules the isolate already holds. What it actually costs is compiling and evaluating that module's top level, once per isolate. That is the whole reason moving a static import to a dynamic one shifts cost off the startup budget instead of merely relocating a download.
 
 ## Rules
 
@@ -42,6 +42,19 @@ Do the same for anything the entry needs only on some invocations — a callback
 **Per-locale data loads per locale.** `src/i18n/message-catalogs.ts` holds one `import()` per locale behind `loadCatalog`, which is `lazyValueByKey` — one entry per locale, so serving `es` never evaluates `en`'s catalog unless the fallback merge asks for it. A static catalog import is ~66 KiB evaluated on every cold isolate whether or not that language is ever served. Adding a locale adds a line there and costs the startup budget nothing.
 
 **Never `import()` inside a per-request loop.** Hoist it to the handler.
+
+**Merge the tiny chunks, but never across an `import()`.** One module per chunk is cheap to upload and expensive to start: the isolate loads and installs each one. The build once shipped 750 modules, and 578 of them were under 4 KiB for 9% of the bytes. `vite.config.ts` now sets a rolldown `codeSplitting` config on the `rsc` and `ssr` environments. It has two groups. The `startup` group carries the tag `$initial`, which matches only the modules the entry reaches by static import, so it merges the whole cold-start graph into one chunk. The `lazy` group takes everything else with `entriesAware: true`, which keeps the rest split by the dynamic entries that reach it. The rule is the same as above: a chunk reached only through `await import()` must stay behind `import()`. Both groups obey it, because the `$initial` tag separates the two graphs before anything merges. Do not add `entriesAwareMergeThreshold`: it folds a subgroup that only `import()` reaches into a static neighbour. That put a Vite optional-peer stub, which throws when it evaluates, on the path of every server action, and it created a chunk cycle that left `Hono` undefined at evaluation. Do not drop the `startup` group. Without it the `lazy` group merges across the boundary and the entry's closure grows from 1.0 MiB to 3.1 MiB.
+
+Read the option shapes in `node_modules/rolldown/dist/shared/*.d.mts` before you change the groups. Two behaviors in rolldown 1.2.5 are not obvious: a `test` function is ignored (use a string or a regular expression), and a group with `tags` outranks `priority`.
+
+To re-measure, build and then compare three numbers against the same numbers from a build with the `rolldownOptions` lines removed:
+
+```bash
+pnpm build
+pnpm exec wrangler deploy --dry-run -c dist/server/wrangler.json 2>&1 | grep -E "Total Upload|Total \("
+```
+
+The module count is in the `Total (N modules)` row. For the third number, walk the static imports from `dist/server/index.js` as described below and total the bytes. Stop if the closure grows, and probe the built Worker with `pnpm preview` before you trust a lower module count: a merge that crosses an `import()` shows up only at request time.
 
 ## Public page results
 
@@ -101,4 +114,6 @@ Its `Bundle:` line is wrangler bundling the built Worker itself, so it does not 
 
 Every deploy appends one row to `metrics/*-deploy-size-history.jsonl` via `scripts/record-metrics.mjs`: upload sizes at the top level, plus the startup profile above under `startup*` keys when profiling succeeded (sizes in bytes, timings in ms). CI runners are noisy — read the trend, not one row, and profile locally to find the cause.
 
-`pnpm metrics:report` renders that history to `metrics/*-metrics-report.html` — a self-contained page with size, per-deploy change, biggest-mover, cadence, and startup charts. Drag across a time chart to zoom every chart to that window; hovering a point names the commit.
+The same row also carries a served-latency baseline under `ttfb*` keys, in ms, when `scripts/measure-ttfb.mjs` ran. That script measures the time to the first response byte for the locale redirect (`ttfbRootRedirect*`), the default-locale home (`ttfbHome*`), the docs root (`ttfbDocsRoot*`), and one docs and one blog entry it finds in `/sitemap.xml` (`ttfbDocsEntry*`, `ttfbBlogEntry*`). Each route records the first request after the deploy (`...ColdMs`) and the median of three more (`...WarmMs`), so a cold isolate is never confused with a warm one. Run it against any origin with `pnpm metrics:ttfb [url]`; a route the sitemap does not offer is skipped and records no key.
+
+`pnpm metrics:report` renders that history to `metrics/*-metrics-report.html` — a self-contained page with size, per-deploy change, biggest-mover, cadence, startup, and TTFB charts. Drag across a time chart to zoom every chart to that window; hovering a point names the commit.

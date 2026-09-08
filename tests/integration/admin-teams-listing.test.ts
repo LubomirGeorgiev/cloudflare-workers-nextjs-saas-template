@@ -16,9 +16,9 @@
 import { expect, test } from "vitest";
 
 import { ADMIN_TABLE_PAGE_SIZE_OPTIONS, MAX_ADMIN_TABLE_PAGE_SIZE } from "@/constants";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import {
-  SYSTEM_ROLES_ENUM,
   apiKeyTable,
   teamInvitationTable,
   teamMembershipTable,

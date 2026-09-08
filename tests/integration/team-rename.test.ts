@@ -52,13 +52,9 @@ vi.mock("@/lib/scheduler/enqueue", async (importOriginal) => ({
   enqueueTeamSessionsRefresh: enqueueTeamSessionsRefreshMock,
 }));
 
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import { TEAM_NAME_MAX_LENGTH } from "@/constants";
 import { renameTeam } from "@/lib/teams/teams";
 

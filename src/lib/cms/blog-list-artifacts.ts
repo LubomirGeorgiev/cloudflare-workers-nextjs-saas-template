@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { BLOG_POSTS_PER_PAGE } from "@/constants";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
@@ -27,7 +29,7 @@ interface BlogFacetPage<TFacet extends BlogFacet> {
   posts: CmsCollectionListItem[];
 }
 
-export async function getBlogAuthors(locale: Locale) {
+async function loadBlogAuthors(locale: Locale) {
   "use cache: remote";
   setCacheScope({ tags: [CACHE_TAGS.cmsCollection("blog")], ttl: "8 hours" });
   const entries = await getCmsCollection({
@@ -56,7 +58,7 @@ export async function getBlogAuthors(locale: Locale) {
 
 // Cached per facet, never per page: the whole collection is read and filtered in
 // memory, so a page number in the key would repeat that read for every page.
-export async function getBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
+async function loadBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
   locale: Locale;
   facet: TFacet;
 }): Promise<BlogFacetPage<TFacet> | null> {
@@ -99,7 +101,7 @@ export async function getBlogFacetPage<TFacet extends BlogFacet>({ locale, facet
 // How many pages each blog list path holds in one locale, keyed by the locale-agnostic
 // base pathname. One cached read per locale, never one per facet: the whole collection
 // is read once and every facet counted from it.
-export async function getBlogPageCountsByPath(locale: Locale): Promise<Record<string, number>> {
+async function loadBlogPageCountsByPath(locale: Locale): Promise<Record<string, number>> {
   "use cache: remote";
   // Facet paths carry the tag slug, so a tag change moves them the same way it moves a facet page.
   setCacheScope({ tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: "8 hours" });
@@ -132,4 +134,31 @@ function getBlogEntries(locale: Locale) {
     includeRelations: { tags: true, createdByUser: true },
     locale,
   });
+}
+
+// Vinext runs no in-request dedupe for `"use cache"`, so a reader that one render reaches twice
+// paid two KV gets and two tag batches. React `cache` collapses them into one in-flight promise.
+// All three are declared here because the transform rewrites each wrapped function into a `const`.
+export const getBlogAuthors = cache(loadBlogAuthors);
+
+export const getBlogPageCountsByPath = cache(loadBlogPageCountsByPath);
+
+// React `cache` keys on argument identity, so the facet is passed as two primitives and rebuilt.
+const loadBlogFacetPageOnce = cache((locale: Locale, facetType: BlogFacet["type"], facetValue: string) =>
+  loadBlogFacetPage({
+    locale,
+    facet: facetType === "tag"
+      ? { type: "tag", slug: facetValue }
+      : { type: "author", authorId: facetValue },
+  }));
+
+export function getBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
+  locale: Locale;
+  facet: TFacet;
+}): Promise<BlogFacetPage<TFacet> | null> {
+  return loadBlogFacetPageOnce(
+    locale,
+    facet.type,
+    facet.type === "tag" ? facet.slug : facet.authorId,
+  ) as Promise<BlogFacetPage<TFacet> | null>;
 }

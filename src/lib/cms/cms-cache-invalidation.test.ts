@@ -8,13 +8,17 @@ import { DOCS_SLUG } from "@/lib/cms/docs-config";
 const {
   getDBMock,
   invalidateCmsSearchCacheMock,
+  purgeCmsEntryEdgeHtmlPagesMock,
   purgeMarkdownPageCacheMock,
   revalidateCacheTagMock,
+  warmCmsEntryPagesMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
   invalidateCmsSearchCacheMock: vi.fn(),
+  purgeCmsEntryEdgeHtmlPagesMock: vi.fn(async () => undefined),
   purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
   revalidateCacheTagMock: vi.fn(),
+  warmCmsEntryPagesMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -32,6 +36,18 @@ vi.mock("@/lib/cms/cms-search", () => ({
 // `cms-entry-revalidation.test.ts`, so here we only prove this call site reaches it.
 vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
   purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
+}));
+
+// The Cache API needs a Worker runtime; the key matrix is asserted in
+// `tests/integration/worker-edge.test.ts`, so here we only prove the ordering against the warm.
+vi.mock("@/lib/cms/cms-entry-page-purge", () => ({
+  purgeCmsEntryEdgeHtmlPages: purgeCmsEntryEdgeHtmlPagesMock,
+}));
+
+// The warmer's own URL matrix is asserted in `warm-cms-pages.test.ts`; here we only prove the
+// publish path reaches it, and only after the tags are gone.
+vi.mock("@/lib/cms/warm-cms-pages", () => ({
+  warmCmsEntryPages: warmCmsEntryPagesMock,
 }));
 
 vi.mock("@/utils/cache", () => ({
@@ -52,6 +68,7 @@ const {
   invalidateAllCmsCaches,
   invalidateAllCmsCollectionCaches,
   invalidateCmsNavigationCachesForCollection,
+  invalidateEntryAndCollection,
 } = await import("./cms-cache-invalidation");
 
 /** The docs pages served by the `.md` page branch, so their KV copies hold the CMS sidebar. */
@@ -114,6 +131,56 @@ describe("CMS cache invalidation", () => {
     expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
       pathnames: DOCS_ROUTE_PAGE_PATHNAMES,
     });
+  });
+
+  // The warm fetches the page through the edge, so a stored copy that outlives the purge is what
+  // the warm would read back and re-store.
+  test("an entry publish drops the tags and the stored page before it warms", async () => {
+    const collectionSlug = collectionSlugs[0];
+    const entries = [{ collection: collectionSlug, slug: "launch-notes" }];
+
+    warmCmsEntryPagesMock.mockImplementationOnce(() => {
+      expect(revalidateCacheTagMock).toHaveBeenCalledWith(
+        `cms-entry-${collectionSlug}-launch-notes`,
+      );
+      expect(purgeCmsEntryEdgeHtmlPagesMock).toHaveBeenCalledWith({ entries });
+    });
+
+    await invalidateEntryAndCollection({ collectionSlug, slug: "launch-notes", warm: true });
+
+    expect(warmCmsEntryPagesMock).toHaveBeenCalledWith({ entries });
+  });
+
+  // A rename leaves the old slug's page stored and its tag live, but only the new slug resolves.
+  test("`alsoPurgeSlugs` purges and invalidates every slug and warms only the entry slug", async () => {
+    const collectionSlug = collectionSlugs[0];
+
+    await invalidateEntryAndCollection({
+      collectionSlug,
+      slug: "new-slug",
+      alsoPurgeSlugs: ["old-slug"],
+      warm: true,
+    });
+
+    expect(purgeCmsEntryEdgeHtmlPagesMock).toHaveBeenCalledTimes(1);
+    expect(purgeCmsEntryEdgeHtmlPagesMock).toHaveBeenCalledWith({
+      entries: [
+        { collection: collectionSlug, slug: "new-slug" },
+        { collection: collectionSlug, slug: "old-slug" },
+      ],
+    });
+    expect(revalidateCacheTagMock).toHaveBeenCalledWith(`cms-entry-${collectionSlug}-old-slug`);
+    expect(revalidateCacheTagMock).toHaveBeenCalledWith(`cms-entry-${collectionSlug}-new-slug`);
+    expect(warmCmsEntryPagesMock).toHaveBeenCalledWith({
+      entries: [{ collection: collectionSlug, slug: "new-slug" }],
+    });
+  });
+
+  // A delete or a draft save drops the same tags, but warming there would fetch a 404.
+  test("an invalidation without `warm` never reaches the warmer", async () => {
+    await invalidateEntryAndCollection({ collectionSlug: collectionSlugs[0], slug: "launch-notes" });
+
+    expect(warmCmsEntryPagesMock).not.toHaveBeenCalled();
   });
 
   // Skipped in a fork where every collection owns a navigation: there is then nothing to over-purge.

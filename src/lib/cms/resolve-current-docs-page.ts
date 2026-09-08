@@ -1,5 +1,6 @@
 import "server-only"
 
+import { createNavigationMemo } from "@/lib/cms/navigation-memos"
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache"
 import { getNavigationNodeDisplayTitle } from "@/types/cms-navigation"
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config"
@@ -17,13 +18,18 @@ import {
 import { DOCS_SLUG } from "./docs-config"
 import { resolveDocsPage } from "./resolve-docs-page"
 
+// A docs page and its `opengraph-image` ask for one slug each, so a handful of hot pages fit.
+const CURRENT_DOCS_PAGE_MEMO_ENTRIES = 32;
+
+interface CurrentDocsPageParams {
+  slugParts: string[] | undefined;
+  locale: Locale;
+}
+
 // Wires the pure `resolveDocsPage` resolver to the CMS navigation repository. Kept out of the
 // resolver module so that one stays free of the repository's top-level `getDB`/drizzle import, and
 // out of the page so the docs page and its `opengraph-image` resolve a slug the exact same way.
-export async function resolveCurrentDocsPage({ slugParts, locale }: {
-  slugParts: string[] | undefined;
-  locale: Locale;
-}) {
+async function loadCurrentDocsPage({ slugParts, locale }: CurrentDocsPageParams) {
   "use cache: remote";
   setCacheScope({
     tags: [CACHE_TAGS.cmsNavigation(DOCS_SLUG), CACHE_TAGS.cmsRedirect(DOCS_SLUG)],
@@ -58,6 +64,20 @@ export async function resolveCurrentDocsPage({ slugParts, locale }: {
     next: next ? toNavigationLink(next) : null,
   };
 }
+
+// The second-hottest cached read after the navigation links, and every docs page pays it. The memo
+// keys on the same primitives the cache key does; a URL segment can never hold a "/", so joining
+// the slug parts cannot collide. Declared after the cached body, which the transform makes a const.
+const currentDocsPageMemo = createNavigationMemo({
+  build: loadCurrentDocsPage,
+  keyOf: ({ slugParts, locale }: CurrentDocsPageParams) => `${locale}|${slugParts?.join("/") ?? ""}`,
+  maxEntries: CURRENT_DOCS_PAGE_MEMO_ENTRIES,
+});
+
+export function resolveCurrentDocsPage(params: CurrentDocsPageParams) {
+  return currentDocsPageMemo.read(params);
+}
+
 
 function toNavigationLink(node: CmsNavigationTreeNode) {
   return {

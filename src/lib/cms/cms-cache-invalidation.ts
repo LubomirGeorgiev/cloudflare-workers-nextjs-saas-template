@@ -13,11 +13,14 @@ import { cmsEntryTable, cmsEntryTagTable, cmsTagTable } from "@/db/schema";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import { CACHE_TAGS, revalidateCacheTag } from "@/utils/cache";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { purgeCmsEntryEdgeHtmlPages } from "@/lib/cms/cms-entry-page-purge";
 import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import {
   invalidateCmsSearchCache,
   isCollectionSearchEnabled,
 } from "@/lib/cms/cms-search";
+import { clearNavigationMemos } from "@/lib/cms/navigation-memos";
+import { warmCmsEntryPages } from "@/lib/cms/warm-cms-pages";
 
 export interface CmsIncludeRelations {
   createdByUser?: boolean;
@@ -60,7 +63,7 @@ function getAllCmsNavigationCacheTags(): string[] {
   ]);
 }
 
-export async function invalidateCmsEntryCache({
+async function invalidateCmsEntryCache({
   collectionSlug,
   slug,
 }: {
@@ -72,7 +75,7 @@ export async function invalidateCmsEntryCache({
   ]);
 }
 
-export async function invalidateCmsCollectionCache({
+async function invalidateCmsCollectionCache({
   collectionSlug,
 }: {
   collectionSlug: CollectionsUnion;
@@ -82,8 +85,7 @@ export async function invalidateCmsCollectionCache({
   ]);
 }
 
-// oxlint-disable-next-line project/no-unused-module-exports -- CMS modules intentionally expose helpers for admin/tooling extensions.
-export async function invalidateCmsCollectionCountCache({
+async function invalidateCmsCollectionCountCache({
   collectionSlug,
 }: {
   collectionSlug: CollectionsUnion;
@@ -114,13 +116,14 @@ export async function invalidateCmsNavigationCachesForCollection({
   if (isCollectionSearchEnabled(collectionSlug)) {
     await invalidateCmsSearchCache(collectionSlug);
   }
+  clearNavigationMemos();
 }
 
-export async function invalidateSitemapCache(): Promise<void> {
+async function invalidateSitemapCache(): Promise<void> {
   await revalidateCacheTag(CACHE_TAGS.SITEMAP);
 }
 
-export async function invalidateCmsTagsCache(): Promise<void> {
+async function invalidateCmsTagsCache(): Promise<void> {
   await revalidateCacheTag(CACHE_TAGS.CMS_TAGS);
 }
 
@@ -174,15 +177,35 @@ export async function invalidateCmsTagGroupCaches({
   await invalidateCacheTags(Array.from(tags));
 }
 
+/**
+ * The one publish/mutation pipeline for a CMS entry: drop every tag the entry feeds, drop the stored
+ * HTML of every affected slug, then optionally warm the entry back. Every writer comes through here,
+ * so the editor, the timer, the media path, and the admin API invalidate identically.
+ */
 export async function invalidateEntryAndCollection({
   collectionSlug,
   slug,
+  alsoPurgeSlugs = [],
+  warm = false,
 }: {
   collectionSlug: CollectionsUnion;
   slug: string;
+  // A rename leaves the previous slug's page and entry tag behind, so name it here: every slug is
+  // invalidated and purged, but only `slug` is warmed, because it is the one that still resolves.
+  alsoPurgeSlugs?: string[];
+  // Only a publish sets this: a delete or a draft save would warm a 404.
+  warm?: boolean;
 }): Promise<void> {
+  const entries = Array.from(new Set([slug, ...alsoPurgeSlugs])).map((entrySlug) => ({
+    collection: collectionSlug,
+    slug: entrySlug,
+  }));
+
   const invalidations = [
-    invalidateCmsEntryCache({ collectionSlug, slug }),
+    // Inside this call, never after it: the warm below fetches the page through the edge, so a
+    // stored copy that outlives this purge is what the warm would read and re-store.
+    purgeCmsEntryEdgeHtmlPages({ entries }),
+    ...entries.map((entry) => invalidateCmsEntryCache({ collectionSlug, slug: entry.slug })),
     invalidateCmsCollectionCache({ collectionSlug }),
     invalidateCmsCollectionCountCache({ collectionSlug }),
     invalidateCmsNavigationCachesForCollection({ collectionSlug }),
@@ -195,6 +218,12 @@ export async function invalidateEntryAndCollection({
   }
 
   await Promise.all(invalidations);
+
+  // After the tags are dropped, never before: a warm that started earlier would re-store the old
+  // body. Fire and forget, so the publish does not wait for the re-render.
+  if (warm) {
+    warmCmsEntryPages({ entries: [{ collection: collectionSlug, slug }] });
+  }
 }
 
 export async function invalidateAllCmsCollectionCaches(): Promise<void> {
@@ -207,6 +236,7 @@ export async function invalidateAllCmsCollectionCaches(): Promise<void> {
     CACHE_TAGS.SITEMAP,
     CACHE_TAGS.CMS_TAGS,
   ]);
+  clearNavigationMemos();
 }
 
 export async function invalidateAllCmsCaches(): Promise<void> {

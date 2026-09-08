@@ -1,17 +1,10 @@
 import "server-only";
 
 import { Navigation } from "@/components/navigation";
-import { getCmsNavigationRootPath } from "@/lib/cms/cms-navigation-repository";
-import { DOCS_SLUG } from "@/lib/cms/docs-config";
-import { hasPublishedBlogPosts } from "@/lib/blog-visibility";
+import { getPublicNavigationLinks } from "@/lib/cms/public-navigation-links";
 
 export async function NavigationWithCmsLinks() {
-  const [hasBlogPosts, docsRootPath] = await Promise.all([
-    hasPublishedBlogPosts(),
-    getCmsNavigationRootPath({
-      navigationKey: DOCS_SLUG,
-    }),
-  ]);
+  const { hasBlogPosts, docsRootPath } = await getPublicNavigationLinks();
 
   return (
     <Navigation

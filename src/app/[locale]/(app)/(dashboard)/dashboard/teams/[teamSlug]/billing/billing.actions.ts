@@ -4,8 +4,8 @@ import type Stripe from "stripe";
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { TEAM_PERMISSIONS } from "@/db/schema";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getTeamBillingSummary } from "@/lib/billing/team-billing";

@@ -21,14 +21,9 @@ import {
   OAUTH_PROTECTED_RESOURCE_PATH,
 } from "@/constants";
 import { DEFAULT_PLAN_ID, TEAM_PLANS, TEAM_PLAN_IDS, type TeamPlanId } from "@/constants/plans";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  apiKeyTable,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { apiKeyTable, teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import {
   API_SCOPE_NAMES,
   TEAM_KEY_SCOPES,

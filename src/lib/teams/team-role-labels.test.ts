@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SYSTEM_ROLES_ENUM } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 
 // Stands in for the `Client.Dashboard.Teams` namespace: the key itself is the assertion, so the

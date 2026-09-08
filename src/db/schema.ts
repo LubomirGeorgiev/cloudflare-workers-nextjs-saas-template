@@ -174,54 +174,6 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   uniqueIndex('passkey_credential_credentialId_unique').on(table.credentialId),
 ]));
 
-// System-defined roles - these are always available
-export const SYSTEM_ROLES_ENUM = {
-  OWNER: 'owner',
-  MEMBER: 'member',
-  GUEST: 'guest',
-} as const;
-
-// oxlint-disable-next-line project/no-unused-module-exports -- Exported for schema/tooling consumers.
-export const systemRoleTuple = Object.values(SYSTEM_ROLES_ENUM) as [string, ...string[]];
-
-// Define available permissions
-export const TEAM_PERMISSIONS = {
-  // Resource access
-  ACCESS_DASHBOARD: 'access_dashboard',
-  ACCESS_BILLING: 'access_billing',
-
-  // User management
-  INVITE_MEMBERS: 'invite_members',
-  REMOVE_MEMBERS: 'remove_members',
-  CHANGE_MEMBER_ROLES: 'change_member_roles',
-
-  // Team management
-  EDIT_TEAM_SETTINGS: 'edit_team_settings',
-  DELETE_TEAM: 'delete_team',
-
-  // Role management
-  CREATE_ROLES: 'create_roles',
-  EDIT_ROLES: 'edit_roles',
-  DELETE_ROLES: 'delete_roles',
-  ASSIGN_ROLES: 'assign_roles',
-
-  // Machine credentials
-  MANAGE_API_KEYS: 'manage_api_keys',
-} as const;
-
-export type SystemRole = typeof SYSTEM_ROLES_ENUM[keyof typeof SYSTEM_ROLES_ENUM];
-type TeamPermission = typeof TEAM_PERMISSIONS[keyof typeof TEAM_PERMISSIONS];
-
-export const SYSTEM_ROLE_PERMISSIONS = {
-  [SYSTEM_ROLES_ENUM.OWNER]: Object.values(TEAM_PERMISSIONS),
-  [SYSTEM_ROLES_ENUM.MEMBER]: [
-    TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-  ],
-  [SYSTEM_ROLES_ENUM.GUEST]: [
-    TEAM_PERMISSIONS.ACCESS_DASHBOARD,
-  ],
-} satisfies Record<SystemRole, readonly TeamPermission[]>;
-
 // Team table
 export const teamTable = sqliteTable("team", {
   ...commonColumns,

@@ -27,6 +27,9 @@ vi.mock("@/utils/cache", () => ({
 vi.stubGlobal("__MARKDOWN_BUILD_ID__", "test-build-id");
 
 const { buildBlogEntryArtifacts, getCachedBlogEntryArtifacts } = await import("./blog-entry-artifacts");
+// The source reaches the TipTap renderer through a dynamic import, so the first render pays
+// for the whole prosemirror graph. Load it here to keep that cost out of a timed test.
+await import("./render-cms-html");
 
 const TRANSLATION_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE) ?? DEFAULT_LOCALE;
 

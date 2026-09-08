@@ -91,6 +91,19 @@ test("verifies authentication from the browser-selected credential", async () =>
   expect(result.credential.userId).toBe("user-1");
 });
 
+test("refuses a failed assertion instead of advancing the counter", async () => {
+  const { updateSetMock, response } = mockAuthenticationLookup();
+  verifyAuthenticationResponseMock.mockResolvedValueOnce({
+    verified: false,
+    authenticationInfo: { newCounter: 0 },
+  });
+
+  await expect(
+    webauthn.verifyPasskeyAuthentication({ response, challenge: "challenge-1" }),
+  ).rejects.toThrow("Passkey authentication failed");
+  expect(updateSetMock).not.toHaveBeenCalled();
+});
+
 function mockCredentialLookup(credentials: unknown[]) {
   getDBMock.mockReturnValue({
     query: {

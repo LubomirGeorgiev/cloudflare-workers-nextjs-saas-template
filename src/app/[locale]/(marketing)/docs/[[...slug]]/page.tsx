@@ -61,8 +61,10 @@ export async function generateMetadata({
   params,
 }: DocsPageProps): Promise<Metadata> {
   const { locale, slug } = await params;
-  const tMeta = await getTranslator({ locale, namespace: "Client.Docs.meta" });
-  const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
+  const [tMeta, result] = await Promise.all([
+    getTranslator({ locale, namespace: "Client.Docs.meta" }),
+    resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale),
+  ]);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
   if (result.type === "redirect") {
@@ -165,10 +167,12 @@ export async function generateMetadata({
 
 export default async function DocsPage({ params }: DocsPageProps) {
   const { locale, slug } = await params;
-  const t = await getTranslator({ locale, namespace: "Client.Docs.Page" });
-  const tDocsMeta = await getTranslator({ locale, namespace: "Client.Docs.meta" });
-  const tPagination = await getTranslator({ locale, namespace: "Client.Pagination" });
-  const result = await resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale);
+  const [t, tDocsMeta, tPagination, result] = await Promise.all([
+    getTranslator({ locale, namespace: "Client.Docs.Page" }),
+    getTranslator({ locale, namespace: "Client.Docs.meta" }),
+    getTranslator({ locale, namespace: "Client.Pagination" }),
+    resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale),
+  ]);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
 

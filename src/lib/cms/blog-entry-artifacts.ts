@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { JSONContent } from "@tiptap/core";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -57,18 +58,14 @@ export async function buildBlogEntryArtifacts({
   };
 }
 
-export async function getCachedBlogEntryArtifacts({
+export function getCachedBlogEntryArtifacts({
   locale,
   slug,
 }: {
   locale: Locale;
   slug: string;
 }) {
-  return loadCachedBlogEntryArtifacts({
-    locale,
-    slug,
-    rendererBuildId: cmsRendererBuildId(),
-  });
+  return loadBlogEntryArtifactsOnce(locale, slug, cmsRendererBuildId());
 }
 
 async function loadCachedBlogEntryArtifacts({
@@ -103,3 +100,12 @@ async function loadCachedBlogEntryArtifacts({
 
   return buildBlogEntryArtifacts({ entry });
 }
+
+// Vinext runs no in-request dedupe for `"use cache"`, and React `cache` keys on argument identity,
+// so the primitives are spread here and the object is rebuilt inside — the remote cache key stays
+// the object it always was. Declared last: the transform makes the wrapped function a `const`.
+const loadBlogEntryArtifactsOnce = cache((
+  locale: Locale,
+  slug: string,
+  rendererBuildId: string,
+) => loadCachedBlogEntryArtifacts({ locale, slug, rendererBuildId }));

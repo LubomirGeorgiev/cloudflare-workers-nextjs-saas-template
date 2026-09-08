@@ -31,7 +31,10 @@ export default async function Home({
   params: Promise<{ locale: Locale }>;
 }) {
   const { locale } = await params;
-  const t = await getTranslator({ locale, namespace: "Landing.meta" });
+  const [t, faqQuestions] = await Promise.all([
+    getTranslator({ locale, namespace: "Landing.meta" }),
+    buildFaqQuestions(locale),
+  ]);
 
   // The page is typed `FAQPage` as well as `WebPage` because its question list is the one part an
   // answer engine can lift verbatim; the questions are the same ones the accordion renders.
@@ -41,7 +44,7 @@ export default async function Home({
     name: t("title"),
     description: t("description"),
     pageTypes: ["FAQPage"],
-    mainEntity: await buildFaqQuestions(locale),
+    mainEntity: faqQuestions,
   });
 
   return (

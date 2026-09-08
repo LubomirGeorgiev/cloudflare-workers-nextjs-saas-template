@@ -4,8 +4,9 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, test } from "vitest";
 import type Stripe from "stripe";
 
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { teamTable, teamMembershipTable, userTable, SYSTEM_ROLES_ENUM } from "@/db/schema";
+import { teamTable, teamMembershipTable, userTable } from "@/db/schema";
 import { handleStripeEvent, type StripeSubscriptionFetcher } from "@/utils/stripe-webhook-handler";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
 import { claimTeamSubscription, isTrialEligible, markUserTrialUsed } from "@/utils/team-subscription";

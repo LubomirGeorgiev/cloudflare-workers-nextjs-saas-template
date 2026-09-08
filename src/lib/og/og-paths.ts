@@ -24,7 +24,8 @@ export function isOgImageRequest({
 
 // The segment alone cannot prove the URL is a card: a post slug can wear it too, and `launch` is as
 // valid a dedup hash as `v2by4x`. Nothing in the path separates the two, so let the client do it.
-function isOgImagePathname(pathname: string): boolean {
+// Exported for the edge HTML cache, whose key names no header and so must skip both readings.
+export function isOgImagePathname(pathname: string): boolean {
   return OG_IMAGE_SEGMENT_PATTERN.test(pathname.slice(pathname.lastIndexOf("/") + 1))
 }
 

@@ -15,8 +15,10 @@ import { Suspense } from "react";
 
 export async function Footer({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale } = await params;
-  const t = await getTranslator({ locale, namespace: "Footer" });
-  const tGithub = await getTranslator({ locale, namespace: "Client.GithubStars" });
+  const [t, tGithub] = await Promise.all([
+    getTranslator({ locale, namespace: "Footer" }),
+    getTranslator({ locale, namespace: "Client.GithubStars" }),
+  ]);
 
   return (
     <footer className="border-t dark:bg-muted/30 bg-muted/60 shadow">

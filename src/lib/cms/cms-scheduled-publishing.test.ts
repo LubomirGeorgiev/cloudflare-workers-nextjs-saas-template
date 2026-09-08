@@ -115,6 +115,7 @@ describe("CMS scheduled publishing", () => {
     expect(invalidateEntryAndCollectionMock).toHaveBeenCalledWith({
       collectionSlug: "blog",
       slug: "hello-world",
+      warm: true,
     });
   });
 

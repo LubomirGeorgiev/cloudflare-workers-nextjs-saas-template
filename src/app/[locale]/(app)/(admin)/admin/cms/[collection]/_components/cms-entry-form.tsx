@@ -30,9 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LazyPanelFallback } from "@/components/lazy-panel-fallback";
 import { MultiSelect, type MultiSelectRef } from "@/components/ui/multi-select";
 import type { MultiSelectOption } from "@/components/ui/multi-select";
-import { SimpleEditor } from "@/components/tiptap-templates/simple/simple-editor";
+import dynamic from "next/dynamic";
 import { Loader2, Save, Plus, ArrowLeft, WandSparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -59,6 +60,16 @@ import { History } from "lucide-react";
 import { formatDateTime } from "@/utils/format-date";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+
+// TipTap and ProseMirror are ~744 KiB of client references. Vinext preloads every client
+// reference on a cold isolate, so a static import here costs public pages CPU they never use.
+const SimpleEditor = dynamic(
+  async () => (await import("@/components/tiptap-templates/simple/simple-editor")).SimpleEditor,
+  {
+    ssr: false,
+    loading: () => <LazyPanelFallback />,
+  },
+);
 
 type CmsEntryFormProps = {
   collection: string;

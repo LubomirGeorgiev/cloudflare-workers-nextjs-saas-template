@@ -1,4 +1,5 @@
-import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
+import { type Locale } from "@/i18n/config";
+import { splitLocalePrefix } from "@/i18n/locale-prefix";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import {
   BLOG_LISTING_ROUTES,
@@ -17,22 +18,6 @@ const PUBLIC_PAGE_PATHS = new Set<string>([
 export type MdRequestTarget =
   | { type: "cms"; collection: "blog" | "docs"; locale: Locale; path: string }
   | { type: "page"; pathname: string };
-
-// Routing follows the served set: with `I18N_ENABLED` off, a de-served prefix must miss here rather
-// than send a render at a page the router no longer has.
-function splitLocalePrefix(pathname: string): { locale: Locale; pathname: string } {
-  for (const locale of ENABLED_LOCALES) {
-    if (pathname === `/${locale}`) {
-      return { locale, pathname: "/" };
-    }
-
-    if (pathname.startsWith(`/${locale}/`)) {
-      return { locale, pathname: pathname.slice(locale.length + 1) };
-    }
-  }
-
-  return { locale: DEFAULT_LOCALE, pathname };
-}
 
 export function resolveMdRequestTarget(pathname: string): MdRequestTarget | null {
   const localized = splitLocalePrefix(pathname);

@@ -1,6 +1,7 @@
 import "server-only";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { TEAM_PERMISSIONS, teamInvitationTable } from "@/db/schema";
+import { teamInvitationTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { eq } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";

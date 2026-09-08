@@ -6,7 +6,10 @@
 
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+
+// The edge HTML cache key carries the build id, which only the Vite build injects.
+vi.stubGlobal("__MARKDOWN_BUILD_ID__", "test-build-id");
 
 import { ROLES_ENUM } from "@/app/enums";
 import { adminApiApp } from "@/api/admin";
@@ -41,10 +44,13 @@ function pathOf(operationId: string): string {
 }
 
 const purgeKvPath = pathOf("adminPurgeKvPageCache");
+const purgeEdgeHtmlPath = pathOf("adminPurgeEdgeHtmlCache");
+const purgeCloudflareCdnPath = pathOf("adminPurgeCloudflareCdnCache");
 const clearSearchCachePath = pathOf("adminClearSearchCache");
 
 interface ProblemOrResult {
   code?: string;
+  detail?: string;
   errors?: { in: string; pointer: string; code: string }[];
   message?: string;
   deletedKeyCount?: number;
@@ -124,6 +130,37 @@ test("purging the KV page cache deletes both prefixes and reports the count", as
   expect(remaining).toEqual([null, null]);
 });
 
+// The Cache API purge answers with a count like the KV one, and it runs against the real
+// `caches.default` the Workers test pool provides, so an empty cache reports zero rather than
+// failing. The pathnames it names come from the sitemap and the static public routes.
+test("purging the edge HTML cache reports how many stored pages were deleted", async () => {
+  const secret = await seedAdminKey([...ADMIN_SCOPE_NAMES]);
+
+  const { status, body } = await post({ path: purgeEdgeHtmlPath, secret, body: { confirm: true } });
+
+  expect(status).toBe(200);
+  expect(typeof body.deletedKeyCount).toBe("number");
+  expect(body.deletedKeyCount).toBeGreaterThanOrEqual(0);
+  expect(typeof body.message).toBe("string");
+});
+
+// The same confirmation contract as the other purges, and the same guard ahead of it.
+test("the edge HTML purge needs the confirmation body and a write scope", async () => {
+  const writer = await seedAdminKey([WRITE_SCOPE]);
+  const reader = await seedAdminKey([READ_SCOPE]);
+
+  const unconfirmed = await post({ path: purgeEdgeHtmlPath, secret: writer, body: {} });
+
+  expect(unconfirmed.status).toBe(400);
+  expect(unconfirmed.body.code).toBe("INPUT_PARSE_ERROR");
+  expect(unconfirmed.body.errors?.map((error) => error.pointer)).toContain("/confirm");
+
+  const refused = await post({ path: purgeEdgeHtmlPath, secret: reader, body: { confirm: true } });
+
+  expect(refused.status).toBe(403);
+  expect(refused.body.code).toBe("FORBIDDEN");
+});
+
 // The panel confirms a purge with a dialog; a machine caller states the same intent in the body.
 // Without it the request is a located field error, and nothing is deleted.
 test("a purge without the confirmation body is refused", async () => {
@@ -171,4 +208,42 @@ test("an unknown collection is rejected", async () => {
   expect(status).toBe(400);
   expect(body.code).toBe("INPUT_PARSE_ERROR");
   expect(body.errors?.map((error) => error.pointer)).toContain("/collection");
+});
+
+// The zone purge needs a Cloudflare credential the test Worker deliberately does not have, so the
+// refusal itself is the contract: a located precondition, naming the credential, before any call
+// leaves the Worker. It must never degrade to an unexplained 500.
+test("the Cloudflare CDN purge refuses a Worker with no purge credential", async () => {
+  const secret = await seedAdminKey([...ADMIN_SCOPE_NAMES]);
+
+  const { status, body } = await post({
+    path: purgeCloudflareCdnPath,
+    secret,
+    body: { confirm: true },
+  });
+
+  expect(status).toBe(409);
+  expect(body.code).toBe("PRECONDITION_FAILED");
+  expect(body.detail).toContain("CLOUDFLARE_API_TOKEN");
+});
+
+// The same confirmation contract and the same guard as every other purge on this surface.
+test("the Cloudflare CDN purge needs the confirmation body and a write scope", async () => {
+  const writer = await seedAdminKey([WRITE_SCOPE]);
+  const reader = await seedAdminKey([READ_SCOPE]);
+
+  const unconfirmed = await post({ path: purgeCloudflareCdnPath, secret: writer, body: {} });
+
+  expect(unconfirmed.status).toBe(400);
+  expect(unconfirmed.body.code).toBe("INPUT_PARSE_ERROR");
+  expect(unconfirmed.body.errors?.map((error) => error.pointer)).toContain("/confirm");
+
+  const refused = await post({
+    path: purgeCloudflareCdnPath,
+    secret: reader,
+    body: { confirm: true },
+  });
+
+  expect(refused.status).toBe(403);
+  expect(refused.body.code).toBe("FORBIDDEN");
 });

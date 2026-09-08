@@ -43,13 +43,9 @@ vi.mock("@/i18n/locale", () => ({
 
 import type Stripe from "stripe";
 
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import { MAX_TEAMS_CREATED_PER_USER, MAX_TEAMS_JOINED_PER_USER } from "@/constants";
 import { TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
 import { STRIPE_SUBSCRIPTION_TRANSITION_POLICY } from "@/constants/subscription-lifecycle";

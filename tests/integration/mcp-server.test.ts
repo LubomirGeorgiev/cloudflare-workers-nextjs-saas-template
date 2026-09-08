@@ -12,7 +12,7 @@
 
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
-import { expect, test, vi } from "vitest";
+import { beforeAll, expect, test, vi } from "vitest";
 
 import {
   API_OPENAPI_SPEC_PATH,
@@ -23,14 +23,9 @@ import {
   OAUTH_TOKEN_PATH,
 } from "@/constants";
 import { DEFAULT_PLAN_ID, TEAM_PLANS, TEAM_PLAN_IDS } from "@/constants/plans";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  apiKeyTable,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { apiKeyTable, teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import { API_SCOPE_NAMES, TEAM_KEY_SCOPES, type ApiScope } from "@/lib/api/scopes";
 import { resolveConsentRequest } from "@/lib/oauth/consent";
 import { getOAuthHelpers } from "@/lib/oauth/provider-api";
@@ -188,6 +183,12 @@ async function seedKeyedUser(scopes: ApiScope[]): Promise<{ user: { id: string; 
 
   return { user, token: await seedKey({ userId: user.id, scopes }) };
 }
+
+// The MCP SDK builds its whole protocol schema set at import time, and the entrypoint defers that
+// to the first /mcp request. Pay it here, so the first test does not absorb it and time out.
+beforeAll(async () => {
+  await import("@/mcp");
+}, 60_000);
 
 test("an unauthenticated client is told where to authenticate", async () => {
   const response = await callWorker(MCP_PATH, {

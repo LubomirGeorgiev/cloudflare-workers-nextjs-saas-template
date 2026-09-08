@@ -39,13 +39,9 @@ vi.mock("@/i18n/locale", () => ({
   getUserLocale: async () => "en",
 }));
 
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import type Stripe from "stripe";
 import { TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
 import { STRIPE_SUBSCRIPTION_TRANSITION_POLICY } from "@/constants/subscription-lifecycle";

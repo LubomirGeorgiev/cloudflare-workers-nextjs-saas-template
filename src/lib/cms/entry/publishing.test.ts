@@ -241,6 +241,7 @@ describe("CMS entry publishing", () => {
     expect(invalidateEntryAndCollectionMock).toHaveBeenCalledWith({
       collectionSlug: COLLECTION,
       slug: DRAFT_ENTRY.slug,
+      warm: true,
     });
     expect(purgeCmsEntryMarkdownPagesMock).toHaveBeenCalledWith({
       entries: [{ collection: COLLECTION, slug: DRAFT_ENTRY.slug }],

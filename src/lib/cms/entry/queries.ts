@@ -5,7 +5,7 @@ import { and, count, eq, inArray } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { getDB } from "@/db";
+import { getDB, getReadReplicaDB } from "@/db";
 import { cmsEntryTable } from "@/db/schema";
 import {
   buildCmsRelationsQuery,
@@ -49,6 +49,9 @@ import {
 } from "@/types/cms";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 
+/** The Drizzle client a query runs on. `getDB` is the primary; `getReadReplicaDB` may be behind. */
+type CmsQueryClient = ReturnType<typeof getDB>;
+
 function resolveCollectionOrThrow(collectionSlug: string) {
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
@@ -66,14 +69,17 @@ async function selectEntryGroupRows<TColumns extends SelectedFields>({
   slugs,
   columns,
   distinct = false,
+  db,
 }: {
   collectionSlug: string;
   slugs: string[];
   columns: TColumns;
   distinct?: boolean;
+  // Required, never defaulted: only a read behind the KV cache may pass the replica client, so the
+  // caller has to say which one it means.
+  db: CmsQueryClient;
 }) {
   const collection = resolveCollectionOrThrow(collectionSlug);
-  const db = getDB();
   // Single slug uses `=` rather than `IN (…)` so the common one-entry lookup hits
   // a plain equality condition; `inArray` only when a batch of slugs is passed.
   const slugCondition = slugs.length === 1
@@ -99,6 +105,7 @@ async function queryCmsCollection({
   allLocales,
   limit,
   offset,
+  db,
 }: {
   collectionSlug: string;
   status: CmsStatusFilter;
@@ -107,9 +114,9 @@ async function queryCmsCollection({
   allLocales: boolean;
   limit?: number;
   offset?: number;
+  db: CmsQueryClient;
 }): Promise<CmsCollectionListItem[]> {
   const includeRelations = deserializeCmsIncludeRelations(includeRelationsKey);
-  const db = getDB();
 
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
@@ -166,15 +173,21 @@ async function getCachedCmsCollection(
     allLocales,
     limit,
     offset,
+    db: getReadReplicaDB(),
   });
 }
+
+// Vinext runs no in-request dedupe for `"use cache"`: two callers in one render each pay the KV get
+// plus its tag reads, and on a miss each repeats the D1 work. React `cache` collapses them into one
+// in-flight promise per argument set, and simply passes through outside a render (API, MCP, queue).
+const getCachedCmsCollectionOnce = cache(getCachedCmsCollection);
 
 export function getCmsCollection<T extends CollectionsUnion>(
   params: GetCmsCollectionParams<T>
 ): Promise<CmsCollectionListItem[]> {
   const validated = v.parse(getCmsCollectionParamsSchema, params);
 
-  return getCachedCmsCollection(
+  return getCachedCmsCollectionOnce(
     validated.collectionSlug,
     validated.status,
     serializeCmsIncludeRelations(validated.includeRelations),
@@ -198,6 +211,7 @@ export function getFreshCmsCollection<T extends CollectionsUnion>(
     allLocales: validated.allLocales,
     limit: validated.limit,
     offset: validated.offset,
+    db: getDB(),
   });
 }
 
@@ -206,18 +220,19 @@ async function queryCmsCollectionCount({
   status,
   locale,
   allLocales,
+  db,
 }: {
   collectionSlug: string;
   status: CmsStatusFilter;
   locale: Locale;
   allLocales: boolean;
+  db: CmsQueryClient;
 }): Promise<number> {
   const collection = cmsConfig.collections[collectionSlug as CollectionsUnion];
   if (!collection) {
     throw new Error(`Collection "${String(collectionSlug)}" not found in CMS config`);
   }
 
-  const db = getDB();
   const whereConditions = [
     eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
   ];
@@ -255,15 +270,23 @@ async function getCachedCmsCollectionCount(
     ttl: "8 hours",
   });
 
-  return queryCmsCollectionCount({ collectionSlug, status, locale, allLocales });
+  return queryCmsCollectionCount({
+    collectionSlug,
+    status,
+    locale,
+    allLocales,
+    db: getReadReplicaDB(),
+  });
 }
+
+const getCachedCmsCollectionCountOnce = cache(getCachedCmsCollectionCount);
 
 export function getCmsCollectionCount<T extends CollectionsUnion>(
   params: GetCmsCollectionCountParams<T>
 ): Promise<number> {
   const validated = v.parse(getCmsCollectionCountParamsSchema, params);
 
-  return getCachedCmsCollectionCount(
+  return getCachedCmsCollectionCountOnce(
     validated.collectionSlug,
     validated.status,
     validated.locale,
@@ -281,6 +304,7 @@ export function getFreshCmsCollectionCount<T extends CollectionsUnion>(
     status: validated.status,
     locale: validated.locale,
     allLocales: validated.allLocales,
+    db: getDB(),
   });
 }
 
@@ -339,7 +363,7 @@ async function getCachedCmsEntryBySlug(
     ttl: "7 days",
   });
 
-  const db = getDB();
+  const db = getReadReplicaDB();
 
   const statusCondition = buildStatusWhereCondition(status);
 
@@ -360,12 +384,14 @@ async function getCachedCmsEntryBySlug(
   return withFeaturedImageUrl(entry as GetCmsCollectionResult);
 }
 
+const getCachedCmsEntryBySlugOnce = cache(getCachedCmsEntryBySlug);
+
 export async function getCmsEntryBySlug<T extends CollectionsUnion>(
   params: GetCmsEntryBySlugParams<T>
 ): Promise<GetCmsEntryBySlugResult | null> {
   const validated = v.parse(getCmsEntryBySlugParamsSchema, params);
 
-  const cachedEntry = await getCachedCmsEntryBySlug(
+  const cachedEntry = await getCachedCmsEntryBySlugOnce(
     validated.collectionSlug,
     validated.slug,
     validated.status,
@@ -402,16 +428,19 @@ async function getCachedEntryLocales(
     slugs: [slug],
     columns: { locale: cmsEntryTable.locale },
     distinct: true,
+    db: getReadReplicaDB(),
   });
 
   return rows.map((row) => row.locale);
 }
 
+const getCachedEntryLocalesOnce = cache(getCachedEntryLocales);
+
 // Used by hreflang generation to render only alternate-language links that exist.
 export function getEntryLocales(params: GetEntryLocalesParams): Promise<string[]> {
   const validated = v.parse(getEntryLocalesParamsSchema, params);
 
-  return getCachedEntryLocales(validated.collectionSlug, validated.slug);
+  return getCachedEntryLocalesOnce(validated.collectionSlug, validated.slug);
 }
 
 // Not cached: the editor must see a just-created locale sibling immediately.
@@ -432,6 +461,7 @@ export async function getEntryLocaleSiblings(
       content: cmsEntryTable.content,
       sourceContentHashes: cmsEntryTable.sourceContentHashes,
     },
+    db: getDB(),
   });
 
   // The default-locale row is the canonical source; a translation is stale when its captured source-hash
@@ -491,6 +521,7 @@ export async function getEntryLocalesForSlugs(
       locale: cmsEntryTable.locale,
     },
     distinct: true,
+    db: getDB(),
   });
 
   for (const row of rows) {

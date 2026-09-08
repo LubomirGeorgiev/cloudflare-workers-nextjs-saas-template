@@ -238,7 +238,9 @@ export const adminSystemActionResultSchema = v.object({
   message: v.string(),
 });
 
-export const adminPurgeKvPageCacheResultSchema = v.object({
+// Shared by the two purges that report how much they deleted: the KV page cache and the stored
+// edge HTML pages.
+export const adminPurgeCountResultSchema = v.object({
   message: v.string(),
   deletedKeyCount: v.number(),
 });

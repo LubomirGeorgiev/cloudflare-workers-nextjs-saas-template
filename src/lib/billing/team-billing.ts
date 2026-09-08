@@ -1,6 +1,6 @@
 import "server-only";
 
-import { TEAM_PERMISSIONS } from "@/db/schema";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import type { v } from "@/lib/validation";
 import type { teamBillingSchema } from "@/schemas/api/teams.schema";
 import { toNullableIsoString } from "@/utils/iso-timestamp";

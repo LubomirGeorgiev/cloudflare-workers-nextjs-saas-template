@@ -5,9 +5,11 @@ Below are only the non-obvious caveats for this environment.
 
 ## Node version (critical)
 
-- The build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) requires Node
-  **>= 22.15** (`node:module`'s `registerHooks`). The VM's default `/exec-daemon/node` is 22.14 and
-  fails `pnpm build`/`pnpm dev` with
+- The repo floor is Node **>= 22.18**, the `engines` field in `package.json`. Two things set it: the
+  build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) needs 22.15 for
+  `node:module`'s `registerHooks`, and `scripts/measure-ttfb.mjs` imports `.ts` files, which Node
+  strips without a flag only from 22.18. The VM's default `/exec-daemon/node` is 22.14 and fails
+  `pnpm build`/`pnpm dev` with
   `SyntaxError: ... does not provide an export named 'registerHooks'`.
 - Node 24 is the nvm default (`nvm alias default 24`) and `~/.bashrc` prepends it ahead of
   `/exec-daemon`, so new shells should already run Node 24 with `pnpm` available. If a shell

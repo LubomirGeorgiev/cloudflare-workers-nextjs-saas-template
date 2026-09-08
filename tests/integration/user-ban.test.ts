@@ -115,10 +115,10 @@ vi.mock("@/utils/cloudflare-context", async (importOriginal) => {
 import { eq } from "drizzle-orm";
 
 import { ROLES_ENUM } from "@/app/enums";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import {
   apiKeyTable,
-  SYSTEM_ROLES_ENUM,
   teamInvitationTable,
   teamMembershipTable,
   teamTable,

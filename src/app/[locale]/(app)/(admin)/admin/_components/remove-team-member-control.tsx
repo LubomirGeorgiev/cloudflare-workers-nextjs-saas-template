@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { SYSTEM_ROLES_ENUM } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 
 /** The two fields the owner test reads, so both admin membership rows satisfy it. */
 interface RemovableMembership {

@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 
 import { hasTeamPermission } from "@/utils/team-auth";
-import { TEAM_PERMISSIONS } from "@/db/schema";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";

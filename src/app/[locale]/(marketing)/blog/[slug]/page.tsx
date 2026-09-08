@@ -162,15 +162,16 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { entry, isFallback } = resolved
 
   const author = entry.createdByUser
-  const tAuthor = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
-  const authorName = author
-    ? getAuthorDisplayName(author, tAuthor("unknownAuthor"))
-    : tAuthor("unknownAuthor")
-
   // A fallback render serves default-locale content, so localize tags to the
   // body's real language, not the URL's.
   const displayLocale = contentLocale({ locale, isFallback })
-  const localizedTags = await localizeEntryTags(entry.tags, displayLocale)
+  const [tAuthor, localizedTags] = await Promise.all([
+    getTranslator({ locale, namespace: "Blog.AuthorDetail" }),
+    localizeEntryTags(entry.tags, displayLocale),
+  ])
+  const authorName = author
+    ? getAuthorDisplayName(author, tAuthor("unknownAuthor"))
+    : tAuthor("unknownAuthor")
 
   const { publishedDate, modifiedDate } = getCmsEntryDates({
     publishedAt: entry.publishedAt,

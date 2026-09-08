@@ -3,10 +3,12 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { setPagesClientAssets } from "vinext/server/pages-client-assets";
 
 import {
   ACCEPT_VARY_FIELD,
   API_CATALOG_CONTENT_TYPE,
+  AUTH_SESSION_PRESENT_COOKIE_NAME,
   API_CATALOG_METHODS,
   API_CATALOG_PATH,
   API_OPENAPI_SPEC_METHODS,
@@ -22,14 +24,22 @@ import {
   SITE_NAME,
 } from "@/constants";
 import {
+  EDGE_HTML_CACHE_HEADER,
+  EDGE_HTML_CACHE_STATUS,
   MARKDOWN_NEGOTIATION_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_CONTROL,
   STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
 } from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { I18N_ENABLED } from "@/constants";
-import { LOCALES, LOCALE_COOKIE_NAME } from "@/i18n/config";
+import {
+  DEFAULT_LOCALE,
+  ENABLED_LOCALES,
+  LOCALES,
+  LOCALE_COOKIE_NAME,
+} from "@/i18n/config";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
+import { purgeEdgeHtmlPages } from "@/lib/edge/edge-html-cache";
 import {
   MARKDOWN_UNAVAILABLE_CODE,
   MARKDOWN_UNAVAILABLE_STATUS,
@@ -53,6 +63,16 @@ vi.mock("vinext/server/fetch-handler", () => ({
     fetch: innerFetchMock,
   },
 }));
+
+// The real names are hashed by the client build, which this runner never performs. Seeding the
+// same store Vinext writes at startup is what lets the preload assertions below read a known shape.
+// It runs before the first request, because the preload list is memoized per isolate.
+const BOOTSTRAP_MODULE_URLS = [
+  "/_next/static/chunks/framework-0000000000.js",
+  "/_next/static/chunks/vinext-0000000000.js",
+];
+
+setPagesClientAssets({ appBootstrapPreinitModules: BOOTSTRAP_MODULE_URLS });
 
 const { default: worker } = await import("../../worker-entrypoint");
 
@@ -261,6 +281,60 @@ describe("worker edge integration", () => {
     );
 
     expect(response.headers.get("vary")).toBeNull();
+  });
+
+  // Cloudflare replays these as a 103 Early Hints response, so the browser fetches the
+  // render-critical assets while the Worker renders. Matches the shape, never a hashed name.
+  test("stamps Early Hints preloads on a rendered HTML page", async () => {
+    innerFetchMock.mockImplementationOnce(async () => {
+      return new Response("<html></html>", {
+        headers: { "content-type": `${HTML_CONTENT_TYPE}; charset=utf-8` },
+      });
+    });
+
+    const response = await worker.fetch(
+      new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+    const values = (response.headers.get("link") ?? "").split(", ");
+
+    for (const moduleUrl of BOOTSTRAP_MODULE_URLS) {
+      expect(values).toContain(`<${moduleUrl}>; rel="modulepreload"`);
+    }
+    // The preloads lead, and the discovery relations the page already advertised still follow.
+    expect(values.findIndex((value) => value.includes("modulepreload")))
+      .toBeLessThan(values.findIndex((value) => value.includes('rel="api-catalog"')));
+  });
+
+  test("stamps no preloads on an HTML error page", async () => {
+    innerFetchMock.mockImplementationOnce(async () => {
+      return new Response("<html></html>", {
+        status: 404,
+        headers: { "content-type": `${HTML_CONTENT_TYPE}; charset=utf-8` },
+      });
+    });
+
+    const response = await worker.fetch(
+      new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
+      env as Env,
+      createExecutionContext(),
+    );
+    const link = response.headers.get("link") ?? "";
+
+    expect(link).not.toContain("modulepreload");
+    expect(link).toContain('rel="api-catalog"');
+  });
+
+  // The default mock answers with JSON, which is what every machine route returns.
+  test("stamps no preloads on a non-HTML response", async () => {
+    const response = await worker.fetch(
+      new Request("https://example.com/dashboard"),
+      env as Env,
+      createExecutionContext(),
+    );
+
+    expect(response.headers.get("link") ?? "").not.toContain("preload");
   });
 
   test("renders the page for a path with no .md twin", async () => {
@@ -587,4 +661,200 @@ describe("worker edge integration", () => {
 
     expect(body.headers[__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]).toBe("http");
   });
+});
+
+// ---------------------------------------------------------------------------
+// Stored public HTML. A warm anonymous page request is answered from `caches.default` under a
+// synthetic key, while the visitor's own response keeps the page's `no-store` policy. See
+// docs/edge-caching.md; the gate itself lives in `src/lib/edge/edge-html-cache.ts`.
+// ---------------------------------------------------------------------------
+describe("edge HTML page cache", () => {
+  const PAGE_PATH = "/blog";
+  const PAGE_HEADERS = { accept: "text/html" } as const;
+  const PAGE_CACHE_CONTROL = "private, no-store";
+  const PAGE_BODY = "<html><body><main>Blog</main></body></html>";
+  // The alternate served locale, so a single-locale fork skips the cases that need two.
+  const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
+
+  function htmlPageResponse({
+    body = PAGE_BODY,
+    contentType = `${HTML_CONTENT_TYPE}; charset=utf-8`,
+    status = 200,
+  }: { body?: string; contentType?: string; status?: number } = {}): Response {
+    return new Response(body, {
+      status,
+      headers: {
+        "cache-control": PAGE_CACHE_CONTROL,
+        "content-type": contentType,
+        "set-cookie": `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}; Path=/`,
+      },
+    });
+  }
+
+  // The put settles through `waitUntil`, so every request the next assertion depends on is drained.
+  async function fetchPage(
+    pathname: string,
+    init: RequestInit = {},
+  ): Promise<Response> {
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(
+      new Request(`https://example.com${pathname}`, { headers: PAGE_HEADERS, ...init }),
+      env as Env,
+      ctx,
+    );
+    const buffered = new Response(await response.clone().arrayBuffer(), response);
+
+    await waitOnExecutionContext(ctx);
+
+    return buffered;
+  }
+
+  function edgeCacheStatus(response: Response): string | null {
+    return response.headers.get(EDGE_HTML_CACHE_HEADER);
+  }
+
+  beforeEach(async () => {
+    // The key carries the build id, which only the Vite build injects.
+    vi.stubGlobal("__MARKDOWN_BUILD_ID__", MARKDOWN_BUILD_ID);
+    await purgeEdgeHtmlPages({ pathnames: [PAGE_PATH, "/dashboard"] });
+    innerFetchMock.mockReset();
+    innerFetchMock.mockImplementation(async () => htmlPageResponse());
+  });
+
+  test("answers a second anonymous request from the stored copy", async () => {
+    const miss = await fetchPage(PAGE_PATH);
+    const hit = await fetchPage(PAGE_PATH);
+
+    expect(edgeCacheStatus(miss)).toBe(EDGE_HTML_CACHE_STATUS.MISS);
+    expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+    expect(innerFetchMock).toHaveBeenCalledOnce();
+    await expect(hit.text()).resolves.toBe(PAGE_BODY);
+  });
+
+  // The whole post-processing is inside the stored copy, so an agent or a browser reading a hit
+  // sees the discovery relations, the preloads, and the `Vary` a miss carries.
+  test("a hit carries the headers a miss carries", async () => {
+    const miss = await fetchPage(PAGE_PATH);
+    const hit = await fetchPage(PAGE_PATH);
+
+    for (const header of ["cache-control", "content-type", "link", "vary"]) {
+      expect(hit.headers.get(header)).toBe(miss.headers.get(header));
+    }
+    expect(hit.headers.get("cache-control")).toBe(PAGE_CACHE_CONTROL);
+  });
+
+  // A hit never runs `src/proxy.ts`, which is what sets the locale cookie on a miss.
+  test("a hit still sets the locale cookie", async () => {
+    await fetchPage(PAGE_PATH);
+    const hit = await fetchPage(PAGE_PATH);
+
+    expect(hit.headers.getSetCookie().join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
+  });
+
+  test("never stores or serves a page for a signed-in visitor", async () => {
+    await fetchPage(PAGE_PATH, {
+      headers: { ...PAGE_HEADERS, cookie: `${AUTH_SESSION_PRESENT_COOKIE_NAME}=1` },
+    });
+    const second = await fetchPage(PAGE_PATH);
+
+    expect(innerFetchMock).toHaveBeenCalledTimes(2);
+    expect(edgeCacheStatus(second)).toBe(EDGE_HTML_CACHE_STATUS.MISS);
+  });
+
+  test("a signed-in request reports a bypass", async () => {
+    const response = await fetchPage(PAGE_PATH, {
+      headers: { ...PAGE_HEADERS, cookie: `${AUTH_SESSION_PRESENT_COOKIE_NAME}=1` },
+    });
+
+    expect(edgeCacheStatus(response)).toBe(EDGE_HTML_CACHE_STATUS.BYPASS);
+  });
+
+  // A client-side navigation asks the same URL for a flight payload, so a stored page must not
+  // answer it — and its own answer must never be stored under the page's key.
+  test("a router request bypasses the stored copy", async () => {
+    await fetchPage(PAGE_PATH);
+    const rsc = await fetchPage(PAGE_PATH, { headers: { ...PAGE_HEADERS, rsc: "1" } });
+
+    expect(edgeCacheStatus(rsc)).toBe(EDGE_HTML_CACHE_STATUS.BYPASS);
+    expect(innerFetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([
+    ["a write method", PAGE_PATH, { method: "POST" }],
+    ["a query string", `${PAGE_PATH}?page=2`, {}],
+    ["a non-public path", "/dashboard", {}],
+  ])("stores nothing for %s", async (_label, pathname, init) => {
+    await fetchPage(pathname, init);
+    const second = await fetchPage(pathname, init);
+
+    expect(innerFetchMock).toHaveBeenCalledTimes(2);
+    expect(edgeCacheStatus(second)).not.toBe(EDGE_HTML_CACHE_STATUS.HIT);
+  });
+
+  test.each([
+    ["a non-200 answer", { status: 404 }],
+    ["a non-HTML answer", { contentType: "application/json" }],
+  ])("stores nothing for %s", async (_label, overrides) => {
+    innerFetchMock.mockImplementation(async () => htmlPageResponse(overrides));
+
+    await fetchPage(PAGE_PATH);
+    await fetchPage(PAGE_PATH);
+
+    expect(innerFetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  // Under `as-needed` routing the default locale's prefixed URL is a redirect, not a page, so its
+  // key must never be written or read.
+  test.runIf(I18N_ENABLED)("stores nothing for the default locale's prefixed path", async () => {
+    const prefixed = `/${DEFAULT_LOCALE}${PAGE_PATH}`;
+
+    await fetchPage(prefixed);
+    await fetchPage(prefixed);
+
+    expect(innerFetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  // The bare path is the default locale's page only for a visitor the proxy would not redirect.
+  test.runIf(ALTERNATE_LOCALE !== undefined)(
+    "bypasses a bare path when the visitor asks for another locale",
+    async () => {
+      await fetchPage(PAGE_PATH);
+      const negotiated = await fetchPage(PAGE_PATH, {
+        headers: { ...PAGE_HEADERS, "accept-language": `${ALTERNATE_LOCALE},en;q=0.5` },
+      });
+
+      expect(edgeCacheStatus(negotiated)).toBe(EDGE_HTML_CACHE_STATUS.BYPASS);
+      expect(innerFetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test.runIf(ALTERNATE_LOCALE !== undefined)(
+    "a locale cookie that names another locale hands a bare path back to the proxy",
+    async () => {
+      await fetchPage(PAGE_PATH);
+      const withCookie = await fetchPage(PAGE_PATH, {
+        headers: { ...PAGE_HEADERS, cookie: `${LOCALE_COOKIE_NAME}=${ALTERNATE_LOCALE}` },
+      });
+
+      expect(edgeCacheStatus(withCookie)).toBe(EDGE_HTML_CACHE_STATUS.BYPASS);
+      expect(innerFetchMock).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  test.runIf(ALTERNATE_LOCALE !== undefined)(
+    "a publish purge drops the stored copy of every served locale",
+    async () => {
+      const alternatePath = `/${ALTERNATE_LOCALE}${PAGE_PATH}`;
+
+      await fetchPage(PAGE_PATH);
+      await fetchPage(alternatePath);
+      expect(edgeCacheStatus(await fetchPage(PAGE_PATH))).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+      expect(edgeCacheStatus(await fetchPage(alternatePath))).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+
+      await purgeEdgeHtmlPages({ pathnames: [PAGE_PATH] });
+
+      expect(edgeCacheStatus(await fetchPage(PAGE_PATH))).toBe(EDGE_HTML_CACHE_STATUS.MISS);
+      expect(edgeCacheStatus(await fetchPage(alternatePath))).toBe(EDGE_HTML_CACHE_STATUS.MISS);
+    },
+  );
 });

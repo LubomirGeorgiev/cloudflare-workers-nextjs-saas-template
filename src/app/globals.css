@@ -1,6 +1,6 @@
-@import '../styles/_variables.scss';
-@import '../styles/_keyframe-animations.scss';
-
+/* The editor tokens (`_variables.scss`) and its keyframes load with the two lazy stylesheets that
+   need them — `cms-content-styles.scss` and `simple-editor.scss` — so public pages never pay for
+   them. Only the page-wide text rendering below stays global. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../styles/scroll-fade.css";
@@ -10,17 +10,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+  overflow-wrap: break-word;
+  text-size-adjust: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @utility text-balance {

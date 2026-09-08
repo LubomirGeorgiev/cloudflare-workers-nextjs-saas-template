@@ -26,13 +26,15 @@ interface BlogListPageProps {
 
 export async function getBlogListPageMetadata({ page, locale }: { page: number; locale: Locale }): Promise<Metadata> {
   const isFirstPage = page === 1
-  const t = await getTranslator({ locale, namespace: "Blog.ListPage.meta" })
+  // Page one renders in every locale; a numbered page only where that locale has
+  // enough posts, so hreflang names just those locales.
+  const [t, pageCounts] = await Promise.all([
+    getTranslator({ locale, namespace: "Blog.ListPage.meta" }),
+    getBlogPageCounts({ pathname: BLOG_BASE_PATH }),
+  ])
   const title = isFirstPage ? t("title") : t("titleWithPage", { page })
   const description = t("description")
   const pagePath = getBlogPagePath({ page })
-  // Page one renders in every locale; a numbered page only where that locale has
-  // enough posts, so hreflang names just those locales.
-  const pageCounts = await getBlogPageCounts({ pathname: BLOG_BASE_PATH })
 
   return {
     title,
@@ -59,10 +61,10 @@ export async function getBlogListPageMetadata({ page, locale }: { page: number; 
 }
 
 export async function BlogListPage({ page, locale }: BlogListPageProps) {
-  const t = await getTranslator({ locale, namespace: "Blog.ListPage" })
   const offset = (page - 1) * BLOG_POSTS_PER_PAGE
 
-  const [blogEntries, totalCount] = await Promise.all([
+  const [t, blogEntries, totalCount] = await Promise.all([
+    getTranslator({ locale, namespace: "Blog.ListPage" }),
     getCmsCollection({
       collectionSlug: 'blog',
       includeRelations: { tags: true, createdByUser: true },

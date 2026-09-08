@@ -7,8 +7,9 @@ import {
   MAX_API_KEYS_PER_TEAM,
   MAX_API_KEYS_PER_USER,
 } from "@/constants";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { TEAM_PERMISSIONS, apiKeyTable } from "@/db/schema";
+import { apiKeyTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { assertAccountAudience, getBearerPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";

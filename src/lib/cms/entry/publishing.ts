@@ -127,7 +127,7 @@ export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
 
   const collectionSlug = getKnownCmsCollectionSlug(entry.collection);
 
-  await invalidateEntryAndCollection({ collectionSlug, slug: entry.slug });
+  await invalidateEntryAndCollection({ collectionSlug, slug: entry.slug, warm: true });
 
   await purgeCmsEntryMarkdownPages({
     entries: [{ collection: collectionSlug, slug: entry.slug }],

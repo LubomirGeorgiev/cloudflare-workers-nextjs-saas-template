@@ -147,7 +147,7 @@ After setting Worker secrets, verify behavior by exercising the relevant feature
 5. Tell them to scope the token to the intended Cloudflare account and, when zone permissions are needed, the intended production zone.
 6. Tell the user this token is used in two contexts:
    - GitHub Actions uses `CLOUDFLARE_API_TOKEN` for deploy, D1 migrations, and cache purge.
-   - The deployed Worker uses `CLOUDFLARE_API_TOKEN` for the admin scheduled jobs page to preview Cloudflare Queue payloads. Native Queue binding metrics do not need this token, but payload preview does.
+   - The deployed Worker uses `CLOUDFLARE_API_TOKEN` for the admin scheduled jobs page to preview Cloudflare Queue payloads, and for the admin "Purge Cloudflare CDN Cache" action. Native Queue binding metrics do not need this token, but payload preview and the purge do. The purge needs `Zone:Cache Purge:Purge`, resolves its zone from the Workers domain of the site host, and is hidden in the panel when the token is absent.
 7. After they provide the token, add it to GitHub Actions without printing it:
 
 ```bash

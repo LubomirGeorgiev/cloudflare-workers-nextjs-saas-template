@@ -1,11 +1,11 @@
 import "server-only";
-import { getDB } from "@/db";
 import {
   SYSTEM_ROLES_ENUM,
   SYSTEM_ROLE_PERMISSIONS,
   TEAM_PERMISSIONS,
   type SystemRole,
-} from "@/db/schema";
+} from "@/constants/team-roles";
+import { getDB } from "@/db";
 import { ActionError } from "@/lib/action-error";
 import { getActiveTeamMembership } from "@/utils/team-membership";
 import type { CurrentSession } from "@/types";

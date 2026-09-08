@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { parseDeploySizeMetrics, parseStartupProfileMetrics, toBytes } from "./metrics.mjs";
+import {
+  parseDeploySizeMetrics,
+  parseStartupProfileMetrics,
+  parseTtfbMetrics,
+  toBytes,
+} from "./metrics.mjs";
 
 const DEPLOY_OUTPUT = `
 Total Upload: 8352.31 KiB / gzip: 1865.68 KiB
@@ -22,6 +27,17 @@ const STARTUP_OUTPUT = `
 │   Samples: 21
 │
 │ CPU Profile has been written to worker-startup.cpuprofile.
+`;
+
+// Verbatim `node scripts/measure-ttfb.mjs` output, one line per measured route. The `cache=` field
+// names both layers: Workers Caching, then the stored HTML copy inside the Worker.
+const TTFB_OUTPUT = `
+TTFB base=https://example.test warmSamples=3
+TTFB target=rootRedirect path=/ status=307 cold=142.7 ms warm=38.2 ms cache=DYNAMIC/-
+TTFB target=home path=/en status=200 cold=311.4 ms warm=96 ms cache=-/miss
+TTFB target=docsRoot path=/en/docs status=200 cold=280.1 ms warm=88.5 ms cache=BYPASS/hit
+TTFB skipped target=blogEntry reason=no blog entry in the sitemap
+TTFB JSON: {"baseUrl":"https://example.test","targets":[]}
 `;
 
 describe("toBytes", () => {
@@ -99,5 +115,46 @@ describe("parseStartupProfileMetrics", () => {
 
   it("throws when the bundle line is missing", () => {
     expect(() => parseStartupProfileMetrics("Startup phase analysed")).toThrow(/bundle size/);
+  });
+});
+
+describe("parseTtfbMetrics", () => {
+  it("extracts cold and warm timings under ttfb-prefixed keys", () => {
+    expect(parseTtfbMetrics(TTFB_OUTPUT)).toEqual({
+      ttfbRootRedirectColdMs: 142.7,
+      ttfbRootRedirectWarmMs: 38.2,
+      ttfbHomeColdMs: 311.4,
+      ttfbHomeWarmMs: 96,
+      ttfbDocsRootColdMs: 280.1,
+      ttfbDocsRootWarmMs: 88.5,
+    });
+  });
+
+  it("records no key for a route the measurement skipped", () => {
+    expect(Object.keys(parseTtfbMetrics(TTFB_OUTPUT))).not.toContain("ttfbBlogEntryWarmMs");
+  });
+
+  it("keeps ttfb keys disjoint from the other keys they share a row with", () => {
+    const recorded = [
+      ...Object.keys(parseDeploySizeMetrics(DEPLOY_OUTPUT)),
+      ...Object.keys(parseStartupProfileMetrics(STARTUP_OUTPUT)),
+    ];
+    const overlap = Object.keys(parseTtfbMetrics(TTFB_OUTPUT)).filter((key) =>
+      recorded.includes(key)
+    );
+
+    expect(overlap).toEqual([]);
+  });
+
+  it("ignores ANSI colour codes", () => {
+    const colored = "\u001b[32mTTFB target=home path=/en status=200 cold=10 ms warm=5 ms\u001b[0m";
+
+    expect(parseTtfbMetrics(colored)).toEqual({ ttfbHomeColdMs: 10, ttfbHomeWarmMs: 5 });
+  });
+
+  it("throws when no route was measured", () => {
+    expect(() => parseTtfbMetrics("TTFB base=https://example.test warmSamples=3")).toThrow(
+      /TTFB measurements/
+    );
   });
 });

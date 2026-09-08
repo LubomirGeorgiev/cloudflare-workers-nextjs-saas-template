@@ -30,6 +30,9 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       // `import()`. `cache-tags.ts` holds the tag names `src/utils/cache.ts` re-exports.
       "src/constants/cache-control.ts",
       "src/constants/cache-tags.ts",
+      // The debug header the entry stamps, in its own leaf so `scripts/measure-ttfb.mjs` can import
+      // it as plain Node; `cache-control.ts` re-exports it.
+      "src/constants/edge-html-cache.ts",
       "src/constants/oauth.ts",
       // Two URL-only rules the proxy used to own: the disabled-i18n prefix collapse and the
       // OpenGraph cookie strip. Both run on every request, so neither can sit behind an `import()`.
@@ -42,6 +45,9 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       // because both are stamped on responses the provider has already produced.
       "src/lib/api/admin-scopes.ts",
       "src/lib/api/scopes.ts",
+      // The cheap prefilter that decides whether to `import()` the edge HTML cache at all. Its own
+      // module so the real gate calls it too, which is what keeps the prefilter a superset.
+      "src/lib/edge/edge-html-cache-prefilter.ts",
       "src/lib/oauth/provider-config.ts",
       "src/utils/api-key-format.ts",
       "src/utils/cf-context-fields.ts",

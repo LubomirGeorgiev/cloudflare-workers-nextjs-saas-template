@@ -1,11 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  TEAM_PERMISSIONS,
-  teamMembershipTable,
-} from "@/db/schema";
+import { teamMembershipTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { eq, and } from "drizzle-orm";

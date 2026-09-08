@@ -24,6 +24,8 @@ function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
 }
 
 export default defineConfig({
+  // `vite.config.ts` injects the build id; the cache keys that carry it need one here too.
+  define: { __MARKDOWN_BUILD_ID__: JSON.stringify("test-build-id") },
   logLevel: "error",
   plugins: [
     openApiDocument(),

@@ -1,4 +1,4 @@
-import { SYSTEM_ROLES_ENUM } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { v } from "@/lib/validation";
 import { isoDateSchema } from "@/schemas/api/common.schema";
 import { inviteUserSchema } from "@/schemas/team-membership.schema";

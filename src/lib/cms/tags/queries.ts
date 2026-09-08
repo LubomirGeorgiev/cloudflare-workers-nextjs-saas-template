@@ -38,6 +38,8 @@ export async function getCmsTags(params?: GetCmsTagsParams) {
   });
 
   const locale = params?.locale ?? DEFAULT_LOCALE;
+  // Not the replica client: the admin entry form creates a tag and reloads this same list at once,
+  // so a lagging replica would refill the cache without the new tag for 8 hours.
   const db = getDB();
 
   const tags = await db

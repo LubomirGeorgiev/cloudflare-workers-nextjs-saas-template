@@ -1,7 +1,7 @@
 import "server-only";
 
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import type { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM } from "@/db/schema";
 
 // Centralized raw-SQL write layer for race-safe conditional inserts and same-batch state changes.
 // These paths use native D1 prepared statements so SQL, bind ordering, and D1 result metadata stay

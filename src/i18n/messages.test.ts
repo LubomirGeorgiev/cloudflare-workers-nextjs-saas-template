@@ -87,9 +87,10 @@ async function loadCatalog(locale: string): Promise<unknown> {
   return (await import(`./messages/${locale}.json`)).default;
 }
 
-// The default catalog is the source of truth: at runtime every non-default locale is deep-merged under it,
-// so a translation may omit keys (they fall back) but must never contain keys the default lacks — an
-// unknown key is a typo or an orphaned translation left behind after the default copy was renamed/removed. Looping over LOCALES keeps this coverage automatic for any locale a downstream template adds.
+// The default catalog is the source of truth, and nothing merges it in at runtime: a locale loads only its
+// own catalog. So a translation must define exactly the default's keys — a missing key would render its raw
+// path, and an unknown key is a typo or an orphan left behind after the default copy was renamed or removed.
+// Looping over LOCALES keeps this coverage automatic for any locale a downstream template adds.
 const defaultCatalog = await loadCatalog(DEFAULT_LOCALE);
 const defaultKeyList = keyPaths(defaultCatalog);
 const defaultKeys = new Set(defaultKeyList);
@@ -113,9 +114,9 @@ describe("message catalogs", () => {
     },
   );
 
-  // The fallback silently backfills untranslated keys at runtime, so a missing translation
-  // never errors — this inspects the raw catalogs to enforce full coverage. Downstream
-  // projects with intentionally partial translations should drop this test.
+  // This is what lets `loadMessages` skip a fallback merge: with no runtime backfill, a key a
+  // translation omits renders its raw path. Downstream projects with intentionally partial
+  // translations should drop this test and merge the default catalog in `load-messages.ts`.
   test.each(nonDefaultLocales)(
     "%s.json defines every key in the default catalog",
     async (locale) => {
@@ -158,8 +159,8 @@ describe("message catalogs", () => {
     },
   );
 
-  // Empty values would override the default-locale fallback with blank text at runtime,
-  // defeating the fallback. Check every catalog, the default included.
+  // An empty value passes the key-parity check above but renders as blank text. Check every
+  // catalog, the default included.
   test.each(LOCALES)("%s.json has no empty message values", async (locale) => {
     const emptyKeys = stringLeaves(await loadCatalog(locale))
       .filter(([, value]) => value.trim().length === 0)

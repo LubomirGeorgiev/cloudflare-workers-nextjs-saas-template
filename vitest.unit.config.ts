@@ -4,6 +4,8 @@ import { defineConfig } from "vitest/config";
 import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
 
 export default defineConfig({
+  // `vite.config.ts` injects the build id; the cache keys that carry it need one here too.
+  define: { __MARKDOWN_BUILD_ID__: JSON.stringify("test-build-id") },
   plugins: [rejectNextRuntimeInternals()],
   resolve: {
     alias: {

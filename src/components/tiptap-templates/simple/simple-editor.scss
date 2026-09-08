@@ -1,3 +1,7 @@
+@use "../../../styles/variables" as *;
+@use "../../../styles/editor-variables" as *;
+@use "../../../styles/keyframe-animations" as *;
+
 .simple-editor-wrapper {
   --tt-toolbar-height: 44px;
   --tt-theme-text: var(--tt-gray-light-900);

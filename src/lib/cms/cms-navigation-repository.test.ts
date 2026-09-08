@@ -28,9 +28,10 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
+  getReadReplicaDB: getDBMock,
 }));
 
-vi.mock("@/lib/cms/entry", () => ({
+vi.mock("@/lib/cms/entry/queries", () => ({
   getCmsCollection: getCmsCollectionMock,
 }));
 
@@ -55,7 +56,10 @@ vi.mock("@/utils/cache", () => ({
   setCacheScope: vi.fn(),
 }));
 
-const { saveCmsNavigationTree } = await import("./cms-navigation-repository");
+const { getCmsNavigationTree, saveCmsNavigationTree } = await import(
+  "./cms-navigation-repository"
+);
+const { clearNavigationMemos } = await import("@/lib/cms/navigation-memos");
 
 function navItem({ slugSegment, resolvedPath }: { slugSegment: string; resolvedPath: string }) {
   return {
@@ -149,6 +153,25 @@ async function saveRenamedIntro(): Promise<void> {
 describe("CMS navigation repository", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    clearNavigationMemos();
+  });
+
+  test("a warm isolate reads the tree once, and the clear forces the next read to run", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      navItem({ slugSegment: "intro", resolvedPath: "/docs/intro" }),
+    ]);
+    getDBMock.mockReturnValue({ query: { cmsNavigationItemTable: { findMany } } });
+    getCmsCollectionMock.mockResolvedValue([
+      { id: "entry_intro", collection: "docs", slug: "intro", title: "Intro" },
+    ]);
+
+    await getCmsNavigationTree({ navigationKey: "docs" });
+    await getCmsNavigationTree({ navigationKey: "docs" });
+    expect(findMany).toHaveBeenCalledOnce();
+
+    clearNavigationMemos();
+    await getCmsNavigationTree({ navigationKey: "docs" });
+    expect(findMany).toHaveBeenCalledTimes(2);
   });
 
   test("saveCmsNavigationTree revalidates old and new public docs paths for every served locale", async () => {

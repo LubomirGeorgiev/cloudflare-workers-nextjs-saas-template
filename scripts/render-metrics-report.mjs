@@ -13,6 +13,51 @@ function readProjectName() {
   return JSON.parse(fs.readFileSync("package.json", "utf8")).name;
 }
 
+// Routes measured by `scripts/measure-ttfb.mjs`, in the order they read on the chart.
+const TTFB_ROUTES = [
+  { key: "rootRedirect", label: "Locale redirect" },
+  { key: "home", label: "Home" },
+  { key: "docsRoot", label: "Docs root" },
+  { key: "docsEntry", label: "Docs entry" },
+  { key: "blogEntry", label: "Blog entry" },
+];
+
+function ttfbKey({ route, phase }) {
+  return `ttfb${route[0].toUpperCase()}${route.slice(1)}${phase}Ms`;
+}
+
+/** Optional charts: the renderer drops a series the history has no rows for, and a card with none. */
+function buildTtfbCharts() {
+  return [
+    {
+      kind: "line",
+      unit: "ms",
+      title: "TTFB by route (warm median)",
+      subtitle: "Median time to first byte over the warm requests that follow the cold one.",
+      series: TTFB_ROUTES.map((route, index) => ({
+        key: ttfbKey({ route: route.key, phase: "Warm" }),
+        label: route.label,
+        slot: index + 1,
+      })),
+    },
+    {
+      kind: "line",
+      unit: "ms",
+      title: "TTFB cold vs warm",
+      subtitle:
+        "First request after a deploy against the warm median, on the default-locale home.",
+      series: [
+        {
+          key: ttfbKey({ route: "home", phase: "Cold" }),
+          label: "Cold (first request)",
+          slot: 1,
+        },
+        { key: ttfbKey({ route: "home", phase: "Warm" }), label: "Warm median", slot: 2 },
+      ],
+    },
+  ];
+}
+
 const METRIC_FIELDS = [
   "totalUploadBytes",
   "gzipBytes",
@@ -22,6 +67,10 @@ const METRIC_FIELDS = [
   "startupGcMs",
   "startupIdleMs",
   "startupSampledMs",
+  ...TTFB_ROUTES.flatMap((route) => [
+    ttfbKey({ route: route.key, phase: "Cold" }),
+    ttfbKey({ route: route.key, phase: "Warm" }),
+  ]),
 ];
 
 const RANGES = [
@@ -154,6 +203,9 @@ const STYLES = `
   --critical: #d03b3b;
   --series-1: #2a78d6;
   --series-2: #eb6834;
+  --series-3: #1a8f5f;
+  --series-4: #7b5ea7;
+  --series-5: #0d7c99;
   --grow: #e34948;
   --shrink: #2a78d6;
   --track: #cde2fb;
@@ -174,6 +226,9 @@ const STYLES = `
     --critical: #d03b3b;
     --series-1: #3987e5;
     --series-2: #d95926;
+    --series-3: #2fae77;
+    --series-4: #a184cc;
+    --series-5: #35a3bf;
     --grow: #e66767;
     --shrink: #3987e5;
     --track: #184f95;
@@ -194,6 +249,9 @@ const STYLES = `
   --critical: #d03b3b;
   --series-1: #3987e5;
   --series-2: #d95926;
+  --series-3: #2fae77;
+  --series-4: #a184cc;
+  --series-5: #35a3bf;
   --grow: #e66767;
   --shrink: #3987e5;
   --track: #184f95;
@@ -341,7 +399,7 @@ td { color: var(--text-secondary); }
 `;
 
 const SCRIPT = `
-const SLOT_COLORS = { 1: "var(--series-1)", 2: "var(--series-2)" };
+const SLOT_COLORS = { 1: "var(--series-1)", 2: "var(--series-2)", 3: "var(--series-3)", 4: "var(--series-4)", 5: "var(--series-5)" };
 const MARGIN = { top: 16, right: 76, bottom: 28, left: 62 };
 const PLOT_WIDTH = 900;
 const PLOT_HEIGHT = 260;
@@ -423,6 +481,8 @@ const CHARTS = [
     subtitle: "Active CPU time added or removed by each deploy, against the one before it.",
   },
 ];
+
+CHARTS.push(...${JSON.stringify(buildTtfbCharts())});
 
 function formatBytes(bytes) {
   const mib = bytes / 1024 / 1024;
@@ -1374,7 +1434,10 @@ fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, renderDocument(history));
 
 const withStartup = history.filter((row) => typeof row.startupActiveMs === "number").length;
+const withTtfb = history.filter(
+  (row) => typeof row[ttfbKey({ route: "home", phase: "Warm" })] === "number"
+).length;
 
 console.log(
-  `Wrote ${outputPath} (${history.length} deploys, ${withStartup} with startup profiles).`
+  `Wrote ${outputPath} (${history.length} deploys, ${withStartup} with startup profiles, ${withTtfb} with TTFB).`
 );

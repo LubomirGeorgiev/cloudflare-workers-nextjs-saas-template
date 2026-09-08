@@ -2,11 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { SYSTEM_ROLE_PERMISSIONS, type SystemRole } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLE_PERMISSIONS,
-  type SystemRole,
-} from "@/db/schema";
 import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
 
 // Authoritative, request-scoped view of a user's current membership in one team.

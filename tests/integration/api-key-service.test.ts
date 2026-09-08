@@ -35,14 +35,9 @@ vi.mock("@/utils/auth", async (importOriginal) => {
 });
 
 import { MAX_API_KEYS_PER_TEAM, MAX_API_KEYS_PER_USER } from "@/constants";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import {
-  SYSTEM_ROLES_ENUM,
-  apiKeyTable,
-  teamMembershipTable,
-  teamTable,
-  userTable,
-} from "@/db/schema";
+import { apiKeyTable, teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import {
   createApiKey,
   listTeamApiKeys,

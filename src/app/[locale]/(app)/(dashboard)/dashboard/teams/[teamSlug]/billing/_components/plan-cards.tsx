@@ -50,7 +50,14 @@ import {
   resumePaymentAction,
   getTeamSubscriptionAction,
 } from "../billing.actions";
-import { StripePaymentForm } from "./stripe-payment-form";
+import dynamic from "next/dynamic";
+
+// Stripe Elements only mounts inside the checkout dialog. A static import would put it on the
+// client-reference preload path vinext walks on every cold isolate.
+const StripePaymentForm = dynamic(
+  async () => (await import("./stripe-payment-form")).StripePaymentForm,
+  { ssr: false },
+);
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 10;

@@ -1,11 +1,11 @@
 import "server-only";
 
-import { getDB } from "@/db";
 import {
   SYSTEM_ROLES_ENUM,
   SYSTEM_ROLE_PERMISSIONS,
   TEAM_PERMISSIONS,
-} from "@/db/schema";
+} from "@/constants/team-roles";
+import { getDB } from "@/db";
 import { filterActiveTeamPermissions } from "@/lib/teams/permissions";
 import { requireTeamPermission } from "@/utils/team-auth";
 

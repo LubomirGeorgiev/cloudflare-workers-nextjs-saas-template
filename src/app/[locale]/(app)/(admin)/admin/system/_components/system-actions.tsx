@@ -1,6 +1,6 @@
 "use client";
 
-import { Database, Globe, Loader2, RefreshCw, Search, Trash2, Zap } from "lucide-react";
+import { Cloud, Database, FileCode, Globe, Loader2, RefreshCw, Search, Trash2, Zap } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EDGE_HTML_CACHE_TTL_SECONDS } from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
+import type { AdminSystemActionAvailability } from "@/lib/admin/system-actions";
 import { cn } from "@/lib/utils";
 
 type ActionKey =
@@ -26,9 +28,15 @@ type ActionKey =
   | "clear-search-cache-all"
   | "clear-cms-cache"
   | "purge-vinext-kv-cache"
-  | "purge-workers-cdn-cache";
+  | "purge-workers-cdn-cache"
+  | "purge-edge-html-cache"
+  | "purge-cloudflare-cdn-cache";
 
 type SystemActionInput = NonNullable<Parameters<typeof runSystemAction>[0]>;
+
+// The stored HTML copies this purge cannot reach expire on their own, so the copy states the
+// window rather than a literal, and a fork that retunes the TTL retunes the sentence with it.
+const EDGE_HTML_CACHE_TTL_MINUTES = Math.round(EDGE_HTML_CACHE_TTL_SECONDS / 60);
 
 interface PendingConfirm {
   key: ActionKey;
@@ -100,19 +108,65 @@ const GLOBAL_ACTIONS = [
     icon: Globe,
     title: "Purge Workers CDN Cache",
     description:
-      "Calls Workers Cache purgeEverything. Edge-cached HTML, RSC, and route responses are dropped globally.",
+      "Purges Workers Caching only: sitemap, robots, llms.txt, OpenGraph cards, /markdown/*, docs search, and the OpenAPI document. Never the stored HTML pages, never KV.",
     variant: "destructive" as const,
     confirm: {
       input: { type: "purge-workers-cdn-cache" } satisfies SystemActionInput,
       title: "Purge the entire Workers CDN cache?",
       description:
-        "This invalidates every response stored in this Worker's CDN cache. Traffic will miss until pages warm again. Unavailable outside Workers Cache.",
+        "This invalidates every machine response Workers Caching holds for this zone — the sitemap, robots.txt, llms.txt, the OpenGraph cards, /markdown/* and the .md twins, the docs search responses, and the OpenAPI document. Those responses miss until they warm again. It does not clear the stored anonymous HTML pages, and it deletes no KV key.",
+      destructive: true,
+    },
+  },
+  {
+    key: "purge-edge-html-cache" as ActionKey,
+    icon: FileCode,
+    title: "Purge Edge HTML Cache",
+    description:
+      `Deletes the stored anonymous HTML pages from the Cache API in this data center. Copies elsewhere expire within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. Never KV, never Workers Caching.`,
+    variant: "destructive" as const,
+    confirm: {
+      input: { type: "purge-edge-html-cache" } satisfies SystemActionInput,
+      title: "Purge the stored edge HTML pages?",
+      description:
+        `This deletes every stored anonymous page from the Cache API in the data center that runs the purge — with Smart Placement, the one that holds them. A copy in any other location expires within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. It does not touch KV and it does not touch Workers Caching.`,
+      destructive: true,
+    },
+  },
+  {
+    key: "purge-cloudflare-cdn-cache" as ActionKey,
+    icon: Cloud,
+    // Hidden without the credential, so the copy still names it: an admin who cannot find the card
+    // reads the same requirement in the internal API description and in the deploy workflow.
+    availabilityKey: "purgeCloudflareCdnCache" as const,
+    title: "Purge Cloudflare CDN Cache",
+    description:
+      "Purges the whole zone cache at Cloudflare, for every URL: static assets included, and the Cache API page copies in every data center. Global, the same purge the deploy step runs.",
+    variant: "destructive" as const,
+    confirm: {
+      input: { type: "purge-cloudflare-cdn-cache" } satisfies SystemActionInput,
+      title: "Purge the whole Cloudflare zone cache?",
+      description:
+        "This purges everything Cloudflare holds for this zone, at every location: every URL the site serves, the static assets, and the stored HTML page copies in every data center. It is the same purge the deploy workflow runs after a release. Every location refetches from the Worker afterwards, so expect a traffic spike and slower first responses. This action is unavailable until CLOUDFLARE_API_TOKEN with the Cache Purge permission, and the account id, are configured.",
       destructive: true,
     },
   },
 ] as const;
 
-export function SystemActions() {
+type GlobalAction = (typeof GLOBAL_ACTIONS)[number];
+
+/** An action the Worker cannot perform is not offered; the rest are always available. */
+function isActionAvailable({
+  action,
+  availability,
+}: {
+  action: GlobalAction;
+  availability: AdminSystemActionAvailability;
+}): boolean {
+  return "availabilityKey" in action ? availability[action.availabilityKey] : true;
+}
+
+export function SystemActions({ availability }: { availability: AdminSystemActionAvailability }) {
   const [activeAction, setActiveAction] = useState<ActionKey | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
 
@@ -154,7 +208,8 @@ export function SystemActions() {
             <div>
               <CardTitle>System Actions</CardTitle>
               <CardDescription>
-                Maintenance tasks for CMS search indexes, data cache, and Workers CDN cache.
+                Maintenance tasks for CMS search indexes, data cache, stored edge HTML, and the
+                Workers and Cloudflare CDN caches.
               </CardDescription>
             </div>
           </div>
@@ -162,7 +217,9 @@ export function SystemActions() {
 
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {GLOBAL_ACTIONS.map(({ key, icon: Icon, title, description, variant, confirm }) => (
+            {GLOBAL_ACTIONS.filter((action) => isActionAvailable({ action, availability })).map((
+              { key, icon: Icon, title, description, variant, confirm },
+            ) => (
               <div key={key} className="rounded-lg border p-4 flex flex-col gap-3">
                 <div className="flex items-start gap-3">
                   <div className="p-1.5 bg-muted rounded-md mt-0.5 shrink-0">

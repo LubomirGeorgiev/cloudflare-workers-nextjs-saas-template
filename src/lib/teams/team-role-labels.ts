@@ -1,4 +1,4 @@
-import { SYSTEM_ROLES_ENUM, type SystemRole } from "@/db/schema";
+import { SYSTEM_ROLES_ENUM, type SystemRole } from "@/constants/team-roles";
 
 // A table, not a ladder: a system role added to the enum without a label here is a compile error.
 const SYSTEM_ROLE_LABEL_KEY = {

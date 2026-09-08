@@ -3,6 +3,8 @@ import { fetchAppPath } from "./app-frame";
 import {
   DOCS_LLMS_TXT_CACHE_CONTROL,
   DOCS_SEARCH_CACHE_CONTROL,
+  EDGE_HTML_CACHE_HEADER,
+  EDGE_HTML_CACHE_STATUS,
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
   SESSION_NO_STORE_CACHE_CONTROL,
 } from "../../src/constants/cache-control";
@@ -167,6 +169,22 @@ test.each([
   expect(directives.public).toBeUndefined();
   expect(directives["s-maxage"]).toBeUndefined();
   expect(response.headers.get("cdn-cache-control")).toBeNull();
+});
+
+// The second layer, and the reason the first one stays off: the page itself is stored inside the
+// Worker under a synthetic key, so a warm anonymous request skips the render while the response the
+// visitor reads still carries the page's own uncacheable policy. See docs/edge-caching.md.
+test("answers a warm anonymous docs request from the stored page", async () => {
+  await fetchAppPath(SEEDED_DOCS_ENTRY_PATH, { headers: PAGE_HEADERS });
+  const warm = await fetchAppPath(SEEDED_DOCS_ENTRY_PATH, { headers: PAGE_HEADERS });
+
+  expect(warm.status).toBe(200);
+  expect(warm.headers.get(EDGE_HTML_CACHE_HEADER)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+
+  const directives = getCacheDirectives(warm);
+  expect(directives.public).toBeUndefined();
+  expect(directives["s-maxage"]).toBeUndefined();
+  expect(warm.headers.get("cdn-cache-control")).toBeNull();
 });
 
 // The behavior the policy above protects: a visitor who signals another locale is redirected to

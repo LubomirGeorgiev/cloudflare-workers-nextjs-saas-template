@@ -20,6 +20,7 @@ vi.mock("@/lib/cms/cms-navigation-repository", () => ({
 }));
 
 const { resolveCurrentDocsPage } = await import("./resolve-current-docs-page");
+const { clearNavigationMemos } = await import("@/lib/cms/navigation-memos");
 const BASE_PATH = getCmsNavigationConfig(DOCS_SLUG).basePath;
 const LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 const NODE = {
@@ -30,6 +31,8 @@ const GROUP = { id: "group", title: "Group", resolvedPath: BASE_PATH, entry: nul
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Each test starts on a cold isolate; otherwise the memo answers a slug an earlier test read.
+  clearNavigationMemos();
   tree.mockResolvedValue([NODE]);
   ancestors.mockReturnValue([GROUP]);
   adjacent.mockReturnValue({ previous: NODE, next: null });
@@ -59,6 +62,19 @@ describe("cached docs page data", () => {
     const result = await resolveCurrentDocsPage({ slugParts: ["guide"], locale: LOCALE! });
     expect(result).toMatchObject({ type: "page", isFallback: true });
     expect(ancestors).toHaveBeenCalledWith({ nodeId: NODE.id, nodes: [NODE] });
+  });
+
+  test("a warm isolate answers the same slug from memory, per locale", async () => {
+    await resolveCurrentDocsPage({ slugParts: ["guide"], locale: DEFAULT_LOCALE });
+    await resolveCurrentDocsPage({ slugParts: ["guide"], locale: DEFAULT_LOCALE });
+    expect(setCacheScope).toHaveBeenCalledOnce();
+
+    await resolveCurrentDocsPage({ slugParts: ["other"], locale: DEFAULT_LOCALE });
+    expect(setCacheScope).toHaveBeenCalledTimes(2);
+
+    clearNavigationMemos();
+    await resolveCurrentDocsPage({ slugParts: ["guide"], locale: DEFAULT_LOCALE });
+    expect(setCacheScope).toHaveBeenCalledTimes(3);
   });
 
   test("preserves renamed paths without trying to derive links", async () => {

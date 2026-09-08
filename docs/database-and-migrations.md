@@ -68,8 +68,56 @@ database without the fork's tables; merged as-is it truncates the lineage and th
   replays the chain. If the upstream SQL assumes a schema the fork lacks, consolidate into one
   regenerated migration instead and re-add its data statements.
 
+## Read replication and D1 sessions
+
+The database runs its primary in one region. Read replication puts read-only copies in other
+regions. A replica answers a read only through the D1 Sessions API, so `getDB` in `src/db/index.ts`
+wraps the binding in `D1_DB.withSession(...)`. React `cache` gives one session for each request.
+
+Two clients come from that file:
+
+- `getDB()` starts the session with `first-primary`. The first query of the request goes to the
+  primary. Later queries in the same request may use a replica that already holds the primary's
+  bookmark. Use it for everything, including all writes.
+- `getReadReplicaDB()` starts the session with `first-unconstrained`. The first query may go to any
+  replica, which can lag the primary by a moment. Use it only inside a `"use cache: remote"` body,
+  where the result is public data that the KV cache already serves for hours.
+
+The app does not hand a bookmark from one request to the next. A page response streams, so the
+Worker sets the response headers before the render finishes its queries; a bookmark cookie written
+at that point would hold the wrong value. `first-primary` gives read-your-writes across requests
+without a cookie: a form post writes on the primary, the redirect reads the primary again.
+
+Know the cost of `getReadReplicaDB()`. If a cache fill runs while the replica still lags a fresh
+publish, the old row goes into the KV cache for the whole TTL. Purge the CMS cache tag again if you
+see this.
+
+Because of that cost, one rule holds: keep a cached reader on `getDB()` when a write path drops its
+cache tag and refills it in the same moment. The navigation tree and the tag list both do this, so
+both stay on the primary. The entry, collection, and redirect readers refill only on the next
+visitor request, so they use the replica.
+
+### How to turn replication off
+
+1. Set `REPLICA_SESSION_CONSTRAINT` in `src/db/index.ts` to `"first-primary"`. Every read then
+   starts at the primary. The code keeps working, so you can do this alone.
+2. To disable the feature on the database, set the mode to `disabled`:
+
+   ```sh
+   npx wrangler d1 read-replication disable <DATABASE_NAME>
+   ```
+
+   Or send `{"read_replication":{"mode":"disabled"}}` to
+   `PATCH /accounts/{account_id}/d1/database/{database_id}`.
+
+`placement.mode` in `wrangler.jsonc` is `smart`, so the Worker runs near the primary. Measure both
+switches before you keep them. Smart Placement and read replication solve the same problem from
+opposite ends, and the pair can win less than either one alone.
+
 ## References
 
+- [D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)
+- [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement/)
 - [SQLite ALTER TABLE](https://www.sqlite.org/lang_altertable.html)
 - [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/)
 - [D1 limits](https://developers.cloudflare.com/d1/platform/limits/)

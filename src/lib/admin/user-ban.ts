@@ -4,10 +4,10 @@ import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 
 import { ROLES_ENUM } from "@/app/enums";
 import { USER_BAN_EVENT_PAGE_SIZE } from "@/constants";
+import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import {
   apiKeyTable,
-  SYSTEM_ROLES_ENUM,
   teamInvitationTable,
   userBanEventTable,
   userTable,

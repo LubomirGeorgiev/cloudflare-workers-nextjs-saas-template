@@ -27,12 +27,15 @@ import {
 } from "./src/constants";
 import {
   EDGE_CACHED_METADATA_ROUTE_TAGS,
+  EDGE_HTML_CACHE_HEADER,
+  EDGE_HTML_CACHE_STATUS,
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
 } from "./src/constants/cache-control";
 import { I18N_ENABLED } from "./src/constants";
 import { stripLocalePrefix } from "./src/i18n/locale-prefix";
 import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
+import { mayBeStoredHtmlPage } from "./src/lib/edge/edge-html-cache-prefilter";
 import { isCmsImageSource } from "./src/utils/cms-image-source";
 import { isOgImageRequest } from "./src/lib/og/og-paths";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
@@ -361,6 +364,117 @@ async function getThrottleGates() {
   return import("./src/lib/oauth/edge/throttle-gates");
 }
 
+// ---------------------------------------------------------------------------
+// Stored public HTML. A warm anonymous request for a public page is answered from `caches.default`
+// under a synthetic key, so it never runs the app render. The visitor's own response keeps its
+// `no-store` policy — only the stored copy carries `s-maxage` — which is why a signed-in visitor
+// can never evict it and Workers Caching still stores no page. See docs/edge-caching.md.
+// ---------------------------------------------------------------------------
+// Three states, so nothing downstream re-derives which one it is: the gate refused (`bypass`), the
+// stored copy answered (`hit`), or this request may write one back (`miss`, holding the closure
+// that does it with the entry the gate already resolved).
+type EdgeHtmlPageLookup =
+  | { kind: "bypass" }
+  | { kind: "hit"; response: Response }
+  | {
+      kind: "miss";
+      store: (args: { ctx: ExecutionContext; response: Response }) => Response;
+    };
+
+const NO_EDGE_HTML_PAGE: EdgeHtmlPageLookup = { kind: "bypass" };
+
+async function lookupEdgeHtmlPage({
+  request,
+  url,
+}: {
+  request: Request;
+  url: URL;
+}): Promise<EdgeHtmlPageLookup> {
+  if (!mayBeStoredHtmlPage({ headers: request.headers, method: request.method, url })) {
+    return NO_EDGE_HTML_PAGE;
+  }
+
+  const cache = await import("./src/lib/edge/edge-html-cache");
+  const entry = cache.resolveEdgeHtmlCacheEntry({
+    headers: request.headers,
+    method: request.method,
+    url,
+  });
+
+  if (!entry) {
+    return NO_EDGE_HTML_PAGE;
+  }
+
+  const stored = await cache.readEdgeHtmlPage({ entry, method: request.method });
+
+  if (stored) {
+    return {
+      kind: "hit",
+      response: stampEdgeHtmlCacheStatus({
+        response: stored,
+        status: EDGE_HTML_CACHE_STATUS.HIT,
+      }),
+    };
+  }
+
+  return {
+    kind: "miss",
+    store: ({ ctx, response }) => cache.storeEdgeHtmlPage({ ctx, entry, response }),
+  };
+}
+
+// The whole post-processed page is what gets stored, so a hit carries the headers a miss carries.
+function finishEdgeHtmlPage({
+  ctx,
+  lookup,
+  response,
+}: {
+  ctx: ExecutionContext;
+  // A `hit` never reaches here — `fetch` returns it as the answer — so excluding it keeps the
+  // `!== "miss"` test from silently stamping BYPASS on a stored page if that ever changes.
+  lookup: Exclude<EdgeHtmlPageLookup, { kind: "hit" }>;
+  response: Response;
+}): Response {
+  if (lookup.kind !== "miss") {
+    return stampEdgeHtmlCacheStatus({ response, status: EDGE_HTML_CACHE_STATUS.BYPASS });
+  }
+
+  return stampEdgeHtmlCacheStatus({
+    response: lookup.store({ ctx, response }),
+    status: EDGE_HTML_CACHE_STATUS.MISS,
+  });
+}
+
+// Stamped here rather than in the cache module so every HTML answer carries it, including the ones
+// the gate refused before the module was ever imported. In place, because this runs on every one of
+// them; a response that carries immutable headers — an asset, a subrequest — is re-wrapped instead.
+function stampEdgeHtmlCacheStatus({
+  response,
+  status,
+}: {
+  response: Response;
+  status: string;
+}): Response {
+  if (!(response.headers.get("content-type") ?? "").startsWith(HTML_CONTENT_TYPE)) {
+    return response;
+  }
+
+  try {
+    response.headers.set(EDGE_HTML_CACHE_HEADER, status);
+
+    return response;
+  } catch {
+    const headers = new Headers(response.headers);
+    headers.set(EDGE_HTML_CACHE_HEADER, status);
+
+    return new Response(response.body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }
+}
+
 async function handleEarlyEdgeRequest({
   method,
   url,
@@ -481,6 +595,13 @@ const worker = {
       return markdownResponse;
     }
 
+    // After the Markdown branch on purpose: an `Accept: text/markdown` request has already been
+    // answered, so the stored copy never has to name that header in its key.
+    const edgeHtmlPage = await lookupEdgeHtmlPage({ request, url });
+    if (edgeHtmlPage.kind === "hit") {
+      return edgeHtmlPage.response;
+    }
+
     // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
     // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.
     if (OAUTH_ISSUANCE_THROTTLED_METHODS.includes(request.method)) {
@@ -510,7 +631,15 @@ const worker = {
       response: withoutOgCardCookie({ headers: request.headers, pathname, response }),
     });
 
-    return withMetadataRouteEdgeCache({ method: request.method, pathname, response: withDiscovery });
+    return finishEdgeHtmlPage({
+      ctx,
+      lookup: edgeHtmlPage,
+      response: withMetadataRouteEdgeCache({
+        method: request.method,
+        pathname,
+        response: withDiscovery,
+      }),
+    });
   },
 
   // Cron and queue are their own entrypoints, so the job graph is imported on the invocation that
@@ -546,8 +675,15 @@ async function withHtmlAgentDiscovery({
     return response;
   }
 
+  // Only a rendered page earns the preloads: Cloudflare replays them as 103 Early Hints, and an
+  // error page or a HEAD probe would teach the edge the wrong hint for that URL.
+  const preloadLinks = method === "GET" && response.status === 200
+    ? await (await import("./src/lib/assets/critical-preload-links")).getCriticalPreloadLinks()
+    : [];
+
   return (await import("./src/lib/markdown-pages/discovery-links")).withHtmlDiscoveryLinkHeader({
     pathname,
+    preloadLinks,
     response,
   });
 }

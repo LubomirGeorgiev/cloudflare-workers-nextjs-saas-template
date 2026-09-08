@@ -61,3 +61,17 @@ export const EDGE_CACHED_METADATA_ROUTE_TAGS: Readonly<Record<string, string | n
   "/sitemap.xml": CACHE_TAGS.SITEMAP,
   "/robots.txt": null,
 };
+
+// A stored copy of a rendered public page, kept in the Cache API under a synthetic key. The purge
+// names the pages it can; this TTL is the backstop for the listing, tag, author, and pagination
+// pages no purge can enumerate. See "Two layers" in docs/edge-caching.md.
+export const EDGE_HTML_CACHE_TTL_SECONDS = 300;
+
+// Only the stored copy ever carries this. The visitor keeps the page's own `no-store` policy, so a
+// signed-in visitor can never evict the copy and Workers Caching still stores no page.
+export const EDGE_HTML_CACHE_CONTROL = `public, s-maxage=${EDGE_HTML_CACHE_TTL_SECONDS}`;
+
+// The debug header and its values live in their own leaf, because `scripts/measure-ttfb.mjs`
+// imports them as plain Node and cannot resolve the `@/` alias this module uses. Re-exported here
+// so every call site keeps one import.
+export { EDGE_HTML_CACHE_HEADER, EDGE_HTML_CACHE_STATUS } from "@/constants/edge-html-cache";

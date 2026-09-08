@@ -1,10 +1,10 @@
 import "server-only";
 
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
 
 import { I18N_ENABLED, SITE_NAME } from "@/constants";
 import { DEFAULT_LOCALE, getOpenGraphLocales, type Locale } from "@/i18n/config";
+import { getTranslator } from "@/i18n/translator";
 import {
   markdownAlternateFor,
   MARKDOWN_CONTENT_TYPE,
@@ -17,8 +17,11 @@ import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 // title/description/siteName. The [locale] layout re-emits it (rather than
 // inheriting) because the root layout cannot see the [locale] param during
 // static generation.
+//
+// Uses `getTranslator` rather than `next-intl/server`, for the reason `buildRootMetadata` gives:
+// the request-scoped API builds a fresh config and ICU cache per request and reads `headers()`.
 export async function buildSiteOpenGraph(locale: Locale): Promise<Metadata["openGraph"]> {
-  const t = await getTranslations({ locale, namespace: "Landing.meta" });
+  const t = await getTranslator({ locale, namespace: "Landing.meta" });
 
   return {
     type: "website",

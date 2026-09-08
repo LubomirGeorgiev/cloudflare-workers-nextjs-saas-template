@@ -29,6 +29,9 @@ vi.stubGlobal("__MARKDOWN_BUILD_ID__", "test-build-id");
 
 const { buildDocsEntryArtifacts, getCachedDocsEntryArtifacts } = await import("./docs-entry-artifacts");
 const { buildCmsEntryMarkdown } = await import("./build-cms-entry-markdown-response");
+// The source reaches the TipTap renderer through a dynamic import, so the first render pays
+// for the whole prosemirror graph. Load it here to keep that cost out of a timed test.
+await import("./render-cms-html");
 
 // A non-default locale proves the lookup forwards the requested locale rather than defaulting,
 // derived from config so it survives locale renames; single-locale forks fall back harmlessly.

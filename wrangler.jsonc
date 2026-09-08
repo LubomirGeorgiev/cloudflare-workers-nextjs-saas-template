@@ -36,7 +36,9 @@
       }
     },
     "upload_source_maps": true,
-    "placement": { "mode": "off" },
+    // A render makes several sequential D1 and KV round trips, so the trips cost more than the
+    // first hop from the user. Smart Placement runs the Worker near the D1 primary instead.
+    "placement": { "mode": "smart" },
     "triggers": {
       "crons": ["*/5 * * * *"]
     },

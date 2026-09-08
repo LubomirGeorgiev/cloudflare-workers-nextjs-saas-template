@@ -1,7 +1,7 @@
 import type { Route } from "next";
 
 import { hasTeamPermission } from "@/utils/team-auth";
-import { TEAM_PERMISSIONS } from "@/db/schema";
+import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getTeamSubscription, isTrialEligible } from "@/utils/team-subscription";

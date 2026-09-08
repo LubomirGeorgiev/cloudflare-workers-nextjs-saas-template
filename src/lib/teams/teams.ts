@@ -1,7 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS, teamMembershipTable, teamTable } from "@/db/schema";
+import { teamMembershipTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { generateSlug } from "@/utils/slugify";

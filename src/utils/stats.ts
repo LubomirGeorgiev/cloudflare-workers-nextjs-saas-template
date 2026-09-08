@@ -3,6 +3,11 @@ import { cache } from "react";
 import { setCacheScope } from "./cache";
 import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 
+// api.github.com is a third party on the render path of every public page. The badge streams behind
+// a Suspense boundary, so a null count only costs the star number; an open socket costs the whole
+// response, which is why this fetch always carries a deadline.
+const GITHUB_STARS_FETCH_TIMEOUT_MS = 2_000;
+
 export const getGithubStars = cache(async () => {
   if (!GITHUB_REPO_URL || typeof GITHUB_REPO_URL !== "string") {
     return null;
@@ -48,6 +53,7 @@ async function getCachedGithubStars({
   try {
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers,
+      signal: AbortSignal.timeout(GITHUB_STARS_FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {

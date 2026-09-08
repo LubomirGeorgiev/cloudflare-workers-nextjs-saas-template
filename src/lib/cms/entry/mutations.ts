@@ -12,15 +12,7 @@ import {
   cmsEntryTagTable,
   type CmsEntry,
 } from "@/db/schema";
-import {
-  invalidateCmsCollectionCache,
-  invalidateCmsCollectionCountCache,
-  invalidateCmsEntryCache,
-  invalidateCmsNavigationCachesForCollection,
-  invalidateCmsTagsCache,
-  invalidateEntryAndCollection,
-  invalidateSitemapCache,
-} from "@/lib/cms/cms-cache-invalidation";
+import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
 import {
   removeCmsEntrySearch,
   syncCmsEntrySearch,
@@ -154,23 +146,12 @@ async function syncCreatedEntrySideEffects({
     content: entry.content as JSONContent,
   });
 
-  await Promise.all([
-    invalidateCmsEntryCache({
-      collectionSlug,
-      slug: entry.slug,
-    }),
-    invalidateCmsCollectionCache({
-      collectionSlug,
-    }),
-    invalidateCmsCollectionCountCache({
-      collectionSlug,
-    }),
-    invalidateCmsNavigationCachesForCollection({
-      collectionSlug,
-    }),
-    invalidateSitemapCache(),
-    invalidateCmsTagsCache(),
-  ]);
+  // Only a published row is warmed back: a draft would fetch a 404 and store nothing.
+  await invalidateEntryAndCollection({
+    collectionSlug,
+    slug: entry.slug,
+    warm: entry.status === CMS_ENTRY_STATUS.PUBLISHED,
+  });
 }
 
 async function resolveUpdatedSeoDescription({
@@ -361,18 +342,15 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
   const oldSlug = existingEntry.slug;
   const newSlug = slug ?? oldSlug;
   const collectionSlug = existingEntry.collection;
-  const slugsToInvalidate = new Set([oldSlug, newSlug]);
 
-  await Promise.all([
-    ...Array.from(slugsToInvalidate).map(slugToInvalidate =>
-      invalidateCmsEntryCache({ collectionSlug, slug: slugToInvalidate })
-    ),
-    invalidateCmsCollectionCache({ collectionSlug }),
-    invalidateCmsCollectionCountCache({ collectionSlug }),
-    invalidateCmsNavigationCachesForCollection({ collectionSlug }),
-    invalidateSitemapCache(),
-    invalidateCmsTagsCache(),
-  ]);
+  // A rename leaves the old slug's page stored and its tag live, so both slugs go; only the new one
+  // is warmed back, and only when the row is published.
+  await invalidateEntryAndCollection({
+    collectionSlug,
+    slug: newSlug,
+    alsoPurgeSlugs: [oldSlug],
+    warm: updatedEntry?.status === CMS_ENTRY_STATUS.PUBLISHED,
+  });
 
   await syncCmsPublishSchedule(updatedEntry);
 

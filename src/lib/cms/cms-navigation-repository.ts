@@ -1,21 +1,22 @@
 import "server-only";
 
+import { cache } from "react";
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { type CmsNavigationKey } from "@/../cms.config";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import { getDB } from "@/db";
+import { getDB, getReadReplicaDB } from "@/db";
 import {
   cmsNavigationItemTable,
   cmsNavigationRedirectTable,
   type CmsNavigationItem,
   type CmsNavigationRedirect,
 } from "@/db/schema";
-import {
-  getCmsCollection,
-  type CmsCollectionListItem,
-} from "@/lib/cms/entry";
+// Straight from `queries`, never the `@/lib/cms/entry` barrel: the barrel also pulls in
+// `mutations`, which reaches the invalidation path that clears this module's memo.
+import { getCmsCollection } from "@/lib/cms/entry/queries";
+import type { CmsCollectionListItem } from "@/lib/cms/entry/types";
 import {
   buildCmsResolvedPath,
   normalizeCmsResolvedPath,
@@ -24,6 +25,10 @@ import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
 import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
+import {
+  clearNavigationMemos,
+  createNavigationMemo,
+} from "@/lib/cms/navigation-memos";
 import { generateSlug } from "@/utils/slugify";
 import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
@@ -33,6 +38,9 @@ import {
 } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { createRandomId } from "@/utils/random-token";
+
+// One published tree per navigation key and locale, plus the admin status filters.
+const CMS_NAVIGATION_TREE_MEMO_ENTRIES = 16;
 
 interface GetCmsNavigationTreeParams {
   navigationKey: CmsNavigationKey;
@@ -75,6 +83,11 @@ function getNavigationCollectionSlug(navigationKey: CmsNavigationKey) {
 }
 
 async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
+  // Before the tag revalidation, so the refill `saveCmsNavigationTree` runs next reads the new tree.
+  // Every navigation memo, not just the tree: the docs page and the header memoize derived results,
+  // which a fresh tree alone does not refresh.
+  clearNavigationMemos();
+
   await Promise.all([
     revalidateCacheTag(CACHE_TAGS.cmsNavigation(navigationKey)),
     revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey)),
@@ -306,6 +319,8 @@ async function getCachedCmsNavigationTree(
     ttl: "8 hours",
   });
 
+  // Not the replica client: `saveCmsNavigationTree` invalidates this cache and then refills it in
+  // the same request, so a replica that still lags the save would cache the old tree for 8 hours.
   const db = getDB();
   const collectionSlug = getNavigationCollectionSlug(navigationKey);
   const isNonDefaultLocale = locale !== DEFAULT_LOCALE;
@@ -356,12 +371,23 @@ async function getCachedCmsNavigationTree(
   return pruneNavigationTree(hydratedTree);
 }
 
+// The docs tree is the largest of the hot entries, so a warm isolate keeps it in memory. The three
+// arguments are the primitives the cache key uses, so the default key covers them, and the docs page
+// asks for the tree from the sidebar, the slug resolver, and the header root path in one render.
+// `getCmsNavigationRootPath` reads through here and needs no memo of its own.
+const cmsNavigationTreeMemo = createNavigationMemo({
+  build: getCachedCmsNavigationTree,
+  maxEntries: CMS_NAVIGATION_TREE_MEMO_ENTRIES,
+  dedupePerRequest: true,
+});
+
+
 export function getCmsNavigationTree({
   navigationKey,
   status = CMS_ENTRY_STATUS.PUBLISHED,
   locale = DEFAULT_LOCALE,
 }: GetCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> {
-  return getCachedCmsNavigationTree(navigationKey, status, locale);
+  return cmsNavigationTreeMemo.read(navigationKey, status, locale);
 }
 
 export async function getCmsNavigationRedirectByPath({
@@ -373,7 +399,7 @@ export async function getCmsNavigationRedirectByPath({
 }): Promise<CmsNavigationRedirect | null> {
   const normalizedPath = normalizeCmsResolvedPath(path);
 
-  return getCachedCmsNavigationRedirectByPath(navigationKey, normalizedPath);
+  return getCachedCmsNavigationRedirectByPathOnce(navigationKey, normalizedPath);
 }
 
 async function getCachedCmsNavigationRedirectByPath(
@@ -388,7 +414,7 @@ async function getCachedCmsNavigationRedirectByPath(
     ttl: "8 hours",
   });
 
-  const db = getDB();
+  const db = getReadReplicaDB();
   return (await db.query.cmsNavigationRedirectTable.findFirst({
     where: {
       navigationKey,
@@ -397,11 +423,14 @@ async function getCachedCmsNavigationRedirectByPath(
   })) ?? null;
 }
 
-export async function getCmsNavigationRootPath({
-  navigationKey,
-}: {
-  navigationKey: CmsNavigationKey;
-}): Promise<string | null> {
+// Declared after the cached function it wraps: the `"use cache"` transform rewrites that
+// declaration into a `const`, so a wrapper placed above it would read it in the temporal dead zone.
+const getCachedCmsNavigationRedirectByPathOnce = cache(getCachedCmsNavigationRedirectByPath);
+
+// Walks the whole tree, so the header and the docs slug resolver share one walk per request too.
+const getCachedCmsNavigationRootPath = cache(async (
+  navigationKey: CmsNavigationKey,
+): Promise<string | null> => {
   const tree = await getCmsNavigationTree({
     navigationKey,
     status: CMS_ENTRY_STATUS.PUBLISHED,
@@ -411,6 +440,14 @@ export async function getCmsNavigationRootPath({
   return (
     flatNodes.find((node) => node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE)?.resolvedPath ?? null
   );
+});
+
+export function getCmsNavigationRootPath({
+  navigationKey,
+}: {
+  navigationKey: CmsNavigationKey;
+}): Promise<string | null> {
+  return getCachedCmsNavigationRootPath(navigationKey);
 }
 
 export function getCmsNavigationNodeByResolvedPath({

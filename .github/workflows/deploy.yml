@@ -171,9 +171,17 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-      # One row per deploy: sizes always, startup timings when the profile above succeeded.
+      # Diagnostics, never a deploy gate: measures the deploy that just went live.
+      - name: Measure TTFB
+        id: measure-ttfb
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          node scripts/measure-ttfb.mjs 2>&1 | tee ttfb-output.log
+
+      # One row per deploy: sizes always, startup timings and TTFB when the steps above succeeded.
       - name: Capture deploy metrics
-        run: node scripts/record-metrics.mjs deploy-output.log startup-profile-output.log
+        run: node scripts/record-metrics.mjs deploy-output.log startup-profile-output.log ttfb-output.log
 
       - name: Commit metrics
         if: ${{ success() }}

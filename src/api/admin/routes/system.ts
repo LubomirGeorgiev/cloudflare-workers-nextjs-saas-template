@@ -7,16 +7,19 @@ import { adminOperation } from "@/api/admin/operation";
 import { apiValidator } from "@/api/middleware/problem-json";
 import { jsonResponse } from "@/api/openapi";
 import type { ApiEnv } from "@/api/types";
+import { EDGE_HTML_CACHE_TTL_SECONDS } from "@/constants/cache-control";
 import {
   clearCmsCache,
   clearSearchCache,
+  purgeCloudflareCdnCache,
+  purgeEdgeHtmlCache,
   purgeKvPageCaches,
   purgeWorkersCdnCache,
   rebuildSearchIndexes,
 } from "@/lib/admin/system-actions";
 import { v } from "@/lib/validation";
 import {
-  adminPurgeKvPageCacheResultSchema,
+  adminPurgeCountResultSchema,
   adminSystemActionResultSchema,
   adminSystemCollectionBodySchema,
   adminSystemPurgeConfirmBodySchema,
@@ -136,7 +139,7 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       responses: {
         200: jsonResponse({
           description: "How many cache keys were deleted.",
-          schema: adminPurgeKvPageCacheResultSchema,
+          schema: adminPurgeCountResultSchema,
         }),
       },
     }),
@@ -147,7 +150,7 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       return c.json({
         message: result.message,
         deletedKeyCount: result.deletedKeyCount,
-      } satisfies v.InferOutput<typeof adminPurgeKvPageCacheResultSchema>);
+      } satisfies v.InferOutput<typeof adminPurgeCountResultSchema>);
     },
   )
   .post(
@@ -157,10 +160,14 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       tags: [ADMIN_API_TAGS.system],
       summary: "Purge the Workers CDN cache",
       description:
-        "Purges everything this zone holds in the Cloudflare CDN cache, for every URL at once. " +
-        "There is no per-path form. Every edge location refetches from the Worker afterwards, so " +
-        "expect a traffic spike on a busy deployment. Answers with a server error naming the " +
-        "reason when Cloudflare refuses the purge. " +
+        "Purges everything this zone holds in Workers Caching, for every URL at once: the " +
+        "sitemap, robots.txt, llms.txt, the generated OpenGraph cards, `/markdown/*` and the " +
+        "`.md` twins, the docs search responses, and the published OpenAPI document. There is no " +
+        "per-path form. It never clears the stored anonymous HTML pages, which live in the Cache " +
+        "API and have their own purge operation, and it never deletes a KV key. Every edge " +
+        "location refetches those machine responses from the Worker afterwards, so expect a " +
+        "traffic spike on a busy deployment. Answers with a server error naming the reason when " +
+        "Cloudflare refuses the purge. " +
         CONFIRM_BODY_NOTE,
       scope: "admin:write",
       responses: {
@@ -173,6 +180,73 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
     apiValidator("json", adminSystemPurgeConfirmBodySchema),
     async (c) => {
       const result = await purgeWorkersCdnCache();
+
+      return c.json({ message: result.message } satisfies SystemActionResponse);
+    },
+  )
+  .post(
+    "/system/edge-html-cache/purge",
+    ...adminOperation({
+      operationId: "adminPurgeEdgeHtmlCache",
+      tags: [ADMIN_API_TAGS.system],
+      summary: "Purge the stored edge HTML pages",
+      description:
+        "Deletes the stored anonymous copies of the public HTML pages from the Cloudflare Cache " +
+        "API. The Cache API is per data center, so this clears the data center that answers this " +
+        "request; with Smart Placement enabled that is the one that stored the pages. A copy in " +
+        "any other location expires on its own within " +
+        `${EDGE_HTML_CACHE_TTL_SECONDS} seconds. It touches neither the KV page cache nor ` +
+        "Workers Caching — both are separate operations. The pages named are the ones the " +
+        "sitemap knows: the static public routes, the blog listing and facet pages, the " +
+        "published CMS entry pages, and the docs pages, each in every served locale. Returns " +
+        "`deletedKeyCount`, the number of stored pages actually deleted. " +
+        CONFIRM_BODY_NOTE,
+      scope: "admin:write",
+      responses: {
+        200: jsonResponse({
+          description: "How many stored pages were deleted.",
+          schema: adminPurgeCountResultSchema,
+        }),
+      },
+    }),
+    apiValidator("json", adminSystemPurgeConfirmBodySchema),
+    async (c) => {
+      const result = await purgeEdgeHtmlCache();
+
+      return c.json({
+        message: result.message,
+        deletedKeyCount: result.deletedKeyCount,
+      } satisfies v.InferOutput<typeof adminPurgeCountResultSchema>);
+    },
+  )
+  .post(
+    "/system/cloudflare-cdn-cache/purge",
+    ...adminOperation({
+      operationId: "adminPurgeCloudflareCdnCache",
+      tags: [ADMIN_API_TAGS.system],
+      summary: "Purge the whole Cloudflare CDN cache",
+      description:
+        "Purges the whole zone cache at Cloudflare, for every URL this site serves: the static " +
+        "assets, the stored HTML page copies in every data center, and every machine response " +
+        "alike. It is global, not per data center, and it is the same purge the deploy workflow " +
+        "runs after a release. There is no per-path form. Every location refetches from the " +
+        "Worker afterwards, so expect a traffic spike and slower first responses on a busy " +
+        "deployment. Refused with `PRECONDITION_FAILED` when the Worker has no Cloudflare " +
+        "credential for the purge: it needs a `CLOUDFLARE_API_TOKEN` carrying the Cache Purge " +
+        "permission and a `CLOUDFLARE_ACCOUNT_ID`, or a `CLOUDFLARE_ZONE_ID` naming the zone. " +
+        "Answers with a server error naming the reason when Cloudflare refuses the purge. " +
+        CONFIRM_BODY_NOTE,
+      scope: "admin:write",
+      responses: {
+        200: jsonResponse({
+          description: "What was purged.",
+          schema: adminSystemActionResultSchema,
+        }),
+      },
+    }),
+    apiValidator("json", adminSystemPurgeConfirmBodySchema),
+    async (c) => {
+      const result = await purgeCloudflareCdnCache();
 
       return c.json({ message: result.message } satisfies SystemActionResponse);
     },

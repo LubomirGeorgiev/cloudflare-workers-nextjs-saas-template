@@ -1,55 +1,12 @@
-import { lazyValueByKey } from "@/utils/lazy-value";
-import { DEFAULT_LOCALE, type Locale } from "./config";
-import { loadCatalog, type MessageCatalog, type MessageTree } from "./message-catalogs";
+import { loadCatalog } from "./message-catalogs";
 
-function isMessageTree(value: unknown): value is MessageTree {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// Deep-merge the default-locale catalog under the active one so keys missing from a translation fall back
-// to DEFAULT_LOCALE instead of rendering the raw key path. next-intl has no built-in cross-locale fallback;
-// this is the recommended pattern. Active-locale values always win; recursion only descends when both sides are subtrees.
-function mergeMessagesWithFallback<Catalog extends MessageTree>({
-  fallbackMessages,
-  messages,
-}: {
-  fallbackMessages: Catalog;
-  messages: MessageTree;
-}): Catalog {
-  const merged: MessageTree = { ...fallbackMessages };
-
-  for (const [key, value] of Object.entries(messages)) {
-    const fallbackValue = fallbackMessages[key];
-
-    merged[key] =
-      isMessageTree(fallbackValue) && isMessageTree(value)
-        ? mergeMessagesWithFallback({ fallbackMessages: fallbackValue, messages: value })
-        : value;
-  }
-
-  // The fallback catalog seeds every key and the loop only replaces values, so the merged tree
-  // still has the catalog's shape — which the index-signature walk above cannot express.
-  return merged as Catalog;
-}
-
-// The merged tree for a locale never changes within an isolate, so it is built once per locale and
-// held; see `lazyValueByKey` for the contract.
+// A locale loads exactly its own catalog — no deep merge under the default locale. next-intl has no
+// cross-locale fallback, so a key a translation omits would render its raw path; `messages.test.ts`
+// proves every catalog carries the default catalog's full key set, which is what makes a runtime
+// merge (a second 66 KiB catalog per isolate) unnecessary. A downstream project that ships partial
+// translations should drop that test and merge here instead.
 //
-// Async because the catalogs are `import()`ed per locale — a statically imported catalog is
-// startup cost on every isolate. Deliberately free of `next-intl/server` and `next/headers`: the
-// API and MCP entrypoints run outside the App Router graph, where importing either one throws.
-export const loadMessages = lazyValueByKey(buildMessages);
-
-// A non-default locale also loads DEFAULT_LOCALE, which the fallback merge needs; the default
-// locale itself loads exactly one catalog.
-async function buildMessages(locale: Locale): Promise<MessageCatalog> {
-  const messages = await loadCatalog(locale);
-  if (locale === DEFAULT_LOCALE) {
-    return messages;
-  }
-
-  return mergeMessagesWithFallback({
-    fallbackMessages: await loadCatalog(DEFAULT_LOCALE),
-    messages,
-  });
-}
+// The catalogs are `import()`ed per locale, so this stays async — a statically imported catalog is
+// startup cost on every isolate. Deliberately free of `next-intl/server` and `next/headers`: the API
+// and MCP entrypoints run outside the App Router graph, where importing either one throws.
+export const loadMessages = loadCatalog;

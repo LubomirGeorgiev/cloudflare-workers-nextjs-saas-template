@@ -16,14 +16,13 @@ import { DocsSidebar } from "./docs-sidebar";
 import { MobileDocsNav } from "./mobile-docs-nav";
 
 export async function DocsNavigationChrome({ locale }: { locale: Locale }) {
-  const t = await getTranslator({ locale, namespace: "Client.Docs.Navigation" });
   // Locale-scoped tree: PAGE nodes untranslated in the active locale are
   // pruned out by `getCmsNavigationTree` (see cms-navigation-repository.ts),
   // so the sidebar naturally shows only translated entries for that locale.
-  const sidebarTree = await getCmsNavigationTree({
-    navigationKey: DOCS_SLUG,
-    locale,
-  });
+  const [t, sidebarTree] = await Promise.all([
+    getTranslator({ locale, namespace: "Client.Docs.Navigation" }),
+    getCmsNavigationTree({ navigationKey: DOCS_SLUG, locale }),
+  ]);
 
   if (sidebarTree.length === 0) {
     redirect({ href: "/", locale });

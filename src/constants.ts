@@ -237,3 +237,6 @@ export const TEAM_DESCRIPTION_MAX_LENGTH = 1000;
 export const DEFAULT_ADMIN_TABLE_PAGE_SIZE = 10;
 export const MAX_ADMIN_TABLE_PAGE_SIZE = 500;
 export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100, 300, 500];
+
+// Cloudflare takes at most 100 purge operations per zone purge request, on every plan.
+export const ZONE_PURGE_TAGS_PER_REQUEST = 100;

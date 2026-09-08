@@ -5,6 +5,7 @@ import { and, count, eq, sql } from "drizzle-orm";
 import type { JSONContent } from "@tiptap/core";
 import type { InferOutput } from "valibot";
 
+import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
   cmsEntryTable,
@@ -12,13 +13,8 @@ import {
   type CmsEntry,
   type CmsEntryVersion,
 } from "@/db/schema";
-import {
-  invalidateCmsCollectionCache,
-  invalidateCmsCollectionCountCache,
-  invalidateCmsEntryCache,
-  invalidateCmsNavigationCachesForCollection,
-  invalidateSitemapCache,
-} from "@/lib/cms/cms-cache-invalidation";
+import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
+import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import {
   deleteCmsEntryVersionParamsSchema,
   getCmsEntryVersionsParamsSchema,
@@ -197,19 +193,25 @@ export async function revertCmsEntryToVersion(
     featuredImageId: version.featuredImageId,
   });
 
-  const slugsToInvalidate = new Set([currentEntry.slug, updatedEntry.slug]);
-  await Promise.all([
-    ...Array.from(slugsToInvalidate).map((slugToInvalidate) =>
-      invalidateCmsEntryCache({
-        collectionSlug: updatedEntry.collection,
-        slug: slugToInvalidate,
-      })
-    ),
-    invalidateCmsCollectionCache({ collectionSlug: updatedEntry.collection }),
-    invalidateCmsCollectionCountCache({ collectionSlug: updatedEntry.collection }),
-    invalidateCmsNavigationCachesForCollection({ collectionSlug: updatedEntry.collection }),
-    invalidateSitemapCache(),
-  ]);
+  // A revert rewrites the searchable columns, so the index follows the same order `updateCmsEntry`
+  // uses: sync before the cache invalidation, and let a failure abort the write like any other.
+  await syncCmsEntrySearch({
+    entryId: updatedEntry.id,
+    collection: updatedEntry.collection,
+    slug: updatedEntry.slug,
+    title: updatedEntry.title,
+    seoDescription: updatedEntry.seoDescription,
+    content: updatedEntry.content as JSONContent,
+  });
+
+  // A revert republishes a body, so it goes through the one pipeline every other writer uses; a
+  // hand-rolled tag list here would miss the stored HTML page and the search index.
+  await invalidateEntryAndCollection({
+    collectionSlug: updatedEntry.collection,
+    slug: updatedEntry.slug,
+    alsoPurgeSlugs: [currentEntry.slug],
+    warm: updatedEntry.status === CMS_ENTRY_STATUS.PUBLISHED,
+  });
 
   return updatedEntry;
 }

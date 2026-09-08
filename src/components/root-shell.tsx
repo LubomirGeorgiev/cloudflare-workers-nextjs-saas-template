@@ -13,6 +13,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { HTML_DISCOVERY_RELATIONS } from "@/constants";
 import { getPublicConfig } from "@/flags";
 import { getClientMessages } from "@/i18n/client-messages";
+import { CLIENT_MESSAGE_SCOPES } from "@/i18n/client-namespaces";
 import type { Locale } from "@/i18n/config";
 import { SiteJsonLd } from "@/lib/seo/json-ld";
 
@@ -31,7 +32,12 @@ interface RootShellProps {
 // Every route lives under that root so React can keep the DOM — and this `<Toaster>` — alive across
 // navigations; a second root would tear the document down and destroy any toast raised before it.
 export async function RootShell({ locale, children }: RootShellProps) {
-  const messages = await getClientMessages(locale);
+  // Only the chrome below renders under this provider's messages; every route group nests its own
+  // provider around `children` so a page never ships another group's copy.
+  const messages = await getClientMessages({
+    locale,
+    namespaces: CLIENT_MESSAGE_SCOPES.root.namespaces,
+  });
 
   return (
     <html lang={locale} suppressHydrationWarning>

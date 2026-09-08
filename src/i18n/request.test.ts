@@ -34,7 +34,7 @@ const requestConfig = (await import("./request")).default as (args: {
     Client: {
       Nav: {
         home: string;
-        blog: string;
+        blog?: string;
       };
     };
   };
@@ -45,11 +45,14 @@ describe("hybrid request config", () => {
     const { locale } = await requestConfig({ requestLocale: Promise.resolve(nonDefaultLocale) });
     expect(locale).toBe(nonDefaultLocale);
   });
-  test("merges default-locale messages under locale-specific messages", async () => {
+  // A locale loads its own catalog and nothing else — the default-locale merge is gone, so the
+  // `blog` key the mock gives only to the default locale must not appear here. `messages.test.ts`
+  // is what keeps a translation from missing a key in the first place.
+  test("serves the requested locale's catalog with no default-locale merge", async () => {
     const { messages } = await requestConfig({ requestLocale: Promise.resolve(nonDefaultLocale) });
 
     expect(messages.Client.Nav.home).toBe("Localized home");
-    expect(messages.Client.Nav.blog).toBe("Default blog");
+    expect(messages.Client.Nav.blog).toBeUndefined();
   });
   test("falls back to getUserLocale when requestLocale is absent", async () => {
     const { locale } = await requestConfig({ requestLocale: Promise.resolve(undefined) });
