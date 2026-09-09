@@ -4,6 +4,7 @@ import { ROLES_ENUM } from "@/app/enums";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ADMIN_OAUTH_APPS_PATH, OAUTH_AUTHORIZE_PATH } from "@/constants";
 import { requestedAdminScopes } from "@/lib/api/admin-scopes";
+import { listConnectedAppsForUser, selectGrantCapEvictions } from "@/lib/oauth/connected-apps";
 import { resolveConsentRequest } from "@/lib/oauth/consent";
 import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
@@ -62,9 +63,18 @@ export default async function AuthorizePage({
     return <InvalidAuthorizationRequest showAdminHint={isAdmin && askedForAdminScopes} />;
   }
 
+  // Named before the user decides, not reported after: approving is what disconnects these, and a
+  // user who would rather keep them can still deny. The approval path runs the same selector, so
+  // the warning and the eviction cannot disagree.
+  const { evicted } = selectGrantCapEvictions({
+    apps: await listConnectedAppsForUser({ userId: session.userId }),
+    clientId: consent.clientId,
+  });
+
   return (
     <main className="container mx-auto flex min-h-screen max-w-lg items-center px-4 py-10">
       <ConsentClient
+        evictedAppNames={evicted.map((app) => app.name ?? app.clientId)}
         authQuery={authQuery.toString()}
         clientName={consent.clientName}
         logoUri={consent.logoUri}

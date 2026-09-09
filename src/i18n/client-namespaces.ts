@@ -75,6 +75,7 @@ export const CLIENT_MESSAGE_SCOPES = {
     namespaces: [
       "Admin.OAuthApps",
       "Admin.UserDetail",
+      "ApiScopeSummary",
       "ApiScopes",
       "Common",
       "Dashboard.Billing",

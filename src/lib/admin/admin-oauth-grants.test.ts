@@ -10,7 +10,10 @@ const { listConnectedAppsForUserMock, revokeConnectedAppForUserMock } = vi.hoist
 
 vi.mock("server-only", () => ({}));
 
+// The real module reaches the OAuth provider, so the batch size is restated here rather than
+// imported. The assertion below is a ceiling, so the two need not match exactly.
 vi.mock("@/lib/oauth/connected-apps", () => ({
+  GRANT_REVOKE_BATCH_SIZE: 5,
   listConnectedApps: vi.fn(),
   listConnectedAppsForUser: listConnectedAppsForUserMock,
   revokeConnectedAppForUser: revokeConnectedAppForUserMock,
@@ -28,7 +31,7 @@ const { revokeInternalOAuthGrantsForUser } = await import("@/lib/admin/admin-oau
 // Derived from the catalogs, never spelled out: a fork renames scopes and these tests still hold.
 const INTERNAL_SCOPE = ADMIN_SCOPE_NAMES[0];
 const PUBLIC_SCOPE = API_SCOPE_NAMES[0];
-// The batch size is private to the module, so the bound asserted here is a ceiling, not the value.
+// A ceiling, not the batch size itself: the point is that the fan-out is bounded at all.
 const MAX_CONCURRENT_REVOCATIONS = 10;
 
 function grant({ grantId, scopes }: { grantId: string; scopes: string[] }) {

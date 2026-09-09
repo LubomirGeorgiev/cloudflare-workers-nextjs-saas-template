@@ -29,6 +29,9 @@ export const APP_KV_PREFIXES = {
   // Last-run stamp per paced cron task, so a sweep's cadence is measured from its own last run
   // instead of inferred from the cron interval. See `src/lib/scheduler/paced-run.ts`.
   maintenanceRun: "maintenance-run:",
+  // Where a paced sweep parks its place in a walk it could not finish in one run, so the next run
+  // resumes instead of re-reading the head. See `purgeOrphanedR2Objects`.
+  maintenanceCursor: "maintenance-cursor:",
   // The zone that serves this Worker, keyed by hostname. Saves one Cloudflare API call per cold
   // isolate on the purge path. See `getWorkerZoneId` in `src/lib/cloudflare-api.ts`.
   workerZone: "worker-zone:",

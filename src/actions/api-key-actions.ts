@@ -67,11 +67,12 @@ export const revokeApiKeyAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
       async () => {
+        // Read the slug first: revocation deletes the row, so the surface the key was rendered on
+        // cannot be looked up afterwards, and the revoke input never says which one it was.
+        const teamSlug = await getApiKeyTeamSlug({ keyId: input.keyId });
         const result = await revokeApiKey({ keyId: input.keyId });
 
-        // The row survives revocation, so its team is still readable — and the revoke input never
-        // says which surface the key belongs to.
-        revalidateApiKeySurfaces(await getApiKeyTeamSlug({ keyId: input.keyId }));
+        revalidateApiKeySurfaces(teamSlug);
 
         return result;
       },

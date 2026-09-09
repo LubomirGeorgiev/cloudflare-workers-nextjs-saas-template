@@ -23,6 +23,14 @@ export const API_KEY_MAX_EXPIRY_DAYS = 365;
 export const API_KEY_EXPIRY_DAY_OPTIONS = [30, 90, API_KEY_MAX_EXPIRY_DAYS];
 export const MAX_API_KEYS_PER_USER = 20;
 export const MAX_API_KEYS_PER_TEAM = 20;
+
+/**
+ * Live OAuth grants one account may hold. Unlike an API key, a grant is not something the user
+ * creates deliberately — every consent adds one, and nothing prompted them to clear the old ones —
+ * so the cap evicts the oldest rather than refusing the connection the user is standing in front
+ * of. The consent screen names what will go before they approve.
+ */
+export const MAX_OAUTH_GRANTS_PER_USER = 20;
 // Revocation deletes the KV entry, so the worst-case acceptance window is this TTL plus KV's
 // cross-PoP propagation (~60s). Keep it short enough that the UI copy stays honest.
 export const API_KEY_CACHE_TTL_SECONDS = 300;
@@ -180,6 +188,13 @@ export const CMS_ALLOWED_IMAGE_TYPES = [
   "image/webp",
   "image/svg+xml",
 ] as const;
+
+/**
+ * Versions kept per entry. Every save copies the whole entry body into a new row, so history is the
+ * fastest-growing thing in the database — uncapped, one heavily edited post outweighs every other
+ * table. The newest N are kept and older ones are dropped as each new one lands.
+ */
+export const CMS_ENTRY_VERSION_HISTORY_LIMIT = 20;
 
 export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;
 export const CMS_TITLE_MAX_LENGTH = 255;

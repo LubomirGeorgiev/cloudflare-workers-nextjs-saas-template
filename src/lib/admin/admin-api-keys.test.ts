@@ -1,32 +1,19 @@
 // Two contracts live here. `createAdminApiKey` is the only door that hands `issueApiKey` the
-// internal catalog, and it must refuse a public scope before it delegates. And the demotion
-// revocation must stay inside D1's 100-bound-parameter ceiling however many keys a user holds.
+// internal catalog, and it must refuse a public scope before it delegates. And the demotion path
+// must hand `deleteApiKeysByIds` the internal keys and only those; the chunking and the failure
+// policy behind that call belong to the helper, and are covered by its own test.
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-const { dbMock, inArrayCalls, issueApiKeyMock, updateWhereMock } = vi.hoisted(() => ({
-  dbMock: {
-    query: { apiKeyTable: { findMany: vi.fn() } },
-    update: vi.fn(),
-  },
-  inArrayCalls: [] as string[][],
+const { dbMock, deleteApiKeysByIdsMock, issueApiKeyMock } = vi.hoisted(() => ({
+  dbMock: { query: { apiKeyTable: { findMany: vi.fn() } } },
+  deleteApiKeysByIdsMock: vi.fn(),
   issueApiKeyMock: vi.fn(),
-  updateWhereMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 
 vi.mock("@/db", () => ({ getDB: () => dbMock }));
-
-// The chunk boundaries are the thing under test, and they are only visible in the id list handed
-// to `inArray`; reading them back out of a built SQL fragment would test drizzle instead.
-vi.mock("drizzle-orm", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("drizzle-orm")>()),
-  inArray: (_column: unknown, values: string[]) => {
-    inArrayCalls.push(values);
-    return { values };
-  },
-}));
 
 vi.mock("@/lib/api-keys/api-keys", () => ({
   apiKeyExpiryFromDays: (days?: number | null) => (days ? new Date(days) : null),
@@ -34,6 +21,10 @@ vi.mock("@/lib/api-keys/api-keys", () => ({
   listOwnInternalApiKeys: vi.fn(),
   revokeApiKey: vi.fn(),
 }));
+
+// Mocked rather than loaded: its real graph reaches `cloudflare:workers` through the KV cache,
+// which only resolves in the Workers pool.
+vi.mock("@/lib/api-keys/delete-api-keys", () => ({ deleteApiKeysByIds: deleteApiKeysByIdsMock }));
 
 vi.mock("@/utils/auth", () => ({ requireAdmin: async () => undefined }));
 
@@ -45,8 +36,6 @@ const { createAdminApiKey, revokeInternalApiKeysForUser } = await import("@/lib/
 // Derived from the catalogs, never spelled out: a fork renames scopes and these tests still hold.
 const INTERNAL_SCOPE = ADMIN_SCOPE_NAMES[0];
 const PUBLIC_SCOPE = API_SCOPE_NAMES[0];
-// The parameter ceiling the chunking exists for; a chunk must always stay under it.
-const D1_BOUND_PARAMETER_LIMIT = 100;
 
 function seedKeys({ internal, publicKeys }: { internal: number; publicKeys: number }): string[] {
   const internalIds = Array.from({ length: internal }, (_, index) => `akey_internal_${index}`);
@@ -62,11 +51,17 @@ function seedKeys({ internal, publicKeys }: { internal: number; publicKeys: numb
   return internalIds;
 }
 
+function deletedIds(): string[] {
+  return deleteApiKeysByIdsMock.mock.calls[0]?.[0]?.ids ?? [];
+}
+
+function selectWhere(): Record<string, unknown> {
+  return dbMock.query.apiKeyTable.findMany.mock.calls[0]?.[0]?.where ?? {};
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  inArrayCalls.length = 0;
-  updateWhereMock.mockResolvedValue(undefined);
-  dbMock.update.mockImplementation(() => ({ set: () => ({ where: updateWhereMock }) }));
+  deleteApiKeysByIdsMock.mockImplementation(async ({ ids }: { ids: string[] }) => ids.length);
 });
 
 describe("createAdminApiKey", () => {
@@ -94,24 +89,22 @@ describe("createAdminApiKey", () => {
 });
 
 describe("revokeInternalApiKeysForUser", () => {
-  test("chunks well under D1's bound-parameter ceiling and covers every key", async () => {
+  test("hands every internal key of the user to the shared delete helper", async () => {
     const internalIds = seedKeys({ internal: 137, publicKeys: 3 });
 
     await expect(revokeInternalApiKeysForUser("usr_1")).resolves.toBe(internalIds.length);
 
-    expect(inArrayCalls.length).toBeGreaterThan(1);
-    for (const chunk of inArrayCalls) {
-      expect(chunk.length).toBeLessThan(D1_BOUND_PARAMETER_LIMIT);
-    }
-    expect(inArrayCalls.flat()).toEqual(internalIds);
+    expect(deletedIds()).toEqual(internalIds);
   });
 
-  test("revokes one statement's worth without chunking when the user holds few keys", async () => {
-    const internalIds = seedKeys({ internal: 2, publicKeys: 1 });
+  // A public key on the same account is untouched: a demotion takes the internal credentials and
+  // nothing else.
+  test("leaves the user's public keys out of the delete", async () => {
+    seedKeys({ internal: 1, publicKeys: 4 });
 
     await revokeInternalApiKeysForUser("usr_1");
 
-    expect(inArrayCalls).toEqual([internalIds]);
+    expect(deletedIds()).toEqual(["akey_internal_0"]);
   });
 
   test("touches nothing when the user holds no internal key", async () => {
@@ -119,16 +112,17 @@ describe("revokeInternalApiKeysForUser", () => {
 
     await expect(revokeInternalApiKeysForUser("usr_1")).resolves.toBe(0);
 
-    expect(dbMock.update).not.toHaveBeenCalled();
+    expect(deletedIds()).toEqual([]);
   });
 
-  test("attempts every chunk after one fails, then reports the failure", async () => {
-    const internalIds = seedKeys({ internal: 137, publicKeys: 0 });
-    updateWhereMock.mockRejectedValueOnce(new Error("D1 unavailable"));
+  // One rule: every internal row goes, so the select carries no liveness filter and the helper is
+  // handed no predicate that could spare an expired key or a revoked leftover.
+  test("selects every internal row, expired and revoked leftovers included", async () => {
+    seedKeys({ internal: 2, publicKeys: 0 });
 
-    await expect(revokeInternalApiKeysForUser("usr_1")).rejects.toThrow();
+    await revokeInternalApiKeysForUser("usr_1");
 
-    // A chunk left live is a credential nobody can reach, so the failure must not stop the sweep.
-    expect(inArrayCalls.flat()).toEqual(internalIds);
+    expect(selectWhere()).toEqual({ userId: "usr_1" });
+    expect(deleteApiKeysByIdsMock.mock.calls[0]?.[0]?.onlyDeadAt).toBeUndefined();
   });
 });

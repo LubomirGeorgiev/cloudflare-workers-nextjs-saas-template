@@ -2,7 +2,13 @@
 
 import { useTranslations } from "next-intl";
 
-import { API_SCOPES, API_SCOPE_NAMES, isApiScope } from "@/lib/api/scopes";
+import {
+  API_SCOPES,
+  apiScopeAction,
+  apiScopeResource,
+  compareByCatalogOrder,
+  isApiScope,
+} from "@/lib/api/scopes";
 import { cn } from "@/lib/utils";
 
 // One rendering of "what this credential may do", shared by the API key list and the connected-apps
@@ -10,28 +16,17 @@ import { cn } from "@/lib/utils";
 // not memorised the catalog, so every scope carries its description.
 
 // Scopes read `resource:action`; brightening the action is what a user scans for when deciding
-// whether a grant is safe. Unknown shapes (no colon) render whole.
+// whether a grant is safe. A name with no action (no separator) renders whole.
 function ScopeToken({ scope }: { scope: string }) {
-  const separator = scope.lastIndexOf(":");
+  const action = apiScopeAction(scope);
+  const hasAction = action !== scope;
 
   return (
     <span className="font-mono text-[11px] leading-none text-muted-foreground/70">
-      {separator === -1 ? scope : scope.slice(0, separator + 1)}
-      {separator === -1 ? null : (
-        <span className="font-medium text-foreground/70">{scope.slice(separator + 1)}</span>
-      )}
+      {hasAction ? `${apiScopeResource(scope)}:` : scope}
+      {hasAction ? <span className="font-medium text-foreground/70">{action}</span> : null}
     </span>
   );
-}
-
-/** Catalog order, so the same set of scopes always reads in the same order across credentials. */
-function sortByCatalogOrder(scopes: string[]): string[] {
-  return [...scopes].sort((a, b) => {
-    const indexA = isApiScope(a) ? API_SCOPE_NAMES.indexOf(a) : API_SCOPE_NAMES.length;
-    const indexB = isApiScope(b) ? API_SCOPE_NAMES.indexOf(b) : API_SCOPE_NAMES.length;
-
-    return indexA === indexB ? a.localeCompare(b) : indexA - indexB;
-  });
 }
 
 export function ApiScopeGrid({
@@ -66,7 +61,7 @@ export function ApiScopeGrid({
 
   return (
     <ul className={cn("grid gap-x-8 gap-y-4 sm:grid-cols-2 xl:grid-cols-3", className)}>
-      {sortByCatalogOrder(scopes).map((scope) => (
+      {[...scopes].sort(compareByCatalogOrder).map((scope) => (
         <li key={scope} className="flex flex-col gap-1">
           <ScopeToken scope={scope} />
           <span className="text-sm leading-snug">{describeScope(scope)}</span>

@@ -24,7 +24,6 @@ import {
 } from "@/lib/cms/entry/helpers";
 import {
   deleteCmsPublishSchedule,
-  recordCmsEntryVersion,
   syncCmsPublishSchedule,
 } from "@/lib/cms/entry/publishing";
 import {
@@ -39,6 +38,7 @@ import type {
   DeleteCmsEntryParams,
   UpdateCmsEntryParams,
 } from "@/lib/cms/entry/types";
+import { recordCmsEntryVersion } from "@/lib/cms/entry/version-history";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { syncEntryMediaRelationships } from "@/lib/cms/media-tracking";
 import { translateEntryFields } from "@/lib/cms/translate-entry";

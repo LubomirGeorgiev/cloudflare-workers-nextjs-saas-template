@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, desc, eq, exists, gt, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, exists, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 
 import { DEFAULT_PLAN_ID, type TeamPlanId } from "@/constants/plans";
 import { getDB } from "@/db";
@@ -12,7 +12,9 @@ import {
   userTable,
 } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
+import { isLiveApiKey } from "@/lib/api-keys/liveness";
 import { createCustomRoleNameResolver } from "@/lib/teams/team-roles";
+import { chunk } from "@/utils/chunk";
 import { isMembershipCurrentlyActive } from "@/utils/team-membership";
 
 // Shared team administration, the counterpart of `./users.ts`: the admin panel actions and any
@@ -58,16 +60,6 @@ export interface AdminTeamSectionList<TItem> {
 
 function toSectionList<TItem>(rows: TItem[], max: number): AdminTeamSectionList<TItem> {
   return { items: rows.slice(0, max), hasMore: rows.length > max };
-}
-
-function chunkTeamIds(teamIds: string[]): string[][] {
-  const chunks: string[][] = [];
-
-  for (let start = 0; start < teamIds.length; start += TEAM_ID_CHUNK_SIZE) {
-    chunks.push(teamIds.slice(start, start + TEAM_ID_CHUNK_SIZE));
-  }
-
-  return chunks;
 }
 
 interface AdminTeamMemberPreview {
@@ -197,7 +189,7 @@ async function listMemberPreviews(teamIds: string[]): Promise<Map<string, AdminT
   const previews = new Map<string, AdminTeamMemberPreview[]>();
   const db = getDB();
 
-  for (const chunk of chunkTeamIds(teamIds)) {
+  for (const batch of chunk({ items: teamIds, size: TEAM_ID_CHUNK_SIZE })) {
     const ranked = db
       .select({
         teamId: teamMembershipTable.teamId,
@@ -212,7 +204,7 @@ async function listMemberPreviews(teamIds: string[]): Promise<Map<string, AdminT
       })
       .from(teamMembershipTable)
       .innerJoin(userTable, eq(userTable.id, teamMembershipTable.userId))
-      .where(inArray(teamMembershipTable.teamId, chunk))
+      .where(inArray(teamMembershipTable.teamId, batch))
       .as("ranked");
 
     const rows = await db
@@ -240,11 +232,11 @@ async function countMembers(teamIds: string[]): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   const db = getDB();
 
-  for (const chunk of chunkTeamIds(teamIds)) {
+  for (const batch of chunk({ items: teamIds, size: TEAM_ID_CHUNK_SIZE })) {
     const rows = await db
       .select({ teamId: teamMembershipTable.teamId, memberCount: count() })
       .from(teamMembershipTable)
-      .where(inArray(teamMembershipTable.teamId, chunk))
+      .where(inArray(teamMembershipTable.teamId, batch))
       .groupBy(teamMembershipTable.teamId);
 
     for (const row of rows) {
@@ -422,9 +414,9 @@ export async function listTeamInvitations(
   );
 }
 
-// Revoked and expired keys stay in D1 as history but never surface, matching the owner-facing list
-// and the admin user page: neither is something anyone can act on. Expired rows are never swept, so
-// without the expiry predicate they would fill the cap and push the live keys out of the listing.
+// Only usable keys, matching the owner-facing list and the admin user page: a revoked or expired
+// key is not something anyone can act on. It is a filter, not a history view — the retention sweep
+// deletes those rows, and nothing here would show them in the meantime anyway.
 export async function listTeamApiKeys(
   teamId: string,
 ): Promise<AdminTeamSectionList<AdminTeamApiKey>> {
@@ -443,11 +435,7 @@ export async function listTeamApiKeys(
     })
     .from(apiKeyTable)
     .innerJoin(userTable, eq(userTable.id, apiKeyTable.userId))
-    .where(and(
-      eq(apiKeyTable.teamId, teamId),
-      isNull(apiKeyTable.revokedAt),
-      or(isNull(apiKeyTable.expiresAt), gt(apiKeyTable.expiresAt, new Date())),
-    ))
+    .where(and(eq(apiKeyTable.teamId, teamId), isLiveApiKey({ now: new Date() })))
     .orderBy(apiKeyTable.createdAt)
     // One over the cap, so the caller can tell a full page from a truncated one.
     .limit(TEAM_API_KEYS_MAX + 1);

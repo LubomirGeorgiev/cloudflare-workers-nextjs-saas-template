@@ -1,10 +1,9 @@
 import "server-only";
 
-import { eq } from "drizzle-orm";
-
 import { getDB } from "@/db";
-import { apiKeyTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
+import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
+import { isLiveApiKey } from "@/lib/api-keys/liveness";
 import {
   listConnectedAppsForUser,
   revokeConnectedAppForUser,
@@ -13,7 +12,6 @@ import {
 import { deleteTeamMembership } from "@/lib/teams/team-members";
 import { createCustomRoleNameResolver } from "@/lib/teams/team-roles";
 import { requireAdmin } from "@/utils/auth";
-import { deleteApiKeyCache } from "@/utils/kv-api-key";
 
 // Same projection as the owner-facing list plus the team a key is scoped to: an admin looking at
 // one user needs to see personal and team keys side by side, which no single user surface shows.
@@ -63,11 +61,11 @@ export async function getUserCredentials({ userId }: { userId: string }): Promis
   return { connectedApps, apiKeys, teams };
 }
 
-// Revoked rows stay in D1 as history but never surface, matching the owner-facing list: a revoked
+// Only usable keys, matching the owner-facing list and the admin team listing: a revoked or expired
 // key is not something anyone can act on.
 async function listUserApiKeys(userId: string): Promise<AdminApiKeySummary[]> {
   const rows = await getDB().query.apiKeyTable.findMany({
-    where: { userId, revokedAt: { isNull: true } },
+    where: { userId, RAW: (table) => isLiveApiKey({ now: new Date(), table }) },
     columns: {
       id: true,
       name: true,
@@ -154,7 +152,7 @@ export async function revokeUserApiKey({
 
   const key = await db.query.apiKeyTable.findFirst({
     where: { id: keyId },
-    columns: { id: true, userId: true, keyHash: true, revokedAt: true, teamId: true },
+    columns: { id: true, userId: true, teamId: true },
   });
 
   // The owner is part of the request, not just the key id: it keeps a stale page from revoking a
@@ -163,13 +161,9 @@ export async function revokeUserApiKey({
     throw new ActionError("NOT_FOUND", { key: "Client.Settings.ApiKeys.errorKeyNotFound" });
   }
 
-  if (!key.revokedAt) {
-    await db.update(apiKeyTable).set({ revokedAt: new Date() }).where(eq(apiKeyTable.id, keyId));
-  }
-
-  // D1 is authoritative from here; dropping the snapshot is what makes revocation take effect
-  // before the cache TTL would have expired it (still ≤60s of KV propagation).
-  await deleteApiKeyCache({ keyHash: key.keyHash });
+  // The one delete path, matching the owner-facing revoke: no surface has ever shown a revoked
+  // row, so a tombstone would only postpone this.
+  await deleteApiKeysByIds({ ids: [key.id] });
 
   return { success: true, teamId: key.teamId };
 }

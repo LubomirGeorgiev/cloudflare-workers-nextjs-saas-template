@@ -15,6 +15,7 @@ import {
 } from "@/db/schema";
 import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
+import { recordCmsEntryVersion } from "@/lib/cms/entry/version-history";
 import {
   deleteCmsEntryVersionParamsSchema,
   getCmsEntryVersionsParamsSchema,
@@ -137,42 +138,6 @@ export async function revertCmsEntryToVersion(
     throw new Error(`Entry "${entryId}" not found`);
   }
 
-  // Reverts create a new linear history point rather than rewriting old rows.
-  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: { entryId: entryId },
-    orderBy: { versionNumber: "desc" },
-  });
-
-  if (!latestVersion) {
-    await db.insert(cmsEntryVersionTable).values({
-      entryId,
-      versionNumber: 1,
-      title: currentEntry.title,
-      content: currentEntry.content as JSONContent,
-      fields: currentEntry.fields,
-      slug: currentEntry.slug,
-      seoDescription: currentEntry.seoDescription,
-      status: currentEntry.status,
-      featuredImageId: currentEntry.featuredImageId,
-      createdBy: currentEntry.createdBy,
-    });
-  }
-
-  const nextVersionNumber = (latestVersion?.versionNumber ?? 1) + 1;
-
-  await db.insert(cmsEntryVersionTable).values({
-    entryId,
-    versionNumber: nextVersionNumber,
-    title: version.title,
-    content: version.content,
-    fields: version.fields,
-    slug: version.slug,
-    seoDescription: version.seoDescription,
-    status: version.status,
-    featuredImageId: version.featuredImageId,
-    createdBy: version.createdBy, // Or the current user if we had that context here
-  });
-
   const [updatedEntry] = await db
     .update(cmsEntryTable)
     .set({
@@ -186,6 +151,23 @@ export async function revertCmsEntryToVersion(
     })
     .where(eq(cmsEntryTable.id, entryId))
     .returning();
+
+  // A revert appends a new linear history point instead of rewriting old rows, so it goes through
+  // the shared writer and is capped like any other save. History follows the entry write: a failed
+  // update must not prune rows for a revert that never happened.
+  await recordCmsEntryVersion({
+    existingEntry: currentEntry,
+    snapshot: {
+      title: version.title,
+      content: version.content,
+      fields: version.fields,
+      slug: version.slug,
+      seoDescription: version.seoDescription,
+      status: version.status,
+      featuredImageId: version.featuredImageId,
+    },
+    createdBy: version.createdBy, // Or the current user if we had that context here
+  });
 
   await syncEntryMediaRelationships({
     entryId,

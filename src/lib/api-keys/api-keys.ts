@@ -11,6 +11,8 @@ import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import { apiKeyTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
+import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
+import { LIVE_API_KEY_SQL, isLiveApiKey } from "@/lib/api-keys/liveness";
 import { assertAccountAudience, getBearerPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";
 import { isApiScope, scopesForAudience, type ApiScope } from "@/lib/api/scopes";
@@ -162,9 +164,9 @@ function assertNoScopeEscalation(scopes: GrantedScope[]): void {
   }
 }
 
-// Only a live key holds a slot: revoked and expired rows are history, not capacity. The guard is
-// evaluated inside the INSERT so concurrent creates cannot both pass a stale count (D1 has no
-// transactions — same pattern as team-writes.ts).
+// Only a live key holds a slot: a dead row is not capacity. `LIVE_API_KEY_SQL` is the raw twin of
+// `isLiveApiKey`, needed because the guard is evaluated inside the INSERT, so concurrent creates
+// cannot both pass a stale count (D1 has no transactions — same pattern as team-writes.ts).
 function buildCapacityGuard({
   userId,
   teamId,
@@ -174,17 +176,15 @@ function buildCapacityGuard({
   teamId: string | null;
   nowSec: number;
 }): { predicate: string; binds: (string | number)[] } {
-  const liveKey = `"revokedAt" IS NULL AND ("expiresAt" IS NULL OR "expiresAt" > ?)`;
-
   if (teamId) {
     return {
-      predicate: `(SELECT COUNT(*) FROM api_key WHERE "teamId" = ? AND ${liveKey}) < ?`,
+      predicate: `(SELECT COUNT(*) FROM api_key WHERE "teamId" = ? AND ${LIVE_API_KEY_SQL}) < ?`,
       binds: [teamId, nowSec, MAX_API_KEYS_PER_TEAM],
     };
   }
 
   return {
-    predicate: `(SELECT COUNT(*) FROM api_key WHERE "userId" = ? AND "teamId" IS NULL AND ${liveKey}) < ?`,
+    predicate: `(SELECT COUNT(*) FROM api_key WHERE "userId" = ? AND "teamId" IS NULL AND ${LIVE_API_KEY_SQL}) < ?`,
     binds: [userId, nowSec, MAX_API_KEYS_PER_USER],
   };
 }
@@ -296,14 +296,19 @@ export async function issueApiKey({
   };
 }
 
-// Revoked rows stay in D1 as history but never surface: a revoked key is not something the owner
-// can act on, and the row only exists so the hash can never be re-issued.
+// Only keys the owner can still use. A dead key — revoked or past its expiry — is not something
+// anyone can act on, and showing an expired one next to a live one with nothing but a date to tell
+// them apart is what made a dead key read as working. The admin team listing filters the same way.
 async function listPersonalApiKeys(): Promise<ApiKeySummary[]> {
   const session = await requireVerifiedEmail();
   const db = getDB();
 
   const rows = await db.query.apiKeyTable.findMany({
-    where: { userId: session.userId, teamId: { isNull: true }, revokedAt: { isNull: true } },
+    where: {
+      userId: session.userId,
+      teamId: { isNull: true },
+      RAW: (table) => isLiveApiKey({ now: new Date(), table }),
+    },
     columns: SUMMARY_COLUMNS,
     orderBy: { createdAt: "desc" },
   });
@@ -359,7 +364,10 @@ export async function listTeamApiKeys({
   const db = getDB();
 
   const rows = await db.query.apiKeyTable.findMany({
-    where: { teamId, revokedAt: { isNull: true } },
+    where: {
+      teamId,
+      RAW: (table) => isLiveApiKey({ now: new Date(), table }),
+    },
     columns: SUMMARY_COLUMNS,
     orderBy: { createdAt: "desc" },
   });
@@ -430,16 +438,24 @@ export async function updateApiKeyScopes({
   return toSummary({ ...key, scopes: validScopes });
 }
 
+/**
+ * Revoke one key on its owner's instruction: the row leaves D1 and the snapshot leaves KV, now.
+ *
+ * A revoked key was never readable anywhere — every listing filters it, authentication refuses it,
+ * and `unbanUser` never restores one — so a tombstone would only be data nobody can reach. This
+ * runs the one bulk path, so a ban, a demotion, and an owner revoke all stamp then delete alike.
+ */
 export async function revokeApiKey({ keyId }: { keyId: string }): Promise<{ success: true }> {
   const session = await requireVerifiedEmail();
   const db = getDB();
 
   const key = await db.query.apiKeyTable.findFirst({
     where: { id: keyId },
-    columns: { id: true, userId: true, teamId: true, keyHash: true, revokedAt: true },
+    columns: { id: true, userId: true, teamId: true },
   });
 
-  // Same response for "not yours" and "does not exist" so key ids cannot be probed.
+  // Same response for "not yours" and "does not exist" so key ids cannot be probed. A key this
+  // path already deleted answers the same way, which is the honest answer once the row is gone.
   if (!key || (!key.teamId && key.userId !== session.userId)) {
     throw new ActionError("NOT_FOUND", { key: "Client.Settings.ApiKeys.errorKeyNotFound" });
   }
@@ -448,16 +464,7 @@ export async function revokeApiKey({ keyId }: { keyId: string }): Promise<{ succ
     await requireTeamPermission(key.teamId, TEAM_PERMISSIONS.MANAGE_API_KEYS);
   }
 
-  if (!key.revokedAt) {
-    await db
-      .update(apiKeyTable)
-      .set({ revokedAt: new Date() })
-      .where(eq(apiKeyTable.id, keyId));
-  }
-
-  // D1 is authoritative from here; deleting the snapshot is what makes revocation take effect
-  // before the cache TTL would have expired it (still ≤60s of KV propagation).
-  await deleteApiKeyCache({ keyHash: key.keyHash });
+  await deleteApiKeysByIds({ ids: [key.id] });
 
   return { success: true };
 }

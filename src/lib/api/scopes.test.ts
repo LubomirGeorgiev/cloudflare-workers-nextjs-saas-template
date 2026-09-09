@@ -6,7 +6,10 @@ import {
   type ApiScope,
   DCR_ALLOWED_SCOPES,
   TEAM_KEY_SCOPES,
+  apiScopeAction,
+  apiScopeResource,
   clampScopesForClient,
+  compareByCatalogOrder,
   describeApiScope,
   isAccountOnlyScope,
   isApiScope,
@@ -45,6 +48,33 @@ describe("API scope catalog", () => {
   test("does not treat inherited object properties as scopes", () => {
     expect(isApiScope("toString")).toBe(false);
     expect(isApiScope("constructor")).toBe(false);
+  });
+});
+
+// The split and the order every scope list is rendered with, in the grid and in the one-line
+// summary alike. Assertions derive from the catalog, so a fork that renames a scope keeps them.
+describe("scope names", () => {
+  test("splits a scope into its resource and its action", () => {
+    for (const scope of API_SCOPE_NAMES) {
+      expect(`${apiScopeResource(scope)}:${apiScopeAction(scope)}`).toBe(scope);
+    }
+  });
+
+  test("reads a name without a separator as both its own resource and its own action", () => {
+    expect(apiScopeResource("audit")).toBe("audit");
+    expect(apiScopeAction("audit")).toBe("audit");
+  });
+
+  test("sorts a shuffled grant back into catalog order", () => {
+    const shuffled = [...API_SCOPE_NAMES].reverse();
+
+    expect(shuffled.sort(compareByCatalogOrder)).toEqual([...API_SCOPE_NAMES]);
+  });
+
+  test("sorts unknown names last, alphabetically", () => {
+    const sorted = ["reports:export", "audit", API_SCOPE_NAMES[0]].sort(compareByCatalogOrder);
+
+    expect(sorted).toEqual([API_SCOPE_NAMES[0], "audit", "reports:export"]);
   });
 });
 

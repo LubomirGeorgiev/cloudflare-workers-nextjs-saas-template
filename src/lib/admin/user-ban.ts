@@ -1,13 +1,12 @@
 import "server-only";
 
-import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { ROLES_ENUM } from "@/app/enums";
 import { USER_BAN_EVENT_PAGE_SIZE } from "@/constants";
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import {
-  apiKeyTable,
   teamInvitationTable,
   userBanEventTable,
   userTable,
@@ -20,6 +19,7 @@ import {
   getTeamBillingRisk,
   type TeamBillingRisk,
 } from "@/lib/admin/team-billing-admin";
+import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
 import { enqueueBillingCancelSubscription } from "@/lib/scheduler/enqueue";
 import type { BanUserSchema, UnbanUserSchema } from "@/schemas/admin-users.schema";
 import { sendBanNoticeEmail, sendUnbanNoticeEmail } from "@/utils/email";
@@ -35,10 +35,8 @@ import { mapInBatches } from "@/utils/map-in-batches";
 // cookie session (`requireAdmin`) and the internal API with a bearer credential
 // (`assertAdminPrincipal`). Never mount one of these on a route without a guard ahead of it.
 
-/** Same bound-parameter ceiling `admin-api-keys.ts` chunks against: SQLite allows 100 per statement. */
-const REVOKE_ID_CHUNK_SIZE = 50;
-
-/** Grant revocation is a KV write per grant; keep the fan-out inside the subrequest budget. */
+// Mirrors the shared `GRANT_REVOKE_BATCH_SIZE` in `@/lib/oauth/connected-apps`, which this file
+// can only reach through `loadConnectedApps()`: a static import of it breaks the OpenAPI generator.
 const GRANT_REVOKE_BATCH_SIZE = 5;
 
 /** Cancelling is a Stripe round trip per team, so owned teams are cancelled a few at a time. */
@@ -75,7 +73,8 @@ interface UserBanImpact {
   /** Banning an admin is refused; the card shows why rather than offering a button that fails. */
   isAdmin: boolean;
   isBanned: boolean;
-  activeApiKeyCount: number;
+  /** Every key row the user holds, which is exactly the set the ban deletes. */
+  apiKeyCount: number;
   connectedAppCount: number;
   pendingInvitationCount: number;
   /** Teams whose subscription the ban cancels, with the billing consequences spelled out. */
@@ -129,7 +128,7 @@ export async function getUserBanImpact({ userId }: { userId: string }): Promise<
   // Independent reads over four stores; none of them guards another.
   const [apiKeys, connectedApps, invitations, teams] = await Promise.all([
     db.query.apiKeyTable.findMany({
-      where: { userId, revokedAt: { isNull: true } },
+      where: { userId },
       columns: { id: true },
     }),
     listConnectedAppsForUser({ userId }),
@@ -151,7 +150,7 @@ export async function getUserBanImpact({ userId }: { userId: string }): Promise<
     email: user.email,
     isAdmin: user.role === ROLES_ENUM.ADMIN,
     isBanned: isBanned(user),
-    activeApiKeyCount: apiKeys.length,
+    apiKeyCount: apiKeys.length,
     connectedAppCount: connectedApps.length,
     pendingInvitationCount: invitations.length,
     ownedTeams,
@@ -269,46 +268,18 @@ export interface BanUserResult extends BanCleanupCounts {
   noticeOutcome: BanNoticeOutcome;
 }
 
-// Revokes every live key of the user, not only the internal ones: a ban takes all of them.
-//
-// The KV snapshots are NOT deleted here. Step 7 of the ban calls `purgeUserPrincipalCaches`,
-// which enumerates this user's key hashes from D1 and deletes every snapshot — doing it here as
-// well would be a second KV fan-out over exactly the same keys. Keep that order, or the snapshots
-// outlive the revocation until the cache TTL lapses.
+// Step 7's `purgeUserPrincipalCaches` finds hashes by reading them back from D1, so it can no
+// longer see a row this deleted; the helper drops those snapshots itself. That purge still runs,
+// and still covers OAuth grants and any key added between the two steps.
 async function revokeAllApiKeysForUser(userId: string): Promise<number> {
-  const db = getDB();
-
-  const keys = await db.query.apiKeyTable.findMany({
-    where: { userId, revokedAt: { isNull: true } },
+  // A ban takes every row the user holds — expired and already-revoked leftovers included, because
+  // a revoked row is a failed delete rather than history. `getUserBanImpact` counts the same set.
+  const keys = await getDB().query.apiKeyTable.findMany({
+    where: { userId },
     columns: { id: true },
   });
 
-  if (keys.length === 0) {
-    return 0;
-  }
-
-  // One timestamp for the whole ban, so chunking cannot make one act look like several events.
-  // Every chunk is attempted even after one throws; a chunk left live is a credential nobody can
-  // reach, and the first failure is rethrown once the rest are done.
-  const revokedAt = new Date();
-  const ids = keys.map((key) => key.id);
-  let failure: unknown;
-
-  for (let start = 0; start < ids.length; start += REVOKE_ID_CHUNK_SIZE) {
-    const chunk = ids.slice(start, start + REVOKE_ID_CHUNK_SIZE);
-
-    try {
-      await db.update(apiKeyTable).set({ revokedAt }).where(inArray(apiKeyTable.id, chunk));
-    } catch (error) {
-      failure ??= error;
-    }
-  }
-
-  if (failure !== undefined) {
-    throw new Error("API key chunk revocation failed during ban", { cause: failure });
-  }
-
-  return ids.length;
+  return deleteApiKeysByIds({ ids: keys.map((key) => key.id) });
 }
 
 async function revokeAllGrantsForUser(userId: string): Promise<number> {

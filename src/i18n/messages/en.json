@@ -17,6 +17,21 @@
       "api-keys:read": "List the API keys on your account and when they were last used.",
       "api-keys:write": "Create and revoke API keys on your account."
     },
+    "ApiScopeSummary": {
+      "fullAccess": "Full access",
+      "readOnlyAccess": "Read-only access to {resources}",
+      "partialAccess": "Access to {resources}",
+      "noAccess": "No access",
+      "scopeCount": "{count, plural, one {# scope} other {# scopes}}",
+      "resources": {
+        "profile": "your profile",
+        "teams": "teams",
+        "members": "members",
+        "invites": "invitations",
+        "billing": "billing",
+        "api-keys": "API keys"
+      }
+    },
     "LocaleSwitcher": {
       "label": "Language",
       "change": "Change language"
@@ -895,7 +910,6 @@
         "verifiedBadge": "Verified",
         "unverifiedBadge": "Unverified",
         "grantedLabel": "Connected {date}",
-        "scopesLabel": "Access granted",
         "revoke": "Revoke access",
         "revoking": "Revoking…",
         "revokeConfirmTitle": "Revoke this app's access?",
@@ -965,6 +979,7 @@
       "clientIdLabel": "Client ID",
       "redirectHostLabel": "Redirect URI hostname",
       "localRedirectWarning": "Local redirect: this app receives the authorization code on this device. Continue only if you trust the application that opened this page.",
+      "grantCapWarning": "{count, plural, one {You have reached the limit of connected apps. Approving disconnects {apps}, the app you connected first.} other {You have reached the limit of connected apps. Approving disconnects {apps}, the apps you connected first.}}",
       "approve": "Approve",
       "deny": "Deny",
       "toastDecisionError": "Could not complete the authorization",

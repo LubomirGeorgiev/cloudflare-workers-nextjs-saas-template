@@ -125,7 +125,12 @@ import {
   userTable,
 } from "@/db/schema";
 import { DEFAULT_PLAN_ID, PAID_PLAN_IDS } from "@/constants/plans";
-import { banUser, listUserBanEvents, unbanUser } from "@/lib/admin/user-ban";
+import {
+  banUser,
+  getUserBanImpact,
+  listUserBanEvents,
+  unbanUser,
+} from "@/lib/admin/user-ban";
 import { EMAIL_TEMPLATE_TYPES, SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 import { getApiKeyPrincipal } from "@/utils/kv-api-key";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
@@ -223,7 +228,15 @@ async function addMember({
 
 // Generated rather than hand-built: `looksLikeApiKey` checks the wire format's checksum offline,
 // so a made-up string is refused before any lookup and would make the "before" assertion vacuous.
-async function seedApiKey(userId: string): Promise<{ secret: string; keyHash: string }> {
+async function seedApiKey({
+  userId,
+  expiresAt,
+  revokedAt,
+}: {
+  userId: string;
+  expiresAt?: Date;
+  revokedAt?: Date;
+}): Promise<{ secret: string; keyHash: string }> {
   const { secret, hash, prefix, last4 } = await generateApiKey();
 
   await db.insert(apiKeyTable).values({
@@ -234,6 +247,8 @@ async function seedApiKey(userId: string): Promise<{ secret: string; keyHash: st
     keyPrefix: prefix,
     last4,
     scopes: ["teams:read"],
+    expiresAt: expiresAt ?? null,
+    revokedAt: revokedAt ?? null,
   });
 
   return { secret, keyHash: hash };
@@ -285,7 +300,7 @@ beforeEach(async () => {
 describe("banning an account", () => {
   test("revokes every API key, deletes every session, and refuses the key afterwards", async () => {
     const userId = await seedUser();
-    const { secret } = await seedApiKey(userId);
+    const { secret } = await seedApiKey({ userId });
     const sessionKey = await seedSession(userId);
 
     // The key resolves before the ban, which is what makes the "after" assertion mean something.
@@ -299,6 +314,23 @@ describe("banning an account", () => {
 
     const keys = await db.query.apiKeyTable.findMany({ where: { userId } });
     expect(keys.every((key) => key.revokedAt !== null)).toBe(true);
+  });
+
+  // One rule for the preview and the ban: every row the user holds. An expired key and a revoked
+  // leftover from a failed delete are both taken, and both are counted.
+  test("deletes and counts an expired key and a revoked leftover too", async () => {
+    const userId = await seedUser();
+    await seedApiKey({ userId });
+    await seedApiKey({ userId, expiresAt: new Date(Date.now() - 60_000) });
+    await seedApiKey({ userId, revokedAt: new Date(Date.now() - 60_000) });
+
+    const impact = await getUserBanImpact({ userId });
+    expect(impact.apiKeyCount).toBe(3);
+
+    const result = await banUser({ userId, ...BAN_INPUT, actorUserId: null });
+
+    expect(result.revokedApiKeyCount).toBe(3);
+    expect(await db.query.apiKeyTable.findMany({ where: { userId } })).toEqual([]);
   });
 
   test("revokes every OAuth grant", async () => {
@@ -447,7 +479,7 @@ describe("banning an account that owns teams", () => {
     stripeState.failNext.add("sub_bad");
     await seedTeam({ ownerId: userId, subscriptionId: "sub_bad" });
     const goodTeamId = await seedTeam({ ownerId: userId, subscriptionId: "sub_good" });
-    await seedApiKey(userId);
+    await seedApiKey({ userId });
 
     const result = await banUser({ userId, ...BAN_INPUT, actorUserId: null });
 
@@ -728,7 +760,7 @@ describe("re-banning, and two bans at once", () => {
     const userId = await seedUser();
     await banUser({ userId, ...BAN_INPUT, actorUserId: null });
 
-    const { secret } = await seedApiKey(userId);
+    const { secret } = await seedApiKey({ userId });
     const result = await banUser({ userId, ...BAN_INPUT, actorUserId: null });
 
     expect(result.alreadyBanned).toBe(true);

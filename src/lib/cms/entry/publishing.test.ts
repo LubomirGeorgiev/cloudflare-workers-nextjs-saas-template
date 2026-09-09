@@ -154,7 +154,7 @@ describe("CMS entry publishing", () => {
     await publishCmsEntryNow({ entryId: DRAFT_ENTRY.id, now: NOW });
 
     expect(insertValuesMock).toHaveBeenCalledTimes(1);
-    expect(insertValuesMock).toHaveBeenCalledWith({
+    expect(insertValuesMock).toHaveBeenCalledWith([{
       entryId: DRAFT_ENTRY.id,
       versionNumber: 5,
       title: DRAFT_ENTRY.title,
@@ -165,25 +165,28 @@ describe("CMS entry publishing", () => {
       status: CMS_ENTRY_STATUS.PUBLISHED,
       featuredImageId: DRAFT_ENTRY.featuredImageId,
       createdBy: DRAFT_ENTRY.createdBy,
-    });
+    }]);
   });
 
+  // One insert, not two: a first save that wrote only the pre-publish row would lose a version.
   test("seeds version 1 with the pre-publish state when the entry has no history", async () => {
     const { insertValuesMock } = mockDatabase({ existingEntry: DRAFT_ENTRY });
 
     await publishCmsEntryNow({ entryId: DRAFT_ENTRY.id, now: NOW });
 
-    expect(insertValuesMock).toHaveBeenCalledTimes(2);
-    expect(insertValuesMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      entryId: DRAFT_ENTRY.id,
-      versionNumber: 1,
-      status: DRAFT_ENTRY.status,
-    }));
-    expect(insertValuesMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      entryId: DRAFT_ENTRY.id,
-      versionNumber: 2,
-      status: CMS_ENTRY_STATUS.PUBLISHED,
-    }));
+    expect(insertValuesMock).toHaveBeenCalledTimes(1);
+    expect(insertValuesMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        entryId: DRAFT_ENTRY.id,
+        versionNumber: 1,
+        status: DRAFT_ENTRY.status,
+      }),
+      expect.objectContaining({
+        entryId: DRAFT_ENTRY.id,
+        versionNumber: 2,
+        status: CMS_ENTRY_STATUS.PUBLISHED,
+      }),
+    ]);
   });
 
   test("writes no version row when the entry is already published", async () => {

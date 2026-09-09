@@ -3,6 +3,12 @@
 import { ActionError } from "@/lib/action-error";
 import { isLiveAdmin } from "@/lib/admin/admin-principal";
 import {
+  GRANT_REVOKE_BATCH_SIZE,
+  listConnectedAppsForUser,
+  revokeConnectedAppForUser,
+  selectGrantCapEvictions,
+} from "@/lib/oauth/connected-apps";
+import {
   buildDenialRedirect,
   ensureOAuthAppRecord,
   persistApprovedOAuthApp,
@@ -13,6 +19,7 @@ import { actionClient } from "@/lib/safe-action";
 import { setOAuthAppVerified } from "@/lib/oauth/oauth-apps";
 import { oauthConsentSchema, oauthVerifyClientSchema } from "@/schemas/oauth.schema";
 import { requireAdmin, requireVerifiedEmail } from "@/utils/auth";
+import { mapInBatches } from "@/utils/map-in-batches";
 import { RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
@@ -41,6 +48,12 @@ export const decideConsentAction = actionClient
 
       await persistApprovedOAuthApp(consent);
 
+      // Listed here rather than trusted from the browser, and again on the page for the warning.
+      const { replaced, evicted } = selectGrantCapEvictions({
+        apps: await listConnectedAppsForUser({ userId: session.userId }),
+        clientId: consent.authRequest.clientId,
+      });
+
       // `scope` is the clamped set re-derived server-side, never the browser's copy. Props stay
       // minimal — the principal is rebuilt per request — and metadata records what was approved,
       // since a client may rename itself later.
@@ -57,6 +70,18 @@ export const decideConsentAction = actionClient
           createdAt: Date.now(),
           clientNameAtConsent: consent.clientName,
         },
+      });
+
+      // Mint first, then clean up: the grant is durable, so no follow-up may fail this response,
+      // and a brief overshoot of the cap drains on the next consent.
+      await mapInBatches({
+        items: [...evicted, ...replaced],
+        batchSize: GRANT_REVOKE_BATCH_SIZE,
+        fn: (app) =>
+          revokeConnectedAppForUser({ grantId: app.grantId, userId: session.userId })
+            .catch((error: unknown) => {
+              console.error(`Failed to revoke OAuth grant ${app.grantId}`, error);
+            }),
       });
 
       return { redirectTo };

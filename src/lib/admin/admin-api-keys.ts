@@ -1,10 +1,7 @@
 import "server-only";
 
-import { inArray } from "drizzle-orm";
-
 import { API_KEY_PREFIX_ADMIN } from "@/constants";
 import { getDB } from "@/db";
-import { apiKeyTable } from "@/db/schema";
 import {
   apiKeyExpiryFromDays,
   issueApiKey,
@@ -12,15 +9,11 @@ import {
   revokeApiKey,
   type ApiKeySummary,
 } from "@/lib/api-keys/api-keys";
+import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
 import { ActionError } from "@/lib/action-error";
 import { isAdminScope } from "@/lib/api/admin-scopes";
 import type { CreateAdminApiKeySchema } from "@/schemas/admin-api-key.schema";
 import { requireAdmin } from "@/utils/auth";
-
-// D1 caps bound parameters at SQLite's 100 per statement, and a key id costs one. Expired rows are
-// never swept and the capacity guard counts only live keys, so a user's internal key count has no
-// ceiling — the revocation below chunks rather than trusting one.
-const REVOKE_ID_CHUNK_SIZE = 50;
 
 // The only door that writes an `admin:*` scope to a credential: it is the one that passes the
 // internal catalog to `issueApiKey`. Every other write path passes the public catalog, so it
@@ -76,23 +69,18 @@ export async function revokeAdminApiKey({ keyId }: { keyId: string }): Promise<v
 /**
  * Revoke every internal key belonging to a user, for the demotion path in `setUserRole`.
  *
- * Revoked, not deleted, which is this codebase's rule for a spent credential: the row stays as
- * history and its hash can never be re-issued. A revoked key is invisible to every listing and
- * refused at the door, so it is gone in every sense that matters to a caller.
+ * Deleted, not stamped: no surface has ever shown a revoked row, so a tombstone would only delay
+ * this. `deleteApiKeysByIds` stamps each chunk revoked before it deletes it, so a chunk D1 refuses
+ * is left dead rather than live, and the retention sweep collects it.
  *
  * Deliberately not built on `revokeApiKey`: that one is owner-authenticated and would refuse keys
  * belonging to the user being demoted, who is not the admin making the call. It also has no
  * caller-facing guard of its own — `setUserRole` is the only entry, and it proves admin first.
- *
- * The KV snapshots are NOT purged here. `setUserRole` calls `updateAllSessionsOfUser` immediately
- * after, which is the one purge site for bearer snapshots; purging here as well would be a second
- * KV fan-out over the same keys. Call it in that order or the snapshots outlive the revocation.
+ * `setUserRole` still calls `updateAllSessionsOfUser` right after for the session side.
  */
 export async function revokeInternalApiKeysForUser(userId: string): Promise<number> {
-  const db = getDB();
-
-  const keys = await db.query.apiKeyTable.findMany({
-    where: { userId, revokedAt: { isNull: true } },
+  const keys = await getDB().query.apiKeyTable.findMany({
+    where: { userId },
     columns: { id: true, scopes: true },
   });
 
@@ -100,29 +88,5 @@ export async function revokeInternalApiKeysForUser(userId: string): Promise<numb
     .filter((key) => key.scopes.some(isAdminScope))
     .map((key) => key.id);
 
-  if (internalKeyIds.length === 0) {
-    return 0;
-  }
-
-  // One timestamp for the whole demotion, so chunking cannot make two keys revoked at once look
-  // like two separate events. Every chunk is attempted even after one throws — a chunk left live is
-  // a credential nobody can reach — and the first failure is rethrown once the rest are done.
-  const revokedAt = new Date();
-  let failure: unknown;
-
-  for (let start = 0; start < internalKeyIds.length; start += REVOKE_ID_CHUNK_SIZE) {
-    const chunk = internalKeyIds.slice(start, start + REVOKE_ID_CHUNK_SIZE);
-
-    try {
-      await db.update(apiKeyTable).set({ revokedAt }).where(inArray(apiKeyTable.id, chunk));
-    } catch (error) {
-      failure ??= error;
-    }
-  }
-
-  if (failure !== undefined) {
-    throw new Error("Internal API key chunk revocation failed", { cause: failure });
-  }
-
-  return internalKeyIds.length;
+  return deleteApiKeysByIds({ ids: internalKeyIds });
 }

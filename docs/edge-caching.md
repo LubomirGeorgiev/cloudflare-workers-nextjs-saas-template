@@ -57,7 +57,13 @@ without a request, names exactly the same key.
 **The stored copy is a rewritten clone.** Its `cache-control` is `EDGE_HTML_CACHE_CONTROL`
 (`public, s-maxage=…`), which the Cache API honors and which overrides the page's own `no-store`;
 its `Set-Cookie` is removed; the visitor's own policy is parked in a private header and put back on
-a hit. So a hit and a miss leave the Worker with the same headers, and
+a hit. The locale cookie is put back too, under next-intl's own `syncCookie` rules: only on a
+document request, and only when the request carries no locale cookie (or an outdated one) and its
+`Accept-Language` does not already negotiate the served locale. A returning visitor therefore gets
+no `Set-Cookie` from a hit, exactly as from a miss. That mirror is pinned to next-intl itself: in
+`tests/integration/worker-edge.test.ts` the miss runs the real `src/proxy.ts`, and the hit must set
+the same locale cookie, so an upgrade that changes the rule fails there. So a hit and a miss leave
+the Worker with the same headers, and
 `tests/e2e/cache-headers.test.ts` still sees an uncacheable page. The header
 `x-edge-html-cache: hit | miss | bypass` is stamped on every HTML response;
 `pnpm metrics:ttfb` prints it beside `cf-cache-status` in its `cache=` field.

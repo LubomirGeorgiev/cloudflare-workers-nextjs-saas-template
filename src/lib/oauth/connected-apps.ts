@@ -1,5 +1,7 @@
 import "server-only";
 
+import { MAX_OAUTH_GRANTS_PER_USER } from "@/constants";
+
 import { getOAuthAppsByClientIds } from "@/lib/oauth/oauth-apps";
 import { getOAuthHelpers } from "@/lib/oauth/provider-api";
 import { requireVerifiedEmail } from "@/utils/auth";
@@ -19,6 +21,10 @@ export interface ConnectedApp {
 // render from turning into an unbounded KV scan.
 const MAX_GRANT_PAGES = 5;
 const GRANT_PAGE_SIZE = 100;
+
+// One revocation is a provider write plus a KV cache delete, so every revoke path shares this width
+// to stay inside the Worker subrequest budget.
+export const GRANT_REVOKE_BATCH_SIZE = 5;
 
 interface GrantConsentMetadata {
   createdAt?: unknown;
@@ -97,4 +103,41 @@ export async function revokeConnectedAppForUser({
 }): Promise<void> {
   await getOAuthHelpers().revokeGrant(grantId, userId);
   await deleteOAuthGrantCache({ grantId });
+}
+
+/** What one new consent costs the account: this client's own grants, and the overflow it evicts. */
+interface GrantCapSelection {
+  replaced: ConnectedApp[];
+  evicted: ConnectedApp[];
+}
+
+/**
+ * Splits the account's grants into the ones this consent replaces and the ones it disconnects.
+ *
+ * Pure and shared, so the warning the consent screen shows and the eviction the approval performs
+ * are the same decision: an off-by-one here would name one app and disconnect another.
+ *
+ * The client's own grants are `replaced`, never overflow: a consent mints one grant and drops the
+ * old one, so those slots free themselves and must never count against the cap.
+ */
+export function selectGrantCapEvictions({
+  apps,
+  clientId,
+}: {
+  apps: ConnectedApp[];
+  clientId: string;
+}): GrantCapSelection {
+  const replaced = apps.filter((app) => app.clientId === clientId);
+  const others = apps
+    .filter((app) => app.clientId !== clientId)
+    .sort((a, b) => (a.grantedAt ?? 0) - (b.grantedAt ?? 0));
+  // One slot has to be free for the grant about to be created, hence the -1.
+  const overflow = others.length - (MAX_OAUTH_GRANTS_PER_USER - 1);
+
+  // Sorted here rather than trusted from the caller, so the oldest goes out whatever order it came
+  // in. `evicted` stays oldest first: the warning lists them in the order they will go.
+  return {
+    replaced,
+    evicted: overflow > 0 ? others.slice(0, overflow) : [],
+  };
 }

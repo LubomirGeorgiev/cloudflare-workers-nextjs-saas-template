@@ -6,12 +6,11 @@ import { useAction } from "next-safe-action/hooks";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { ApiScopeGrid } from "@/components/api-scope-grid";
+import { ApiScopeDisclosure } from "@/components/api-scope-disclosure";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ConnectedApp } from "@/lib/oauth/connected-apps";
 import { formatDate } from "@/utils/format-date";
 import { revokeConnectedAppAction } from "./api-mcp.actions";
@@ -35,7 +34,7 @@ export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
     <div className="space-y-6">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{t("title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
+        <p className="max-w-prose text-sm text-muted-foreground">{t("description")}</p>
       </div>
 
       {apps.length === 0 ? (
@@ -45,49 +44,52 @@ export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
           description={t("emptyDescription")}
         />
       ) : (
-        <div className="space-y-4">
+        // Same ledger as the API key list: a grant is a row, and its scopes fold away by default.
+        <ul className="divide-y rounded-lg border bg-card text-card-foreground">
           {apps.map((app) => (
-            <Card key={app.grantId}>
-              <CardHeader className="pb-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="space-y-2">
-                    <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            <li key={app.grantId} className="space-y-3 p-5 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <h3 className="truncate font-semibold leading-tight">
                       {app.name ?? t("unknownApp")}
-                      <Badge variant={app.isVerified ? "default" : "secondary"} className="gap-1">
-                        {app.isVerified
-                          ? <BadgeCheck className="size-3.5" />
-                          : <ShieldQuestion className="size-3.5" />}
-                        {app.isVerified ? t("verifiedBadge") : t("unverifiedBadge")}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                      {app.grantedAt ? (
-                        <span>{t("grantedLabel", { date: formatDate(new Date(app.grantedAt), locale) })}</span>
-                      ) : null}
-                      <span className="font-mono">{app.clientId}</span>
-                    </CardDescription>
+                    </h3>
+                    <Badge variant={app.isVerified ? "default" : "secondary"} className="gap-1">
+                      {app.isVerified
+                        ? <BadgeCheck className="size-3.5" />
+                        : <ShieldQuestion className="size-3.5" />}
+                      {app.isVerified ? t("verifiedBadge") : t("unverifiedBadge")}
+                    </Badge>
                   </div>
-
-                  <ConfirmDestructiveDialog
-                    trigger={
-                      <Button size="sm" variant="destructive" className="w-full sm:w-auto" />
-                    }
-                    triggerLabel={t("revoke")}
-                    title={t("revokeConfirmTitle")}
-                    description={t("revokeConfirmDescription")}
-                    confirmLabel={t("revoke")}
-                    pendingLabel={t("revoking")}
-                    onConfirm={() => revoke({ grantId: app.grantId })}
-                  />
+                  <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    {app.grantedAt ? (
+                      <span>{t("grantedLabel", { date: formatDate(new Date(app.grantedAt), locale) })}</span>
+                    ) : null}
+                    <span className="font-mono">{app.clientId}</span>
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent className="border-t pt-4">
-                <p className="text-xs font-medium text-muted-foreground">{t("scopesLabel")}</p>
-                <ApiScopeGrid scopes={app.scopes} className="mt-3" />
-              </CardContent>
-            </Card>
+
+                <ConfirmDestructiveDialog
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="-ml-3 shrink-0 self-start text-destructive hover:bg-destructive/10 hover:text-destructive sm:-mr-2 sm:-mt-1 sm:ml-0"
+                    />
+                  }
+                  triggerLabel={t("revoke")}
+                  title={t("revokeConfirmTitle")}
+                  description={t("revokeConfirmDescription")}
+                  confirmLabel={t("revoke")}
+                  pendingLabel={t("revoking")}
+                  onConfirm={() => revoke({ grantId: app.grantId })}
+                />
+              </div>
+
+              <ApiScopeDisclosure scopes={app.scopes} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

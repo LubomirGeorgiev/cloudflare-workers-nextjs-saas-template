@@ -5,6 +5,7 @@ import { and, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { getDB } from "@/db";
 import { oauthAppTable, type OAuthAppRegistrationSource } from "@/db/schema";
 import { isCimdClientId } from "@/lib/oauth/client-identity";
+import { chunk } from "@/utils/chunk";
 
 // D1 caps bound parameters per statement at SQLite's 100, and a client id costs one. Sweep page
 // sizes are tuned against the Worker subrequest budget, so every id list chunks itself instead of
@@ -72,16 +73,6 @@ function toSummary(row: {
   return { ...row, redirectUris: row.redirectUris ?? [] };
 }
 
-function chunkClientIds(clientIds: string[]): string[][] {
-  const chunks: string[][] = [];
-
-  for (let start = 0; start < clientIds.length; start += CLIENT_ID_CHUNK_SIZE) {
-    chunks.push(clientIds.slice(start, start + CLIENT_ID_CHUNK_SIZE));
-  }
-
-  return chunks;
-}
-
 // Sequential D1 writes, and every chunk is attempted even after one throws: the callers below both
 // stamp or correct a whole sweep page, and a chunk left untouched stays at the head of the next
 // page. The first error is rethrown once the rest are done, so the caller still sees the failure.
@@ -97,12 +88,12 @@ async function updateOAuthAppsByClientIds({
   const db = getDB();
   let failure: unknown;
 
-  for (const chunk of chunkClientIds(clientIds)) {
+  for (const batch of chunk({ items: clientIds, size: CLIENT_ID_CHUNK_SIZE })) {
     try {
       await db
         .update(oauthAppTable)
         .set(values)
-        .where(and(inArray(oauthAppTable.clientId, chunk), ...(condition ? [condition] : [])));
+        .where(and(inArray(oauthAppTable.clientId, batch), ...(condition ? [condition] : [])));
     } catch (error) {
       failure ??= error;
     }
@@ -181,10 +172,10 @@ export async function getOAuthAppsByClientIds(
   const db = getDB();
   const apps = new Map<string, OAuthAppSummary>();
 
-  for (const chunk of chunkClientIds(clientIds)) {
+  for (const batch of chunk({ items: clientIds, size: CLIENT_ID_CHUNK_SIZE })) {
     const rows = await db.query.oauthAppTable.findMany({
       columns: SUMMARY_COLUMNS,
-      where: { clientId: { in: chunk } },
+      where: { clientId: { in: batch } },
     });
 
     for (const row of rows) {
@@ -303,11 +294,11 @@ async function deleteUnverifiedOAuthApps({
   const db = getDB();
   let deletedCount = 0;
 
-  for (const chunk of chunkClientIds(clientIds)) {
+  for (const batch of chunk({ items: clientIds, size: CLIENT_ID_CHUNK_SIZE })) {
     const deleted = await db
       .delete(oauthAppTable)
       .where(and(
-        inArray(oauthAppTable.clientId, chunk),
+        inArray(oauthAppTable.clientId, batch),
         eq(oauthAppTable.registrationSource, registrationSource),
         isNull(oauthAppTable.verifiedAt),
         ...(inactiveBefore ? [lt(oauthAppTable.updatedAt, inactiveBefore)] : []),

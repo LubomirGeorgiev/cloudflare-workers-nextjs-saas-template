@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "./config";
+import {
+  DEFAULT_LOCALE,
+  ENABLED_LOCALES,
+  LOCALE_COOKIE_MAX_AGE,
+  LOCALE_COOKIE_NAME,
+} from "./config";
 import { routing } from "./routing";
 
 // The as-needed prefix contract is SEO-critical: default locale served at the bare path, others prefixed.
@@ -21,9 +26,11 @@ describe("routing configuration", () => {
     expect(routing.defaultLocale).toBe(DEFAULT_LOCALE);
   });
 
-  test("uses the shared locale cookie name", () => {
+  // The proxy is one of three writers of this cookie; `buildLocaleCookieValue` is the other two.
+  test("uses the shared locale cookie name and lifetime", () => {
     expect(routing.localeCookie).toMatchObject({
       name: LOCALE_COOKIE_NAME,
+      maxAge: LOCALE_COOKIE_MAX_AGE,
     });
   });
 });

@@ -1,3 +1,5 @@
+import { chunk } from "@/utils/chunk";
+
 /**
  * Runs `fn` over every item, at most `batchSize` at a time, and returns the results in order.
  *
@@ -14,11 +16,11 @@ export async function mapInBatches<T, R>({
   fn: (item: T, index: number) => Promise<R>;
 }): Promise<R[]> {
   const results: R[] = [];
+  let index = 0;
 
-  for (let start = 0; start < items.length; start += batchSize) {
-    const batch = items.slice(start, start + batchSize);
-
-    results.push(...await Promise.all(batch.map((item, offset) => fn(item, start + offset))));
+  for (const batch of chunk({ items, size: batchSize })) {
+    results.push(...await Promise.all(batch.map((item, offset) => fn(item, index + offset))));
+    index += batch.length;
   }
 
   return results;

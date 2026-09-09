@@ -73,7 +73,7 @@ function BanImpactSummary({ impact }: { impact: Awaited<ReturnType<typeof getUse
       </p>
 
       <p>
-        {impact.activeApiKeyCount} API {impact.activeApiKeyCount === 1 ? "key" : "keys"} and{" "}
+        {impact.apiKeyCount} API {impact.apiKeyCount === 1 ? "key" : "keys"} and{" "}
         {impact.connectedAppCount} connected{" "}
         {impact.connectedAppCount === 1 ? "application" : "applications"} will be revoked.{" "}
         {impact.pendingInvitationCount > 0

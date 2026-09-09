@@ -17,6 +17,21 @@
       "api-keys:read": "Ver las claves de API de tu cuenta y cuándo se usaron por última vez.",
       "api-keys:write": "Crear y revocar claves de API en tu cuenta."
     },
+    "ApiScopeSummary": {
+      "fullAccess": "Acceso completo",
+      "readOnlyAccess": "Acceso de solo lectura a {resources}",
+      "partialAccess": "Acceso a {resources}",
+      "noAccess": "Sin acceso",
+      "scopeCount": "{count, plural, one {# permiso} other {# permisos}}",
+      "resources": {
+        "profile": "tu perfil",
+        "teams": "equipos",
+        "members": "miembros",
+        "invites": "invitaciones",
+        "billing": "facturación",
+        "api-keys": "claves de API"
+      }
+    },
     "LocaleSwitcher": {
       "label": "Idioma",
       "change": "Cambiar idioma"
@@ -895,7 +910,6 @@
         "verifiedBadge": "Verificada",
         "unverifiedBadge": "Sin verificar",
         "grantedLabel": "Conectada el {date}",
-        "scopesLabel": "Acceso concedido",
         "revoke": "Revocar acceso",
         "revoking": "Revocando…",
         "revokeConfirmTitle": "¿Revocar el acceso de esta app?",
@@ -965,6 +979,7 @@
       "clientIdLabel": "ID de cliente",
       "redirectHostLabel": "Host de la URI de redirección",
       "localRedirectWarning": "Redirección local: esta aplicación recibe el código de autorización en este dispositivo. Continúa solo si confías en la aplicación que abrió esta página.",
+      "grantCapWarning": "{count, plural, one {Has alcanzado el límite de aplicaciones conectadas. Aprobar desconecta {apps}, la aplicación que conectaste primero.} other {Has alcanzado el límite de aplicaciones conectadas. Aprobar desconecta {apps}, las aplicaciones que conectaste primero.}}",
       "approve": "Aprobar",
       "deny": "Denegar",
       "toastDecisionError": "No se pudo completar la autorización",

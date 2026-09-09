@@ -103,7 +103,7 @@ test("demoting an admin revokes the internal keys they can no longer reach", asy
 });
 
 // The demoted user's own listings must not be the thing that hides the key: it has to be gone.
-test("a revoked internal key is absent from every listing after demotion", async () => {
+test("demotion deletes the internal key outright", async () => {
   const userId = await seedAdmin();
   authState.current = sessionFor(userId);
 
@@ -113,11 +113,48 @@ test("a revoked internal key is absent from every listing after demotion", async
   expect(await listAdminApiKeys()).toEqual([]);
   expect(await listUserApiKeys()).toEqual([]);
 
-  const rows = await db.query.apiKeyTable.findMany({ where: { userId }, columns: { revokedAt: true } });
+  // Deleted, not stamped: no listing ever showed a revoked row, so the tombstone bought nothing.
+  const rows = await db.query.apiKeyTable.findMany({ where: { userId }, columns: { id: true } });
 
-  // Revoked, not deleted: the row stays as history so its hash can never be re-issued.
-  expect(rows).toHaveLength(1);
-  expect(rows[0]?.revokedAt).toBeInstanceOf(Date);
+  expect(rows).toEqual([]);
+});
+
+// One rule: the demotion takes every internal row, so a key nobody could use any more is not left
+// behind for the retention sweep to find.
+test("demotion deletes an expired internal key and a revoked leftover too", async () => {
+  const userId = await seedAdmin();
+  authState.current = sessionFor(userId);
+
+  await db.insert(apiKeyTable).values([
+    {
+      id: uid("akey"),
+      userId,
+      teamId: null,
+      name: "Expired ops agent",
+      keyHash: uid("hash"),
+      keyPrefix: "sk_admin",
+      last4: "abcd",
+      scopes: [INTERNAL_SCOPE],
+      expiresAt: new Date(Date.now() - 60_000),
+    },
+    {
+      id: uid("akey"),
+      userId,
+      teamId: null,
+      name: "Revoked ops agent",
+      keyHash: uid("hash"),
+      keyPrefix: "sk_admin",
+      last4: "efgh",
+      scopes: [INTERNAL_SCOPE],
+      revokedAt: new Date(Date.now() - 60_000),
+    },
+  ]);
+
+  await setUserRole({ userId, role: ROLES_ENUM.USER });
+
+  const rows = await db.query.apiKeyTable.findMany({ where: { userId }, columns: { id: true } });
+
+  expect(rows).toEqual([]);
 });
 
 test("a public key on the same account survives the demotion", async () => {

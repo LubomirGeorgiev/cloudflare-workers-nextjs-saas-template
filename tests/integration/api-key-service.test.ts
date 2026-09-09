@@ -10,7 +10,12 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 
-const { authState } = vi.hoisted(() => ({ authState: { current: null as unknown } }));
+const { authState, d1Failure } = vi.hoisted(() => ({
+  authState: { current: null as unknown },
+  // How many DELETEs must reject before the real ones run again, so a test can prove what the
+  // bulk delete leaves behind when D1 refuses a chunk.
+  d1Failure: { deletesToFail: 0 },
+}));
 
 vi.mock("@/utils/auth", async (importOriginal) => {
   const { ActionError } = await import("@/lib/action-error");
@@ -34,17 +39,62 @@ vi.mock("@/utils/auth", async (importOriginal) => {
   };
 });
 
+// Real D1 unless a test asks for a delete to fail. Forcing that failure is the only way to prove
+// what a refused chunk leaves behind, which is what the retention sweep depends on to find it.
+vi.mock("@/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/db")>();
+
+  return {
+    ...actual,
+    getDB: () => {
+      const real = actual.getDB();
+
+      if (d1Failure.deletesToFail === 0) {
+        return real;
+      }
+
+      return new Proxy(real, {
+        get(target, property) {
+          if (property === "delete" && d1Failure.deletesToFail > 0) {
+            d1Failure.deletesToFail -= 1;
+
+            return () => ({
+              where: () => ({ returning: () => Promise.reject(new Error("D1 unavailable")) }),
+            });
+          }
+
+          const value = Reflect.get(target, property) as unknown;
+
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    },
+  };
+});
+
+// The ban preview reaches the OAuth provider for its grant count, which has its own suite.
+vi.mock("@/lib/oauth/connected-apps", () => ({
+  listConnectedAppsForUser: async () => [],
+  revokeConnectedAppForUser: async () => undefined,
+}));
+
+import { and, inArray } from "drizzle-orm";
+
 import { MAX_API_KEYS_PER_TEAM, MAX_API_KEYS_PER_USER } from "@/constants";
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import { apiKeyTable, teamMembershipTable, teamTable, userTable } from "@/db/schema";
+import { getUserBanImpact } from "@/lib/admin/user-ban";
 import {
   createApiKey,
+  getApiKeyTeamSlug,
   listTeamApiKeys,
   listUserApiKeys,
   revokeApiKey,
   updateApiKeyScopes,
 } from "@/lib/api-keys/api-keys";
+import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
+import { isDeadApiKey } from "@/lib/api-keys/liveness";
 import { runWithPrincipal, type ApiKeyPrincipal } from "@/lib/api/principal";
 import {
   API_SCOPE_NAMES,
@@ -145,6 +195,7 @@ async function seedTeam() {
 
 beforeEach(() => {
   authState.current = null;
+  d1Failure.deletesToFail = 0;
 });
 
 test("a created key returns a usable secret once and stores only its hash", async () => {
@@ -270,21 +321,44 @@ test("another user's key can neither be revoked nor listed", async () => {
   expect(stored?.revokedAt).toBeNull();
 });
 
-test("revocation stamps the row, hides it from listings, and is idempotent", async () => {
+// A manual revoke deletes the row rather than stamping it. Nothing ever read a revoked row — every
+// listing filters it and `unbanUser` never restores one — so the tombstone only delayed the
+// delete. Deleting also costs the old idempotence: with the row gone, a second revoke cannot tell
+// "already revoked" from "never existed", and answers the same 404 both mean.
+test("revocation deletes the row outright and a repeat revoke is a 404", async () => {
   const userId = await seedUser();
   authState.current = sessionFor(userId);
 
   const created = await createApiKey({ name: "CI", scopes: [SCOPE] });
-  await revokeApiKey({ keyId: created.key.id });
-
-  const revoked = await db.query.apiKeyTable.findFirst({ where: { id: created.key.id } });
-  expect(revoked?.revokedAt).toBeInstanceOf(Date);
-  expect(await listUserApiKeys()).toEqual([]);
 
   await expect(revokeApiKey({ keyId: created.key.id })).resolves.toEqual({ success: true });
 
-  const stillRevoked = await db.query.apiKeyTable.findFirst({ where: { id: created.key.id } });
-  expect(stillRevoked?.revokedAt?.getTime()).toBe(revoked?.revokedAt?.getTime());
+  expect(await db.query.apiKeyTable.findFirst({ where: { id: created.key.id } })).toBeUndefined();
+  expect(await listUserApiKeys()).toEqual([]);
+
+  await expect(revokeApiKey({ keyId: created.key.id })).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+});
+
+// The revoke action reads the revalidation target before it revokes, because the delete leaves no
+// row to read it from. This proves both halves of that order.
+test("the revalidation target is readable before a team key is revoked and gone after", async () => {
+  if (!TEAM_SCOPE) {
+    return;
+  }
+
+  const { teamId, ownerId } = await seedTeam();
+  authState.current = sessionFor(ownerId);
+
+  const created = await createApiKey({ teamId, name: "team CI", scopes: [TEAM_SCOPE] });
+  const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
+
+  await expect(getApiKeyTeamSlug({ keyId: created.key.id })).resolves.toBe(team?.slug);
+
+  await revokeApiKey({ keyId: created.key.id });
+
+  await expect(getApiKeyTeamSlug({ keyId: created.key.id })).resolves.toBeNull();
 });
 
 // Creation policy is the service's, not the transport's: an unauthenticated or unverified caller
@@ -569,4 +643,50 @@ test("the key hash is unique across the table", async () => {
       scopes: [SCOPE],
     }),
   ).rejects.toThrow();
+});
+
+// The bulk delete behind an owner revoke, a ban, a role demotion, and the retention sweep. It
+// stamps each chunk revoked before it deletes it, so a chunk D1 refuses is left dead: the sweep
+// collects only revoked or expired rows, and a live row nothing lists would sit there forever.
+test("a delete the database refuses leaves the keys dead, not live", async () => {
+  const userId = await seedUser();
+  authState.current = sessionFor(userId);
+
+  const first = await createApiKey({ name: "one", scopes: [SCOPE] });
+  const second = await createApiKey({ name: "two", scopes: [SCOPE] });
+  const keyIds = [first.key.id, second.key.id];
+
+  d1Failure.deletesToFail = 1;
+
+  await expect(deleteApiKeysByIds({ ids: keyIds })).rejects.toThrow();
+
+  const dead = await db
+    .select({ id: apiKeyTable.id })
+    .from(apiKeyTable)
+    .where(and(inArray(apiKeyTable.id, keyIds), isDeadApiKey({ now: new Date() })));
+
+  expect(dead.map((row) => row.id).sort()).toEqual([...keyIds].sort());
+});
+
+// The preview counts the same set the ban deletes: every row the user holds. An expired key and a
+// revoked leftover are both rows a ban takes, so staff must be told about them.
+test("the ban preview counts every key row, expired and revoked leftovers included", async () => {
+  const userId = await seedUser();
+  authState.current = sessionFor(userId);
+
+  await createApiKey({ name: "live", scopes: [SCOPE] });
+  await createApiKey({
+    name: "expired",
+    scopes: [SCOPE],
+    expiresAt: new Date(Date.now() - 60_000),
+  });
+  const leftover = await createApiKey({ name: "leftover", scopes: [SCOPE] });
+  await db
+    .update(apiKeyTable)
+    .set({ revokedAt: new Date() })
+    .where(inArray(apiKeyTable.id, [leftover.key.id]));
+
+  const impact = await getUserBanImpact({ userId });
+
+  expect(impact.apiKeyCount).toBe(3);
 });

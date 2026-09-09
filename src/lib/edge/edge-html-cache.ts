@@ -8,6 +8,7 @@ import {
 } from "@/constants";
 import { EDGE_HTML_CACHE_CONTROL } from "@/constants/cache-control";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
+import { resolveLocaleAsProxyWould } from "@/i18n/accept-language";
 import {
   ENABLED_LOCALES,
   LOCALE_COOKIE_NAME,
@@ -66,6 +67,8 @@ interface EdgeHtmlCacheEntry {
   /** Synthetic key URL of this page in this locale. */
   key: string;
   locale: Locale;
+  /** The `Set-Cookie` a hit adds back, or `null` when `src/proxy.ts` would not have written one. */
+  localeCookie: string | null;
   /** The path this page is served at, locale prefix included. Builds the purge tag. */
   servedPathname: string;
   /** A HEAD answer carries no body, so only a GET may write the copy back. */
@@ -186,6 +189,31 @@ function resolvesToLocale({
   return !acceptLanguageNamesAnotherLocale({ headers, locale });
 }
 
+// Mirrors next-intl's `syncCookie`, which a hit never reaches: only a document request gets the
+// cookie, and only when it carries none or carries another locale. A request with no usable
+// `Accept-Language` negotiates nothing, so it gets the cookie too — the proxy does the same.
+function proxyWouldSetLocaleCookie({
+  headers,
+  locale,
+}: {
+  headers: Headers;
+  locale: Locale;
+}): boolean {
+  const secFetchDest = headers.get("sec-fetch-dest");
+
+  if (secFetchDest !== null && secFetchDest !== "document") {
+    return false;
+  }
+
+  const cookieLocale = readCookie({ headers, name: LOCALE_COOKIE_NAME });
+
+  if (cookieLocale !== null) {
+    return cookieLocale !== locale;
+  }
+
+  return resolveLocaleAsProxyWould(headers.get("accept-language")) !== locale;
+}
+
 /**
  * The stored copy this request may read and write, or `null` when it must reach the app.
  *
@@ -234,6 +262,9 @@ export function resolveEdgeHtmlCacheEntry({
   return {
     key: buildEdgeHtmlCacheKey(url.pathname),
     locale,
+    localeCookie: proxyWouldSetLocaleCookie({ headers, locale })
+      ? buildLocaleCookieValue(locale)
+      : null,
     servedPathname: url.pathname,
     storable: method === "GET",
   };
@@ -241,12 +272,12 @@ export function resolveEdgeHtmlCacheEntry({
 
 // Undoes what `storeEdgeHtmlPage` changed, so a hit is indistinguishable from a miss apart from the
 // debug header the entry stamps. The locale cookie is re-added here because a hit never reaches
-// `src/proxy.ts`, which is what sets it on a miss.
+// `src/proxy.ts`, which is what sets it on a miss — and only when the proxy would have.
 function restoreVisitorHeaders({
-  locale,
+  localeCookie,
   stored,
 }: {
-  locale: Locale;
+  localeCookie: string | null;
   stored: Response;
 }): Headers {
   const headers = new Headers(stored.headers);
@@ -262,7 +293,9 @@ function restoreVisitorHeaders({
     headers.delete("cache-control");
   }
 
-  headers.append("set-cookie", buildLocaleCookieValue(locale));
+  if (localeCookie) {
+    headers.append("set-cookie", localeCookie);
+  }
 
   return headers;
 }
@@ -287,7 +320,7 @@ export async function readEdgeHtmlPage({
     return null;
   }
 
-  const headers = restoreVisitorHeaders({ locale: entry.locale, stored });
+  const headers = restoreVisitorHeaders({ localeCookie: entry.localeCookie, stored });
 
   if (method === "HEAD") {
     void stored.body?.cancel();

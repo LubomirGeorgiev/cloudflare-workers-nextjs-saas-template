@@ -75,6 +75,9 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/i18n/request.ts",
       "src/constants.ts",
       "src/constants/oauth.ts",
+      // The `Accept-Language` matcher `locale.ts` always carried, in its own leaf so the edge HTML
+      // cache can mirror next-intl's cookie sync without pulling `next/headers` into a hit.
+      "src/i18n/accept-language.ts",
       "src/i18n/config.ts",
       "src/i18n/load-messages.ts",
       "src/i18n/locale.ts",

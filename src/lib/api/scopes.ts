@@ -73,6 +73,33 @@ export function describeApiScope(scope: ApiScope): string {
   return API_SCOPES[scope].description;
 }
 
+const SCOPE_SEPARATOR = ":";
+
+/** The `resource` of `resource:action`; a scope without a separator is its own resource. */
+export function apiScopeResource(scope: string): string {
+  const separator = scope.lastIndexOf(SCOPE_SEPARATOR);
+
+  return separator === -1 ? scope : scope.slice(0, separator);
+}
+
+/** The `action` of `resource:action`; a scope without a separator is its own action. */
+export function apiScopeAction(scope: string): string {
+  const separator = scope.lastIndexOf(SCOPE_SEPARATOR);
+
+  return separator === -1 ? scope : scope.slice(separator + 1);
+}
+
+/**
+ * Catalog order, so one set of scopes always reads the same way on every credential. A name the
+ * catalog does not know sorts last, alphabetically, rather than being dropped.
+ */
+export function compareByCatalogOrder(a: string, b: string): number {
+  const indexA = isApiScope(a) ? API_SCOPE_NAMES.indexOf(a) : API_SCOPE_NAMES.length;
+  const indexB = isApiScope(b) ? API_SCOPE_NAMES.indexOf(b) : API_SCOPE_NAMES.length;
+
+  return indexA === indexB ? a.localeCompare(b) : indexA - indexB;
+}
+
 /**
  * A scope no team-scoped credential can ever exercise, because only account operations open it.
  *

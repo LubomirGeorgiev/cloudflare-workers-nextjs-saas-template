@@ -3,6 +3,7 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { setPagesClientAssets } from "vinext/server/pages-client-assets";
 
 import {
@@ -50,6 +51,7 @@ import {
   __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
 } from "@/utils/trusted-client-ip";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
+import proxy from "@/proxy";
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
 
@@ -676,6 +678,15 @@ describe("edge HTML page cache", () => {
   // The alternate served locale, so a single-locale fork skips the cases that need two.
   const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
+  // Every request shape next-intl's `syncCookie` decides differently. The first carries no locale
+  // signal, which is the one shape that gets the cookie, so the negative block below drops it.
+  const LOCALE_COOKIE_CASES: ReadonlyArray<[string, Record<string, string>]> = [
+    ["carries no locale signal", {}],
+    ["already carries the cookie", { cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` }],
+    ["negotiates the served locale from Accept-Language", { "accept-language": DEFAULT_LOCALE }],
+    ["is not a document request", { "sec-fetch-dest": "empty" }],
+  ];
+
   function htmlPageResponse({
     body = PAGE_BODY,
     contentType = `${HTML_CONTENT_TYPE}; charset=utf-8`,
@@ -689,6 +700,26 @@ describe("edge HTML page cache", () => {
         "set-cookie": `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}; Path=/`,
       },
     });
+  }
+
+  // The same page, but with the `Set-Cookie` the real next-intl middleware writes for this request.
+  async function proxiedHtmlPageResponse(request: Request): Promise<Response> {
+    const proxied = proxy(new NextRequest(request));
+    const headers = new Headers({
+      "cache-control": PAGE_CACHE_CONTROL,
+      "content-type": `${HTML_CONTENT_TYPE}; charset=utf-8`,
+    });
+
+    for (const cookie of proxied.headers.getSetCookie()) {
+      headers.append("set-cookie", cookie);
+    }
+
+    return new Response(PAGE_BODY, { headers });
+  }
+
+  /** The `name=value` pair of each cookie; `src/i18n/routing.test.ts` pins the attributes. */
+  function cookiePairs(response: Response): string[] {
+    return response.headers.getSetCookie().map((cookie) => cookie.split(";")[0].trim());
   }
 
   // The put settles through `waitUntil`, so every request the next assertion depends on is drained.
@@ -743,13 +774,44 @@ describe("edge HTML page cache", () => {
     expect(hit.headers.get("cache-control")).toBe(PAGE_CACHE_CONTROL);
   });
 
-  // A hit never runs `src/proxy.ts`, which is what sets the locale cookie on a miss.
-  test("a hit still sets the locale cookie", async () => {
+  // A hit never runs `src/proxy.ts`, which is what sets the locale cookie on a miss. next-intl
+  // writes it only when the request carries none and negotiates nothing else, so a hit does too.
+  test("a hit sets the locale cookie for a visitor without one", async () => {
     await fetchPage(PAGE_PATH);
     const hit = await fetchPage(PAGE_PATH);
 
+    expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
     expect(hit.headers.getSetCookie().join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
   });
+
+  test.each(LOCALE_COOKIE_CASES.filter(([, headers]) => Object.keys(headers).length > 0))(
+    "a hit sets no locale cookie when the request %s",
+    async (_label, headers) => {
+      await fetchPage(PAGE_PATH);
+      const hit = await fetchPage(PAGE_PATH, { headers: { ...PAGE_HEADERS, ...headers } });
+
+      expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+      expect(hit.headers.getSetCookie()).toEqual([]);
+    },
+  );
+
+  // The two tests above pin our own mirror of next-intl's `syncCookie`. This one pins the mirror to
+  // next-intl: the miss runs the real `src/proxy.ts`, so an upgrade that changes the rule fails
+  // here instead of leaving a hit that writes a cookie the miss would not.
+  test.each(LOCALE_COOKIE_CASES)(
+    "a hit repeats the locale cookie next-intl writes on a miss when the request %s",
+    async (_label, headers) => {
+      innerFetchMock.mockImplementation(proxiedHtmlPageResponse);
+
+      const requestInit = { headers: { ...PAGE_HEADERS, ...headers } };
+      const miss = await fetchPage(PAGE_PATH, requestInit);
+      const hit = await fetchPage(PAGE_PATH, requestInit);
+
+      expect(edgeCacheStatus(miss)).toBe(EDGE_HTML_CACHE_STATUS.MISS);
+      expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+      expect(cookiePairs(hit)).toEqual(cookiePairs(miss));
+    },
+  );
 
   test("never stores or serves a page for a signed-in visitor", async () => {
     await fetchPage(PAGE_PATH, {

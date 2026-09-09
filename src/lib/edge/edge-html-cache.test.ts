@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "@/i18n/config";
+import { buildLocaleCookieValue } from "@/i18n/locale-cookie";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
 import { localizedPathname } from "@/utils/i18n-urls";
 
@@ -94,6 +95,48 @@ describe("resolveEdgeHtmlCacheEntry", () => {
     },
   );
 
+  // A hit never reaches `src/proxy.ts`, so the entry carries the cookie the proxy would have set.
+  // These pin next-intl's `syncCookie` rules, not a rule of our own.
+  describe("the locale cookie a hit sets", () => {
+    const DEFAULT_COOKIE = buildLocaleCookieValue(DEFAULT_LOCALE);
+
+    test("is set when the request carries no cookie and no Accept-Language", () => {
+      expect(resolve()?.localeCookie).toBe(DEFAULT_COOKIE);
+    });
+
+    test("is set when Accept-Language names no served locale", () => {
+      expect(resolve({ headers: { "accept-language": "*" } })?.localeCookie).toBe(DEFAULT_COOKIE);
+    });
+
+    test("is not set again when the request already carries it", () => {
+      expect(resolve({
+        headers: { cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` },
+      })?.localeCookie).toBeNull();
+    });
+
+    test("is not set when Accept-Language already negotiates the served locale", () => {
+      expect(resolve({
+        headers: { "accept-language": `${DEFAULT_LOCALE}-XX,${DEFAULT_LOCALE};q=0.9` },
+      })?.localeCookie).toBeNull();
+    });
+
+    test("is not set on a non-document request", () => {
+      expect(resolve({ headers: { "sec-fetch-dest": "empty" } })?.localeCookie).toBeNull();
+    });
+
+    test.runIf(ALTERNATE_LOCALE !== undefined)(
+      "is set on a prefixed page when Accept-Language negotiates another locale",
+      () => {
+        const prefixed = localizedPathname({ pathname: BLOG_BASE_PATH, locale: ALTERNATE_LOCALE! });
+
+        expect(resolve({
+          headers: { "accept-language": DEFAULT_LOCALE },
+          pathname: prefixed,
+        })?.localeCookie).toBe(buildLocaleCookieValue(ALTERNATE_LOCALE!));
+      },
+    );
+  });
+
   // With detection off next-intl negotiates nothing, so the signals below decide nothing either and
   // the visitor they used to send to the app can read the stored copy.
   describe("with locale detection off", () => {
@@ -117,6 +160,13 @@ describe("resolveEdgeHtmlCacheEntry", () => {
       expect(resolve({
         headers: { cookie: `${AUTH_SESSION_PRESENT_COOKIE_NAME}=1` },
       })).toBeNull();
+    });
+
+    // The proxy still syncs an outdated cookie with detection off; so must a hit.
+    test("rewrites a locale cookie the served set no longer holds", () => {
+      expect(resolve({
+        headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
+      })?.localeCookie).toBe(buildLocaleCookieValue(DEFAULT_LOCALE));
     });
   });
 });

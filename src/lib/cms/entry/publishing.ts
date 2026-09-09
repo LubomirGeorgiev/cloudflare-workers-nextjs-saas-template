@@ -5,13 +5,14 @@ import { eq } from "drizzle-orm";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
-import { cmsEntryTable, cmsEntryVersionTable, type CmsEntry } from "@/db/schema";
+import { cmsEntryTable, type CmsEntry } from "@/db/schema";
 import {
   getKnownCmsCollectionSlug,
   invalidateEntryAndCollection,
 } from "@/lib/cms/cms-cache-invalidation";
 import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
+import { recordCmsEntryVersion } from "@/lib/cms/entry/version-history";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 import { deleteScheduledJobs, scheduleJob } from "@/lib/scheduler/scheduler";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
@@ -21,12 +22,6 @@ import { getCloudflareContext } from "@/utils/cloudflare-context";
  * the effects a row going live must have. Kept out of `mutations.ts` because reaching that module
  * drags the editor extension tree into the Worker API bundle and the OpenAPI generator's graph.
  */
-
-/** The columns `cms_entry_version` stores. Callers resolve every value before they snapshot. */
-type CmsEntryVersionSnapshot = Pick<
-  CmsEntry,
-  "title" | "content" | "fields" | "slug" | "seoDescription" | "status" | "featuredImageId"
->;
 
 function getCmsPublishJobDedupeKey(entryId: string): string {
   return `cms-entry:${entryId}`;
@@ -56,54 +51,6 @@ export async function syncCmsPublishSchedule(
     dedupeKey: getCmsPublishJobDedupeKey(entry.id),
     payload: { entryId: entry.id },
     runAt: entry.publishedAt,
-  });
-}
-
-/**
- * Appends one `cms_entry_version` row for a change already written to `cms_entry`. Every writer
- * comes through here, so history reads the same whether the editor or the admin API made the change.
- */
-export async function recordCmsEntryVersion({
-  existingEntry,
-  snapshot,
-}: {
-  existingEntry: CmsEntry;
-  snapshot: CmsEntryVersionSnapshot;
-}): Promise<void> {
-  const db = getDB();
-
-  const latestVersion = await db.query.cmsEntryVersionTable.findFirst({
-    where: { entryId: existingEntry.id },
-    orderBy: { versionNumber: "desc" },
-  });
-
-  // Version 1 snapshots the pre-change state because entry creation skips duplicate history.
-  if (!latestVersion) {
-    await db.insert(cmsEntryVersionTable).values({
-      entryId: existingEntry.id,
-      versionNumber: 1,
-      title: existingEntry.title,
-      content: existingEntry.content as JSONContent,
-      fields: existingEntry.fields,
-      slug: existingEntry.slug,
-      seoDescription: existingEntry.seoDescription,
-      status: existingEntry.status,
-      featuredImageId: existingEntry.featuredImageId,
-      createdBy: existingEntry.createdBy,
-    });
-  }
-
-  await db.insert(cmsEntryVersionTable).values({
-    entryId: existingEntry.id,
-    versionNumber: (latestVersion?.versionNumber ?? 1) + 1,
-    title: snapshot.title,
-    content: snapshot.content,
-    fields: snapshot.fields,
-    slug: snapshot.slug,
-    seoDescription: snapshot.seoDescription,
-    status: snapshot.status,
-    featuredImageId: snapshot.featuredImageId,
-    createdBy: existingEntry.createdBy, // Schema tracks the original author for version rows.
   });
 }
 

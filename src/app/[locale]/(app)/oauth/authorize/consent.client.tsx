@@ -20,6 +20,8 @@ import { decideConsentAction } from "./authorize.actions";
 
 interface ConsentClientProps {
   authQuery: string;
+  /** Apps this approval will disconnect to stay inside the grant cap; empty when there is room. */
+  evictedAppNames: string[];
   clientName: string | null;
   logoUri: string | null;
   isVerified: boolean;
@@ -65,6 +67,7 @@ function useScopeDescriber(adminScopeDescriptions: Record<string, string>) {
 
 export function ConsentClient({
   authQuery,
+  evictedAppNames,
   clientName,
   logoUri,
   isVerified,
@@ -150,6 +153,8 @@ export function ConsentClient({
           describe={describeScope}
         />
 
+        <GrantCapWarning appNames={evictedAppNames} />
+
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <Button
             className="sm:flex-1"
@@ -170,6 +175,30 @@ export function ConsentClient({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * The account is full, so approving disconnects the app the user connected first. Nothing on a
+ * grant records last use, so the consent timestamp is the only order there is.
+ *
+ * Shown before the decision and naming the app, because the alternative — reporting it afterwards —
+ * takes the choice away: a user who would rather keep the old connection can still deny here.
+ */
+function GrantCapWarning({ appNames }: { appNames: string[] }) {
+  const t = useTranslations("Client.OAuth");
+
+  if (appNames.length === 0) {
+    return null;
+  }
+
+  return (
+    <Alert variant="warning">
+      <AlertTriangle className="size-4" />
+      <AlertDescription>
+        {t("grantCapWarning", { count: appNames.length, apps: appNames.join(", ") })}
+      </AlertDescription>
+    </Alert>
   );
 }
 

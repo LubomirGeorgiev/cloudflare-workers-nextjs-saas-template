@@ -2,6 +2,7 @@ import "server-only";
 
 import { isAdminScope } from "@/lib/api/admin-scopes";
 import {
+  GRANT_REVOKE_BATCH_SIZE,
   listConnectedApps,
   listConnectedAppsForUser,
   revokeConnectedAppForUser,
@@ -9,10 +10,6 @@ import {
 } from "@/lib/oauth/connected-apps";
 import { requireAdmin, requireVerifiedEmail } from "@/utils/auth";
 import { mapInBatches } from "@/utils/map-in-batches";
-
-// Each revocation is a provider write plus a KV cache delete, so the fan-out has to stay inside the
-// Worker subrequest budget. Small on purpose: a user holds a handful of internal grants, not a page.
-const GRANT_REVOKE_BATCH_SIZE = 5;
 
 // The other half of "who can reach the internal surface": an agent client signed in through the
 // consent screen. Deliberately its own module rather than living beside the key helpers — reaching

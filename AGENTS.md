@@ -91,6 +91,18 @@ This repo is a template: tests must keep passing in downstream projects that cus
 
 Homes: constants → `src/constants.ts` or `src/app/enums.ts`; utilities → `src/utils/` or `src/lib/`; schemas → `src/schemas/`; shared types → same file or `src/types.ts`.
 
+### One Rule, One Home
+
+- A business rule (a liveness predicate, a cap, an ordering) is a named function or constant. A second copy — a hand-negated predicate, the same rule as a raw SQL string, a private chunk loop, a local batch size — is a bug, not a style issue.
+- Before writing a helper, grep for one. The rule that decides something and the code that acts on it are different functions: a pure selector that takes data and returns a decision, and a thin caller that does the I/O. Test the selector without mocks.
+- A preview and the mutation it previews call the same selector. A warning that says what will happen must be computed by the code that makes it happen, never by a parallel implementation.
+- User-facing copy that describes a rule must match the predicate. Read the code, not the intent, before writing the message, and pin the pair with a test.
+- Read once per request. Do not list the same store twice on one path under two failure policies.
+- A new cap or retention limit needs a sweep for rows that already exceed it, not just a check on the write path.
+- When a binding accepts an array, send an array. One call per item is a subrequest budget leak.
+- Order writes so a failure leaves a safe state; do not add a repair write for a failure a different order would have made harmless.
+- A comment must not describe another module's behavior — it drifts into a false claim. Name the module and let the reader go there.
+
 ## Frontend and Next.js
 
 - Prefer server components. Limit `use client`, `useEffect`, and local state; client components only for browser APIs or small interactive UI, wrapped in `Suspense` where appropriate.
@@ -174,9 +186,10 @@ Never bundle Turnstile (`/accounts/{account_id}/challenges/widgets`) and Images 
 
 - `Promise.all` independent consecutive awaits; leave borderline cases sequential — a missed one costs nothing, a wrong one is a bug.
 - Keep sequential: guards before what they guard, reads that must see an earlier write, D1/cross-store writes, awaits split by an early return, load-bearing error fall-through.
-- Never `Promise.all(items.map(...))` over an unbounded array — chunk it, like `refreshTeamMemberSessions` in `src/utils/kv-session.ts`.
+- Never `Promise.all(items.map(...))` over an unbounded array — use `mapInBatches` from `src/utils/map-in-batches.ts`.
 - Skip React `cache()` reads and repeated `getTranslations`/`cookies`/`headers` — already memoized.
 - Post-commit effects that must not fail a committed write get their own `.catch` per entry (`renameTeam` in `src/lib/teams/teams.ts`).
+- Destructive cleanup runs after the durable write, never before it. Mint or save the new thing first, then revoke or delete what it replaces; a failed write must never leave the user with less than they started with.
 
 ## Forms, Validation, and Server Actions
 

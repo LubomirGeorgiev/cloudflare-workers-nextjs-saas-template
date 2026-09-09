@@ -407,8 +407,9 @@ const BAR_MAX_THICKNESS = 24;
 const BAR_GAP = 2;
 const SPARK_POINTS = 12;
 const MOVERS_LIMIT = 8;
-// Cloudflare Workers Paid: 10 MiB compressed bundle, 1s startup CPU (raised from 400ms in Oct 2025).
-const WORKER_GZIP_LIMIT_BYTES = 10 * 1024 * 1024;
+// Cloudflare Workers, all plans: 64 MiB uncompressed bundle (no compressed limit since Sep 2026),
+// 1s startup CPU (raised from 400ms in Oct 2025).
+const WORKER_UPLOAD_LIMIT_BYTES = 64 * 1024 * 1024;
 const STARTUP_CPU_LIMIT_MS = 1000;
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -428,7 +429,7 @@ const CHARTS = [
     kind: "line",
     unit: "bytes",
     title: "Worker upload size",
-    subtitle: "Bytes uploaded to Cloudflare on every deploy, raw and gzipped.",
+    subtitle: "Bytes uploaded to Cloudflare on every deploy, raw and gzipped. Only the raw size counts against the limit.",
     series: [
       { key: "totalUploadBytes", label: "Total upload", slot: 1 },
       { key: "gzipBytes", label: "Gzipped", slot: 2 },
@@ -1343,7 +1344,7 @@ function meter({ label, value, limit, unit, note }) {
 function renderHero() {
   heroRoot.replaceChildren();
   const deploys = rowsInRange(history);
-  const latest = [...deploys].reverse().find((row) => typeof row.gzipBytes === "number");
+  const latest = [...deploys].reverse().find((row) => typeof row.totalUploadBytes === "number");
 
   if (!latest) {
     heroRoot.append(el("p", "empty", "No deploy metrics recorded yet."));
@@ -1352,17 +1353,17 @@ function renderHero() {
 
   const figure = el("div", "hero-figure");
   figure.append(
-    el("div", "stat-label", "Latest gzipped Worker upload"),
-    el("div", "hero-value", formatBytes(latest.gzipBytes)),
+    el("div", "stat-label", "Latest Worker upload (uncompressed)"),
+    el("div", "hero-value", formatBytes(latest.totalUploadBytes)),
     el("div", "stat-delta", describeRun(latest))
   );
   heroRoot.append(figure);
 
   heroRoot.append(meter({
-    label: "Compressed size vs Workers limit",
-    value: latest.gzipBytes,
-    limit: WORKER_GZIP_LIMIT_BYTES,
-    note: formatBytes(WORKER_GZIP_LIMIT_BYTES - latest.gzipBytes) + " of headroom under the 10 MiB limit",
+    label: "Uncompressed size vs Workers limit",
+    value: latest.totalUploadBytes,
+    limit: WORKER_UPLOAD_LIMIT_BYTES,
+    note: formatBytes(WORKER_UPLOAD_LIMIT_BYTES - latest.totalUploadBytes) + " of headroom under the 64 MiB limit",
   }));
 
   const latestStartup = [...deploys].reverse().find((row) => typeof row.startupActiveMs === "number");

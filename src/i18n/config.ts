@@ -26,6 +26,13 @@ export const ENABLED_LOCALES: readonly Locale[] = I18N_ENABLED
   ? LOCALES
   : [DEFAULT_LOCALE];
 
+// Validate against the served set, not the full catalog: when I18N_ENABLED is
+// false, ENABLED_LOCALES collapses to [DEFAULT_LOCALE], so every resolution path
+// structurally falls back to the default without a special-case guard.
+export function isSupportedLocale(value: string | undefined | null): value is Locale {
+  return ENABLED_LOCALES.includes(value as Locale);
+}
+
 // Cookie that persists the user's chosen locale. Keep routing and server actions
 // pointed at this shared name so next-intl reads the same preference we write.
 export const LOCALE_COOKIE_NAME = "selected_locale";
