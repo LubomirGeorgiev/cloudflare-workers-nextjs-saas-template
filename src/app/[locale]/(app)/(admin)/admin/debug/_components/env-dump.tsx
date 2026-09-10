@@ -26,7 +26,7 @@ function EnvValue({ label, path, value }: EnvValueProps) {
   return (
     <button
       type="button"
-      className="inline-flex max-w-full items-center gap-1.5 rounded px-1 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex max-w-full items-center gap-1.5 rounded bg-muted px-1 text-left hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`${isRevealed ? "Hide" : "Reveal"} value for ${label}`}
       aria-expanded={isRevealed}
       onClick={() => setIsRevealed((currentValue) => !currentValue)}
