@@ -9,8 +9,8 @@ import {
   CreateAdminApiKeyDialog,
   type AdminApiEndpoints,
 } from "./create-admin-api-key-dialog";
-import { ApiScopeGrid } from "@/components/api-scope-grid";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
+import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
 import { Button } from "@/components/ui/button";
 import type { ScopeOption } from "@/components/api-keys/scope-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,37 +77,63 @@ export function AdminApiKeysPanel({
         {keys.length === 0 ? (
           <p className="text-sm text-muted-foreground">No internal keys yet.</p>
         ) : (
-          <ul className="divide-y">
+          <CredentialLedger className="rounded-none border-0 bg-transparent">
             {keys.map((key) => (
-              <li key={key.id} className="space-y-3 py-4 first:pt-0 last:pb-0">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="truncate text-sm font-medium">{key.name}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{key.keyHint}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Created {key.createdAt}
-                      {key.lastUsedAt ? ` · last used ${key.lastUsedAt}` : " · never used"}
-                      {key.expiresAt ? ` · expires ${key.expiresAt}` : " · no expiry"}
-                    </p>
-                  </div>
-                  <ConfirmDestructiveDialog
-                    trigger={
-                      <Button size="sm" variant="destructive" className="w-full sm:w-auto" />
-                    }
-                    triggerLabel="Revoke"
-                    pendingLabel="Revoking…"
-                    title="Revoke this internal key?"
-                    description="Any agent using it stops working immediately. This cannot be undone."
-                    confirmLabel="Revoke"
-                    onConfirm={() => revoke({ keyId: key.id })}
-                  />
-                </div>
-                <ApiScopeGrid scopes={key.scopes} descriptions={scopeDescriptions} />
-              </li>
+              <InternalKeyRow
+                key={key.id}
+                apiKey={key}
+                scopeDescriptions={scopeDescriptions}
+                onRevoke={() => revoke({ keyId: key.id })}
+              />
             ))}
-          </ul>
+          </CredentialLedger>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function InternalKeyRow({
+  apiKey,
+  scopeDescriptions,
+  onRevoke,
+}: {
+  apiKey: AdminApiKeyRow;
+  scopeDescriptions: Record<string, string>;
+  onRevoke: () => void;
+}) {
+  return (
+    <CredentialRow
+      title={apiKey.name}
+      titleBadge={
+        <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+          {apiKey.keyHint}
+        </code>
+      }
+      facts={[
+        `Created ${apiKey.createdAt}`,
+        apiKey.lastUsedAt ? `Last used ${apiKey.lastUsedAt}` : "Never used",
+        apiKey.expiresAt ? `Expires ${apiKey.expiresAt}` : "No expiry",
+      ]}
+      actions={
+        <ConfirmDestructiveDialog
+          trigger={
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            />
+          }
+          triggerLabel="Revoke"
+          pendingLabel="Revoking…"
+          title="Revoke this internal key?"
+          description="Any agent using it stops working immediately. This cannot be undone."
+          confirmLabel="Revoke"
+          onConfirm={onRevoke}
+        />
+      }
+      scopes={apiKey.scopes}
+      scopeDescriptions={scopeDescriptions}
+    />
   );
 }

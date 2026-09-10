@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { revokeAdminOAuthGrantAction } from "../../_actions/admin-api-key-actions";
-import { ApiScopeGrid } from "@/components/api-scope-grid";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
-import { Badge } from "@/components/ui/badge";
+import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
+import { ClientVerificationBadge } from "@/components/credentials/client-verification-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -64,42 +64,63 @@ export function AdminOAuthGrantsCard({
             here.
           </p>
         ) : (
-          <ul className="divide-y">
+          <CredentialLedger className="rounded-none border-0 bg-transparent">
             {grants.map((grant) => (
-              <li key={grant.grantId} className="space-y-3 py-4 first:pt-0 last:pb-0">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-medium">{grant.name}</p>
-                      <Badge variant={grant.isVerified ? "default" : "secondary"}>
-                        {grant.isVerified ? "Verified" : "Unverified"}
-                      </Badge>
-                    </div>
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      {grant.clientId}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {grant.grantedAt ? `Approved ${grant.grantedAt}` : "Approval date unknown"}
-                    </p>
-                  </div>
-                  <ConfirmDestructiveDialog
-                    trigger={
-                      <Button size="sm" variant="destructive" className="w-full sm:w-auto" />
-                    }
-                    triggerLabel="Revoke"
-                    pendingLabel="Revoking…"
-                    title="Revoke this app's access?"
-                    description="Its tokens stop working immediately and it will have to sign in again. This cannot be undone."
-                    confirmLabel="Revoke"
-                    onConfirm={() => revoke({ grantId: grant.grantId })}
-                  />
-                </div>
-                <ApiScopeGrid scopes={grant.scopes} descriptions={scopeDescriptions} />
-              </li>
+              <InternalGrantRow
+                key={grant.grantId}
+                grant={grant}
+                scopeDescriptions={scopeDescriptions}
+                onRevoke={() => revoke({ grantId: grant.grantId })}
+              />
             ))}
-          </ul>
+          </CredentialLedger>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function InternalGrantRow({
+  grant,
+  scopeDescriptions,
+  onRevoke,
+}: {
+  grant: AdminOAuthGrantRow;
+  scopeDescriptions: Record<string, string>;
+  onRevoke: () => void;
+}) {
+  return (
+    <CredentialRow
+      title={grant.name}
+      titleBadge={
+        <ClientVerificationBadge
+          isVerified={grant.isVerified}
+          label={grant.isVerified ? "Verified" : "Unverified"}
+        />
+      }
+      facts={[
+        <span key="client" className="font-mono">{grant.clientId}</span>,
+        grant.grantedAt ? `Approved ${grant.grantedAt}` : "Approval date unknown",
+      ]}
+      actions={
+        <ConfirmDestructiveDialog
+          trigger={
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            />
+          }
+          triggerLabel="Revoke"
+          pendingLabel="Revoking…"
+          title="Revoke this app's access?"
+          description="Its tokens stop working immediately and it will have to sign in again. This cannot be undone."
+          confirmLabel="Revoke"
+          onConfirm={onRevoke}
+        />
+      }
+      scopes={grant.scopes}
+      scopeDescriptions={scopeDescriptions}
+    />
   );
 }

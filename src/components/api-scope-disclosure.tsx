@@ -14,11 +14,14 @@ import { cn } from "@/lib/utils";
 export function ApiScopeDisclosure({
   scopes,
   teamId,
+  descriptions,
   className,
 }: {
   scopes: string[];
   /** The credential's audience; "full access" is measured against what that audience may hold. */
   teamId?: string | null;
+  /** Copy for scopes outside the public catalog; the internal catalog is `server-only`. */
+  descriptions?: Record<string, string>;
   className?: string;
 }) {
   const t = useTranslations("Client.ApiScopeSummary");
@@ -65,7 +68,7 @@ export function ApiScopeDisclosure({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ApiScopeGrid scopes={scopes} className="mt-3 pl-6" />
+        <ApiScopeGrid scopes={scopes} descriptions={descriptions} className="mt-3 pl-6" />
       </CollapsibleContent>
     </Collapsible>
   );

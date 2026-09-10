@@ -7,10 +7,10 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { revokeApiKeyAction } from "@/actions/api-key-actions";
-import { ApiScopeDisclosure } from "@/components/api-scope-disclosure";
 import { CreateApiKeyDialog } from "@/components/api-keys/create-api-key-dialog";
 import { EditApiKeyScopesDialog } from "@/components/api-keys/edit-api-key-scopes-dialog";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
+import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { Button } from "@/components/ui/button";
 import { API_DOCS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
@@ -73,36 +73,27 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
           description={t("emptyDescription")}
         />
       ) : (
-        // One ledger, not a stack of cards: a key is a row, and the rows share one border so the
-        // eye reads the list as an inventory rather than as separate panels competing for weight.
-        <ul className="divide-y rounded-lg border bg-card text-card-foreground">
+        <CredentialLedger>
           {apiKeys.map((apiKey) => (
-            <li key={apiKey.id} className="space-y-3 p-5 sm:px-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <h3 className="truncate font-semibold leading-tight">{apiKey.name}</h3>
-                    <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-                      {formatApiKeyHint({ keyPrefix: apiKey.keyPrefix, last4: apiKey.last4 })}
-                    </code>
-                  </div>
-                  <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>{t("createdLabel", { date: formatDate(apiKey.createdAt, locale) })}</span>
-                    <span>
-                      {apiKey.lastUsedAt
-                        ? t("lastUsedLabel", { date: formatDate(apiKey.lastUsedAt, locale) })
-                        : t("lastUsedNever")}
-                    </span>
-                    <span>
-                      {apiKey.expiresAt
-                        ? t("expiresLabel", { date: formatDate(apiKey.expiresAt, locale) })
-                        : t("expiresNever")}
-                    </span>
-                  </p>
-                </div>
-
-                {/* Quiet by default: only the row's own name and reach should carry weight. */}
-                <div className="-ml-3 flex shrink-0 gap-1 sm:-mr-2 sm:-mt-1 sm:ml-0">
+            <CredentialRow
+              key={apiKey.id}
+              title={apiKey.name}
+              titleBadge={
+                <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
+                  {formatApiKeyHint({ keyPrefix: apiKey.keyPrefix, last4: apiKey.last4 })}
+                </code>
+              }
+              facts={[
+                t("createdLabel", { date: formatDate(apiKey.createdAt, locale) }),
+                apiKey.lastUsedAt
+                  ? t("lastUsedLabel", { date: formatDate(apiKey.lastUsedAt, locale) })
+                  : t("lastUsedNever"),
+                apiKey.expiresAt
+                  ? t("expiresLabel", { date: formatDate(apiKey.expiresAt, locale) })
+                  : t("expiresNever"),
+              ]}
+              actions={
+                <>
                   <EditApiKeyScopesDialog apiKey={apiKey} />
 
                   <ConfirmDestructiveDialog
@@ -120,13 +111,13 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
                     pendingLabel={t("revoking")}
                     onConfirm={() => revokeKey({ keyId: apiKey.id })}
                   />
-                </div>
-              </div>
-
-              <ApiScopeDisclosure scopes={apiKey.scopes} teamId={apiKey.teamId} />
-            </li>
+                </>
+              }
+              scopes={apiKey.scopes}
+              scopeTeamId={apiKey.teamId}
+            />
           ))}
-        </ul>
+        </CredentialLedger>
       )}
 
       <p className="text-xs text-muted-foreground">

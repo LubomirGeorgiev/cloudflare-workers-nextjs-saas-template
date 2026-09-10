@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { API_KEY_CACHE_TTL_SECONDS } from "@/constants";
 import type { AdminApiKeySummary } from "@/lib/admin/user-credentials";
 import { revokeUserApiKeyAction } from "../../_actions/user-credentials-actions";
-import { AdminApiKeysTable } from "../admin-api-keys-table";
+import { AdminApiKeysLedger } from "../admin-api-keys-ledger";
 import { AdminDetailSection } from "../admin-detail-section";
 
 export function UserApiKeys({ userId, apiKeys }: { userId: string; apiKeys: AdminApiKeySummary[] }) {
@@ -37,14 +37,14 @@ export function UserApiKeys({ userId, apiKeys }: { userId: string; apiKeys: Admi
       emptyMessage={t("apiKeysEmpty")}
       isEmpty={apiKeys.length === 0}
     >
-      <AdminApiKeysTable
+      <AdminApiKeysLedger
         apiKeys={apiKeys}
-        subjectHeader={t("columnTeam")}
         renderSubject={(apiKey) => (
           apiKey.teamId
             ? <Badge variant="secondary">{apiKey.teamName ?? apiKey.teamId}</Badge>
-            : <span className="text-muted-foreground">{t("personalKey")}</span>
+            : t("personalKey")
         )}
+        scopeTeamIdOf={(apiKey) => apiKey.teamId}
         onRevoke={(apiKey) => revokeKey({ userId, keyId: apiKey.id })}
       />
     </AdminDetailSection>

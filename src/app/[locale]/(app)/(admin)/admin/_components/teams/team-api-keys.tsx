@@ -9,14 +9,16 @@ import { ADMIN_USERS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
 import { Link } from "@/i18n/navigation";
 import type { AdminTeamApiKey, AdminTeamSectionList } from "@/lib/admin/teams";
 import { revokeUserApiKeyAction } from "../../_actions/user-credentials-actions";
-import { AdminApiKeysTable } from "../admin-api-keys-table";
+import { AdminApiKeysLedger } from "../admin-api-keys-ledger";
 import { AdminDetailSection } from "../admin-detail-section";
 
 // Team-scoped keys have an owner, and revocation is the owner's operation: the same action the
 // user page revokes with, passed this key's owner, so one code path revokes from either page.
 export function TeamApiKeys({
+  teamId,
   apiKeys,
 }: {
+  teamId: string;
   apiKeys: AdminTeamSectionList<AdminTeamApiKey>;
 }) {
   const router = useRouter();
@@ -45,14 +47,14 @@ export function TeamApiKeys({
       emptyMessage="This team has no active API keys"
       isEmpty={items.length === 0}
     >
-      <AdminApiKeysTable
+      <AdminApiKeysLedger
         apiKeys={items}
-        subjectHeader="Owner"
         renderSubject={(apiKey) => (
           <Link href={`${ADMIN_USERS_PATH}/${apiKey.ownerId}`} className="hover:underline">
             {apiKey.ownerEmail || apiKey.ownerId}
           </Link>
         )}
+        scopeTeamIdOf={() => teamId}
         onRevoke={(apiKey) => revokeKey({ userId: apiKey.ownerId, keyId: apiKey.id })}
       />
     </AdminDetailSection>

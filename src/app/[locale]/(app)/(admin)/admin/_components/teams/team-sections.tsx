@@ -35,7 +35,7 @@ export async function TeamSections({
         memberCount={memberCount}
       />
       <TeamInvitations invitations={invitations} />
-      <TeamApiKeys apiKeys={apiKeys} />
+      <TeamApiKeys teamId={teamId} apiKeys={apiKeys} />
     </div>
   );
 }
