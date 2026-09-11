@@ -21,6 +21,12 @@ import {
   buildCmsResolvedPath,
   normalizeCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
+import {
+  isSafeIconMarkup,
+  parseUploadedSvgIcon,
+  resolveNavigationIconBodies,
+} from "@/lib/cms/cms-icon-rules";
+import { requireIconBodies } from "@/lib/cms/cms-icons";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
@@ -34,6 +40,8 @@ import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import {
   CMS_NAVIGATION_NODE_TYPES,
+  type CmsIconBody,
+  type CmsIconBodyByKey,
   type CmsNavigationNodeType,
 } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
@@ -51,9 +59,18 @@ interface GetCmsNavigationTreeParams {
   locale?: Locale;
 }
 
-export interface CmsNavigationTreeNode extends CmsNavigationItem {
+// `iconBody` is deliberately absent: a tree crosses to the client whole, and one copy of the SVG
+// per row is the same payload mistake `CmsCollectionListItem` drops `content` to avoid. The bodies
+// travel beside the tree, deduped by key — see `getCmsNavigationIconBodies`.
+export interface CmsNavigationTreeNode extends Omit<CmsNavigationItem, "iconBody"> {
   entry: CmsCollectionListItem | null;
   children: CmsNavigationTreeNode[];
+}
+
+/** What one cached read of a navigation tree holds: the nodes, and the icon markup they name. */
+export interface CmsNavigationTreeResult {
+  nodes: CmsNavigationTreeNode[];
+  iconBodyByKey: CmsIconBodyByKey;
 }
 
 export interface CmsNavigationFlatNode {
@@ -63,14 +80,28 @@ export interface CmsNavigationFlatNode {
   title: string;
   // Per-locale `title` overrides (non-default locales only); null/empty = untranslated.
   titleTranslations?: Partial<Record<Locale, string>> | null;
+  // Icon key only. The body is fetched or parsed and pinned server-side, so a client cannot write
+  // markup.
+  icon?: string | null;
+  // CSS colour for the icon; null keeps `currentColor`. Plain data, so no lookup is needed.
+  iconColor?: string | null;
   entryId: string | null;
   slugSegment: string | null;
   sortOrder: number;
 }
 
+/**
+ * What a client sends to save a tree: the row fields, plus the uploaded document behind a `custom:`
+ * key. `iconSvg` is transport, not a column — it stops here, so no stored-row reader sees a field
+ * the table does not hold. See `iconSvg` in `cms-navigation.schema.ts` for when a client sends it.
+ */
+export interface CmsNavigationSaveNode extends CmsNavigationFlatNode {
+  iconSvg?: string | null;
+}
+
 interface SaveCmsNavigationTreeParams {
   navigationKey: CmsNavigationKey;
-  items: CmsNavigationFlatNode[];
+  items: CmsNavigationSaveNode[];
 }
 
 interface PathComputationResult {
@@ -219,10 +250,12 @@ function buildTree({
         ? item.titleTranslations?.[locale] ?? item.title
         : item.title;
 
+      const { iconBody: __iconBody, ...node } = item;
+
       return [
         item.id,
         {
-          ...item,
+          ...node,
           title: localizedTitle,
           entry: localizedEntry,
           children: [],
@@ -306,11 +339,35 @@ function getTreeAncestorChain({
   return chain;
 }
 
+/**
+ * One entry per distinct icon key, built from the unpruned rows so every locale's entry holds the
+ * same complete map. The sanitizer runs again here, on the way out: the rule that accepted a row at
+ * save time may since have tightened, and nothing else revisits a stored document.
+ *
+ * The `typeof` guard is the same contract one step earlier. This column holds JSON we parsed, not a
+ * value the type system checked, so a row written under an older shape reaches here with no
+ * `markup` at all. Dropping it costs that node its icon; trusting it would throw inside the gate
+ * and take down every page the navigation appears on.
+ */
+function collectIconBodies(items: CmsNavigationItem[]): CmsIconBodyByKey {
+  const iconBodyByKey: Record<string, CmsIconBody> = {};
+
+  for (const item of items) {
+    const markup = item.iconBody?.markup;
+
+    if (item.icon && typeof markup === "string" && !iconBodyByKey[item.icon] && isSafeIconMarkup(markup)) {
+      iconBodyByKey[item.icon] = item.iconBody as CmsIconBody;
+    }
+  }
+
+  return iconBodyByKey;
+}
+
 async function getCachedCmsNavigationTree(
   navigationKey: CmsNavigationKey,
   status: CmsStatusFilter,
   locale: Locale,
-): Promise<CmsNavigationTreeNode[]> {
+): Promise<CmsNavigationTreeResult> {
   "use cache: remote";
   setCacheScope({
     tags: [
@@ -368,7 +425,10 @@ async function getCachedCmsNavigationTree(
     navigationKey,
   });
 
-  return pruneNavigationTree(hydratedTree);
+  return {
+    nodes: pruneNavigationTree(hydratedTree),
+    iconBodyByKey: collectIconBodies(items),
+  };
 }
 
 // The docs tree is the largest of the hot entries, so a warm isolate keeps it in memory. The three
@@ -382,12 +442,24 @@ const cmsNavigationTreeMemo = createNavigationMemo({
 });
 
 
-export function getCmsNavigationTree({
+export async function getCmsNavigationTree({
   navigationKey,
   status = CMS_ENTRY_STATUS.PUBLISHED,
   locale = DEFAULT_LOCALE,
 }: GetCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> {
-  return cmsNavigationTreeMemo.read(navigationKey, status, locale);
+  return (await cmsNavigationTreeMemo.read(navigationKey, status, locale)).nodes;
+}
+
+/**
+ * The icon markup the same tree names, keyed by Iconify key. Reads the entry `getCmsNavigationTree`
+ * reads, so asking for both on one path costs one D1 query, not two.
+ */
+export async function getCmsNavigationIconBodies({
+  navigationKey,
+  status = CMS_ENTRY_STATUS.PUBLISHED,
+  locale = DEFAULT_LOCALE,
+}: GetCmsNavigationTreeParams): Promise<CmsIconBodyByKey> {
+  return (await cmsNavigationTreeMemo.read(navigationKey, status, locale)).iconBodyByKey;
 }
 
 export async function getCmsNavigationRedirectByPath({
@@ -514,7 +586,7 @@ export function getCmsNavigationPrevNext({
   };
 }
 
-function remapTemporaryIds(items: CmsNavigationFlatNode[]): CmsNavigationFlatNode[] {
+function remapTemporaryIds(items: CmsNavigationSaveNode[]): CmsNavigationSaveNode[] {
   const idMap = new Map<string, string>();
 
   items.forEach((item) => {
@@ -641,12 +713,14 @@ function computeNavigationPaths({
 export async function saveCmsNavigationTree({
   navigationKey,
   items,
-}: SaveCmsNavigationTreeParams): Promise<CmsNavigationTreeNode[]> {
+}: SaveCmsNavigationTreeParams): Promise<CmsNavigationTreeResult> {
   const db = getDB();
   const remappedItems = remapTemporaryIds(items).map((item) => ({
     ...item,
     title: item.title.trim(),
     titleTranslations: sanitizeTitleTranslations(item.titleTranslations),
+    icon: item.icon ?? null,
+    iconColor: item.iconColor?.trim() || null,
     entryId: item.entryId ?? null,
     slugSegment: item.slugSegment?.trim() ? item.slugSegment.trim() : null,
   }));
@@ -683,6 +757,35 @@ export async function saveCmsNavigationTree({
   const existingPaths = new Map(existingItems.map((item) => [item.id, item.resolvedPath]));
   const submittedIds = new Set(remappedItems.map((item) => item.id));
 
+  // Before the D1 loop on purpose: a failed icon fetch or a refused upload must leave the stored
+  // tree untouched.
+  const { fetchKeys, uploadedSvgByKey, existingBodyByKey } = resolveNavigationIconBodies({
+    items: remappedItems,
+    existingItems,
+  });
+  const uploadedIconBodies = new Map(
+    Array.from(uploadedSvgByKey, ([key, svg]) => [key, parseUploadedSvgIcon(svg)]),
+  );
+  const fetchedIconBodies = fetchKeys.length > 0
+    ? await requireIconBodies({ keys: fetchKeys })
+    : new Map<string, CmsIconBody>();
+
+  // Between them the three maps cover every key: `resolveNavigationIconBodies` routes each one to
+  // the stored tree, to `requireIconBodies`, or to the parser, and the last two refuse a key they
+  // cannot answer for. A gap here is a broken invariant, not a row to write with a key and no
+  // markup.
+  const resolveSavedIconBody = (key: string): CmsIconBody => {
+    const body = fetchedIconBodies.get(key)
+      ?? uploadedIconBodies.get(key)
+      ?? existingBodyByKey.get(key);
+
+    if (!body) {
+      throw new Error(`Navigation icon "${key}" was resolved to no markup`);
+    }
+
+    return body;
+  };
+
   const itemsById = new Map(remappedItems.map((item) => [item.id, item]));
   const orderedItems = [...remappedItems].sort((left, right) => {
     const leftDepth = getNodeDepth({ nodeId: left.id, itemsById });
@@ -702,6 +805,9 @@ export async function saveCmsNavigationTree({
       nodeType: item.nodeType,
       title: item.title,
       titleTranslations: item.titleTranslations,
+      icon: item.icon,
+      iconBody: item.icon ? resolveSavedIconBody(item.icon) : null,
+      iconColor: item.iconColor,
       entryId: item.entryId,
       slugSegment: normalizedSlugById.get(item.id) ?? null,
       resolvedPath: pathById.get(item.id) ?? null,
@@ -759,10 +865,7 @@ export async function saveCmsNavigationTree({
     ...pathById.values(),
   ]);
 
-  return getCmsNavigationTree({
-    navigationKey,
-    status: CMS_STATUS_FILTER_ALL,
-  });
+  return cmsNavigationTreeMemo.read(navigationKey, CMS_STATUS_FILTER_ALL, DEFAULT_LOCALE);
 }
 
 function getNodeDepth({

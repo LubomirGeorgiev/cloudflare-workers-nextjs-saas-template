@@ -1,35 +1,48 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { FileText, FolderTree } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { CmsNavigationNodeIcon } from "@/components/cms-navigation-node-icon";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
-import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
+import type { CmsIconBodyByKey } from "@/types/cms-navigation";
+import { getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
 
 import { getDocsNavPaddingLeft } from "./docs-nav-indent";
 
 interface DocsSidebarProps {
   nodes: CmsNavigationTreeNode[];
+  /** Icon markup for the whole tree, held once per key rather than once per node. */
+  iconBodyByKey: CmsIconBodyByKey;
   className?: string;
   onNavigate?: () => void;
 }
 
 function DocsSidebarNode({
   node,
+  iconBodyByKey,
   pathname,
   onNavigate,
   depth = 0,
 }: {
   node: CmsNavigationTreeNode;
+  iconBodyByKey: CmsIconBodyByKey;
   pathname: string;
   onNavigate?: () => void;
   depth?: number;
 }) {
   const hasChildren = node.children.length > 0;
   const title = getNavigationNodeDisplayTitle(node);
+  const icon = (
+    <CmsNavigationNodeIcon
+      iconBody={(node.icon ? iconBodyByKey[node.icon] : null) ?? null}
+      nodeType={node.nodeType}
+      iconColor={node.iconColor}
+      className="h-4 w-4 shrink-0"
+    />
+  );
 
   return (
     <div>
@@ -44,11 +57,7 @@ function DocsSidebarNode({
           )}
           style={{ paddingLeft: getDocsNavPaddingLeft(depth) }}
         >
-          {node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE ? (
-            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-          ) : (
-            <FolderTree className="h-4 w-4 shrink-0 text-muted-foreground" />
-          )}
+          {icon}
           <span className="truncate">{title}</span>
         </Link>
       ) : (
@@ -56,7 +65,7 @@ function DocsSidebarNode({
           className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground/80"
           style={{ paddingLeft: getDocsNavPaddingLeft(depth) }}
         >
-          <FolderTree className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {icon}
           <span className="truncate">{title}</span>
         </div>
       )}
@@ -68,6 +77,7 @@ function DocsSidebarNode({
               key={child.id}
               depth={depth + 1}
               node={child}
+              iconBodyByKey={iconBodyByKey}
               onNavigate={onNavigate}
               pathname={pathname}
             />
@@ -78,7 +88,12 @@ function DocsSidebarNode({
   );
 }
 
-export function DocsSidebar({ nodes, className, onNavigate }: DocsSidebarProps) {
+export function DocsSidebar({
+  nodes,
+  iconBodyByKey,
+  className,
+  onNavigate,
+}: DocsSidebarProps) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement | null>(null);
   const t = useTranslations("Client.Docs.Navigation");
@@ -94,6 +109,7 @@ export function DocsSidebar({ nodes, className, onNavigate }: DocsSidebarProps) 
         <DocsSidebarNode
           key={node.id}
           node={node}
+          iconBodyByKey={iconBodyByKey}
           onNavigate={onNavigate}
           pathname={pathname}
         />

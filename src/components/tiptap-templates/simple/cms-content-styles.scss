@@ -12,3 +12,13 @@
 @use "../../tiptap-node/paragraph-node/paragraph-node.scss" as *;
 @use "../../tiptap-node/table-node/table-node.scss" as *;
 @use "./code-highlighting.scss" as *;
+
+/* Rendered CMS body follows the theme's own text colour. Tailwind Typography ships neutral-700
+   (light) and neutral-300 (dark) body greys, which read as washed out next to `--foreground`.
+   Both the base and the `prose-invert` twin are set, so either cascade order lands on the token. */
+.tiptap.ProseMirror {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-invert-body: var(--foreground);
+  --tw-prose-invert-headings: var(--foreground);
+}

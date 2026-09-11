@@ -85,5 +85,10 @@ function toNavigationLink(node: CmsNavigationTreeNode) {
     title: getNavigationNodeDisplayTitle(node),
     resolvedPath: node.resolvedPath,
     description: node.entry?.seoDescription || null,
+    // The prev/next cards draw the same icon ladder as the sidebar, so they carry the node's icon
+    // key; the page looks its markup up in the tree's shared body map.
+    nodeType: node.nodeType,
+    icon: node.icon ?? null,
+    iconColor: node.iconColor ?? null,
   };
 }

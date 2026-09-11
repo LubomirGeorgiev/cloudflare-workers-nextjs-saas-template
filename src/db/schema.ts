@@ -11,6 +11,7 @@ import { cmsNavigationKeys, type CmsNavigationKey } from "@/../cms.config";
 import { cmsEntryStatusTuple, type CmsEntryStatus, type SourceContentHashes } from "@/types/cms";
 import {
   cmsNavigationNodeTypeTuple,
+  type CmsIconBody,
   type CmsNavigationNodeType,
 } from "@/types/cms-navigation";
 import type { ScheduledJobPayload, ScheduledJobType } from "@/lib/scheduler/jobs";
@@ -509,6 +510,14 @@ export const cmsNavigationItemTable = sqliteTable("cms_navigation_item", {
   // GROUP/header nodes have no linked entry to borrow a translated title from, so
   // the public tree overlays this for non-default locales; null = untranslated.
   titleTranslations: text({ mode: "json" }).$type<Partial<Record<Locale, string>>>(),
+  // Iconify key the admin chose, e.g. "lucide:house". Null = the default icon for the node type.
+  icon: text(),
+  // The whole `<svg>` document, pinned at save time so the public render never calls the icon
+  // service. Written only by `saveCmsNavigationTree`, which sanitizes it first, never by a client.
+  iconBody: text({ mode: "json" }).$type<CmsIconBody>(),
+  // CSS colour for this node's icon. Null keeps `currentColor`, which follows the text colour,
+  // the hover state, and the theme; a value here opts the node out of all three.
+  iconColor: text(),
   entryId: text().references(() => cmsEntryTable.id, { onDelete: "cascade" }),
   slugSegment: text(),
   resolvedPath: text(),

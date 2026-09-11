@@ -1,5 +1,6 @@
 import { beforeAll, test } from "vitest";
 import {
+  clickAppRole,
   expectAppLabelValue,
   expectAppPathname,
   expectAppRoleText,
@@ -150,5 +151,25 @@ test("loads CMS tags, media, and docs navigation admin screens", async () => {
   await expectAppText("Add Page", { exact: true });
   await expectAppText("Save", { exact: true });
   await expectAppText("Getting Started", { exact: true });
-  await expectAppText("Selected Item Details", { exact: true });
+  // The editor selects the first node on load, so the detail panel renders its tabs.
+  await expectAppText("Style", { exact: true });
+});
+
+test("lets admins open the navigation icon picker", async () => {
+  await signInWithPassword({
+    email: adminEmail,
+    password,
+    redirectPath: "/admin/cms/navigation/docs",
+  });
+
+  await expectAppPathname("/admin/cms/navigation/docs");
+
+  // The editor selects the first node on load, so the panel header already offers the icon button.
+  await expectAppText("Style", { exact: true });
+
+  await clickAppRole("button", "Change icon", { exact: true });
+
+  // Copy from inside the lazy chunk, so reaching it proves the dynamic import resolved.
+  await expectAppText("Choose Icon", { exact: true });
+  await expectAppText("Type a word to search every icon set.", { exact: true });
 });

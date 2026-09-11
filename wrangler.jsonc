@@ -66,6 +66,8 @@
     },
     "vars": {
         "APP_TEST_MODE": "false",
+        // Admin icon picker only; a fork that self-hosts Iconify changes this one value.
+        "ICONIFY_API_ORIGIN": "https://api.iconify.design",
         "EMAIL_FROM": "no-reply@notifications.lubomirgeorgiev.com",
         "EMAIL_FROM_NAME": "Lubomir Georgiev",
         "EMAIL_REPLY_TO": "lubo@lubomirgeorgiev.com"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { reportTiptapError } from "@/lib/tiptap-errors"
 import type { Content } from "@tiptap/core"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
@@ -76,6 +76,7 @@ import { handleImageUpload } from "@/lib/tiptap-utils"
 import { CMS_IMAGE_MAX_FILE_SIZE } from "@/constants"
 import { getTiptapBaseExtensions } from "@/lib/tiptap-base-extensions"
 import { syncEditorContentFromProps } from "./simple-editor-content-sync"
+import { toEditableTiptapDoc } from "@/lib/tiptap-content"
 
 // --- Styles ---
 import "@/components/tiptap-templates/simple/simple-editor.scss"
@@ -196,6 +197,7 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
   )
   const toolbarRef = useRef<HTMLDivElement>(null)
   const lastSyncedContentKeyRef = useRef<string | null>(null)
+  const editorContent = useMemo(() => toEditableTiptapDoc(content), [content])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -234,7 +236,7 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
           handleImageUpload(file, collection, onProgress, abortSignal),
       }),
     ],
-    content: content || { type: "doc", content: [] },
+    content: editorContent,
     onUpdate: ({ editor }) => {
       if (onChange) {
         onChange(editor.getJSON())
@@ -253,13 +255,13 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
         setEditorContent: (nextContent) => {
           editor.commands.setContent(nextContent as Content)
         },
-        content,
+        content: editorContent,
         lastSyncedContentKey: lastSyncedContentKeyRef.current,
       })
     } catch (error) {
       reportTiptapError({ id: "editor-content", message: CONTENT_ERROR_MESSAGE, error })
     }
-  }, [editor, content])
+  }, [editor, editorContent])
 
   useCursorVisibility({
     editor,

@@ -2,10 +2,13 @@ import { type Metadata } from "next";
 import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Route } from "next";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getTranslator } from "@/i18n/translator";
 
 import { CopyDocsMarkdownButton } from "@/app/[locale]/(marketing)/docs/_components/copy-docs-markdown-button";
+import {
+  DocsLinkCard,
+  DocsLinkCardGrid,
+} from "@/app/[locale]/(marketing)/docs/_components/docs-link-card";
 import { DocsOnThisPageNav } from "@/app/[locale]/(marketing)/docs/_components/docs-on-this-page-nav";
 import { CmsHtmlBody } from "@/components/cms-html-body";
 import { SITE_URL } from "@/constants";
@@ -14,11 +17,11 @@ import { getCachedDocsEntryArtifacts } from "@/lib/cms/docs-entry-artifacts";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { getEntryLocales } from "@/lib/cms/entry";
 import {
+  getCmsNavigationIconBodies,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { resolveCurrentDocsPage } from "@/lib/cms/resolve-current-docs-page";
-import { cn } from "@/lib/utils";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
 import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } from "@/i18n/config";
 import { Link, permanentRedirect, redirect as redirectLocalized } from "@/i18n/navigation";
@@ -167,11 +170,14 @@ export async function generateMetadata({
 
 export default async function DocsPage({ params }: DocsPageProps) {
   const { locale, slug } = await params;
-  const [t, tDocsMeta, tPagination, result] = await Promise.all([
+  // The icon bodies of the whole docs tree, held once per key. Same cached entry the resolver
+  // above reads, so asking for them costs no extra query.
+  const [t, tDocsMeta, tPagination, result, iconBodyByKey] = await Promise.all([
     getTranslator({ locale, namespace: "Client.Docs.Page" }),
     getTranslator({ locale, namespace: "Client.Docs.meta" }),
     getTranslator({ locale, namespace: "Client.Pagination" }),
     resolveCachedDocsPage(getDocsSlugCacheKey(slug), locale),
+    getCmsNavigationIconBodies({ navigationKey: DOCS_SLUG, locale }),
   ]);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
   const docsBasePath = docsNavigation.basePath;
@@ -252,32 +258,29 @@ export default async function DocsPage({ params }: DocsPageProps) {
             </header>
 
             {children.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <DocsLinkCardGrid count={children.length}>
                 {children.map((child) => {
                   const description = getNavigationItemDescription(child);
                   const childTitle = getNavigationNodeDisplayTitle(child);
 
                   return (
-                    <Link
+                    <DocsLinkCard
                       key={child.id}
                       href={child.resolvedPath as Route}
-                      className="rounded-xl border p-4 transition-colors hover:bg-muted/50"
-                    >
-                      <p className="font-medium">{childTitle}</p>
-                      {description ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {description}
-                        </p>
-                      ) : null}
-                      {child.nodeType === CMS_NAVIGATION_NODE_TYPES.GROUP ? (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {t("section")}
-                        </p>
-                      ) : null}
-                    </Link>
+                      title={childTitle}
+                      iconBody={(child.icon ? iconBodyByKey[child.icon] : null) ?? null}
+                      nodeType={child.nodeType}
+                      iconColor={child.iconColor}
+                      description={description}
+                      footnote={
+                        child.nodeType === CMS_NAVIGATION_NODE_TYPES.GROUP
+                          ? t("section")
+                          : undefined
+                      }
+                    />
                   );
                 })}
-              </div>
+              </DocsLinkCardGrid>
             ) : (
               <p className="text-muted-foreground">
                 {t("noChildPages")}
@@ -361,64 +364,30 @@ export default async function DocsPage({ params }: DocsPageProps) {
             {(previous || next) ? (
               <div className="mt-12 grid gap-4 pt-8 md:grid-cols-2">
                 {previous ? (
-                  <Link
-                    href={(previous.resolvedPath ?? docsBasePath)}
-                    className="group rounded-2xl border border-border/70 bg-card/60 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/40 hover:shadow-sm"
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
-                        <ArrowLeft className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {tPagination("previous")}
-                        </p>
-                        <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
-                          {previous.title}
-                        </p>
-                        {previousSeoDescription ? (
-                          <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-                            {previousSeoDescription}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Link>
+                  <DocsLinkCard
+                    href={(previous.resolvedPath ?? docsBasePath) as Route}
+                    title={previous.title}
+                    iconBody={(previous.icon ? iconBodyByKey[previous.icon] : null) ?? null}
+                    nodeType={previous.nodeType}
+                    iconColor={previous.iconColor}
+                    description={previousSeoDescription}
+                    label={tPagination("previous")}
+                  />
                 ) : (
                   <div />
                 )}
                 {next ? (
-                  <Link
-                    href={(next.resolvedPath ?? docsBasePath)}
-                    className={cn(
-                      "group rounded-2xl border border-border/70 bg-card/60 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border hover:bg-muted/40 hover:shadow-sm",
-                      previous ? "text-left md:text-right" : "text-right md:col-start-2",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "flex items-start gap-4",
-                        previous ? "md:flex-row-reverse" : "flex-row-reverse",
-                      )}
-                    >
-                      <div className="mt-0.5 rounded-full border border-border/70 bg-background/80 p-2 text-muted-foreground transition-colors group-hover:text-foreground">
-                        <ArrowRight className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {tPagination("next")}
-                        </p>
-                        <p className="mt-2 font-medium transition-colors group-hover:text-foreground">
-                          {next.title}
-                        </p>
-                        {nextSeoDescription ? (
-                          <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-                            {nextSeoDescription}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Link>
+                  <DocsLinkCard
+                    href={(next.resolvedPath ?? docsBasePath) as Route}
+                    title={next.title}
+                    iconBody={(next.icon ? iconBodyByKey[next.icon] : null) ?? null}
+                    nodeType={next.nodeType}
+                    iconColor={next.iconColor}
+                    description={nextSeoDescription}
+                    label={tPagination("next")}
+                    className={previous ? "text-left md:text-right" : "text-right md:col-start-2"}
+                    rowClassName={previous ? "md:flex-row-reverse" : "flex-row-reverse"}
+                  />
                 ) : null}
               </div>
             ) : null}

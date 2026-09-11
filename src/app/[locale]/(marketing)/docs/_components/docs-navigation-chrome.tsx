@@ -6,7 +6,10 @@ import type { Locale } from "@/i18n/config";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import {
+  getCmsNavigationIconBodies,
+  getCmsNavigationTree,
+} from "@/lib/cms/cms-navigation-repository";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { redirect } from "@/i18n/navigation";
 
@@ -19,9 +22,12 @@ export async function DocsNavigationChrome({ locale }: { locale: Locale }) {
   // Locale-scoped tree: PAGE nodes untranslated in the active locale are
   // pruned out by `getCmsNavigationTree` (see cms-navigation-repository.ts),
   // so the sidebar naturally shows only translated entries for that locale.
-  const [t, sidebarTree] = await Promise.all([
+  // The bodies come from the same cached entry as the tree, deduped by icon key: the sidebar and
+  // the mobile sheet are both client components, so a body on every node would cross twice.
+  const [t, sidebarTree, iconBodyByKey] = await Promise.all([
     getTranslator({ locale, namespace: "Client.Docs.Navigation" }),
     getCmsNavigationTree({ navigationKey: DOCS_SLUG, locale }),
+    getCmsNavigationIconBodies({ navigationKey: DOCS_SLUG, locale }),
   ]);
 
   if (sidebarTree.length === 0) {
@@ -43,7 +49,7 @@ export async function DocsNavigationChrome({ locale }: { locale: Locale }) {
                 <DocsSearch registerHotkeys />
               </div>
               {/* Guides first, then the static reference and machine surfaces. */}
-              <DocsSidebar nodes={sidebarTree} />
+              <DocsSidebar nodes={sidebarTree} iconBodyByKey={iconBodyByKey} />
               <div className="space-y-3 border-t px-3 pt-3">
                 <DocsRouteLinks />
               </div>
@@ -59,7 +65,7 @@ export async function DocsNavigationChrome({ locale }: { locale: Locale }) {
           </p>
           <div className="flex items-center gap-3">
             <DocsSearch className="h-11 flex-1 justify-start" />
-            <MobileDocsNav nodes={sidebarTree} />
+            <MobileDocsNav nodes={sidebarTree} iconBodyByKey={iconBodyByKey} />
           </div>
         </div>
       </div>

@@ -200,7 +200,9 @@ export const CMS_SEO_DESCRIPTION_MAX_LENGTH = 160;
 export const CMS_TITLE_MAX_LENGTH = 255;
 export const CMS_TAG_NAME_MAX_LENGTH = 100;
 export const CMS_TAG_DESCRIPTION_MAX_LENGTH = 1000;
-export const CMS_TAG_COLOR_MAX_LENGTH = 32;
+// One ceiling for every stored CSS colour token (tag badge, navigation icon). A colour is a
+// short token like `#3b82f6` or `currentColor`, never free text.
+export const CMS_COLOR_MAX_LENGTH = 32;
 export const CMS_MEDIA_ALT_MAX_LENGTH = 1000;
 export const CMS_NAVIGATION_TITLE_MAX_LENGTH = 255;
 // Collection caps: an unbounded array is unbounded work per request, the same problem as an
@@ -208,6 +210,28 @@ export const CMS_NAVIGATION_TITLE_MAX_LENGTH = 255;
 export const CMS_MAX_TAGS_PER_ENTRY = 50;
 export const CMS_MAX_NAVIGATION_NODES = 500;
 export const CMS_MAX_SLUGS_PER_LOOKUP = 200;
+
+// Navigation node icons. The admin picks an Iconify key ("lucide:house") and the server pins the
+// SVG body onto the row, so the public render never calls the icon service.
+export const CMS_ICON_KEY_MAX_LENGTH = 100;
+export const CMS_ICON_BODY_MAX_LENGTH = 16 * 1024; // brand logos run to a few KiB
+export const CMS_ICON_SEARCH_QUERY_MAX_LENGTH = 64;
+// Kept per icon set, so the picker shows every set that matched instead of the one set the
+// upstream ranking happens to favour. Times the set count, this is the whole result payload.
+export const CMS_ICON_SEARCH_RESULTS_PER_SET = 12;
+// Matches the `immutable` max-age the Iconify API sends, so our copy expires with theirs.
+export const CMS_ICON_SEARCH_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
+// Names per document request. They ride in the `icons=` query string, so this times
+// `CMS_ICON_KEY_MAX_LENGTH` has to stay under the ~16 KB URL limit common proxies apply.
+export const CMS_ICON_NAMES_PER_SET_REQUEST = 64;
+
+// An admin-uploaded SVG, parsed into the same pinned body an Iconify icon stores, so the public
+// render path cannot tell the two apart. This bounds the whole `<svg>` document the admin sends,
+// before the wrapper is stripped and the file is minified: larger than `CMS_ICON_BODY_MAX_LENGTH`
+// because the parser has to hold the file as exported to find out what it draws.
+export const CMS_ICON_UPLOAD_MAX_LENGTH = 64 * 1024;
+// The readable half of a `custom:{slug}-{hash}` key, before the fingerprint is appended.
+export const CMS_CUSTOM_ICON_SLUG_MAX_LENGTH = 48;
 
 // Every free-form string a caller can send states a maximum. Without one a request can spend our
 // CPU, D1 row budget, and KV value size for free, so these are the shared ceilings for the kinds

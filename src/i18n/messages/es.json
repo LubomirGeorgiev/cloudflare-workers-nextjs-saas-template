@@ -429,6 +429,7 @@
       "invalidDate": "Introduce una fecha válida",
       "invalidEmail": "Introduce una dirección de correo electrónico válida",
       "invalidUrl": "Introduce una URL válida",
+      "invalidIconKey": "Elige un icono válido",
       "invalidObject": "Proporciona un valor válido",
       "minLength": "Debe tener al menos {min} caracteres",
       "maxLength": "Debe tener {max} caracteres o menos",

@@ -11,10 +11,7 @@ import {
 } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-navigation-actions";
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
 import { type CmsNavigationKey } from "@/../cms.config";
-import {
-  type CmsNavigationFlatNode,
-  type CmsNavigationTreeNode,
-} from "@/lib/cms/cms-navigation-repository";
+import { type CmsNavigationTreeResult } from "@/lib/cms/cms-navigation-repository";
 import type { CmsCollectionListItem } from "@/lib/cms/entry";
 import {
   Command,
@@ -32,6 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { SITE_URL } from "@/constants";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+// Type-only, so it is erased and the picker chunk still loads on the first open.
+import type { CmsIconSelection } from "./cms-icon-picker-dialog";
 import { CmsNavigationEntryStatusBadge } from "./cms-navigation-row";
 import { CmsNavigationNodePanel } from "./cms-navigation-node-panel";
 import { CmsNavigationTree } from "./cms-navigation-tree";
@@ -50,6 +49,9 @@ import {
   moveNodeToRoot,
   removeNode,
   serializeEditableTree,
+  toSavedNavigationItems,
+  withNodeIcon,
+  type CmsNavigationEditorNode,
   type DropPosition,
   type DropTargetState,
   type RootDropPosition,
@@ -57,7 +59,7 @@ import {
 
 export interface CmsNavigationManagerProps {
   entries: CmsCollectionListItem[];
-  initialTree: CmsNavigationTreeNode[];
+  initialTree: CmsNavigationTreeResult;
   // locales each linked entry is translated into, keyed by entryId — powers the
   // per-row PAGE coverage flags.
   entryLocalesByEntryId: Record<string, string[]>;
@@ -77,12 +79,12 @@ export function CmsNavigationManagerImpl({
   basePath,
   collectionLabelSingular,
 }: CmsNavigationManagerProps) {
-  const [items, setItems] = useState<CmsNavigationFlatNode[]>(
+  const [items, setItems] = useState<CmsNavigationEditorNode[]>(() =>
     flattenNavigationTree(initialTree)
   );
   const [isAddPageDialogOpen, setIsAddPageDialogOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    initialTree[0]?.id ?? null
+    initialTree.nodes[0]?.id ?? null
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTargetState | null>(null);
@@ -109,6 +111,8 @@ export function CmsNavigationManagerImpl({
         toast.success(`${navigationLabel} saved`);
 
         if (data) {
+          // Reflattened from the saved tree, so every preview shows the markup the public site
+          // now renders rather than the one the picker handed over.
           const nextItems = flattenNavigationTree(data);
           setItems(nextItems);
           setSelectedNodeId((current) =>
@@ -151,6 +155,14 @@ export function CmsNavigationManagerImpl({
     [panelResolvedPath]
   );
 
+  // Delete takes the whole subtree, so the confirmation has to name what goes with it.
+  const selectedDescendantCount = useMemo(() => {
+    const node = selectedNodeId ? findTreeNodeById(tree, selectedNodeId) : null;
+
+    // `getDescendantIds` counts the node itself, which the confirmation names separately.
+    return node ? getDescendantIds(node).size - 1 : 0;
+  }, [selectedNodeId, tree]);
+
   const assignedEntryIds = useMemo(
     () => new Set(items.map((item) => item.entryId).filter(Boolean)),
     [items]
@@ -160,6 +172,24 @@ export function CmsNavigationManagerImpl({
     () => new Map(entries.map((entry) => [entry.id, entry.status])),
     [entries]
   );
+
+  // Icons already on the tree, deduped by key. An uploaded icon carries the document it was parsed
+  // from, so picking it for a second row attaches the upload there too — the save resolves each
+  // row on its own, and a row whose key is not yet stored has to bring its own markup.
+  const usedIcons = useMemo(() => {
+    const iconsByKey = new Map<string, Omit<CmsIconSelection, "key">>();
+
+    for (const item of items) {
+      if (item.icon && item.iconBody) {
+        iconsByKey.set(item.icon, {
+          icon: item.iconBody,
+          svg: item.iconSvg ?? iconsByKey.get(item.icon)?.svg,
+        });
+      }
+    }
+
+    return Array.from(iconsByKey, ([key, used]) => ({ key, ...used }));
+  }, [items]);
 
   const availableEntries = useMemo(
     () =>
@@ -175,11 +205,12 @@ export function CmsNavigationManagerImpl({
   );
 
   const addGroup = () => {
-    const nextNode: CmsNavigationFlatNode = {
+    const nextNode: CmsNavigationEditorNode = {
       id: createTempId(),
       parentId: null,
       nodeType: CMS_NAVIGATION_NODE_TYPES.GROUP,
       title: "New Group",
+      iconBody: null,
       entryId: null,
       slugSegment: null,
       sortOrder: buildEditableTree(items).length,
@@ -191,11 +222,12 @@ export function CmsNavigationManagerImpl({
   };
 
   const addPage = (entry: CmsCollectionListItem) => {
-    const nextNode: CmsNavigationFlatNode = {
+    const nextNode: CmsNavigationEditorNode = {
       id: createTempId(),
       parentId: null,
       nodeType: CMS_NAVIGATION_NODE_TYPES.PAGE,
       title: entry.title,
+      iconBody: null,
       entryId: entry.id,
       slugSegment: entry.slug,
       sortOrder: buildEditableTree(items).length,
@@ -209,11 +241,20 @@ export function CmsNavigationManagerImpl({
 
   const updateNode = (
     nodeId: string,
-    updater: (node: CmsNavigationFlatNode) => CmsNavigationFlatNode
+    updater: (node: CmsNavigationEditorNode) => CmsNavigationEditorNode
   ) => {
     setItems((currentItems) =>
       currentItems.map((item) => (item.id === nodeId ? updater(item) : item))
     );
+  };
+
+  // The pick writes every icon field onto the node. Only the key and an upload travel to the
+  // server, which pins its own copy of the markup.
+  const handleIconPicked = ({
+    nodeId,
+    ...selection
+  }: CmsIconSelection & { nodeId: string }) => {
+    updateNode(nodeId, (node) => withNodeIcon(node, selection));
   };
 
   const { execute: translateTitle, isExecuting: isTranslatingTitle } = useAction(
@@ -404,7 +445,7 @@ export function CmsNavigationManagerImpl({
         onSave={() =>
           saveNavigationTree({
             navigationKey,
-            items,
+            items: toSavedNavigationItems(items),
           })
         }
         onCanDrop={canDropOnRow}
@@ -461,9 +502,13 @@ export function CmsNavigationManagerImpl({
         collectionLabelSingular={collectionLabelSingular}
         translatableLocales={translatableLocales}
         isTranslatingTitle={isTranslatingTitle}
+        panelResolvedPath={panelResolvedPath}
         panelResolvedAbsoluteUrl={panelResolvedAbsoluteUrl}
+        selectedDescendantCount={selectedDescendantCount}
+        usedIcons={usedIcons}
         onUpdateNode={updateNode}
         onTranslateTitle={handleTranslateTitle}
+        onPickIcon={handleIconPicked}
         onRemoveSelectedNode={removeSelectedNode}
       />
     </div>

@@ -32,6 +32,10 @@ export const APP_KV_PREFIXES = {
   // Where a paced sweep parks its place in a walk it could not finish in one run, so the next run
   // resumes instead of re-reading the head. See `purgeOrphanedR2Objects`.
   maintenanceCursor: "maintenance-cursor:",
+  // Iconify search results, keyed by the set list, the per-set limit, and the lowercased query —
+  // everything that varies the answer. Admin searches only, and every write carries
+  // `CMS_ICON_SEARCH_CACHE_TTL_SECONDS`.
+  cmsIconSearch: "cms-icon-search:",
   // The zone that serves this Worker, keyed by hostname. Saves one Cloudflare API call per cold
   // isolate on the purge path. See `getWorkerZoneId` in `src/lib/cloudflare-api.ts`.
   workerZone: "worker-zone:",

@@ -125,6 +125,14 @@ export const RATE_LIMITS = {
     limit: 20,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
+  // Admin icon picker, shared by its search and its upload parse. Each search is one outbound call
+  // to the icon service on a cache miss, so the budget is what keeps a held-down key from becoming
+  // a burst of third-party requests.
+  CMS_ICON_PICKER: {
+    identifier: "cms-icon-picker",
+    limit: 60,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
   // Public API, keyed by the credential rather than the user: one leaked key cannot
   // exhaust the owner's other keys.
   API_AUTHED: {

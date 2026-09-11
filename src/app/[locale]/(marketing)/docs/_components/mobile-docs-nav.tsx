@@ -13,14 +13,16 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import type { CmsNavigationTreeNode } from "@/lib/cms/cms-navigation-repository";
+import type { CmsIconBodyByKey } from "@/types/cms-navigation";
 import { DocsRouteLinks } from "./docs-guide-links";
 import { DocsSidebar } from "./docs-sidebar";
 
 interface MobileDocsNavProps {
   nodes: CmsNavigationTreeNode[];
+  iconBodyByKey: CmsIconBodyByKey;
 }
 
-export function MobileDocsNav({ nodes }: MobileDocsNavProps) {
+export function MobileDocsNav({ nodes, iconBodyByKey }: MobileDocsNavProps) {
   const t = useTranslations("Client.Docs.Navigation");
   const [isOpen, setIsOpen] = useState(false);
 
@@ -44,6 +46,7 @@ export function MobileDocsNav({ nodes }: MobileDocsNavProps) {
           {/* Guides first, then the static reference and machine surfaces. */}
           <DocsSidebar
             nodes={nodes}
+            iconBodyByKey={iconBodyByKey}
             className="px-4"
             onNavigate={() => setIsOpen(false)}
           />

@@ -5,8 +5,12 @@ import {
 } from "@/i18n/config";
 import {
   type CmsNavigationFlatNode,
+  type CmsNavigationSaveNode,
   type CmsNavigationTreeNode,
 } from "@/lib/cms/cms-navigation-repository";
+// Type-only, so it is erased and the picker chunk still loads on the first open.
+import type { CmsIconSelection } from "./cms-icon-picker-dialog";
+import type { CmsIconBody, CmsIconBodyByKey } from "@/types/cms-navigation";
 import { buildCmsResolvedPath } from "@/lib/cms/cms-paths";
 import { generateSlug } from "@/utils/slugify";
 
@@ -17,7 +21,36 @@ export type DropPosition = "before" | "inside" | "after";
 export type RootDropPosition = "start" | "end";
 export type VisibleCmsNavigationRow = EditableTreeNode & { depth: number };
 
-interface EditableTreeNode extends CmsNavigationFlatNode {
+/**
+ * A flat node plus the two icon fields the editor needs and the table does not hold: the markup
+ * that previews the icon, and the uploaded document behind a `custom:` key. `toSavedNavigationItems`
+ * drops the preview; only `iconSvg` travels on, and only until the save stores a body for the key.
+ *
+ * The three icon fields move as one — see `withNodeIcon`.
+ */
+export interface CmsNavigationEditorNode extends CmsNavigationFlatNode {
+  iconBody: CmsIconBody | null;
+  iconSvg?: string | null;
+}
+
+/**
+ * Sets or clears all three icon fields together. A key with no body draws nothing, and a body or an
+ * upload left behind by a cleared key keeps every preview drawing an icon the save will not store,
+ * so pick and remove both go through here rather than writing the fields they each care about.
+ */
+export function withNodeIcon(
+  node: CmsNavigationEditorNode,
+  selection: CmsIconSelection | null
+): CmsNavigationEditorNode {
+  return {
+    ...node,
+    icon: selection?.key ?? null,
+    iconBody: selection?.icon ?? null,
+    iconSvg: selection?.svg ?? null,
+  };
+}
+
+interface EditableTreeNode extends CmsNavigationEditorNode {
   children: EditableTreeNode[];
 }
 
@@ -60,7 +93,7 @@ export function getRowTranslatedLocales({
   node,
   entryLocalesByEntryId,
 }: {
-  node: CmsNavigationFlatNode;
+  node: CmsNavigationEditorNode;
   entryLocalesByEntryId: Record<string, string[]>;
 }): Set<Locale> {
   const translated = new Set<Locale>([DEFAULT_LOCALE]);
@@ -147,9 +180,13 @@ export function getRootDropTargetData(
   };
 }
 
-export function flattenNavigationTree(
-  nodes: CmsNavigationTreeNode[]
-): CmsNavigationFlatNode[] {
+export function flattenNavigationTree({
+  nodes,
+  iconBodyByKey,
+}: {
+  nodes: CmsNavigationTreeNode[];
+  iconBodyByKey: CmsIconBodyByKey;
+}): CmsNavigationEditorNode[] {
   return nodes.flatMap((node) => [
     {
       id: node.id,
@@ -157,15 +194,28 @@ export function flattenNavigationTree(
       nodeType: node.nodeType,
       title: node.title,
       titleTranslations: node.titleTranslations ?? null,
+      icon: node.icon ?? null,
+      iconBody: (node.icon ? iconBodyByKey[node.icon] : null) ?? null,
+      // A loaded node's markup is already stored, so it never re-sends the uploaded document.
+      iconSvg: null,
+      iconColor: node.iconColor ?? null,
       entryId: node.entryId ?? null,
       slugSegment: node.slugSegment ?? null,
       sortOrder: node.sortOrder,
     },
-    ...flattenNavigationTree(node.children),
+    ...flattenNavigationTree({ nodes: node.children, iconBodyByKey }),
   ]);
 }
 
-export function buildEditableTree(items: CmsNavigationFlatNode[]): EditableTreeNode[] {
+// The save payload: the same nodes without the preview markup, which the server never reads and
+// would otherwise send a full tree's worth of SVG back over the wire.
+export function toSavedNavigationItems(
+  items: CmsNavigationEditorNode[]
+): CmsNavigationSaveNode[] {
+  return items.map(({ iconBody: __iconBody, ...item }) => item);
+}
+
+export function buildEditableTree(items: CmsNavigationEditorNode[]): EditableTreeNode[] {
   const nodeMap = new Map<string, EditableTreeNode>(
     items.map((item) => [item.id, { ...item, children: [] }])
   );
@@ -196,14 +246,18 @@ export function buildEditableTree(items: CmsNavigationFlatNode[]): EditableTreeN
 export function serializeEditableTree(
   nodes: EditableTreeNode[],
   parentId: string | null = null
-): CmsNavigationFlatNode[] {
+): CmsNavigationEditorNode[] {
   return nodes.flatMap((node, index) => {
-    const currentNode: CmsNavigationFlatNode = {
+    const currentNode: CmsNavigationEditorNode = {
       id: node.id,
       parentId,
       nodeType: node.nodeType,
       title: node.title,
       titleTranslations: node.titleTranslations ?? null,
+      icon: node.icon ?? null,
+      iconBody: node.iconBody ?? null,
+      iconSvg: node.iconSvg ?? null,
+      iconColor: node.iconColor ?? null,
       entryId: node.entryId,
       slugSegment: node.slugSegment,
       sortOrder: index,
@@ -317,11 +371,11 @@ export function moveNode({
   targetId,
   position,
 }: {
-  items: CmsNavigationFlatNode[];
+  items: CmsNavigationEditorNode[];
   draggedId: string;
   targetId: string;
   position: DropPosition;
-}): CmsNavigationFlatNode[] {
+}): CmsNavigationEditorNode[] {
   const tree = buildEditableTree(items);
   const removedResult = removeNode(tree, draggedId);
 
@@ -349,10 +403,10 @@ export function moveNodeToRoot({
   draggedId,
   position,
 }: {
-  items: CmsNavigationFlatNode[];
+  items: CmsNavigationEditorNode[];
   draggedId: string;
   position: RootDropPosition;
-}): CmsNavigationFlatNode[] {
+}): CmsNavigationEditorNode[] {
   const tree = buildEditableTree(items);
   const removedResult = removeNode(tree, draggedId);
 
@@ -383,13 +437,13 @@ export function computeResolvedPaths({
   items,
   basePath,
 }: {
-  items: CmsNavigationFlatNode[];
+  items: CmsNavigationEditorNode[];
   basePath: string;
 }): Map<string, string> {
   const itemsById = new Map(items.map((item) => [item.id, item]));
   const cache = new Map<string, string>();
 
-  const getPath = (item: CmsNavigationFlatNode): string => {
+  const getPath = (item: CmsNavigationEditorNode): string => {
     if (cache.has(item.id)) {
       return cache.get(item.id) ?? "";
     }

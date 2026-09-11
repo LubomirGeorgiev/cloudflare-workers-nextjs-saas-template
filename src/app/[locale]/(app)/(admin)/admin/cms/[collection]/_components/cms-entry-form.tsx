@@ -60,6 +60,7 @@ import { History } from "lucide-react";
 import { formatDateTime } from "@/utils/format-date";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
+import { toEditableTiptapDoc } from "@/lib/tiptap-content";
 
 // TipTap and ProseMirror are ~744 KiB of client references. Vinext preloads every client
 // reference on a cold isolate, so a static import here costs public pages CPU they never use.
@@ -92,7 +93,7 @@ function getCmsEntryFormDefaultValues({
   return {
     title: entry?.title || "",
     slug: entry?.slug || "",
-    content: entry?.content || { type: "doc", content: [] },
+    content: toEditableTiptapDoc(entry?.content),
     seoDescription: entry?.seoDescription || "",
     status: entry?.status || (mode === "create" ? CMS_ENTRY_STATUS.DRAFT : undefined),
     publishedAt: entry?.publishedAt ? new Date(entry.publishedAt) : undefined,

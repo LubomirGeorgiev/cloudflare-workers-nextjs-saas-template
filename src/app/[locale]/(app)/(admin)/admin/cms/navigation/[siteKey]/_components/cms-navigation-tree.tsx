@@ -197,6 +197,7 @@ export function CmsNavigationTree({
                   isSelected={row.id === selectedNodeId}
                   resolvedPath={resolvedPaths.get(row.id) ?? null}
                   entryStatus={row.entryId ? entryStatusById.get(row.entryId) ?? null : null}
+                  iconBody={row.iconBody}
                   translatableLocales={translatableLocales}
                   translatedLocales={getRowTranslatedLocales({
                     node: row,

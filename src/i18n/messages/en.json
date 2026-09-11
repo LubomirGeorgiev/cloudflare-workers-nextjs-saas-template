@@ -429,6 +429,7 @@
       "invalidDate": "Please enter a valid date",
       "invalidEmail": "Please enter a valid email address",
       "invalidUrl": "Please enter a valid URL",
+      "invalidIconKey": "Please choose a valid icon",
       "invalidObject": "Please provide a valid value",
       "minLength": "Must be at least {min} characters",
       "maxLength": "Must be {max} characters or less",

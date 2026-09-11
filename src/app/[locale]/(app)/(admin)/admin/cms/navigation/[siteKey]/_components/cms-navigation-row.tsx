@@ -6,13 +6,14 @@ import {
   dropTargetForElements,
 } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { useEffect, useRef } from "react";
-import { FileText, FolderTree, GripVertical } from "lucide-react";
+import { GripVertical } from "lucide-react";
 
 import { type Locale } from "@/i18n/config";
 import { buildCmsResolvedPath } from "@/lib/cms/cms-paths";
 import { cn } from "@/lib/utils";
 import { generateSlug } from "@/utils/slugify";
-import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+import { CMS_NAVIGATION_NODE_TYPES, type CmsIconBody } from "@/types/cms-navigation";
+import { CmsNavigationNodeIcon } from "@/components/cms-navigation-node-icon";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getStatusConfig } from "@/lib/cms/cms-entry-status-config";
 import { CmsEntryStatusBadge } from "../../../_components/cms-entry-status-badge";
@@ -40,6 +41,8 @@ interface CmsNavigationRowProps {
   resolvedPath: string | null;
   /** Status of the linked entry; null for groups and for pages whose entry is not loaded. */
   entryStatus: string | null;
+  /** Markup of the row's chosen icon; null until it is picked or the save pins it. */
+  iconBody: CmsIconBody | null;
   // Keep row coverage hidden in single-locale mode; the badges render all enabled locales.
   translatableLocales: Locale[];
   translatedLocales: Set<Locale>;
@@ -75,6 +78,7 @@ export function CmsNavigationRow({
   isSelected,
   resolvedPath,
   entryStatus,
+  iconBody,
   translatableLocales,
   translatedLocales,
   onCanDrop,
@@ -160,11 +164,13 @@ export function CmsNavigationRow({
       >
         <GripVertical className="h-4 w-4" />
       </span>
-      {row.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE ? (
-        <FileText className="h-4 w-4 shrink-0 text-blue-500" />
-      ) : (
-        <FolderTree className="h-4 w-4 shrink-0 text-amber-500" />
-      )}
+      {/* Same renderer as the public navigation, so the editor cannot preview a different icon. */}
+      <CmsNavigationNodeIcon
+        iconBody={iconBody}
+        nodeType={row.nodeType}
+        iconColor={row.iconColor}
+        className="h-4 w-4 shrink-0"
+      />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{row.title}</p>
         <p className="truncate text-xs text-muted-foreground">

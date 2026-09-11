@@ -36,6 +36,7 @@ export default defineConfig({
         compatibilityFlags: ["nodejs_compat", "global_fetch_strictly_public"],
         bindings: {
           APP_TEST_MODE: "true",
+          ICONIFY_API_ORIGIN: "https://api.iconify.design",
           EMAIL_FROM: "no-reply@example.com",
           EMAIL_FROM_NAME: "Integration Tests",
           EMAIL_REPLY_TO: "reply@example.com",

@@ -18,8 +18,10 @@ import {
   type DocsRouteDescriptor,
   type DocsRouteId,
 } from "@/constants/docs-routes";
+import { CMS_NAVIGATION_TYPE_ICON_CLASS } from "@/components/cms-navigation-node-icon";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 
 import { getDocsNavPaddingLeft } from "./docs-nav-indent";
 
@@ -104,7 +106,13 @@ export function DocsRouteLinks({ onNavigate }: { onNavigate?: () => void }) {
             className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-foreground/80"
             style={{ paddingLeft: getDocsNavPaddingLeft(SECTION_DEPTH) }}
           >
-            <FolderTree className="h-4 w-4 shrink-0 text-muted-foreground" />
+            {/* Same tint as a CMS group node: the two folders sit in one list. */}
+            <FolderTree
+              className={cn(
+                "h-4 w-4 shrink-0",
+                CMS_NAVIGATION_TYPE_ICON_CLASS[CMS_NAVIGATION_NODE_TYPES.GROUP]
+              )}
+            />
             {/* next-intl cannot type-check a key built at runtime; the catalog is the contract. */}
             <span className="truncate">{t(section.labelKey as Parameters<typeof t>[0])}</span>
           </div>
