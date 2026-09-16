@@ -219,8 +219,8 @@ export const CMS_ICON_SEARCH_QUERY_MAX_LENGTH = 64;
 // Kept per icon set, so the picker shows every set that matched instead of the one set the
 // upstream ranking happens to favour. Times the set count, this is the whole result payload.
 export const CMS_ICON_SEARCH_RESULTS_PER_SET = 12;
-// Matches the `immutable` max-age the Iconify API sends, so our copy expires with theirs.
-export const CMS_ICON_SEARCH_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
+// Shorter than the 7-day `immutable` max-age the Iconify API sends, so new icons reach the picker sooner.
+export const CMS_ICON_SEARCH_CACHE_TTL_SECONDS = 3 * 24 * 60 * 60;
 // Names per document request. They ride in the `icons=` query string, so this times
 // `CMS_ICON_KEY_MAX_LENGTH` has to stay under the ~16 KB URL limit common proxies apply.
 export const CMS_ICON_NAMES_PER_SET_REQUEST = 64;
