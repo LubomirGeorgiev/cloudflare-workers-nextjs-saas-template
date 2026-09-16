@@ -8,7 +8,6 @@ import {
   revertCmsEntryToVersion,
   deleteCmsEntryVersion,
 } from "@/lib/cms/entry";
-import { type CollectionsUnion } from "@/../cms.config";
 import { revalidateCmsEntryPaths } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-entry-revalidation";
 import { requireAdmin } from "@/utils/auth";
 import { cmsEntryVersionListSchema, cmsEntryVersionRefSchema } from "@/schemas/cms-version.schema";
@@ -43,7 +42,7 @@ export const revertCmsEntryVersionAction = actionClient
     });
 
     await revalidateCmsEntryPaths({
-      collection: updatedEntry.collection as CollectionsUnion,
+      collection: updatedEntry.collection,
       entryId: updatedEntry.id,
       slugs: [previousEntry?.slug, updatedEntry.slug].filter((slug): slug is string => Boolean(slug)),
     });

@@ -1,7 +1,5 @@
 import { reportTiptapError, runTiptapCommand } from "@/lib/tiptap-errors"
 import { Extension } from '@tiptap/core'
-import type { Content, Node } from '@tiptap/core'
-import { Fragment } from '@tiptap/pm/model'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 
 function looksLikeMarkdown(text: string): boolean {
@@ -47,7 +45,7 @@ export const PasteMarkdown = Extension.create({
                 return runTiptapCommand({
                   id: "markdown-paste",
                   message: "Could not paste Markdown",
-                  command: () => editor.commands.insertContent(json as Node | Content | Fragment),
+                  command: () => editor.commands.insertContent(json),
                 })
               }
             } catch (error) {

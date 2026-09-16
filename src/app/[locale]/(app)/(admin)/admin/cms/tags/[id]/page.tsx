@@ -60,7 +60,7 @@ export default async function EditTagPage({
 
       <TagLocaleSwitcher
         slug={tag.slug}
-        currentLocale={tag.locale as Locale}
+        currentLocale={tag.locale}
         siblings={localeSiblings}
       />
 

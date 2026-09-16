@@ -73,7 +73,7 @@ export async function generateMetadata({
   if (result.type === "redirect") {
     // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
     // active locale prefix rather than dropping it (see module-level comment).
-    redirectLocalized({ href: result.path as Route, locale });
+    redirectLocalized({ href: result.path, locale });
   }
 
   if (result.type === "group") {
@@ -186,10 +186,10 @@ export default async function DocsPage({ params }: DocsPageProps) {
     // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
     // active locale prefix rather than dropping it (see module-level comment).
     if (result.permanent) {
-      permanentRedirect({ href: result.path as Route, locale });
+      permanentRedirect({ href: result.path, locale });
     }
 
-    redirectLocalized({ href: result.path as Route, locale });
+    redirectLocalized({ href: result.path, locale });
   }
 
   if (result.type === "not-found") {
@@ -365,7 +365,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
               <div className="mt-12 grid gap-4 pt-8 md:grid-cols-2">
                 {previous ? (
                   <DocsLinkCard
-                    href={(previous.resolvedPath ?? docsBasePath) as Route}
+                    href={previous.resolvedPath ?? docsBasePath}
                     title={previous.title}
                     iconBody={(previous.icon ? iconBodyByKey[previous.icon] : null) ?? null}
                     nodeType={previous.nodeType}
@@ -378,7 +378,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
                 )}
                 {next ? (
                   <DocsLinkCard
-                    href={(next.resolvedPath ?? docsBasePath) as Route}
+                    href={next.resolvedPath ?? docsBasePath}
                     title={next.title}
                     iconBody={(next.icon ? iconBodyByKey[next.icon] : null) ?? null}
                     nodeType={next.nodeType}

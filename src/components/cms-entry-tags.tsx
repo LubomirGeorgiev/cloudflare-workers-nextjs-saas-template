@@ -61,7 +61,7 @@ export function CmsEntryTags({
 
     if (linkHref) {
       return (
-        <Link key={tag.id} href={linkHref(tag) as never}>
+        <Link key={tag.id} href={linkHref(tag)}>
           {badge}
         </Link>
       );

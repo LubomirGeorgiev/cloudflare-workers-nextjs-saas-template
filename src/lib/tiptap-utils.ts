@@ -235,9 +235,9 @@ function findNodePosition(props: {
 
   // If we have a valid position, use findNodeAtPosition
   if (hasValidPos) {
-    const nodeAtPos = findNodeAtPosition(editor, nodePos!)
+    const nodeAtPos = findNodeAtPosition(editor, nodePos)
     if (nodeAtPos) {
-      return { pos: nodePos!, node: nodeAtPos }
+      return { pos: nodePos, node: nodeAtPos }
     }
   }
 
@@ -355,7 +355,7 @@ export const handleImageUpload = async (
     return result.url
   } catch (error) {
     if (abortSignal?.aborted) {
-      throw new Error("Upload cancelled")
+      throw new Error("Upload cancelled", { cause: error })
     }
     throw error
   }

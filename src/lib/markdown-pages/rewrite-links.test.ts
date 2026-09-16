@@ -8,7 +8,7 @@ import { rewritePageLinkUrl } from "./rewrite-links";
 
 const SOURCE_ORIGIN = "https://example.com";
 const SOURCE_URL = `${SOURCE_ORIGIN}/index.md`;
-const DOCS_PAGE_PATHNAME = INDEXED_DOCS_ROUTES[0]!.pathname;
+const DOCS_PAGE_PATHNAME = INDEXED_DOCS_ROUTES[0].pathname;
 
 // A locale the router serves, and one the catalog holds but `I18N_ENABLED` de-served.
 const SERVED_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);

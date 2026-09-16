@@ -85,9 +85,15 @@ interface EdgeCache {
 // Absent outside the Workers runtime (unit tests, tooling). Every caller then does nothing, which
 // behaves exactly like a cold cache.
 function getEdgeHtmlCache(): EdgeCache | null {
-  const cacheStorage = globalThis.caches as unknown as { default?: EdgeCache } | undefined;
+  const cacheStorage: CacheStorage | undefined = globalThis.caches;
 
-  return cacheStorage?.default ?? null;
+  return cacheStorage && isWorkersCacheStorage(cacheStorage) ? cacheStorage.default : null;
+}
+
+function isWorkersCacheStorage(
+  cacheStorage: CacheStorage,
+): cacheStorage is CacheStorage & { default: EdgeCache } {
+  return "default" in cacheStorage;
 }
 
 // The build id is part of the key: the Cache API outlives a deploy, and a stored page names the

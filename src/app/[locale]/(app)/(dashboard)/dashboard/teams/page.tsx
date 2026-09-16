@@ -6,7 +6,6 @@ import { Link } from "@/i18n/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusIcon, Users } from "lucide-react";
-import type { Route } from "next";
 import { PageHeader } from "@/components/page-header";
 import { PendingInvitations } from "./pending-invitations";
 import { getTranslations } from "next-intl/server";
@@ -58,7 +57,7 @@ export default async function TeamsIndexPage() {
             <p className="text-muted-foreground mt-2">{t("subtitle")}</p>
           </div>
           <Link
-            href={"/dashboard/teams/create" as Route}
+            href={"/dashboard/teams/create"}
             className={buttonVariants()}
           >
               <PlusIcon className="h-4 w-4 mr-2" />
@@ -82,7 +81,7 @@ export default async function TeamsIndexPage() {
             </CardContent>
             <CardFooter className="flex justify-center pb-8">
               <Link
-                href={"/dashboard/teams/create" as Route}
+                href={"/dashboard/teams/create"}
                 className={buttonVariants()}
               >
                   <PlusIcon className="h-4 w-4 mr-2" />
@@ -93,7 +92,7 @@ export default async function TeamsIndexPage() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {teams.map((team) => (
-              <Link key={team.id} href={`/dashboard/teams/${team.slug}` as Route}>
+              <Link key={team.id} href={`/dashboard/teams/${team.slug}`}>
                 <Card className="h-full transition-all hover:border-primary hover:shadow-md">
                   <CardHeader className="flex flex-row items-start gap-4">
                     {team.avatarUrl ? (
@@ -128,7 +127,7 @@ export default async function TeamsIndexPage() {
               </Link>
             ))}
 
-            <Link href={"/dashboard/teams/create" as Route}>
+            <Link href={"/dashboard/teams/create"}>
               <Card className="h-full border-dashed border-2 hover:border-primary transition-all">
                 <CardHeader className="text-center pt-8">
                   <CardTitle className="text-xl">{t("createNewTeam")}</CardTitle>

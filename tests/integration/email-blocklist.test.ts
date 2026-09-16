@@ -106,7 +106,7 @@ describe("managing entries", () => {
     await block("*@example.com");
     const [entry] = await db.query.bannedEmailTable.findMany({});
 
-    await deleteBlockedEmail({ id: entry!.id });
+    await deleteBlockedEmail({ id: entry.id });
 
     expect(await isEmailBlocked("anyone@example.com")).toBe(false);
   });

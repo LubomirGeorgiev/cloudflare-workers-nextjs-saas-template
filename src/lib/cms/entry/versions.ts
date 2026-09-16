@@ -2,7 +2,6 @@ import "server-only";
 
 import { cache } from "react";
 import { and, count, eq, sql } from "drizzle-orm";
-import type { JSONContent } from "@tiptap/core";
 import type { InferOutput } from "valibot";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -183,7 +182,7 @@ export async function revertCmsEntryToVersion(
     slug: updatedEntry.slug,
     title: updatedEntry.title,
     seoDescription: updatedEntry.seoDescription,
-    content: updatedEntry.content as JSONContent,
+    content: updatedEntry.content,
   });
 
   // A revert republishes a body, so it goes through the one pipeline every other writer uses; a

@@ -44,7 +44,7 @@ describe("add-on marketing copy", () => {
   // Descriptions are optional for add-ons (the card renders without one), but every
   // add-on the template ships should have copy in the default locale.
   test.each(TEAM_ADDON_IDS)("add-on %s has a description", (addonId) => {
-    const key = `addonContent.${addonId}.description` as Parameters<typeof t.has>[0];
+    const key = `addonContent.${addonId}.description`;
     expect(t.has(key)).toBe(true);
     expect(t(key).trim().length).toBeGreaterThan(0);
   });

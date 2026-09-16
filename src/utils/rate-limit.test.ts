@@ -74,7 +74,7 @@ describe("resetRateLimit", () => {
     });
 
     expect(deleteMock).toHaveBeenCalledTimes(1);
-    const deletedKey = deleteMock.mock.calls[0][0] as string;
+    const deletedKey = deleteMock.mock.calls[0][0];
     expect(deletedKey).toMatch(/^rate-limit:sign-in-account:account:digest:\d+$/);
   });
 });

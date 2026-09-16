@@ -91,7 +91,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
           optionsJSON: data.optionsJSON,
           useAutoRegister: true,
         });
-        await completePasskeyRegistration({ response: attResp });
+        completePasskeyRegistration({ response: attResp });
       } catch (error: unknown) {
         console.error("Failed to register passkey:", error);
         dismissLoadingToast()

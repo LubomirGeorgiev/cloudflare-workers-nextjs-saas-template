@@ -1,7 +1,10 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "react", "nextjs", "jsx-a11y", "import", "vitest", "promise"],
-  "jsPlugins": ["./tools/oxlint-rules/index.js"],
+  "jsPlugins": [
+    "./tools/oxlint-rules/index.js",
+    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }
+  ],
   "categories": {
     "correctness": "off"
   },
@@ -11,6 +14,9 @@
     "node": true
   },
   "ignorePatterns": [
+    ".agents/**",
+    ".claude/**",
+    ".cursor/**",
     ".next/**",
     ".vinext/**",
     ".wrangler/**",
@@ -34,6 +40,22 @@
     "project/no-object-params-in-react-cache": "error",
     "project/no-next-link-in-translatable-pages": "error",
     "project/client-translations-under-client-namespace": "error",
+    "oxc/no-accumulating-spread": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-widen-then-assert": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/switch-exhaustiveness-check": ["error", { "considerDefaultExhaustiveForUnions": true }],
+    "react/no-object-type-as-default-prop": "error",
+    "react/jsx-no-constructed-context-values": "error",
+    "preserve-caught-error": "error",
+    "no-unsafe-optional-chaining": "error",
     "array-callback-return": "error",
     "complexity": ["error", { "max": 30 }],
     "curly": ["error", "all"],
@@ -130,5 +152,14 @@
     "vitest/valid-expect": "error",
     "vitest/valid-expect-in-promise": "error",
     "vitest/valid-title": "error"
-  }
+  },
+  "overrides": [
+    {
+      // Test doubles stand in for partial SDK clients and bindings.
+      "files": ["**/*.test.ts", "**/*.test.tsx", "tests/**"],
+      "rules": {
+        "anti-slop/no-chained-type-assertions": "off"
+      }
+    }
+  ]
 }

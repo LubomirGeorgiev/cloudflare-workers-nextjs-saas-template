@@ -22,7 +22,7 @@ const HTML_ENTITIES: Record<string, string> = {
 function visibleText(html: string): string {
   return html
     .replace(/<[^>]+>/g, "")
-    .replace(/&(?:amp|lt|gt|quot|#x27);/g, (entity) => HTML_ENTITIES[entity]!);
+    .replace(/&(?:amp|lt|gt|quot|#x27);/g, (entity) => HTML_ENTITIES[entity]);
 }
 
 async function loadFaqCatalog(locale: string): Promise<Record<string, Record<string, string>>> {
@@ -38,7 +38,7 @@ describe.each(ENABLED_LOCALES)("landing FAQ content model (%s)", (locale) => {
     const faq = await loadFaqCatalog(locale);
 
     for (const entry of FAQ_ENTRIES) {
-      const catalogParts = Object.keys(faq[entry.key]!)
+      const catalogParts = Object.keys(faq[entry.key])
         .filter((key) => key !== FAQ_QUESTION_KEY)
         .map((key) => `${entry.key}.${key}`);
 
@@ -52,7 +52,7 @@ describe.each(ENABLED_LOCALES)("landing FAQ content model (%s)", (locale) => {
     const questions = await buildFaqQuestions(locale);
 
     FAQ_ENTRIES.forEach((entry, index) => {
-      const answer = (questions[index]!.acceptedAnswer as { text: string }).text;
+      const answer = (questions[index].acceptedAnswer as { text: string }).text;
 
       expect(answer.split("\n")).toHaveLength(entry.answer.length);
       // Rich tags resolve to their inner text rather than reaching the payload as markup.
@@ -69,7 +69,7 @@ describe.each(ENABLED_LOCALES)("landing FAQ content model (%s)", (locale) => {
 
     expect(questions).toHaveLength(FAQ_ENTRIES.length);
     FAQ_ENTRIES.forEach((entry, index) => {
-      expect(questions[index]!.name).toBe(faq[entry.key]![FAQ_QUESTION_KEY]);
+      expect(questions[index].name).toBe(faq[entry.key][FAQ_QUESTION_KEY]);
     });
   });
 });

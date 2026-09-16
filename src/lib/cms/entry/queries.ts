@@ -40,12 +40,10 @@ import {
 } from "@/lib/cms/translation-staleness";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
-import type { JSONContent } from "@tiptap/core";
 import {
   CMS_STATUS_FILTER_ALL,
   isCmsEntryStatus,
   type CmsStatusFilter,
-  type SourceContentHashes,
 } from "@/types/cms";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 
@@ -83,7 +81,7 @@ async function selectEntryGroupRows<TColumns extends SelectedFields>({
   // Single slug uses `=` rather than `IN (…)` so the common one-entry lookup hits
   // a plain equality condition; `inArray` only when a batch of slugs is passed.
   const slugCondition = slugs.length === 1
-    ? eq(cmsEntryTable.slug, slugs[0]!)
+    ? eq(cmsEntryTable.slug, slugs[0])
     : inArray(cmsEntryTable.slug, slugs);
   const query = distinct
     ? db.selectDistinct(columns)
@@ -472,7 +470,7 @@ export async function getEntryLocaleSiblings(
     ? computeEntryTranslatableHashes({
         title: sourceRow.title,
         seoDescription: sourceRow.seoDescription,
-        content: sourceRow.content as JSONContent,
+        content: sourceRow.content,
       })
     : null;
 
@@ -485,7 +483,7 @@ export async function getEntryLocaleSiblings(
     const staleFields =
       sourceHashes && row.locale !== DEFAULT_LOCALE
         ? computeStaleFields({
-            snapshot: row.sourceContentHashes as SourceContentHashes | null,
+            snapshot: row.sourceContentHashes,
             current: sourceHashes,
           })
         : [];

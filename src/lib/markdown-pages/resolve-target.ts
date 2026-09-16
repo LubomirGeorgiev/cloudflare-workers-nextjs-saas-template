@@ -58,7 +58,7 @@ export function resolveMdRequestTarget(pathname: string): MdRequestTarget | null
         type: "cms",
         collection: "blog",
         locale: localized.locale,
-        path: blogMatch[1]!,
+        path: blogMatch[1],
       }
     : null;
 }

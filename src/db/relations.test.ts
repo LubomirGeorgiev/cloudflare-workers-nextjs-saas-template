@@ -32,7 +32,7 @@ function edgeKey({
 }
 
 function getSchemaTables(): SQLiteTable[] {
-  return (Object.values(schema) as unknown[]).filter((value) => is(value, Table)) as SQLiteTable[];
+  return (Object.values(schema) as unknown[]).filter((value) => is(value, Table));
 }
 
 const relationGraph = relations as unknown as RelationGraph;

@@ -160,5 +160,5 @@ export function getBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
     locale,
     facet.type,
     facet.type === "tag" ? facet.slug : facet.authorId,
-  ) as Promise<BlogFacetPage<TFacet> | null>;
+  );
 }

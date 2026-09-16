@@ -62,7 +62,7 @@ export function collectTranslatableStrings(content: JSONContent): CollectedStrin
       const hasCodeMark =
         Array.isArray(node.marks) && node.marks.some((mark) => mark?.type === "code");
       if (!hasCodeMark) {
-        pushField(node as Record<string, unknown>, "text", collected);
+        pushField(node, "text", collected);
       }
     }
 

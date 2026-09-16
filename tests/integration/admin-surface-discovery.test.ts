@@ -27,7 +27,7 @@ const { default: worker } = await import("../../worker-entrypoint");
 function get(pathname: string): Promise<Response> {
   return worker.fetch(
     new Request(`https://example.com${pathname}`),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 }

@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { JSONContent } from "@tiptap/core";
 import { eq } from "drizzle-orm";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
@@ -69,7 +68,7 @@ export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
     slug: entry.slug,
     title: entry.title,
     seoDescription: entry.seoDescription,
-    content: entry.content as JSONContent,
+    content: entry.content,
   });
 
   const collectionSlug = getKnownCmsCollectionSlug(entry.collection);

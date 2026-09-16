@@ -25,11 +25,11 @@ interface LocalizedRedirectArgs {
 // signature isn't narrow enough for control-flow analysis to treat a call as always
 // throwing. Re-typing through a plain `never`-returning wrapper restores narrowing.
 function redirect(args: LocalizedRedirectArgs): never {
-  return intlRedirect(args as never);
+  return intlRedirect(args);
 }
 
 function permanentRedirect(args: LocalizedRedirectArgs): never {
-  return intlPermanentRedirect(args as never);
+  return intlPermanentRedirect(args);
 }
 
 export { usePathname, useRouter, getPathname, Link, redirect, permanentRedirect };

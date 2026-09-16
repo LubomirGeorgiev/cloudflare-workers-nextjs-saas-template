@@ -9,10 +9,13 @@ export interface SpacerProps extends React.HTMLAttributes<HTMLDivElement> {
   size?: string | number
 }
 
+// Module-level so the default keeps one reference across renders.
+const NO_STYLE: React.CSSProperties = {}
+
 export function Spacer({
   orientation = "horizontal",
   size,
-  style = {},
+  style = NO_STYLE,
   ...props
 }: SpacerProps) {
   const computedStyle = {

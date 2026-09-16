@@ -95,7 +95,7 @@ export default async function EditEntryPage({ params }: EditEntryPageProps) {
   const entryPublicUrl = navigationNode?.resolvedPath
     ? (getPathname({
         href: navigationNode.resolvedPath,
-        locale: entry.locale as Locale,
+        locale: entry.locale,
       }) as Route)
     : null;
 
@@ -104,7 +104,7 @@ export default async function EditEntryPage({ params }: EditEntryPageProps) {
       <CmsEntryLocaleSwitcher
         collection={collection as CollectionsUnion}
         slug={entry.slug}
-        currentLocale={entry.locale as Locale}
+        currentLocale={entry.locale}
         siblings={localeSiblings}
       />
       {currentSibling?.isStale && (

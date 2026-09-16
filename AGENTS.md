@@ -69,6 +69,8 @@ Comment only non-trivial logic, edge cases, workarounds, and business rules — 
 ### Verification
 
 - `pnpm run lint` (Oxlint), `pnpm run typecheck`, `pnpm run test:unit` (co-located `*.test.ts`).
+- Oxlint loads two local plugins: `project/*` rules in `tools/oxlint-rules/` and the vendored `anti-slop/*` rules in `tools/oxlint/anti-slop/`. Fix an `anti-slop` finding instead of casting around it; enable more of its rules or update it by the notes in `tools/oxlint/anti-slop/UPSTREAM.md`. Keep `oxlint` and `@oxlint/plugins` at the same exact version.
+- `pnpm run lint` runs type-aware rules through `oxlint-tsgolint` (`no-floating-promises`, `await-thenable`, `no-unnecessary-type-assertion`). Mark an intentional fire-and-forget promise with `void`. When a type is wrong about runtime behavior, disable the rule on that line and say why.
 - `pnpm run test:integration` — Workers-runtime behavior with local Miniflare D1/KV/Queue bindings; especially for subscription billing (Stripe webhooks), scheduler, Cloudflare bindings, and SQL-condition changes.
 - `pnpm run test:e2e` — when changes could affect user journeys, routing, auth, or other integrated behavior.
 - `pnpx fallow audit` when work is done, to audit the final changes before handing back.

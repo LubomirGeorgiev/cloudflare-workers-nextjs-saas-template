@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cache } from "react";
-import type { JSONContent } from "@tiptap/core";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { cmsRendererBuildId } from "@/lib/cms/cms-renderer-build-id";
@@ -41,7 +40,7 @@ export async function buildDocsEntryArtifacts({
 }): Promise<DocsEntryArtifacts> {
   const [{ buildCmsEntryMarkdown }, htmlArtifacts] = await Promise.all([
     import("@/lib/cms/build-cms-entry-markdown-response"),
-    buildCmsHtmlArtifacts({ content: entry.content as JSONContent }),
+    buildCmsHtmlArtifacts({ content: entry.content }),
   ]);
 
   return {

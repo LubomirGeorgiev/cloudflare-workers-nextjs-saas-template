@@ -89,7 +89,7 @@ function outputSchemaFor(operation: OpenAPIV3_1.OperationObject): JsonSchemaObje
 
   return {
     type: "object",
-    properties: schema.properties as Record<string, unknown>,
+    properties: schema.properties,
     ...(Array.isArray(schema.required) ? { required: schema.required as string[] } : {}),
   };
 }

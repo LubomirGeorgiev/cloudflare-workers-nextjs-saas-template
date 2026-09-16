@@ -1,6 +1,5 @@
 "use client";
 
-import type { Route } from "next";
 import { useForm } from "react-hook-form";
 import { valibotResolver } from "@hookform/resolvers/valibot";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,7 @@ export function CreateTeamForm() {
       const teamSlug = getCreatedTeamSlug(data);
       const teamPath = teamSlug ? `/dashboard/teams/${teamSlug}` : "/dashboard/teams";
 
-      window.location.href = teamPath as Route;
+      window.location.href = teamPath;
     }
   });
 

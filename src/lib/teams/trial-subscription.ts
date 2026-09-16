@@ -68,7 +68,7 @@ export interface TrialSubscriptionStripe {
 }
 
 async function resolveStripe(stripe?: TrialSubscriptionStripe): Promise<TrialSubscriptionStripe> {
-  return stripe ?? ((await getStripe()) as unknown as TrialSubscriptionStripe);
+  return stripe ?? (await getStripe());
 }
 
 // Reservation-derived key so retries of THIS reservation converge on whatever Stripe did:
@@ -158,7 +158,7 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
 
   let subscription: Stripe.Subscription;
   try {
-    subscription = await createTrialSubscription(stripe as unknown as TrialSubscriptionStripe, trialAttempt);
+    subscription = await createTrialSubscription(stripe, trialAttempt);
   } catch (stripeError) {
     // Release ONLY when Stripe definitely created nothing (a rejected request), so the user
     // can retry. On an ambiguous failure keep the reservation — a second trial must stay
@@ -178,7 +178,7 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
 
   const claimedSlot = await claimTeamSubscription({ teamId, subscriptionId: subscription.id });
   if (!claimedSlot) {
-    await discardLosingTrial({ stripe: stripe as unknown as TrialSubscriptionStripe, teamId, userId, subscription });
+    await discardLosingTrial({ stripe, teamId, userId, subscription });
     throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 

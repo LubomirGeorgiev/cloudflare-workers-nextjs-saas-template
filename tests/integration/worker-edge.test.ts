@@ -104,7 +104,7 @@ describe("worker edge integration", () => {
   test("health endpoint short-circuits before the Vinext app handler", async () => {
     const response = await worker.fetch(
       new Request("https://example.com/_worker/health"),
-      env as Env,
+      env,
       createExecutionContext()
     );
 
@@ -126,7 +126,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/blog/opengraph-image", { headers: { accept: "image/*" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -147,7 +147,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/blog/opengraph-image", { headers: { accept: "text/html" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -160,7 +160,7 @@ describe("worker edge integration", () => {
     const [locale] = LOCALES;
     const response = await worker.fetch(
       new Request(`https://example.com/${locale}/blog`),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -173,7 +173,7 @@ describe("worker edge integration", () => {
     const [locale] = LOCALES;
     const response = await worker.fetch(
       new Request(`https://example.com/${locale}/blog?page=2`, { redirect: "manual" }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -194,7 +194,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/docs/core-concepts/billing.md"),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -207,7 +207,7 @@ describe("worker edge integration", () => {
   test("redirects an Accept: text/markdown page request to its .md twin", async () => {
     const response = await worker.fetch(
       new Request("https://example.com/terms", { headers: { accept: MARKDOWN_CONTENT_TYPE } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -226,7 +226,7 @@ describe("worker edge integration", () => {
       new Request("https://example.com/terms", {
         headers: { accept: MARKDOWN_CONTENT_TYPE.toUpperCase() },
       }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -241,7 +241,7 @@ describe("worker edge integration", () => {
       new Request("https://example.com/terms", {
         headers: { accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
       }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -261,7 +261,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/terms", { headers: { accept: "text/html" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -278,7 +278,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -296,7 +296,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
     const values = (response.headers.get("link") ?? "").split(", ");
@@ -319,7 +319,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       new Request("https://example.com/dashboard", { headers: { accept: "text/html" } }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
     const link = response.headers.get("link") ?? "";
@@ -332,7 +332,7 @@ describe("worker edge integration", () => {
   test("stamps no preloads on a non-HTML response", async () => {
     const response = await worker.fetch(
       new Request("https://example.com/dashboard"),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -344,7 +344,7 @@ describe("worker edge integration", () => {
       new Request("https://example.com/dashboard", {
         headers: { accept: MARKDOWN_CONTENT_TYPE },
       }),
-      env as Env,
+      env,
       createExecutionContext(),
     );
 
@@ -375,7 +375,7 @@ describe("worker edge integration", () => {
     const ctx = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://example.com/terms.md"),
-      env as Env,
+      env,
       ctx,
     );
 
@@ -395,7 +395,7 @@ describe("worker edge integration", () => {
 
     const cachedResponse = await worker.fetch(
       new Request("https://example.com/terms.md"),
-      env as Env,
+      env,
       createExecutionContext(),
     );
     expect(cachedResponse.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
@@ -418,7 +418,7 @@ describe("worker edge integration", () => {
     const ctx = createExecutionContext();
     const response = await worker.fetch(
       new Request("https://example.com/privacy.md"),
-      env as Env,
+      env,
       ctx,
     );
 
@@ -440,7 +440,7 @@ describe("worker edge integration", () => {
   test("the public API is routed away from the Vinext app handler", async () => {
     const response = await worker.fetch(
       new Request(`https://example.com${API_V1_BASE_PATH}/me`),
-      env as Env,
+      env,
       createExecutionContext()
     );
 
@@ -458,7 +458,7 @@ describe("worker edge integration", () => {
     async (method) => {
       const response = await worker.fetch(
         new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`, { method }),
-        env as Env,
+        env,
         createExecutionContext()
       );
 
@@ -473,7 +473,7 @@ describe("worker edge integration", () => {
   test("a write method on the OpenAPI path falls through to the credential check", async () => {
     const response = await worker.fetch(
       new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`, { method: "POST" }),
-      env as Env,
+      env,
       createExecutionContext()
     );
 
@@ -489,7 +489,7 @@ describe("worker edge integration", () => {
     async (method) => {
       const response = await worker.fetch(
         new Request(`https://example.com${API_CATALOG_PATH}`, { method }),
-        env as Env,
+        env,
         createExecutionContext()
       );
 
@@ -502,7 +502,7 @@ describe("worker edge integration", () => {
   test("a write method on the API catalog path falls through to the Next app handler", async () => {
     const response = await worker.fetch(
       new Request(`https://example.com${API_CATALOG_PATH}`, { method: "POST" }),
-      env as Env,
+      env,
       createExecutionContext()
     );
 
@@ -520,7 +520,7 @@ describe("worker edge integration", () => {
     async (pathname) => {
       const response = await worker.fetch(
         new Request(`https://example.com${pathname}`),
-        env as Env,
+        env,
         createExecutionContext()
       );
 
@@ -533,7 +533,7 @@ describe("worker edge integration", () => {
   test("the consent page falls through to the Next app handler", async () => {
     await worker.fetch(
       new Request(`https://example.com${OAUTH_AUTHORIZE_PATH}`),
-      env as Env,
+      env,
       createExecutionContext()
     );
 
@@ -543,7 +543,7 @@ describe("worker edge integration", () => {
   test("authorization server metadata advertises S256-only PKCE", async () => {
     const response = await worker.fetch(
       new Request("https://example.com/.well-known/oauth-authorization-server"),
-      env as Env,
+      env,
       createExecutionContext()
     );
     const metadata = await response.json() as {
@@ -598,7 +598,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       request,
-      env as Env,
+      env,
       createExecutionContext()
     );
     const body = await response.json() as {
@@ -632,7 +632,7 @@ describe("worker edge integration", () => {
 
     const response = await worker.fetch(
       request,
-      env as Env,
+      env,
       createExecutionContext()
     );
     const body = await response.json() as {
@@ -654,7 +654,7 @@ describe("worker edge integration", () => {
           [__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]: "https",
         },
       }),
-      env as Env,
+      env,
       createExecutionContext()
     );
     const body = await response.json() as {
@@ -730,7 +730,7 @@ describe("edge HTML page cache", () => {
     const ctx = createExecutionContext();
     const response = await worker.fetch(
       new Request(`https://example.com${pathname}`, { headers: PAGE_HEADERS, ...init }),
-      env as Env,
+      env,
       ctx,
     );
     const buffered = new Response(await response.clone().arrayBuffer(), response);

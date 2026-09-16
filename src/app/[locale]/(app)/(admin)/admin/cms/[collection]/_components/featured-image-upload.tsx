@@ -81,7 +81,7 @@ export function FeaturedImageUpload({
     }
   );
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       return;
@@ -98,7 +98,7 @@ export function FeaturedImageUpload({
       return;
     }
 
-    await uploadImage({ file, collection });
+    uploadImage({ file, collection });
 
     // Reset input
     if (fileInputRef.current) {

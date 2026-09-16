@@ -40,7 +40,7 @@ function uniqueId(prefix: string): string {
 function callWorker(path: string, init?: RequestInit): Promise<Response> {
   return worker.fetch(
     new Request(`${ORIGIN}${path}`, init),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 }
@@ -66,7 +66,7 @@ async function getOnlyKeyExpiration(prefix: string): Promise<number> {
   expect(keys).toHaveLength(1);
   expect(keys[0]?.expiration).toBeTypeOf("number");
 
-  return keys[0]!.expiration!;
+  return keys[0].expiration!;
 }
 
 function expectExpirationNear({

@@ -18,7 +18,7 @@ const PAGE_PATHNAMES = new Set<string>([
   ...INDEXED_DOCS_ROUTES.map(({ pathname }) => pathname),
 ]);
 
-const DOCS_PATHNAME = INDEXED_DOCS_ROUTES[0]!.pathname;
+const DOCS_PATHNAME = INDEXED_DOCS_ROUTES[0].pathname;
 
 describe("markdown page paths", () => {
   test("maps the site root to and from /index.md", () => {

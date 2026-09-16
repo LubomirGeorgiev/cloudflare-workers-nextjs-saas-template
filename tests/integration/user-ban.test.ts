@@ -517,8 +517,10 @@ describe("the ban notice", () => {
 
     await banUser({ userId, internalReason, externalReason: undefined, sendEmail: true, actorUserId: null });
 
-    const [email] = queuedEmails();
-    const data = (email?.payload as { data: Record<string, unknown> }).data;
+    const emails = queuedEmails();
+    expect(emails).toHaveLength(1);
+    const [email] = emails;
+    const data = (email.payload as { data: Record<string, unknown> }).data;
 
     expect(Object.keys(data)).not.toContain("internalReason");
     expect(data.externalReason).toBeUndefined();

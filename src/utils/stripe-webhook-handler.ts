@@ -28,7 +28,7 @@ export interface StripeSubscriptionFetcher {
 }
 
 function getEventSubscriptionId(event: Stripe.Event): string | null {
-  const object = event.data.object as unknown as Record<string, unknown>;
+  const object = event.data.object;
 
   if (object.object === "subscription" && typeof object.id === "string") {
     return object.id;
@@ -36,10 +36,7 @@ function getEventSubscriptionId(event: Stripe.Event): string | null {
 
   if (object.object === "invoice") {
     // On the current API version the subscription lives under invoice.parent.
-    const parent = object.parent as
-      | { subscription_details?: { subscription?: string | { id?: string } } }
-      | undefined;
-    const fromParent = parent?.subscription_details?.subscription;
+    const fromParent = object.parent?.subscription_details?.subscription;
     if (typeof fromParent === "string") {
       return fromParent;
     }
@@ -47,12 +44,12 @@ function getEventSubscriptionId(event: Stripe.Event): string | null {
       return fromParent.id;
     }
 
-    // Fallback for older payload shapes.
-    const legacy = (object as { subscription?: string | { id?: string } }).subscription;
+    // Fallback for older payload shapes, which the current SDK types no longer declare.
+    const legacy = "subscription" in object ? object.subscription : undefined;
     if (typeof legacy === "string") {
       return legacy;
     }
-    if (legacy && typeof legacy === "object" && typeof legacy.id === "string") {
+    if (legacy && typeof legacy === "object" && "id" in legacy && typeof legacy.id === "string") {
       return legacy.id;
     }
   }
@@ -78,7 +75,7 @@ export async function handleStripeEvent(
     return;
   }
 
-  const client = stripe ?? ((await getStripe()) as unknown as StripeSubscriptionFetcher);
+  const client = stripe ?? (await getStripe());
 
   // Re-fetch the subscription so we always write Stripe's latest state (source of truth).
   let subscription: Stripe.Subscription;

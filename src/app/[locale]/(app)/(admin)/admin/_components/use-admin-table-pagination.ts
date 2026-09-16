@@ -26,9 +26,9 @@ export function useAdminTablePagination() {
     pageIndex: currentPage - 1,
     onPageChange: (nextPageIndex: number) => setPage(nextPageIndex + 1),
     onPageSizeChange: (nextPageSize: number) => {
-      setPageSize(nextPageSize);
+      void setPageSize(nextPageSize);
       // A row that was on page 4 of 10 may not exist on page 4 of 50.
-      setPage(1);
+      void setPage(1);
     },
     resetToFirstPage: () => setPage(1),
   };

@@ -34,9 +34,12 @@ export interface ListDropdownMenuProps extends Omit<ButtonProps, "type"> {
   portal?: boolean
 }
 
+// Module-level so the default keeps one reference across renders.
+const DEFAULT_LIST_TYPES: ListType[] = ["bulletList", "orderedList", "taskList"]
+
 export function ListDropdownMenu({
   editor: providedEditor,
-  types = ["bulletList", "orderedList", "taskList"],
+  types = DEFAULT_LIST_TYPES,
   hideWhenUnavailable = false,
   onOpenChange,
   portal = false,

@@ -56,7 +56,7 @@ function uid(prefix: string): string {
 }
 
 function callWorker(path: string, init?: RequestInit): Promise<Response> {
-  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env as Env, createExecutionContext());
+  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env, createExecutionContext());
 }
 
 interface JsonRpcResponse {
@@ -281,7 +281,7 @@ test("an agent can ask what its own credential is, whatever it holds", async () 
 
   expect(result.isError).toBeFalsy();
 
-  const credential = JSON.parse(result.content[0]!.text) as {
+  const credential = JSON.parse(result.content[0].text) as {
     audience: string;
     team: { id: string } | null;
     scopes: string[];

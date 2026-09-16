@@ -101,7 +101,7 @@ function breadcrumbSchemaId(url: string): string {
 
 // `</script>` inside any string value would close the tag early, so the one character that can do
 // it is written as its JSON escape. `<` parses back to `<`, leaving the payload unchanged.
-export function serializeJsonLd(graph: JsonLdGraph | object): string {
+export function serializeJsonLd(graph: JsonLdGraph): string {
   return JSON.stringify(graph).replaceAll("<", "\\u003c");
 }
 

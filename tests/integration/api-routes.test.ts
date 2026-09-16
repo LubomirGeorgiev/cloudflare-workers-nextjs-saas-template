@@ -67,7 +67,7 @@ async function call(path: string, { method = "GET", secret, body, rawBody }: Cal
       },
       body: rawBody ?? (body === undefined ? undefined : JSON.stringify(body)),
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 

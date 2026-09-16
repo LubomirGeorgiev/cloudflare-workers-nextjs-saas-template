@@ -25,7 +25,7 @@ const ENTRY_COUNT = CMS_SEARCH_REBUILD_CHUNK_SIZE + 3;
 const SEED_INSERT_CHUNK_SIZE = 5;
 
 // A fork can turn search off everywhere; then there is nothing to rebuild and the suite skips.
-const searchableCollection: CollectionsUnion | undefined = getSearchableCollections()[0];
+const searchableCollection = getSearchableCollections().at(0);
 
 const entryContent = {
   type: "doc",
@@ -36,6 +36,14 @@ const entryContent = {
     },
   ],
 };
+
+// `skipIf` does not narrow the type inside the test body, so each test reads the collection here.
+function requireSearchableCollection(): CollectionsUnion {
+  if (!searchableCollection) {
+    throw new Error("No searchable collection: the test must skip when search is off.");
+  }
+  return searchableCollection;
+}
 
 async function clearSeededRows(): Promise<void> {
   await env.D1_DB.batch([
@@ -90,7 +98,7 @@ afterEach(async () => {
 });
 
 test.skipIf(!searchableCollection)("one rebuild writes exactly one row per entry", async () => {
-  const collection = searchableCollection!;
+  const collection = requireSearchableCollection();
   await seedEntries(collection);
 
   await rebuildCmsSearchIndex(collection);
@@ -106,7 +114,7 @@ test.skipIf(!searchableCollection)("one rebuild writes exactly one row per entry
 test.skipIf(!searchableCollection)(
   "two overlapping rebuilds leave no duplicate search row",
   async () => {
-    const collection = searchableCollection!;
+    const collection = requireSearchableCollection();
     await seedEntries(collection);
 
     await Promise.all([rebuildCmsSearchIndex(collection), rebuildCmsSearchIndex(collection)]);

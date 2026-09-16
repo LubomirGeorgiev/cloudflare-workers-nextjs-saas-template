@@ -41,7 +41,7 @@ export function validateEntryFields(
     );
   }
 
-  return parseResult.output as Record<string, unknown>;
+  return parseResult.output;
 }
 
 function formatValibotIssue(issue: { path?: Array<{ key: unknown }>; message: string }): string {

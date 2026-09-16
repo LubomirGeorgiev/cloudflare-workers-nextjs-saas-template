@@ -207,7 +207,7 @@ export function CmsEntryForm({
       toast.dismiss();
       toast.success("Entry created successfully");
       form.reset(getSavedFormValues({ savedEntry: data, input }));
-      router.replace(`/admin/cms/${collection}/${data.id}` as Route);
+      router.replace(`/admin/cms/${collection}/${data.id}`);
       router.refresh();
     },
   });
@@ -445,7 +445,7 @@ export function CmsEntryForm({
     </Alert>
   ) : null;
 
-  const onSubmit = async (data: CmsEntryFormData) => {
+  const onSubmit = (data: CmsEntryFormData) => {
     // Serialize content to prevent Next.js from converting attrs to functions
     const serializedContent = JSON.parse(JSON.stringify(data.content));
 
@@ -492,7 +492,7 @@ export function CmsEntryForm({
     }
 
     if (mode === "create") {
-      await createEntry({
+      createEntry({
         ...data,
         // oxlint-disable-next-line typescript/no-explicit-any
         collection: collection as any,
@@ -505,7 +505,7 @@ export function CmsEntryForm({
         return;
       }
 
-      await updateEntry({
+      updateEntry({
         ...data,
         id: entry.id,
         content: serializedContent,

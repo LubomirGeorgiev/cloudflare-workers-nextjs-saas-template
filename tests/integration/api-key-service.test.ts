@@ -10,12 +10,16 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 
-const { authState, d1Failure } = vi.hoisted(() => ({
-  authState: { current: null as unknown },
-  // How many DELETEs must reject before the real ones run again, so a test can prove what the
-  // bulk delete leaves behind when D1 refuses a chunk.
-  d1Failure: { deletesToFail: 0 },
-}));
+const { authState, d1Failure } = vi.hoisted(() => {
+  const authState: { current: unknown } = { current: null };
+
+  return {
+    authState,
+    // How many DELETEs must reject before the real ones run again, so a test can prove what the
+    // bulk delete leaves behind when D1 refuses a chunk.
+    d1Failure: { deletesToFail: 0 },
+  };
+});
 
 vi.mock("@/utils/auth", async (importOriginal) => {
   const { ActionError } = await import("@/lib/action-error");
@@ -63,6 +67,7 @@ vi.mock("@/db", async (importOriginal) => {
             });
           }
 
+          // oxlint-disable-next-line anti-slop/no-reflect-get -- A Proxy trap forwards to its target by key.
           const value = Reflect.get(target, property) as unknown;
 
           return typeof value === "function" ? value.bind(target) : value;

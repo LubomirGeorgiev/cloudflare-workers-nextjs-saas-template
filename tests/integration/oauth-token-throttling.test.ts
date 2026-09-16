@@ -51,7 +51,7 @@ function tokenRequest(body?: URLSearchParams): Request {
 }
 
 function callTokenEndpoint(): Promise<Response> {
-  return worker.fetch(tokenRequest(), env as Env, createExecutionContext());
+  return worker.fetch(tokenRequest(), env, createExecutionContext());
 }
 
 beforeEach(() => {
@@ -104,7 +104,7 @@ test("leaves RFC 7009 revocation requests available without charging issuance bu
       token_type_hint: "refresh_token",
       client_id: CLIENT_ID,
     })),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 
@@ -121,7 +121,7 @@ test("does not mistake a token parameter alongside grant_type for revocation", a
       token: REFRESH_TOKEN,
       client_id: CLIENT_ID,
     })),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 

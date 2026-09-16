@@ -34,11 +34,11 @@ export function buildTableOfContentsTree(
       children: [],
     };
 
-    while (stack.length > 1 && stack[stack.length - 1]!.level >= item.level) {
+    while (stack.length > 1 && stack[stack.length - 1].level >= item.level) {
       stack.pop();
     }
 
-    stack[stack.length - 1]!.children.push(node);
+    stack[stack.length - 1].children.push(node);
     stack.push(node);
   }
 

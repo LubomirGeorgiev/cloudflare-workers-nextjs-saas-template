@@ -1,4 +1,3 @@
-import type { Route } from "next";
 
 import { hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/constants/team-roles";
@@ -8,7 +7,6 @@ import { getTeamSubscription, isTrialEligible } from "@/utils/team-subscription"
 import { requireTeamAccess } from "../team-page-guard";
 import { isBillingEnabled } from "@/flags";
 import { getTranslations } from "next-intl/server";
-import type { TeamPlanId } from "@/constants/plans";
 import { PlanCards } from "./_components/plan-cards";
 import { AddonCards } from "./_components/addon-cards";
 import { CustomerPortalButton } from "./_components/customer-portal-button";
@@ -46,8 +44,8 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
     <PageHeader
       items={[
         { href: "/dashboard", label: t("breadcrumbDashboard") },
-        { href: `/dashboard/teams/${team.slug}` as Route, label: team.name },
-        { href: `/dashboard/teams/${team.slug}/billing` as Route, label: t("breadcrumbBilling") },
+        { href: `/dashboard/teams/${team.slug}`, label: team.name },
+        { href: `/dashboard/teams/${team.slug}/billing`, label: t("breadcrumbBilling") },
       ]}
     />
   );
@@ -83,7 +81,7 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
 
         <PlanCards
           teamId={team.id}
-          currentPlanId={subscription.planId as TeamPlanId}
+          currentPlanId={subscription.planId}
           currentInterval={subscription.interval}
           status={subscription.status}
           planExpiresAt={subscription.planExpiresAt}

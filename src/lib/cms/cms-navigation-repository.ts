@@ -305,20 +305,15 @@ function hydrateMissingResolvedPaths({
 }
 
 function pruneNavigationTree(nodes: CmsNavigationTreeNode[]): CmsNavigationTreeNode[] {
-  return nodes.reduce<CmsNavigationTreeNode[]>((acc, node) => {
+  return nodes.flatMap((node) => {
     const children = pruneNavigationTree(node.children);
 
     if (node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE && !node.entry) {
-      return acc.concat(children);
+      return children;
     }
 
-    acc.push({
-      ...node,
-      children,
-    });
-
-    return acc;
-  }, []);
+    return [{ ...node, children }];
+  });
 }
 
 function getTreeAncestorChain({

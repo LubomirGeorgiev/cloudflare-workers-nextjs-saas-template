@@ -86,7 +86,7 @@ function mockDatabase({
   const setMock = vi.fn(() => ({
     where: vi.fn(() => ({
       returning: vi.fn(async () => (
-        existingEntry ? [{ ...(existingEntry as object), status: CMS_ENTRY_STATUS.PUBLISHED }] : []
+        existingEntry ? [{ ...existingEntry, status: CMS_ENTRY_STATUS.PUBLISHED }] : []
       )),
     })),
   }));

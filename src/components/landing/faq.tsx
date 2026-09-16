@@ -76,7 +76,7 @@ export function FaqAnswer({ entry, t }: { entry: FaqEntry; t: FaqTranslator }) {
             ))}
           </List>
         ) : (
-          <p key={block.key}>{renderAnswerPart({ part: block.parts[0]!, t })}</p>
+          <p key={block.key}>{renderAnswerPart({ part: block.parts[0], t })}</p>
         ),
       )}
     </>

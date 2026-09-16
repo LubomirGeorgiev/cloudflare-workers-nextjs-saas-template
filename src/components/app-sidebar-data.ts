@@ -83,7 +83,7 @@ export function getAppSidebarData({
       {
         title: "Teams",
         titleKey: "teams",
-        url: "/dashboard/teams" as Route,
+        url: "/dashboard/teams",
         icon: Users,
       },
       ...(billingEnabled ? [

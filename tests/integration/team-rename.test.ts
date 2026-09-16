@@ -21,9 +21,10 @@ const {
   enqueueTeamSessionsRefreshMock,
 } = vi.hoisted(() => {
   const stripeCustomerUpdateMock = vi.fn(async () => ({}));
+  const authState: { current: unknown } = { current: null };
 
   return {
-    authState: { current: null as unknown },
+    authState,
     stripeCustomerUpdateMock,
     // Indirection so a test can make getStripe() itself throw synchronously (misconfigured keys).
     getStripeMock: vi.fn(() => ({ customers: { update: stripeCustomerUpdateMock } })),

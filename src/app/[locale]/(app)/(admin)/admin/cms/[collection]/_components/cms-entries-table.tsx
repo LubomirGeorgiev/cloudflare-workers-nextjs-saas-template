@@ -40,9 +40,12 @@ import { toast } from "sonner";
 import { ENABLED_LOCALES, DEFAULT_LOCALE } from "@/i18n/config";
 import { LocaleCoverageBadges } from "../../_components/locale-coverage-badges";
 
+// Module-level so the default keeps one reference across renders.
+const NO_NAVIGATION_ENTRY_SLUGS: string[] = [];
+
 export function CmsEntriesTable({
   collection,
-  navigationEntrySlugs = [],
+  navigationEntrySlugs = NO_NAVIGATION_ENTRY_SLUGS,
 }: {
   collection: CollectionsUnion;
   navigationEntrySlugs?: string[];

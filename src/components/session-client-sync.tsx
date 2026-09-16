@@ -12,17 +12,17 @@ export function SessionClientSync() {
   const fetchSession = useDebounceCallback(fetchSessionNow, 30)
 
   useEffect(() => {
-    fetchSession({ reason: "initial" })
+    void fetchSession({ reason: "initial" })
   }, [fetchSession])
 
   useEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-      fetchSession({ reason: "visibility" })
+      void fetchSession({ reason: "visibility" })
     }
   }, documentRef as RefObject<Document>)
 
   useEventListener("focus", () => {
-    fetchSession({ reason: "focus" })
+    void fetchSession({ reason: "focus" })
     // @ts-expect-error window is not defined in the server
   }, windowRef)
 

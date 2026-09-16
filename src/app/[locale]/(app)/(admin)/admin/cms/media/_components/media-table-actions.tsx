@@ -44,8 +44,8 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
     },
   });
 
-  const handleDelete = async () => {
-    await deleteMedia({ mediaId });
+  const handleDelete = () => {
+    deleteMedia({ mediaId });
   };
 
   const isDisabled = usageCount > 0 || isExecuting;

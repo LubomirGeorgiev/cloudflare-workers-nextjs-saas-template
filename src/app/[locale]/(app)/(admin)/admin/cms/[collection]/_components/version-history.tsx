@@ -579,8 +579,8 @@ export function VersionHistory({
     }
 
     return createContentDiff({
-      currentContent: currentVersion.content as JSONContent,
-      selectedContent: selectedVersion.content as JSONContent,
+      currentContent: currentVersion.content,
+      selectedContent: selectedVersion.content,
     });
   }, [currentVersion, selectedVersion]);
   const hasContentChanges = Boolean(contentDiff?.hasChanges);

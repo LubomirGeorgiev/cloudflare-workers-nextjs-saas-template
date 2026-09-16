@@ -1,7 +1,6 @@
 import "server-only";
 
 import { cache } from "react";
-import type { JSONContent } from "@tiptap/core";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import {
@@ -40,7 +39,7 @@ export async function buildBlogEntryArtifacts({
 }: {
   entry: GetCmsCollectionResult;
 }): Promise<BlogEntryArtifacts> {
-  const content = entry.content as JSONContent;
+  const content = entry.content;
 
   return {
     ...(await buildCmsHtmlArtifacts({ content })),

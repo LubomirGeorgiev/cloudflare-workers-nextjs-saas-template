@@ -203,9 +203,12 @@ export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
   }
 )
 
+// Module-level so the default keeps one reference across renders.
+const NO_PORTAL_PROPS: NonNullable<TooltipContentProps["portalProps"]> = {}
+
 export const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
   function TooltipContent(
-    { style, children, portal = true, portalProps = {}, ...props },
+    { style, children, portal = true, portalProps = NO_PORTAL_PROPS, ...props },
     propRef
   ) {
     const context = useTooltipContext()

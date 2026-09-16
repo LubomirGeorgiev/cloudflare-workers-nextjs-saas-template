@@ -22,6 +22,8 @@
   ],
   "health": {
     "ignore": [
+      // Vendored upstream rules (see tools/oxlint/anti-slop/UPSTREAM.md). Upstream owns their structure.
+      "tools/oxlint/anti-slop/**",
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/*.spec.ts",
@@ -31,6 +33,8 @@
   },
   "duplicates": {
     "ignore": [
+      // Vendored upstream rules (see tools/oxlint/anti-slop/UPSTREAM.md). Upstream owns their structure.
+      "tools/oxlint/anti-slop/**",
       "worker-configuration.d.ts"
     ]
   }

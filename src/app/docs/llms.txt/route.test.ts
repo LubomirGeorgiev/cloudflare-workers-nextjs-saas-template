@@ -8,8 +8,8 @@ vi.mock("@/constants", () => ({
 const { GET } = await import("./route");
 
 describe("/docs/llms.txt", () => {
-  test("redirects permanently to the root file", async () => {
-    const response = await GET();
+  test("redirects permanently to the root file", () => {
+    const response = GET();
 
     expect(response.status).toBe(301);
     expect(response.headers.get("location")).toBe("https://example.com/llms.txt");

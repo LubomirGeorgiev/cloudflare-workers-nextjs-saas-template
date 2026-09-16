@@ -112,7 +112,7 @@ function request({
         ...(cookie ? { cookie } : {}),
       },
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 }
@@ -159,7 +159,7 @@ test("a non-admin credential with public scopes is refused without a challenge",
   expect(response.status).toBe(403);
   expect(response.headers.get("www-authenticate")).toBeNull();
   expect(response.headers.get("cache-control")).toBe("no-store");
-  expect((await response.json()) as { code: string }).toMatchObject({ code: "FORBIDDEN" });
+  expect(await response.json()).toMatchObject({ code: "FORBIDDEN" });
 });
 
 // Two independent facts, so the role alone opens nothing: the refusal names the missing scope only
@@ -195,7 +195,7 @@ test("an admin cookie session reads the internal document", async () => {
   const response = await request({ cookie });
 
   expect(response.status).toBe(200);
-  expect(Object.keys(((await response.json()) as { paths?: object }).paths ?? {}).length)
+  expect(Object.keys((await response.json<{ paths?: object }>()).paths ?? {}).length)
     .toBeGreaterThan(0);
 });
 
@@ -207,7 +207,7 @@ test("a non-admin cookie session is refused without a challenge", async () => {
   expect(response.status).toBe(403);
   expect(response.headers.get("www-authenticate")).toBeNull();
   expect(response.headers.get("cache-control")).toBe("no-store");
-  expect((await response.json()) as { code: string }).toMatchObject({ code: "FORBIDDEN" });
+  expect(await response.json()).toMatchObject({ code: "FORBIDDEN" });
 });
 
 // The document is a static read, so an unsafe method falls through to the internal app's 404
@@ -229,7 +229,7 @@ test("an unsafe method with no credential is refused without a challenge", async
   expect(response.headers.get("www-authenticate")).toBeNull();
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(response.headers.get("content-type")).toContain("application/problem+json");
-  expect((await response.json()) as { code: string }).toMatchObject({ code: "NOT_AUTHORIZED" });
+  expect(await response.json()).toMatchObject({ code: "NOT_AUTHORIZED" });
 });
 
 test("an unsafe method with an invalid bearer token is refused without a challenge", async () => {

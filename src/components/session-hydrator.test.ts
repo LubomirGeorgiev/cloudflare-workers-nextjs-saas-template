@@ -35,7 +35,7 @@ describe("SessionHydrator", () => {
     const hydrateSessionFromServer = vi.fn();
     useSessionStore.setState({ hydrateSessionFromServer });
 
-    SessionHydrator({
+    void SessionHydrator({
       children: "Dashboard",
       session: createSession(),
     });
@@ -46,7 +46,7 @@ describe("SessionHydrator", () => {
   test("does not build the hydration key during render", () => {
     const stringify = vi.spyOn(JSON, "stringify");
 
-    SessionHydrator({
+    void SessionHydrator({
       children: "Dashboard",
       session: createSession(),
     });

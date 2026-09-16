@@ -15,7 +15,7 @@ import { buildMarkdownPagePath, localizedPagePathname } from "./page-paths";
 const BROWSER_ACCEPT =
   "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
 
-const PAGE_PATHNAME = STATIC_PUBLIC_ROUTES[0]!.pathname;
+const PAGE_PATHNAME = STATIC_PUBLIC_ROUTES[0].pathname;
 
 /** The page always has a Markdown twin, so only the `Accept` header decides the answer. */
 function redirectsFor(accept: string | null): boolean {

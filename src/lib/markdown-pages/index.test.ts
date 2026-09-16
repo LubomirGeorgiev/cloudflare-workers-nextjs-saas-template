@@ -24,9 +24,9 @@ import { MARKDOWN_UNAVAILABLE_CODE, MARKDOWN_UNAVAILABLE_STATUS } from "./serve-
 const MARKDOWN_BUILD_ID = "test-build-id";
 
 // Derived, not literal: a fork renames its public pages, so the test follows the allowlist.
-const PAGE_PATHNAME = STATIC_PUBLIC_ROUTES[0]!.pathname;
-const DOCS_PAGE_PATHNAME = INDEXED_DOCS_ROUTES[0]!.pathname;
-const BLOG_LISTING_PATHNAME = BLOG_LISTING_ROUTES[0]!.pathname;
+const PAGE_PATHNAME = STATIC_PUBLIC_ROUTES[0].pathname;
+const DOCS_PAGE_PATHNAME = INDEXED_DOCS_ROUTES[0].pathname;
+const BLOG_LISTING_PATHNAME = BLOG_LISTING_ROUTES[0].pathname;
 const TAG_PAGE_PATHNAME = `${BLOG_LISTING_PATHNAME}/tags/react`;
 const SOURCE_CACHE_TAG = "cms-collection-blog,_N_T_/blog";
 
@@ -260,7 +260,7 @@ describe("handleMarkdownRequest", () => {
       } as unknown as ExecutionContext,
       render,
     };
-    const pathname = `${BLOG_LISTING_ROUTES[0]!.pathname}/tags/react`;
+    const pathname = `${BLOG_LISTING_ROUTES[0].pathname}/tags/react`;
 
     const plain = await handleMarkdownRequest({
       ...sharedParams,
@@ -341,8 +341,8 @@ describe("handleMarkdownRequest", () => {
       request: new Request("https://example.com/blog/launch.md?download"),
     });
 
-    const plain = new URL(internalUrls[0]!);
-    const downloaded = new URL(internalUrls[1]!);
+    const plain = new URL(internalUrls[0]);
+    const downloaded = new URL(internalUrls[1]);
     expect(plain.pathname).toBe("/markdown/blog/launch");
     expect(plain.searchParams.get("locale")).toBe(DEFAULT_LOCALE);
     expect(plain.searchParams.has(MARKDOWN_DOWNLOAD_PARAM)).toBe(false);

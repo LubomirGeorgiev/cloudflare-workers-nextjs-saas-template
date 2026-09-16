@@ -207,7 +207,7 @@ export const updateCmsMediaAction = actionClient
       const entriesToInvalidate: Array<{ collectionSlug: CollectionsUnion; slug: string }> = [];
 
       for (const entry of relatedEntries) {
-        const content = entry.content as JSONContent;
+        const content = entry.content;
         const imageUpdates = {
           alt: updates.alt,
           title: updates.alt, // Title typically matches alt

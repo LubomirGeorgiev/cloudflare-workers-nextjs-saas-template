@@ -4,6 +4,7 @@ import { SITE_URL } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
+import type { JsonLdNode } from "./json-ld";
 
 vi.mock("server-only", () => ({}));
 
@@ -19,10 +20,9 @@ const {
 const { buildDocsArticleGraph, buildDocsCollectionGraph } = await import("./docs-json-ld");
 const { buildFaqQuestions } = await import("./faq-json-ld");
 
-type Node = Record<string, unknown> & { "@id"?: string };
 interface Graph {
-  "@context": string;
-  "@graph": readonly Node[];
+  "@context": typeof SCHEMA_CONTEXT;
+  "@graph": readonly JsonLdNode[];
 }
 
 const SCHEMA_CONTEXT = "https://schema.org";
@@ -111,7 +111,7 @@ const GRAPHS: readonly GraphFixture[] = [
 ];
 
 /** Every plain object in a graph. An inline `Person` is as much a node as a top-level one. */
-function walk(value: unknown, visit: (node: Node) => void): void {
+function walk(value: unknown, visit: (node: JsonLdNode) => void): void {
   if (Array.isArray(value)) {
     value.forEach((item) => walk(item, visit));
     return;
@@ -119,14 +119,14 @@ function walk(value: unknown, visit: (node: Node) => void): void {
   if (!value || typeof value !== "object") {
     return;
   }
-  visit(value as Node);
+  visit(value as JsonLdNode);
   Object.values(value).forEach((item) => walk(item, visit));
 }
 
 // A bare `{"@id": ...}` is a pointer; anything with more keys is a definition.
-function collect(value: unknown): { references: string[]; definitions: Node[] } {
+function collect(value: unknown): { references: string[]; definitions: JsonLdNode[] } {
   const references: string[] = [];
-  const definitions: Node[] = [];
+  const definitions: JsonLdNode[] = [];
   walk(value, (node) => {
     const keys = Object.keys(node);
     if (keys.length === 1 && keys[0] === "@id") {
@@ -139,13 +139,13 @@ function collect(value: unknown): { references: string[]; definitions: Node[] } 
   return { references, definitions };
 }
 
-function hasType(node: Node, type: string): boolean {
+function hasType(node: JsonLdNode, type: string): boolean {
   const nodeType = node["@type"];
 
   return Array.isArray(nodeType) ? nodeType.includes(type) : nodeType === type;
 }
 
-function nodesOfType(value: unknown, type: string): Node[] {
+function nodesOfType(value: unknown, type: string): JsonLdNode[] {
   return collect(value).definitions.filter((node) => hasType(node, type));
 }
 
@@ -194,8 +194,8 @@ describe.each(GRAPHS)("$name graph", (fixture) => {
   test("leaves no node unreachable from its root", async () => {
     const { "@graph": nodes } = await graphFor(fixture);
     const byId = new Map(nodes.map((node) => [node["@id"], node]));
-    const seen = new Set<Node>();
-    const follow = (node: Node | undefined) => {
+    const seen = new Set<JsonLdNode>();
+    const follow = (node: JsonLdNode | undefined) => {
       if (!node || seen.has(node)) {
         return;
       }
@@ -212,13 +212,15 @@ describe.each(GRAPHS)("$name graph", (fixture) => {
   // section root, so the crumb it owns is emitted twice.
   test.runIf(fixture.root === PAGE_ROOT)("walks one unique path down to the page", async () => {
     const graph = await graphFor(fixture);
-    const [breadcrumb] = nodesOfType(graph["@graph"], "BreadcrumbList");
-    const items = breadcrumb!.itemListElement as Array<{ position: number; item: string }>;
+    const breadcrumbs = nodesOfType(graph["@graph"], "BreadcrumbList");
+    expect(breadcrumbs).toHaveLength(1);
+    const [breadcrumb] = breadcrumbs;
+    const items = breadcrumb.itemListElement as Array<{ position: number; item: string }>;
     const urls = items.map((item) => item.item);
 
     expect(items.map((item) => item.position)).toEqual(items.map((_, index) => index + 1));
     expect(new Set(urls).size).toBe(urls.length);
-    urls.slice(1).forEach((url, index) => expect(url.startsWith(urls[index]!)).toBe(true));
+    urls.slice(1).forEach((url, index) => expect(url.startsWith(urls[index])).toBe(true));
     expect(urls.at(-1)).toBe(nodesOfType(graph["@graph"], PAGE_ROOT)[0]?.url);
   });
 
@@ -226,9 +228,11 @@ describe.each(GRAPHS)("$name graph", (fixture) => {
   // locale would leave the merged entity depending on which URL a crawler reached first.
   test.runIf(fixture.root === SITE_ROOT)("names every served locale, not the request's", async () => {
     const graph = await graphFor(fixture);
-    const [website] = nodesOfType(graph["@graph"], SITE_ROOT);
+    const websites = nodesOfType(graph["@graph"], SITE_ROOT);
+    expect(websites).toHaveLength(1);
+    const [website] = websites;
 
-    expect(website!.inLanguage).toEqual(ENABLED_LOCALES);
+    expect(website.inLanguage).toEqual(ENABLED_LOCALES);
   });
 
   test("round-trips through serialization", async () => {

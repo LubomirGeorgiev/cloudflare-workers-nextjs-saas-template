@@ -58,7 +58,7 @@ export function EmailVerificationDialog() {
   if (
     !session
     || session.user.emailVerified
-    || pagesToBypass.includes(pathname as Route)
+    || pagesToBypass.includes(pathname)
   ) {
     return null;
   }

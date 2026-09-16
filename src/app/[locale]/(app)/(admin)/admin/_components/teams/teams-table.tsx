@@ -38,8 +38,8 @@ export function TeamsTable() {
   }, [fetchTeams, page, pageSize, search])
 
   const handleSearchChange = (value: string) => {
-    setSearch(value)
-    resetToFirstPage()
+    void setSearch(value)
+    void resetToFirstPage()
   }
 
   const getRowHref = useCallback((team: Team) => `${ADMIN_TEAMS_PATH}/${team.id}`, [])

@@ -16,7 +16,7 @@ export const CATALOG_LOADERS = {
   en: async () => (await import("./messages/en.json")).default,
   // Nothing merges the default catalog in at runtime, so a translation must define every key;
   // `messages.test.ts` enforces that parity.
-  es: async () => (await import("./messages/es.json")).default as MessageCatalog,
+  es: async () => (await import("./messages/es.json")).default,
 } satisfies Record<Locale, () => Promise<MessageCatalog>>;
 
 /** A catalog is inert data, so it is held for the isolate; see `lazyValueByKey` for the contract. */

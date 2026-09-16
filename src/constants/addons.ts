@@ -59,7 +59,7 @@ if (process.env.NODE_ENV !== "production") {
 
 export const TEAM_ADDONS = addonsData.addons as Record<TeamAddonId, TeamAddon>;
 
-export const TEAM_ADDON_IDS = Object.keys(TEAM_ADDONS) as TeamAddonId[];
+export const TEAM_ADDON_IDS = Object.keys(TEAM_ADDONS).filter(isTeamAddonId);
 
 function isTeamAddonId(value: string | null | undefined): value is TeamAddonId {
   return typeof value === "string" && value in TEAM_ADDONS;

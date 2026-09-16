@@ -57,7 +57,7 @@ function uniqueClientIp(): string {
 }
 
 function callWorker(path: string, init?: RequestInit): Promise<Response> {
-  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env as Env, createExecutionContext());
+  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env, createExecutionContext());
 }
 
 beforeEach(() => {

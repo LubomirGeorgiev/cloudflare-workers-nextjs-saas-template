@@ -9,7 +9,11 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 
-const { authState } = vi.hoisted(() => ({ authState: { current: null as unknown } }));
+const { authState } = vi.hoisted(() => {
+  const authState: { current: unknown } = { current: null };
+
+  return { authState };
+});
 
 vi.mock("@/utils/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/auth")>()),

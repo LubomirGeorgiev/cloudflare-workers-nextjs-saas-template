@@ -64,6 +64,9 @@ interface DataTableProps<TData, TValue> {
   renderSelectionToolbar?: (props: { selectedRows: TData[]; clearSelection: () => void }) => React.ReactNode
 }
 
+// Module-level so the default keeps one reference across renders.
+const DEFAULT_EXCLUDE_CLICKABLE_COLUMNS = ["actions"]
+
 export function DataTable<TData, TValue>({
   columns,
   data,
@@ -77,7 +80,7 @@ export function DataTable<TData, TValue>({
   itemNamePlural,
   pageSizeOptions = ADMIN_TABLE_PAGE_SIZE_OPTIONS,
   getRowHref,
-  excludeClickableColumns = ["actions"],
+  excludeClickableColumns = DEFAULT_EXCLUDE_CLICKABLE_COLUMNS,
   filterComponents,
   getRowGroupKey,
   renderSelectionToolbar,
@@ -271,7 +274,7 @@ export function DataTable<TData, TValue>({
                         return (
                           <TableCell key={cell.id} className="p-0 h-full">
                             <Link
-                              href={href as Parameters<typeof Link>[0]['href']}
+                              href={href}
                               className="flex items-center px-4 py-2 h-full w-full cursor-pointer min-h-[inherit]"
                             >
                               {cellContent}

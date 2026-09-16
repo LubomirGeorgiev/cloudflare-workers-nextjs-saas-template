@@ -19,7 +19,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Link } from "@/i18n/navigation"
-import type { Route } from "next"
 import { useTranslations } from "next-intl"
 import type { NavItem, NavMainItem } from "./app-sidebar-data"
 
@@ -53,7 +52,7 @@ export function NavMain({
                   tooltip={itemLabel}
                   render={
                     <Link
-                      href={item.url as Route}
+                      href={item.url}
                       prefetch={false}
                       onClick={() => setOpenMobile(false)}
                     />
@@ -89,7 +88,7 @@ export function NavMain({
                           render={
                             subItem.url.startsWith('/') ? (
                               <Link
-                                href={subItem.url as Route}
+                                href={subItem.url}
                                 prefetch={false}
                                 onClick={() => setOpenMobile(false)}
                               />

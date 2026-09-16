@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
-import type { Route } from "next";
 import { useLocale, useTranslations } from "next-intl";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useAction } from "next-safe-action/hooks";
@@ -145,7 +144,7 @@ export function DocsSearch({
 
   function navigateToResult(path: string) {
     setIsOpen(false);
-    router.push(path as Route);
+    router.push(path);
   }
 
   return (

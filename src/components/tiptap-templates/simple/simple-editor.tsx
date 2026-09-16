@@ -274,9 +274,11 @@ export function SimpleEditor({ content, onChange, editable = true, collection = 
     }
   }, [isMobile, mobileView])
 
+  const editorContextValue = useMemo(() => ({ editor }), [editor])
+
   return (
     <div className="simple-editor-wrapper">
-      <EditorContext.Provider value={{ editor }}>
+      <EditorContext.Provider value={editorContextValue}>
         <Toolbar
           ref={toolbarRef}
           variant="fixed"

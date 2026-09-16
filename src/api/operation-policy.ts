@@ -20,11 +20,11 @@ export function createPolicyMarker<Policy>(marker: string): PolicyMarker<Policy>
   return {
     carry: ({ guard, policy }) => Object.assign(guard, { [marker]: policy }),
     read: (handler) => {
-      if (typeof handler !== "function" || !(marker in handler)) {
+      if (typeof handler !== "function") {
         return undefined;
       }
 
-      return (handler as unknown as Record<string, Policy>)[marker];
+      return Object.getOwnPropertyDescriptor(handler, marker)?.value as Policy | undefined;
     },
   };
 }

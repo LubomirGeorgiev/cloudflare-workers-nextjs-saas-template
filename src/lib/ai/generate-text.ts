@@ -30,7 +30,7 @@ export async function runAiText({
   // Workers AI output shape varies by model: text-generation models return `{ response }`, chat-completions
   // models return `{ choices[].message.content }`, and some return both. Read defensively so a model swap
   // doesn't silently yield null. A non-string `response` (e.g. an already-parsed JSON array) is re-serialized so callers that expect text/JSON still work.
-  const output = result as unknown as {
+  const output = result as {
     response?: unknown;
     choices?: Array<{ message?: { content?: unknown } }>;
   };

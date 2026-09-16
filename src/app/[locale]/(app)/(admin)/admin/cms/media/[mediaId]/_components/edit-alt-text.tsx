@@ -31,8 +31,8 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
     },
   });
 
-  const handleSave = async () => {
-    await execute({
+  const handleSave = () => {
+    execute({
       mediaId,
       alt: altText.trim() || undefined,
     });

@@ -53,7 +53,7 @@ function registrationRequest(): Request {
 
 async function callRegistration(): Promise<Response> {
   const ctx = createExecutionContext();
-  const response = await worker.fetch(registrationRequest(), env as Env, ctx);
+  const response = await worker.fetch(registrationRequest(), env, ctx);
   await waitOnExecutionContext(ctx);
 
   return response;

@@ -1,6 +1,5 @@
 import "server-only"
 
-import type { JSONContent } from "@tiptap/core"
 import type { ImageResponse } from "next/og"
 
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config"
@@ -48,7 +47,7 @@ export async function renderBlogPostOgImage({
     locale: isFallback ? DEFAULT_LOCALE : locale,
     eyebrow: "blog",
     title: entry.title,
-    description: entry.seoDescription || generateMetaDescription(entry.content as JSONContent),
+    description: entry.seoDescription || generateMetaDescription(entry.content),
   })
 }
 

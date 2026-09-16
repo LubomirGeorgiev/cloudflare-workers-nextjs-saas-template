@@ -27,6 +27,8 @@ export function setCacheScope({ ttl, tags }: CacheScopeOptions): void {
 
 export async function revalidateCacheTag(tag: string): Promise<void> {
   try {
+    // Vinext's shim returns the KV invalidation promise, but its type says `undefined`.
+    // oxlint-disable-next-line typescript/await-thenable
     await revalidateTag(tag, "max");
   } catch (error) {
     if (error instanceof Error && error.message.includes("static generation store missing")) {

@@ -191,7 +191,7 @@ async function resolveMarkdownEntry({
 
   const collection = cmsConfig.collections[collectionSlug];
   const previewUrl = "previewUrl" in collection ? collection.previewUrl : undefined;
-  const slug = path[0]!;
+  const slug = path[0];
 
   return {
     type: "entry",

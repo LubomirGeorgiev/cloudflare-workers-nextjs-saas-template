@@ -77,7 +77,7 @@ async function dispatch({
 
   // `app.fetch` is typed as sync-or-async; awaiting inside the ALS run keeps the principal in
   // scope for the whole handler either way.
-  return runWithPrincipal(principal, () => app.fetch(request, env as Env));
+  return runWithPrincipal(principal, () => app.fetch(request, env));
 }
 
 function registerDerivedTool({

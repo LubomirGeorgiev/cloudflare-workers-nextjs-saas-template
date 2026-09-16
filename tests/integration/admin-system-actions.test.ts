@@ -104,7 +104,7 @@ async function post({
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 

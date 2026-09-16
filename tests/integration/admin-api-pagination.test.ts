@@ -117,7 +117,7 @@ async function callListing({
     new Request(`${ORIGIN}${listing?.path ?? ""}${query ? `?${query}` : ""}`, {
       headers: { authorization: `Bearer ${secret}` },
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 
@@ -163,7 +163,7 @@ async function callAdminTool({
         params: { name: listing?.name, arguments: args },
       }),
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 
@@ -249,7 +249,7 @@ test("an MCP tool call passing a numeric page reaches the listing", skipWithoutL
 
   expect(result.isError).toBeFalsy();
 
-  const payload = result.structuredContent ?? (JSON.parse(result.content[0]!.text) as PageResponse);
+  const payload = result.structuredContent ?? (JSON.parse(result.content[0].text) as PageResponse);
 
   expect(payload.page).toBe(REQUESTED_PAGE);
   expect(payload.pageSize).toBe(REQUESTED_PAGE_SIZE);

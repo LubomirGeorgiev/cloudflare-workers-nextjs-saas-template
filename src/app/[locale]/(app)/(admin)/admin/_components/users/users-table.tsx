@@ -42,13 +42,13 @@ export function UsersTable() {
   }, [fetchUsers, page, pageSize, emailFilter, bannedOnly])
 
   const handleEmailFilterChange = (value: string) => {
-    setEmailFilter(value)
-    resetToFirstPage()
+    void setEmailFilter(value)
+    void resetToFirstPage()
   }
 
   const handleBannedOnlyChange = (value: boolean) => {
-    setBannedOnly(value)
-    resetToFirstPage()
+    void setBannedOnly(value)
+    void resetToFirstPage()
   }
 
   const getRowHref = (user: User) => {

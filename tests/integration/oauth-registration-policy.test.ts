@@ -23,7 +23,7 @@ function register(metadata: Record<string, unknown>): Promise<Response> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(metadata),
     }),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 }

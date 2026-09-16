@@ -38,13 +38,13 @@ function getLoadedSessionState(session: SessionValidationResult | null) {
 }
 
 export const useSessionStore = create(
-  combine(
+  combine<SessionState, SessionActions>(
     {
-      session: null as SessionValidationResult | null,
+      session: null,
       isLoading: true,
-      lastFetched: null as Date | null,
+      lastFetched: null,
       hasHydratedSessionFromServer: false,
-    } as SessionState,
+    },
     (set, get) => ({
       setSession: (session: SessionValidationResult | null) => set(getLoadedSessionState(session)),
       hydrateSessionFromServer: (session: SessionValidationResult) => set({
@@ -105,6 +105,6 @@ export const useSessionStore = create(
       getTeam: (teamId: string) => {
         return get().session?.teams?.find(t => t.id === teamId);
       }
-    } as SessionActions)
+    })
   )
 )

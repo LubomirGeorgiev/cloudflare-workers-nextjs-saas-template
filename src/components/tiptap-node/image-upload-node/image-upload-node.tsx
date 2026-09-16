@@ -473,7 +473,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
       extension.options.onError?.(new Error("No file selected"))
       return
     }
-    handleUpload(Array.from(files))
+    void handleUpload(Array.from(files))
   }
 
   const handleClick = () => {

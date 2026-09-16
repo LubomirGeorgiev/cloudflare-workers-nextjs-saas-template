@@ -97,7 +97,7 @@ async function seedUser(): Promise<{ id: string; email: string }> {
 }
 
 function callWorker(path: string, init?: RequestInit): Promise<Response> {
-  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env as Env, createExecutionContext());
+  return worker.fetch(new Request(`${ORIGIN}${path}`, init), env, createExecutionContext());
 }
 
 async function registerClient(name = "Test Agent"): Promise<{ clientId: string }> {

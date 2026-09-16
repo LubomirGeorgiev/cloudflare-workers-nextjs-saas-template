@@ -12,7 +12,7 @@ export function parseWranglerConfig() {
   try {
     return parse(wranglerContent);
   } catch (error) {
-    throw new Error(`Failed to parse wrangler.jsonc: ${error.message}`);
+    throw new Error(`Failed to parse wrangler.jsonc: ${error.message}`, { cause: error });
   }
 }
 

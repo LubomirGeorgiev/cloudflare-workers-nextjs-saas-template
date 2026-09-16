@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { JSONContent } from "@tiptap/core";
 
 import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { renderContentToMarkdown } from "@/lib/cms/render-content-to-markdown";
@@ -24,7 +23,7 @@ function stripRepeatedTitle({ markdown, title }: { markdown: string; title: stri
   const lines = markdown.trim().split("\n");
   const firstHeading = lines[0]?.match(/^#\s+(.+)$/);
 
-  if (firstHeading && singleLine(firstHeading[1]!) === singleLine(title)) {
+  if (firstHeading && singleLine(firstHeading[1]) === singleLine(title)) {
     lines.shift();
   }
 
@@ -41,15 +40,15 @@ function nextFenceState({ line, openFence }: {
     return openFence;
   }
 
-  const run = match[1]!;
+  const run = match[1];
 
   if (!openFence) {
-    return { char: run[0]!, length: run.length };
+    return { char: run[0], length: run.length };
   }
 
   const closes = run[0] === openFence.char
     && run.length >= openFence.length
-    && match[2]!.trim() === "";
+    && match[2].trim() === "";
 
   return closes ? null : openFence;
 }
@@ -118,7 +117,7 @@ export function buildCmsEntryMarkdown({
   const content = normalizeBodyHeadingLevels(
     stripRepeatedTitle({
       markdown: renderContentToMarkdown(rewriteContentPageLinks({
-        content: entry.content as JSONContent,
+        content: entry.content,
         sourceUrl,
       })),
       title,

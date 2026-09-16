@@ -12,9 +12,11 @@
 import { beforeEach, expect, test, vi } from "vitest";
 
 // A single mutable Stripe stand-in the mocked getStripe() returns; each test reconfigures it.
-const { stripeState } = vi.hoisted(() => ({
-  stripeState: { client: null as unknown },
-}));
+const { stripeState } = vi.hoisted(() => {
+  const stripeState: { client: unknown } = { client: null };
+
+  return { stripeState };
+});
 
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => stripeState.client,
@@ -162,7 +164,7 @@ function makeFakeStripe(handlers: {
     },
   };
 
-  return { client: client as unknown as TrialSubscriptionStripe & { setupIntents: unknown }, calls };
+  return { client, calls };
 }
 
 function makeSetupIntent({

@@ -413,7 +413,7 @@ export async function convertHtmlToMarkdown({
       fences: true,
       setext: false,
     });
-  const document = processor.parse(html) as Root;
+  const document = processor.parse(html);
   const main = findFirstElement(document, "main");
 
   if (!main) {

@@ -3,7 +3,6 @@
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
-import { type CollectionsUnion } from "@/../cms.config";
 import {
   cmsEntryIdSchema,
   createCmsEntrySchema,
@@ -97,12 +96,12 @@ export const createCmsEntryAction = actionClient
 
     const newEntry = await createCmsEntry({
       ...input,
-      collectionSlug: input.collection as CollectionsUnion,
+      collectionSlug: input.collection,
       createdBy: session.userId,
     });
 
     await revalidateCmsEntryPaths({
-      collection: input.collection as CollectionsUnion,
+      collection: input.collection,
       entryId: newEntry.id,
       slugs: [newEntry.slug],
       includeCreatePath: true,
@@ -124,7 +123,7 @@ export const updateCmsEntryAction = actionClient
     }
 
     await revalidateCmsEntryPaths({
-      collection: updatedEntry.collection as CollectionsUnion,
+      collection: updatedEntry.collection,
       entryId: updatedEntry.id,
       slugs: [previousEntry?.slug, updatedEntry.slug].filter((slug): slug is string => Boolean(slug)),
     });
@@ -140,7 +139,7 @@ export const deleteCmsEntryAction = actionClient
     const deletedEntry = await deleteCmsEntry({ id: input.id });
 
     await revalidateCmsEntryPaths({
-      collection: deletedEntry.collection as CollectionsUnion,
+      collection: deletedEntry.collection,
       entryId: deletedEntry.id,
       slugs: [deletedEntry.slug],
     });
@@ -158,7 +157,7 @@ export const createTranslationAction = actionClient
     }
 
     const newEntry = await createCmsEntryTranslation({
-      collectionSlug: input.collection as CollectionsUnion,
+      collectionSlug: input.collection,
       slug: input.slug,
       sourceLocale: input.sourceLocale,
       targetLocale: input.targetLocale,
@@ -167,7 +166,7 @@ export const createTranslationAction = actionClient
     });
 
     await revalidateCmsEntryPaths({
-      collection: input.collection as CollectionsUnion,
+      collection: input.collection,
       entryId: newEntry.id,
       slugs: [newEntry.slug],
     });
@@ -190,7 +189,7 @@ export const retranslateTranslationAction = actionClient
     }
 
     await revalidateCmsEntryPaths({
-      collection: updated.collection as CollectionsUnion,
+      collection: updated.collection,
       entryId: updated.id,
       slugs: [updated.slug],
     });
@@ -212,7 +211,7 @@ export const markTranslationReviewedAction = actionClient
     }
 
     await revalidateCmsEntryPaths({
-      collection: updated.collection as CollectionsUnion,
+      collection: updated.collection,
       entryId: updated.id,
       slugs: [updated.slug],
     });

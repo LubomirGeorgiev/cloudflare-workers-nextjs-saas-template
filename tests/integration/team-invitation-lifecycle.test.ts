@@ -14,10 +14,14 @@ import { beforeEach, expect, test, vi } from "vitest";
 // Request-scoped identity is injected here: requireVerifiedEmail/getCurrentSession normally read
 // next/headers cookies, which don't exist in the Workers test pool. Everything else in the module
 // Permission checks and DB writes run for real.
-const { authState, sendInvitationEmailMock } = vi.hoisted(() => ({
-  authState: { current: null as unknown },
-  sendInvitationEmailMock: vi.fn(async () => {}),
-}));
+const { authState, sendInvitationEmailMock } = vi.hoisted(() => {
+  const authState: { current: unknown } = { current: null };
+
+  return {
+    authState,
+    sendInvitationEmailMock: vi.fn(async () => {}),
+  };
+});
 
 vi.mock("@/utils/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/auth")>()),
@@ -91,7 +95,7 @@ function planGranting(minSeats: number): { planId: TeamPlanId; status: Stripe.Su
         addons: {},
       });
       if (isActive && limits.seats >= minSeats) {
-        return { planId: planId as TeamPlanId, status: status as Stripe.Subscription.Status };
+        return { planId: planId as TeamPlanId, status };
       }
     }
   }
@@ -233,7 +237,7 @@ test("invite -> accept -> remove -> re-invite creates a usable NEW pending invit
   expect(newPending.id).not.toBe(firstInvitationId);
   expect(newPending.token).toBeTruthy();
   expect(newPending.expiresAt).not.toBeNull();
-  expect(new Date(newPending.expiresAt as Date).getTime()).toBeGreaterThan(Date.now());
+  expect(new Date(newPending.expiresAt).getTime()).toBeGreaterThan(Date.now());
 });
 
 test("a second invite while one is pending resends without creating a duplicate pending row", async () => {

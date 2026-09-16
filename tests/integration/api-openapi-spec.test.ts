@@ -66,7 +66,7 @@ function operations(): { path: string; method: string; operation: SpecOperation 
 beforeAll(async () => {
   const response = await apiApp.fetch(
     new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 
@@ -94,7 +94,7 @@ test("the server url joined with a documented path reaches the real endpoint", a
 
   const response = await apiApp.fetch(
     new Request(`${spec.servers[0].url}${path}`),
-    env as Env,
+    env,
     createExecutionContext(),
   );
 

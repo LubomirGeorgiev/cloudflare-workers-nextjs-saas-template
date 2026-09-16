@@ -129,11 +129,11 @@ async function syncCreatedEntrySideEffects({
 }: {
   entry: CmsEntry;
 }): Promise<void> {
-  const collectionSlug = entry.collection as CollectionsUnion;
+  const collectionSlug = entry.collection;
 
   await syncEntryMediaRelationships({
     entryId: entry.id,
-    content: entry.content as JSONContent,
+    content: entry.content,
     featuredImageId: entry.featuredImageId,
   });
 
@@ -143,7 +143,7 @@ async function syncCreatedEntrySideEffects({
     slug: entry.slug,
     title: entry.title,
     seoDescription: entry.seoDescription,
-    content: entry.content as JSONContent,
+    content: entry.content,
   });
 
   // Only a published row is warmed back: a draft would fetch a 404 and store nothing.
@@ -200,7 +200,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
     throw new Error(`Entry with id "${id}" not found`);
   }
 
-  const collection = cmsConfig.collections[existingEntry.collection as CollectionsUnion];
+  const collection = cmsConfig.collections[existingEntry.collection];
   if (!collection) {
     throw new Error(`Collection "${existingEntry.collection}" not found in CMS config`);
   }
@@ -321,7 +321,7 @@ export async function updateCmsEntry(params: UpdateCmsEntryParams): Promise<CmsE
         slug: entry.slug,
         title: entry.title,
         seoDescription: entry.seoDescription,
-        content: entry.content as JSONContent,
+        content: entry.content,
       })
     )
   );
@@ -448,14 +448,14 @@ export async function createCmsEntryTranslation<T extends CollectionsUnion>(
     ? await translateEntryFields({
         title: sourceEntry.title,
         seoDescription: sourceEntry.seoDescription,
-        content: sourceEntry.content as JSONContent,
+        content: sourceEntry.content,
         sourceLocale,
         targetLocale,
       })
     : {
         title: sourceEntry.title,
         seoDescription: sourceEntry.seoDescription,
-        content: sourceEntry.content as JSONContent,
+        content: sourceEntry.content,
         translated: false,
       };
 
@@ -478,7 +478,7 @@ export async function createCmsEntryTranslation<T extends CollectionsUnion>(
       ? computeEntryTranslatableHashes({
           title: defaultSourceEntry.title,
           seoDescription: defaultSourceEntry.seoDescription,
-          content: defaultSourceEntry.content as JSONContent,
+          content: defaultSourceEntry.content,
         })
       : null;
 
@@ -532,7 +532,7 @@ async function loadTranslationWithSource(id: string): Promise<{
 
   const sourceEntry = await db.query.cmsEntryTable.findFirst({
     where: {
-      collection: translationEntry.collection as CollectionsUnion,
+      collection: translationEntry.collection,
       slug: translationEntry.slug,
       locale: DEFAULT_LOCALE,
     },
@@ -571,7 +571,7 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
   const currentHashes = computeEntryTranslatableHashes({
     title: sourceEntry.title,
     seoDescription: sourceEntry.seoDescription,
-    content: sourceEntry.content as JSONContent,
+    content: sourceEntry.content,
   });
   const staleFields = computeStaleFields({
     snapshot: translationEntry.sourceContentHashes,
@@ -594,7 +594,7 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
   const translated = await translateEntryFields({
     title: sourceEntry.title,
     seoDescription: sourceEntry.seoDescription,
-    content: sourceEntry.content as JSONContent,
+    content: sourceEntry.content,
     sourceLocale: DEFAULT_LOCALE,
     targetLocale,
     only: staleFields,
@@ -610,7 +610,7 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
     seoDescription: staleFields.includes("seoDescription")
       ? translated.seoDescription ?? undefined
       : undefined,
-    content: staleFields.includes("content") ? (translated.content as JSONContent) : undefined,
+    content: staleFields.includes("content") ? translated.content : undefined,
     sourceContentHashes: currentHashes,
   });
 }
@@ -628,7 +628,7 @@ export async function markCmsEntryTranslationReviewed(
   const currentHashes = computeEntryTranslatableHashes({
     title: sourceEntry.title,
     seoDescription: sourceEntry.seoDescription,
-    content: sourceEntry.content as JSONContent,
+    content: sourceEntry.content,
   });
 
   return snapshotSourceContentHashes(translationEntry.id, currentHashes);

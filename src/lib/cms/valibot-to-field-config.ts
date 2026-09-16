@@ -80,7 +80,7 @@ function unwrapValibotSchema(schema: GenericSchema): UnwrappedValibotSchema {
       break;
     }
 
-    currentSchema = currentSchema.wrapped as ValibotSchemaLike;
+    currentSchema = currentSchema.wrapped;
   }
 
   return { defaultValue, isOptional, schema: currentSchema };

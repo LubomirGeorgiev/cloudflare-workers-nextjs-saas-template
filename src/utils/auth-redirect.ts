@@ -35,7 +35,7 @@ export function getSafeRedirectPath({
       return fallback;
     }
 
-    return `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}` as Route;
+    return `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`;
   } catch {
     return fallback;
   }

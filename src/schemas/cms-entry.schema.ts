@@ -36,7 +36,10 @@ type CmsEntryScheduleFields = {
   publishedAt?: Date | string | number;
 };
 
-function withStatusPublishedAtValidation<T extends v.GenericSchema>(schema: T) {
+// The checks read only the schedule fields, so the wrapped schema keeps the input and output of T.
+type SameIoSchema<T extends v.GenericSchema> = v.GenericSchema<v.InferInput<T>, v.InferOutput<T>>;
+
+function withStatusPublishedAtValidation<T extends v.GenericSchema>(schema: T): SameIoSchema<T> {
   return v.pipe(
     schema as v.GenericSchema<Record<string, unknown>>,
     v.forward(
@@ -78,10 +81,10 @@ function withStatusPublishedAtValidation<T extends v.GenericSchema>(schema: T) {
       ),
       ["publishedAt"]
     )
-  ) as unknown as T;
+  );
 }
 
-export function withPublishedAtLifecycleValidation<T extends v.GenericSchema>(schema: T) {
+export function withPublishedAtLifecycleValidation<T extends v.GenericSchema>(schema: T): SameIoSchema<T> {
   return v.pipe(
     withStatusPublishedAtValidation(schema) as v.GenericSchema<Record<string, unknown>>,
     v.transform((data) => {
@@ -93,7 +96,7 @@ export function withPublishedAtLifecycleValidation<T extends v.GenericSchema>(sc
 
       return data;
     })
-  ) as unknown as T;
+  );
 }
 
 export const cmsEntryFormSchema = withStatusPublishedAtValidation(

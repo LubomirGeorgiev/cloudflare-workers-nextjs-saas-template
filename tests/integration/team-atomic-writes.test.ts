@@ -18,10 +18,14 @@
 
 import { beforeEach, expect, test, vi } from "vitest";
 
-const { authState, sendInvitationEmailMock } = vi.hoisted(() => ({
-  authState: { current: null as unknown },
-  sendInvitationEmailMock: vi.fn(async () => {}),
-}));
+const { authState, sendInvitationEmailMock } = vi.hoisted(() => {
+  const authState: { current: unknown } = { current: null };
+
+  return {
+    authState,
+    sendInvitationEmailMock: vi.fn(async () => {}),
+  };
+});
 
 vi.mock("@/utils/auth", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/auth")>()),
@@ -100,7 +104,7 @@ function planGranting(minSeats: number): {
       if (isActive && limits.seats >= minSeats) {
         return {
           planId: planId as TeamPlanId,
-          status: status as Stripe.Subscription.Status,
+          status,
           seats: limits.seats,
         };
       }

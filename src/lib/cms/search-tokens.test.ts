@@ -77,7 +77,7 @@ test("an unaccented query prefix-matches accented text in the in-memory index", 
   const tokens = tokenizeIndexText("Documentación de la API");
   const [queryToken] = tokenizeIndexQuery("documentaci");
 
-  expect(hasPrefixMatch({ tokens, queryToken: queryToken as string })).toBe(true);
+  expect(hasPrefixMatch({ tokens, queryToken })).toBe(true);
 });
 
 test.each([

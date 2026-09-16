@@ -19,7 +19,7 @@ const API_DOCS_ALTERNATE =
   `<${SITE_URL}${API_DOCS_PATH}.md>; rel="alternate"; type="text/markdown"`;
 
 /** A syntactically resolvable `.md` target under an entry collection, so only `ok` can gate it. */
-const MISSING_BLOG_PATHNAME = `${BLOG_LISTING_ROUTES[0]!.pathname}/no-such-entry`;
+const MISSING_BLOG_PATHNAME = `${BLOG_LISTING_ROUTES[0].pathname}/no-such-entry`;
 
 function htmlResponse(init?: ResponseInit): Response {
   return new Response("page", {

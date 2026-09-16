@@ -15,7 +15,7 @@ export function getCmsCollectionNavigationKey(
 ): CmsNavigationKey | null {
   const collection = cmsConfig.collections[collectionSlug];
   return collection && "navigationKey" in collection
-    ? (collection.navigationKey as CmsNavigationKey | undefined) ?? null
+    ? collection.navigationKey ?? null
     : null;
 }
 

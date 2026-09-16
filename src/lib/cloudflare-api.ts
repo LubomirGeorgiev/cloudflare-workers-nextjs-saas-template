@@ -150,7 +150,7 @@ async function readCloudflareApiResponse<Result>({
       errors: envelope.errors,
       fallbackMessage: `Cloudflare API returned ${response.status} ${response.statusText}.`,
       messages: envelope.messages,
-      response: envelope as CloudflareApiResponse<unknown>,
+      response: envelope,
       status: response.status,
     });
   }
