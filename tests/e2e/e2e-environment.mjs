@@ -9,6 +9,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import { availableParallelism } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +26,10 @@ const appTestModeVar = "APP_TEST_MODE";
 // parallel test files would otherwise request at the same time on the same uncached key.
 const cachedD1Routes = ["/llms.txt", "/sitemap.xml"];
 const publicBuildEnv = getPublicBuildEnv(process.env);
+// Shared CI runners are often CPU-starved, so waits that pass locally time out there.
+const ciTimeoutScale = 3;
+const minE2EWorkers = 2;
+const maxE2EWorkers = 4;
 const buildInputExactFiles = [
   ".env",
   ".env.example",
@@ -85,6 +90,26 @@ export function getE2EBuildEnv() {
     // The Wrangler preview still runs with getE2ERuntimeEnv().
     NODE_ENV: "production",
   };
+}
+
+/** Multiplier for every e2e wait; E2E_TIMEOUT_SCALE overrides the CI and local defaults. */
+function getE2ETimeoutScale() {
+  const configuredScale = Number(process.env.E2E_TIMEOUT_SCALE);
+
+  if (Number.isFinite(configuredScale) && configuredScale > 0) {
+    return configuredScale;
+  }
+
+  return process.env.CI === "true" ? ciTimeoutScale : 1;
+}
+
+export function scaleE2ETimeout(timeoutMs) {
+  return Math.round(timeoutMs * getE2ETimeoutScale());
+}
+
+/** Each worker drives its own Chromium, so a 2-CPU runner must not start 4 of them. */
+export function getE2EMaxWorkers() {
+  return Math.min(maxE2EWorkers, Math.max(minE2EWorkers, availableParallelism()));
 }
 
 export function getE2ERuntimeEnv() {
@@ -328,7 +353,7 @@ export function createE2EEnvironment() {
 
   async function waitForPreview() {
     const startedAt = Date.now();
-    const timeoutMs = 45_000;
+    const timeoutMs = scaleE2ETimeout(45_000);
     let lastError;
 
     while (Date.now() - startedAt < timeoutMs) {

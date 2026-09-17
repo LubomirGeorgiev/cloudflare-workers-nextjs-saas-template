@@ -1,13 +1,13 @@
 import { afterAll, afterEach } from "vitest";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
+import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
-const navigationTimeoutMs = 8_000;
+const navigationTimeoutMs = scaleE2ETimeout(8_000);
 const navigationRetryDelayMs = 200;
 const navigationRetryLimit = 5;
-const expectationTimeoutMs = 5_000;
-const absentExpectationTimeoutMs = 1_500;
+const expectationTimeoutMs = scaleE2ETimeout(5_000);
+const absentExpectationTimeoutMs = scaleE2ETimeout(1_500);
 const pollIntervalMs = 50;
 
 type AppRole = Parameters<Page["getByRole"]>[0];

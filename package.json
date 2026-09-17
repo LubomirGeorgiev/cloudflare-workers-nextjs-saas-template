@@ -117,7 +117,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.51.1",
+    "@cloudflare/vite-plugin": "^1.54.11",
     "@cloudflare/vitest-plugin": "^1.0.0",
     "@oxlint/plugins": "1.76.0",
     "@tailwindcss/typography": "^0.5.20",
@@ -147,6 +147,6 @@
     "typescript": "^7",
     "vite": "^8.2.2",
     "vitest": "^4.1.10",
-    "wrangler": "^4.128.0"
+    "wrangler": "^4.133.0"
   }
 }

@@ -14,6 +14,7 @@ import {
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
+import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   createVerifiedUserInLocalD1,
   SEEDED_USER_PASSWORD,
@@ -263,7 +264,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   await navigateAppFrame(`/team-invite?token=${encodeURIComponent(acceptanceToken)}`);
   await expectAppPathname(expectedTeamPathname);
   await expectAppText(teamName, { exact: true });
-}, 30_000);
+}, scaleE2ETimeout(30_000));
 
 // Skipped only if a downstream template collapses every plan to a single seat, which would
 // make inviting anyone impossible by design.
@@ -289,7 +290,7 @@ test.skipIf(planWithMostSeats.seats < 2)("invites a member through the modal and
     sql: `select count(*) from team_invitation where teamId = ${sqlStringLiteral(teamId)} and email = ${sqlStringLiteral(inviteeEmail)} and acceptedAt is null;`,
   });
   expect(Number(pendingCount)).toBe(1);
-}, 30_000);
+}, scaleE2ETimeout(30_000));
 
 test("lets an unregistered invitee sign up, verify, and accept the invitation", async () => {
   const { teamId, teamName, teamPathname, ownerId } = await createOwnerAndTeam({
@@ -331,7 +332,7 @@ test("lets an unregistered invitee sign up, verify, and accept the invitation", 
   await expectAppText(teamName, { exact: true });
 
   expect(await countTeamMembershipsByEmail({ teamId, email: inviteeEmail })).toBe(1);
-}, 40_000);
+}, scaleE2ETimeout(40_000));
 
 test("rejects invitation acceptance for expired tokens and mismatched emails", async () => {
   const { teamId, ownerId } = await createOwnerAndTeam({ label: "Rejections" });
@@ -374,4 +375,4 @@ test("rejects invitation acceptance for expired tokens and mismatched emails", a
 
   // Neither rejected acceptance created a membership for the signed-in user.
   expect(await countTeamMembershipsByEmail({ teamId, email: matchingEmail })).toBe(0);
-}, 30_000);
+}, scaleE2ETimeout(30_000));

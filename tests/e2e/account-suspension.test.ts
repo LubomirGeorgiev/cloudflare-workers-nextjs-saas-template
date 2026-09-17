@@ -9,6 +9,7 @@ import {
   fillAppPlaceholder,
   loadAppFrame,
 } from "./app-frame";
+import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   createVerifiedUserInLocalD1,
   SEEDED_USER_PASSWORD,
@@ -107,4 +108,4 @@ test("an admin bans an account, and that account can no longer sign in", async (
 
   await expectAppToast("This account is suspended. Contact support for help.");
   await expectAppPathname("/sign-in");
-}, 30_000);
+}, scaleE2ETimeout(30_000));

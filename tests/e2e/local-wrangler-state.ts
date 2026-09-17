@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { getE2ERuntimeEnv } from "./e2e-environment.mjs";
+import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
 const execFileAsync = promisify(execFile);
 const {
@@ -13,7 +13,7 @@ const sqliteRetryDelayMs = 100;
 const sqliteRetryLimit = 8;
 const localEmailPollDelayMs = 50;
 // Local Queues may hold a message briefly while filling a delivery batch.
-const localEmailTimeoutMs = 10_000;
+const localEmailTimeoutMs = scaleE2ETimeout(10_000);
 
 let d1SqlitePath: string | undefined;
 

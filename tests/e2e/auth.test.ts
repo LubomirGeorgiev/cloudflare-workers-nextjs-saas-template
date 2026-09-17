@@ -16,6 +16,7 @@ import {
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
+import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   createVerifiedUserInLocalD1,
   SEEDED_ADMIN_EMAIL,
@@ -143,7 +144,7 @@ test("creates and verifies a new password account", async () => {
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Verifying your email...");
   await expectAppText("Dashboard", { exact: true });
-}, 18_000);
+}, scaleE2ETimeout(18_000));
 
 test("keeps forgot-password responses enumeration-safe", async () => {
   await loadAppFrame("/forgot-password", { waitForHydration: true });
@@ -203,7 +204,7 @@ test("resets a verified user's password and invalidates the reset token", async 
     password: newPassword,
   });
   await expectAppPathnameStartsWith("/dashboard");
-}, 20_000);
+}, scaleE2ETimeout(20_000));
 
 describe("profile settings", () => {
   test("validates profile settings before saving", async () => {

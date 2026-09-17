@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import { fetchAppPath } from "./app-frame";
+import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   DOCS_LLMS_TXT_CACHE_CONTROL,
   DOCS_SEARCH_CACHE_CONTROL,
@@ -97,7 +98,7 @@ test("serves generated OpenGraph cards with the shared card cache policy and no 
     expectCachePolicy(response, OG_IMAGE_CACHE_CONTROL);
     expect(getSetCookies(response)).toEqual([]);
   }
-}, 60_000);
+}, scaleE2ETimeout(60_000));
 
 test("keeps the locale cookie on a card path that is requested as a page", async () => {
   const { path: cardPath } = await fetchOgCard("/blog");
@@ -105,7 +106,7 @@ test("keeps the locale cookie on a card path that is requested as a page", async
 
   expect(response.status).toBe(200);
   expect(getSetCookies(response).join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
-}, 60_000);
+}, scaleE2ETimeout(60_000));
 
 test("sets the locale cookie on a normal page request", async () => {
   const response = await fetchAppPath("/blog", { headers: PAGE_HEADERS });

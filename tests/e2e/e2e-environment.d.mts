@@ -10,6 +10,10 @@ export interface E2EEnvironment {
   stopAll(): void;
 }
 
+export function scaleE2ETimeout(timeoutMs: number): number;
+
+export function getE2EMaxWorkers(): number;
+
 export function getE2ERuntimeEnv(): Record<string, string>;
 
 export function createE2EEnvironment(): E2EEnvironment;
