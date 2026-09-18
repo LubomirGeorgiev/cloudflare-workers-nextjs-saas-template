@@ -33,7 +33,6 @@
       }
     },
     "LocaleSwitcher": {
-      "label": "Idioma",
       "change": "Cambiar idioma"
     },
     "Nav": {

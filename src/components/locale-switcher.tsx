@@ -1,9 +1,7 @@
 "use client"
 
-import * as React from "react"
 import { Globe, Check } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
-import { usePathname, getPathname } from "@/i18n/navigation"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,8 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { ENABLED_LOCALES, LOCALE_LABELS, type Locale } from "@/i18n/config"
-import { persistUserLocale } from "@/i18n/locale-cookie.client"
+import { ENABLED_LOCALES, LOCALE_LABELS } from "@/i18n/config"
+import { useChangeLocale } from "@/hooks/useChangeLocale"
 import { LocaleFlag } from "@/components/locale-flag"
 
 interface LocaleSwitcherProps {
@@ -24,27 +22,7 @@ interface LocaleSwitcherProps {
 export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
   const t = useTranslations("Client.LocaleSwitcher")
   const activeLocale = useLocale()
-  const pathname = usePathname()
-  const [isPending, startTransition] = React.useTransition()
-
-  const onSelect = (locale: Locale) => {
-    if (locale === activeLocale) {
-      return
-    }
-
-    startTransition(async () => {
-      // Persist preference (cookie) so the app surface honors it too.
-      await persistUserLocale(locale)
-      // The NextIntlClientProvider sits in the root layout (above [locale]) and is
-      // shared across locales, so a soft navigation won't re-render it — useLocale()
-      // and translations stay stale. Hard-navigate so it re-reads the new locale.
-      // usePathname() strips the query/hash, so re-append them (e.g. ?redirect= on sign-in).
-      window.location.href =
-        getPathname({ href: pathname, locale }) +
-        window.location.search +
-        window.location.hash
-    })
-  }
+  const { changeLocale, isPending } = useChangeLocale()
 
   // Nothing to switch between when i18n is disabled (single active locale).
   if (ENABLED_LOCALES.length <= 1) {
@@ -74,7 +52,7 @@ export default function LocaleSwitcher({ className }: LocaleSwitcherProps) {
           {ENABLED_LOCALES.map((locale) => (
             <DropdownMenuItem
               key={locale}
-              onClick={() => onSelect(locale)}
+              onClick={() => changeLocale(locale)}
               className="justify-between gap-4"
             >
               <span className="flex items-center gap-2">

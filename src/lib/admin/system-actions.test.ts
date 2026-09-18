@@ -38,7 +38,7 @@ const { SITE_DOMAIN } = await import("@/constants");
 const { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } = await import("@/constants/public-routes");
 const { DOCS_EDGE_HTML_PATHNAMES } = await import("@/lib/cms/cms-navigation-page-purge");
 const { ENABLED_LOCALES } = await import("@/i18n/config");
-const { localizedPathname } = await import("@/utils/i18n-urls");
+const { localizedPathname } = await import("@/i18n/localized-pathname");
 const { getBuildId } = await import("@/utils/build-id");
 const { getSystemActionAvailability, purgeCloudflareCdnCache, purgeEdgeHtmlCache } = await import(
   "@/lib/admin/system-actions"

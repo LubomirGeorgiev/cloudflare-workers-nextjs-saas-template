@@ -1,7 +1,7 @@
 import "server-only"
 import { SITE_URL } from "@/constants"
 import { ENABLED_LOCALES } from "@/i18n/config"
-import { localizedPathname } from "@/utils/i18n-urls"
+import { localizedPathname } from "@/i18n/localized-pathname"
 import type { MetadataRoute } from "next"
 
 // Paths worth keeping out of an index, written unprefixed. Every one of these lives under

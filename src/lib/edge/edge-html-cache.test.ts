@@ -4,7 +4,7 @@ import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "@/i18n/config";
 import { buildLocaleCookieValue } from "@/i18n/locale-cookie";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
-import { localizedPathname } from "@/utils/i18n-urls";
+import { localizedPathname } from "@/i18n/localized-pathname";
 
 vi.mock("server-only", () => ({}));
 

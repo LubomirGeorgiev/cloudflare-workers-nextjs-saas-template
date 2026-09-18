@@ -21,7 +21,7 @@ import { BLOG_BASE_PATH } from "@/lib/blog-routing";
 import { DOCS_BASE_PATH } from "@/lib/cms/docs-config";
 import { mayBeStoredHtmlPage } from "@/lib/edge/edge-html-cache-prefilter";
 import { isOgImagePathname } from "@/lib/og/og-paths";
-import { localizedPathname } from "@/utils/i18n-urls";
+import { localizedPathname } from "@/i18n/localized-pathname";
 import { getBuildId } from "@/utils/build-id";
 import { mapInBatches } from "@/utils/map-in-batches";
 

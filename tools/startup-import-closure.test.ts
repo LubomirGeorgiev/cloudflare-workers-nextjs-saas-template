@@ -103,10 +103,10 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/constants/oauth.ts",
       // Protected routes live under `app/[locale]`, so robots.txt needs one rule per served locale
       // and reaches the canonical prefix helper. `config`/`routing` are already on the proxy's
-      // closure, so `i18n-urls.ts` is the only module this actually adds to a cold isolate.
+      // closure, so `localized-pathname.ts` is the only module this actually adds to a cold isolate.
       "src/i18n/config.ts",
+      "src/i18n/localized-pathname.ts",
       "src/i18n/routing.ts",
-      "src/utils/i18n-urls.ts",
     ],
   },
 ];

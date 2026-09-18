@@ -17,7 +17,8 @@ import { buildMarkdownPagePath } from "@/lib/markdown-pages/page-paths";
 import { actionErrorToProblem, toProblemResponse } from "@/lib/api/errors";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit-headers";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
-import { absoluteLocalizedUrl, localizedPathname } from "@/utils/i18n-urls";
+import { localizedPathname } from "@/i18n/localized-pathname";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
 import { consumeRateLimit, RATE_LIMITS, RateLimitError } from "@/utils/with-rate-limit";
 
