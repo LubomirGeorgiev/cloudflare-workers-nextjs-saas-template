@@ -14,12 +14,12 @@ type MessageCatalog = typeof import("./messages/en.json");
 // Adding a locale adds a line here and costs the startup budget nothing.
 export const CATALOG_LOADERS = {
   en: async () => (await import("./messages/en.json")).default,
-  // Nothing merges the default catalog in at runtime, so a translation must define every key;
-  // `messages.test.ts` enforces that parity.
   es: async () => (await import("./messages/es.json")).default,
 } satisfies Record<Locale, () => Promise<MessageCatalog>>;
 
-/** A catalog is inert data, so it is held for the isolate; see `lazyValueByKey` for the contract. */
+// A locale's own catalog, held for the isolate because it is inert data; see `lazyValueByKey`.
+// Nothing merges the default catalog in, so a key a translation omits renders its raw path;
+// `messages.test.ts` proves no catalog has one. A fork with partial translations merges here.
 export const loadCatalog = lazyValueByKey(
   (locale: Locale): Promise<MessageCatalog> => CATALOG_LOADERS[locale](),
 );

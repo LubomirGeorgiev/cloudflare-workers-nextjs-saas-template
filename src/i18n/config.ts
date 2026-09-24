@@ -8,10 +8,10 @@ export const LOCALES = ["en", "es"] as const;
 
 export type Locale = (typeof LOCALES)[number];
 
-// `cms_entry.locale` is a plain string column, so a de-served or legacy value can
-// reach code that types locales as `Locale`. Guard raw DB/input strings with this
-// instead of casting, so unknown locales are dropped rather than trusted.
-export function isLocale(value: string): value is Locale {
+// Checks the full LOCALES catalog; `isEnabledLocale` below checks ENABLED_LOCALES. Guard raw
+// DB/input strings with this, not a cast: `cms_entry.locale` is a plain string column, so a
+// de-served or legacy value can reach code that types locales as `Locale`.
+export function isKnownLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }
 
@@ -26,15 +26,27 @@ export const ENABLED_LOCALES: readonly Locale[] = I18N_ENABLED
   ? LOCALES
   : [DEFAULT_LOCALE];
 
-// Validate against the served set, not the full catalog: when I18N_ENABLED is
+// Checks ENABLED_LOCALES, not the full catalog: when I18N_ENABLED is
 // false, ENABLED_LOCALES collapses to [DEFAULT_LOCALE], so every resolution path
 // structurally falls back to the default without a special-case guard.
-export function isSupportedLocale(value: string | undefined | null): value is Locale {
+export function isEnabledLocale(value: string | undefined | null): value is Locale {
   return ENABLED_LOCALES.includes(value as Locale);
 }
 
-// Cookie that persists the user's chosen locale. Keep routing and server actions
-// pointed at this shared name so next-intl reads the same preference we write.
+// Whether the cookie and `Accept-Language` may choose the locale of a bare path. Read from the
+// served set, not the flag: with one served locale there is nothing to negotiate onto.
+export const LOCALE_DETECTION: boolean = ENABLED_LOCALES.length > 1;
+
+// The resolved locale, forwarded from `src/proxy.ts` to the render. Lowercase, because a forwarded
+// request header name is compared in lowercase.
+export const LOCALE_HEADER_NAME = "x-app-locale";
+
+// Every date the app formats is rendered in one zone, so a server render and the browser that
+// hydrates it print the same string. Stored timestamps are UTC, so this is the zone they mean.
+export const DEFAULT_TIME_ZONE = "UTC";
+
+// Cookie that persists the user's chosen locale. Its writers all build it with
+// `buildLocaleCookieValue` in `./locale-cookie`, which names them.
 export const LOCALE_COOKIE_NAME = "selected_locale";
 
 // One year, in seconds — the locale preference should outlive a session.
@@ -47,7 +59,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 // OpenGraph locale codes per app locale. Keep in sync with LOCALES.
-export const LOCALE_OG_MAP: Record<Locale, string> = {
+const LOCALE_OG_MAP: Record<Locale, string> = {
   en: "en_US",
   es: "es_ES",
 };

@@ -2,7 +2,7 @@
 
 import { AlertTriangle, BadgeCheck, MonitorSmartphone, ShieldQuestion } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useState } from "react";
 import { toast } from "sonner";
 

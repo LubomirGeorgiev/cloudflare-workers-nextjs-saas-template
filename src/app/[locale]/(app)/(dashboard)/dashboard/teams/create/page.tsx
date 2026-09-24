@@ -2,7 +2,7 @@ import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 import { CreateTeamForm } from "@/components/teams/create-team-form";
 import { PageHeader } from "@/components/page-header";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 
 export async function generateMetadata() {
   const t = await getTranslations("Client.Dashboard.Teams");

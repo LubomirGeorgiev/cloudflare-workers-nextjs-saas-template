@@ -7,7 +7,7 @@ import { assertNotBanned } from "@/lib/account/ban";
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/utils/password-hasher";
-import { createSessionUnlessBanned } from "@/utils/auth";
+import { createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import { hashToken } from "@/utils/random-token";
 import { normalizeEmail } from "@/lib/validation";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
@@ -145,7 +145,7 @@ async function upgradePasswordHash({
 async function authenticateWithPassword({
   email,
   password,
-}: SignInWithPasswordParams): Promise<{ success: true }> {
+}: SignInWithPasswordParams): Promise<SignInSuccess> {
   const db = getDB();
   const user = await getPasswordSignInUser({ db, email });
   const { needsRehash } = await verifySignInPassword({
@@ -170,14 +170,17 @@ async function authenticateWithPassword({
 
   // Re-checks the ban after it writes the session, so a ban landing since the check above cannot
   // leave a live session behind.
-  await createSessionUnlessBanned({ userId: user.id, authenticationType: "password" });
+  const { preferredLocale } = await createSessionUnlessBanned({
+    userId: user.id,
+    authenticationType: "password",
+  });
 
-  return { success: true };
+  return { success: true, preferredLocale };
 }
 
 async function authenticateWithErrorMapping(
   params: SignInWithPasswordParams,
-): Promise<{ success: true }> {
+): Promise<SignInSuccess> {
   try {
     return await authenticateWithPassword(params);
   } catch (error) {
@@ -197,7 +200,7 @@ async function authenticateWithErrorMapping(
 export async function signInWithPassword({
   email,
   password,
-}: SignInWithPasswordParams): Promise<{ success: true }> {
+}: SignInWithPasswordParams): Promise<SignInSuccess> {
   // Normalize once at the action boundary so the DB lookup, the account rate-limit key, and any
   // downstream logic all key off the same canonical identity. Previously the lookup used the raw
   // input while the rate-limit bucket used a separately lowercased copy — an identity split that

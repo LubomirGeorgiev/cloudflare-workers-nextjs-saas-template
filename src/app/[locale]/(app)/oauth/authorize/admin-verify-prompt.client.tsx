@@ -2,7 +2,7 @@
 
 import { ShieldCheck } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 

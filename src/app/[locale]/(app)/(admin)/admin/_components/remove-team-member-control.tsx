@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import type { ReactNode } from "react";
 
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";

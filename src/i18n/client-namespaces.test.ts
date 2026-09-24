@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { CLIENT_MESSAGE_SCOPES } from "./client-namespaces";
 
-// Proves the per-route-group `NextIntlClientProvider` lists in `client-namespaces.ts` match what the
+// Proves the per-route-group `AppIntlProvider` lists in `client-namespaces.ts` match what the
 // source tree actually reads. A nested provider REPLACES its parent's messages, so a namespace a
 // scope forgets renders its raw key path in the browser — and a namespace it keeps but no longer
 // needs ships dead copy in every RSC payload for that group.

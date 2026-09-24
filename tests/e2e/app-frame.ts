@@ -292,6 +292,12 @@ export function getAppCurrentUrl(): string {
   return getAppPage().url();
 }
 
+/** The value of one cookie in the app page's browser context, or `undefined` when it is absent. */
+export async function getAppCookie(name: string): Promise<string | undefined> {
+  const cookies = await getAppPage().context().cookies();
+  return cookies.find((cookie) => cookie.name === name)?.value;
+}
+
 export function fetchAppPath(path: string, init?: RequestInit): Promise<Response> {
   return fetch(new URL(path, e2eBaseUrl), init);
 }

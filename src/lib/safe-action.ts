@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSafeActionClient } from "next-safe-action";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 import { ActionError, type ActionErrorMessageKey, type ActionErrorMessageParams } from "@/lib/action-error";
 import { translateValidationKey } from "@/lib/validation-messages";
 import { RateLimitError } from "@/utils/with-rate-limit";
@@ -14,7 +14,7 @@ export interface ActionServerError {
   reason?: ActionErrorMessageKey;
 }
 
-// next-intl can't type-check runtime-built keys; `ActionErrorMessageKey`
+// A translator can't type-check runtime-built keys; `ActionErrorMessageKey`
 // already guarantees a valid catalog path at the throw site.
 async function translateErrorKey(
   key: ActionErrorMessageKey,

@@ -23,7 +23,7 @@ import {
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { resolveCurrentDocsPage } from "@/lib/cms/resolve-current-docs-page";
 import { CMS_NAVIGATION_NODE_TYPES, getNavigationNodeDisplayTitle } from "@/types/cms-navigation";
-import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, LOCALES, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, getOpenGraphLocales, isKnownLocale, LOCALES, type Locale } from "@/i18n/config";
 import { Link, permanentRedirect, redirect as redirectLocalized } from "@/i18n/navigation";
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
@@ -134,7 +134,7 @@ export async function generateMetadata({
   const alternates = buildAlternates({
     pathname: canonicalPath,
     locale: urlLocale,
-    availableLocales: availableLocales.filter(isLocale),
+    availableLocales: availableLocales.filter(isKnownLocale),
   });
 
   return {
@@ -298,7 +298,7 @@ export default async function DocsPage({ params }: DocsPageProps) {
     slug: entry.slug,
     // Use the resolved entry's own locale (not the URL locale) so the TOC matches
     // the rendered body — including untranslated docs that fall back to DEFAULT_LOCALE.
-    locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
+    locale: isKnownLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
     // The same path `GET <path>.md` frames as `Source:`, so both surfaces copy the same document.
     sourcePathname: node.resolvedPath ?? docsBasePath,
   });

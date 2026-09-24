@@ -12,7 +12,7 @@ import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 export default function VerifyEmailClientComponent() {
   const router = useRouter();

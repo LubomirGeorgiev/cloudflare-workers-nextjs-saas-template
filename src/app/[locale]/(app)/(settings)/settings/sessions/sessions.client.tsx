@@ -18,7 +18,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { SessionWithMeta } from "@/types";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "@/i18n/client";
 
 function getAuthMethodLabel({
   authenticationType,

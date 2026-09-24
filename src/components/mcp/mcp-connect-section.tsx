@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { ConnectAgentGuide } from "@/components/mcp/connect-agent-guide";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

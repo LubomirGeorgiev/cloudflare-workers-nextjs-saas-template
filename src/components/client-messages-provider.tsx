@@ -1,10 +1,9 @@
 import "server-only";
 
-import { NextIntlClientProvider } from "next-intl";
-
 import { getClientMessages } from "@/i18n/client-messages";
 import type { ClientNamespace } from "@/i18n/client-namespaces";
 import type { Locale } from "@/i18n/config";
+import { AppIntlProvider } from "@/i18n/provider";
 
 interface ClientMessagesProviderProps {
   // Awaited here rather than in the caller so a route group's layout can stay synchronous.
@@ -25,8 +24,8 @@ export async function ClientMessagesProvider({
   const messages = await getClientMessages({ locale, namespaces });
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <AppIntlProvider locale={locale} messages={messages}>
       {children}
-    </NextIntlClientProvider>
+    </AppIntlProvider>
   );
 }

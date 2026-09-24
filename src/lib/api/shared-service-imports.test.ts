@@ -6,9 +6,8 @@ import { expect, test } from "vitest";
 
 // `src/lib/**` and `src/utils/**` are shared by two runtimes: the App Router (pages, server
 // actions) and the plain Worker handlers behind `/api/v1` and `/mcp`. Only the first has a
-// request scope, so `next-intl/server` there resolves to next-intl's client build and throws
-// "`getTranslations` is not supported in Client Components" — a 500 an agent cannot diagnose.
-// Shared services must use `getTranslator` from `@/i18n/translator`, which needs no request.
+// request scope, so `@/i18n/server` there throws on its `headers()` read — a 500 an agent cannot
+// diagnose. Shared services must use `getTranslator` from `@/i18n/translator`, which needs none.
 //
 // `next/headers` is deliberately not part of this rule: `cookies()`/`headers()` are legitimate
 // there when guarded by an ALS-principal check first (see `getUserLocale`, `getCurrentSession`).
@@ -42,11 +41,11 @@ function listSourceFiles(dir: string): string[] {
   });
 }
 
-test("shared services never import next-intl/server", () => {
+test("shared services never import the request-scoped i18n API", () => {
   const offenders = SCANNED_DIRS.flatMap((dir) => listSourceFiles(path.join(SRC_DIR, dir)))
     .map((file) => ({ file, relative: path.relative(SRC_DIR, file) }))
     .filter(({ relative }) => !REQUEST_SCOPED_MODULES.includes(relative.split(path.sep).join("/")))
-    .filter(({ file }) => /from\s+["']next-intl\/server["']/.test(readFileSync(file, "utf8")))
+    .filter(({ file }) => /from\s+["']@\/i18n\/server["']/.test(readFileSync(file, "utf8")))
     .map(({ relative }) => relative);
 
   expect(offenders).toEqual([]);

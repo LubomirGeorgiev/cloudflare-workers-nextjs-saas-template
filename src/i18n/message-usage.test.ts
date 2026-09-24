@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { DEFAULT_LOCALE } from "./config";
 
-// Guards the reverse direction of the typecheck: TypeScript (via next-intl.d.ts)
+// Guards the reverse direction of the typecheck: TypeScript (via use-intl.d.ts)
 // proves every t("key") exists in the catalog, but nothing proves every catalog
 // key is still referenced. This test scans src/ for translator usage and fails
 // on orphaned keys so deleted features don't leave dead copy behind.

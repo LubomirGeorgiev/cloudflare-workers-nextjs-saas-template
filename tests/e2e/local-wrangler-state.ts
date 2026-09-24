@@ -1,93 +1,63 @@
-import { execFile } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { promisify } from "node:util";
+import { readFile } from "node:fs/promises";
+import { getD1Database } from "../../scripts/utils/parse-wrangler.mjs";
 import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
-const execFileAsync = promisify(execFile);
-const {
-  E2E_PREVIEW_LOG_FILE: previewLogFile,
-  E2E_WRANGLER_STATE_DIR: wranglerStateDir,
-} = getE2ERuntimeEnv();
-const sqliteRetryDelayMs = 100;
-const sqliteRetryLimit = 8;
+const { E2E_BASE_URL: e2eBaseUrl, E2E_PREVIEW_LOG_FILE: previewLogFile } = getE2ERuntimeEnv();
+const localExplorerD1Path = "/cdn-cgi/local/explorer/api/d1/database";
 const localEmailPollDelayMs = 50;
 // Local Queues may hold a message briefly while filling a delivery batch.
 const localEmailTimeoutMs = scaleE2ETimeout(10_000);
 
-let d1SqlitePath: string | undefined;
-
-async function findFirstSqliteFile({
-  directory,
-}: {
-  directory: string;
-}): Promise<string | undefined> {
-  const entries = await readdir(directory, { withFileTypes: true }).catch(() => []);
-  const sqliteFile = entries.find(
-    (entry) =>
-      entry.isFile() &&
-      entry.name.endsWith(".sqlite") &&
-      entry.name !== "metadata.sqlite"
-  );
-
-  return sqliteFile ? join(directory, sqliteFile.name) : undefined;
+interface LocalExplorerD1Response {
+  success: boolean;
+  errors?: { message: string }[];
+  result?: { results?: { rows?: unknown[][] } }[] | null;
 }
 
-async function getD1SqlitePath(): Promise<string> {
-  if (!wranglerStateDir) {
-    throw new Error("E2E_WRANGLER_STATE_DIR is not configured.");
+function getLocalD1QueryUrl(): URL {
+  const databaseId = getD1Database()?.id;
+
+  if (!databaseId) {
+    throw new Error("Could not find a D1 database_id in wrangler.jsonc.");
   }
 
-  d1SqlitePath ??= await findFirstSqliteFile({
-    directory: join(wranglerStateDir, "v3", "d1", "miniflare-D1DatabaseObject"),
-  });
-
-  if (!d1SqlitePath) {
-    throw new Error("Could not find the local Miniflare D1 SQLite database.");
-  }
-
-  return d1SqlitePath;
+  return new URL(`${localExplorerD1Path}/${databaseId}/raw`, e2eBaseUrl);
 }
 
-async function querySqlite({
-  databasePath,
-  sql,
-}: {
-  databasePath: string;
-  sql: string;
-}): Promise<string> {
-  for (let attempt = 0; attempt <= sqliteRetryLimit; attempt++) {
-    try {
-      const { stdout } = await execFileAsync("sqlite3", [databasePath, sql]);
-
-      return stdout.trim();
-    } catch (error) {
-      if (!isSqliteLockedError(error) || attempt === sqliteRetryLimit) {
-        throw error;
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, sqliteRetryDelayMs);
-      });
-    }
+function parseLocalExplorerResponse(body: string): LocalExplorerD1Response | undefined {
+  try {
+    return JSON.parse(body) as LocalExplorerD1Response;
+  } catch {
+    return undefined;
   }
-
-  throw new Error("Unreachable SQLite retry state.");
 }
 
-function isSqliteLockedError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  return error.message.includes("database is locked");
+// sqlite3 CLI list format: "|" between columns, one row per line, NULL as "".
+function formatD1Rows(rows: unknown[][]): string {
+  return rows
+    .map((row) => row.map((value) => (value === null ? "" : String(value))).join("|"))
+    .join("\n")
+    .trim();
 }
 
+// Runs SQL inside the preview's own D1 Durable Object via Miniflare's local explorer API.
+// Opening the SQLite file from another process races workerd's lock, and workerd then fails the
+// app's D1 query at once (no busy wait), so a sign-in or form action randomly errors.
 export async function queryLocalD1({ sql }: { sql: string }): Promise<string> {
-  return querySqlite({
-    databasePath: await getD1SqlitePath(),
-    sql,
+  const response = await fetch(getLocalD1QueryUrl(), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql }),
   });
+  const body = await response.text();
+  const payload = parseLocalExplorerResponse(body);
+
+  if (!response.ok || !payload?.success) {
+    const message = payload?.errors?.map((error) => error.message).join("; ") ?? body.slice(0, 200);
+    throw new Error(`Local D1 query failed (HTTP ${response.status}): ${message}\n${sql}`);
+  }
+
+  return formatD1Rows(payload.result?.at(-1)?.results?.rows ?? []);
 }
 
 export async function waitForLocalEmailUrl({

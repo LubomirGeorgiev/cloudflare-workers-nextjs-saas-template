@@ -10,7 +10,7 @@ import { teamInviteSchema } from "@/schemas/team-membership.schema";
 import { Spinner } from "@/components/ui/spinner";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 export default function TeamInviteClientComponent() {
   const router = useRouter();

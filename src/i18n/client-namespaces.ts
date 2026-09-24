@@ -12,7 +12,7 @@ interface ClientMessageScope {
   namespaces: readonly ClientNamespace[];
 }
 
-// One entry per `NextIntlClientProvider` in the tree. A nested provider REPLACES its parent's
+// One entry per `AppIntlProvider` in the tree. A nested provider REPLACES its parent's
 // messages rather than merging them, so each list must cover its whole subtree on its own.
 // `client-namespaces.test.ts` walks the import graph from each `entryPaths` and fails when a list
 // misses a namespace the subtree reads, or carries one it does not.

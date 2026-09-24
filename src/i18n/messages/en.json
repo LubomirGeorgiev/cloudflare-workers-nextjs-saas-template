@@ -734,6 +734,8 @@
         "confirmCancelAction": "Yes, cancel",
         "errorStartCheckout": "Failed to start checkout",
         "errorTrialUnavailable": "A free trial is not available for this team.",
+        "errorTrialPaymentMethodUnsupported": "This payment method can't be used for this plan. Choose a different payment method.",
+        "trialSetupPending": "Your bank is still verifying your payment method. Reload this page later to finish starting your free trial.",
         "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
         "errorNoClientSecret": "Could not start the subscription. Please try again.",
         "errorPlanChangeRequiresPaidAccess": "Complete the pending payment before changing plans.",

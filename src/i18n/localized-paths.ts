@@ -1,4 +1,4 @@
-// Which pathnames next-intl is allowed to rewrite. This lives in code rather than in
+// Which pathnames `src/proxy.ts` is allowed to rewrite. This lives in code rather than in
 // `proxy.ts`'s `config.matcher` because Next requires that matcher to be statically
 // analyzable — nothing can be imported into it, shared with it, or tested against it.
 

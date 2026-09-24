@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { ENABLED_LOCALES } from "@/i18n/config";
+
 const {
   andMock,
   createSessionUnlessBannedMock,
@@ -117,6 +119,7 @@ describe("signInWithPassword", () => {
       passwordHash: CURRENT_HASH,
     });
     findPasskeyMock.mockResolvedValue(null);
+    createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale: null });
     hashPasswordMock.mockResolvedValue("pbkdf2-sha256$100000$new-salt$new-hash");
     hashTokenMock.mockResolvedValue("email-digest");
     verifyPasswordMock.mockResolvedValue({
@@ -185,6 +188,16 @@ describe("signInWithPassword", () => {
       authenticationType: "password",
     });
     expect(resetRateLimitMock).toHaveBeenCalledOnce();
+  });
+
+  test("returns the locale the session write read from the account", async () => {
+    const preferredLocale = ENABLED_LOCALES[ENABLED_LOCALES.length - 1];
+    createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale });
+
+    await expect(signInWithPassword({
+      email: "user@example.com",
+      password: "current-password",
+    })).resolves.toEqual({ success: true, preferredLocale });
   });
 
   test("does not clear the account rate-limit bucket when sign-in fails", async () => {
@@ -328,7 +341,7 @@ describe("signInWithPassword", () => {
     await expect(signInWithPassword({
       email: "user@example.com",
       password: "legacy-password",
-    })).resolves.toEqual({ success: true });
+    })).resolves.toEqual({ success: true, preferredLocale: null });
 
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to upgrade password hash after sign-in",

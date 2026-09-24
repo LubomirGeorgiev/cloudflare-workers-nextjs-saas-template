@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 
 import { ApiKeysManager } from "@/components/api-keys/api-keys-manager";
 import { McpConnectSection } from "@/components/mcp/mcp-connect-section";

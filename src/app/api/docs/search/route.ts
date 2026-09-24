@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 
 import { SITE_URL } from "@/constants";
 import { DOCS_SEARCH_CACHE_CONTROL } from "@/constants/cache-control";

@@ -2,7 +2,7 @@
 
 import type { Route } from 'next'
 import type { MouseEventHandler } from "react"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 import { Menu } from 'lucide-react'
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"

@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { inviteMemberFormSchema, type InviteMemberFormSchema } from "@/schemas/team-membership.schema";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 
 type FormValues = InviteMemberFormSchema;

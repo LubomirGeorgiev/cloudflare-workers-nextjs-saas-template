@@ -4,11 +4,13 @@ import { SITE_URL } from "@/constants";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { ENABLED_LOCALES } from "@/i18n/config";
+import { localizedPathname } from "@/i18n/localized-pathname";
 
 import {
   buildAbsoluteMarkdownPageUrl,
   buildAbsoluteSourcePageUrl,
   buildMarkdownPagePath,
+  localizedPagePathname,
   parseMarkdownPagePath,
 } from "./page-paths";
 
@@ -66,5 +68,16 @@ describe("markdown page paths", () => {
     expect(buildAbsoluteMarkdownPageUrl({ pathname: "/" })).toBe(`${SITE_URL}/index.md`);
     expect(buildAbsoluteSourcePageUrl({ pathname: "/" })).toBe(SITE_URL);
     expect(buildAbsoluteSourcePageUrl({ pathname: "/privacy" })).toBe(`${SITE_URL}/privacy`);
+  });
+
+  // The Markdown cache key and the page URL must name the same locale variant.
+  test("localizes a page path by the shared prefix rule", () => {
+    for (const locale of ENABLED_LOCALES) {
+      for (const pathname of PAGE_PATHNAMES) {
+        expect(localizedPagePathname({ locale, pathname })).toBe(
+          localizedPathname({ pathname, locale }),
+        );
+      }
+    }
   });
 });

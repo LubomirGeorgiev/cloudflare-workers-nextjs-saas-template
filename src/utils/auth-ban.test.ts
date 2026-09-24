@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { SESSION_COOKIE_NAME } from "@/constants";
+import { ENABLED_LOCALES } from "@/i18n/config";
 
 const CURRENT_SESSION_VERSION = 7;
 const STALE_SESSION_VERSION = CURRENT_SESSION_VERSION - 1;
@@ -78,7 +79,9 @@ describe("createSessionUnlessBanned", () => {
   });
 
   test("stores the session and sets the cookie when the account is not banned", async () => {
-    await createSessionUnlessBanned({ userId: "user-1", authenticationType: "password" });
+    await expect(
+      createSessionUnlessBanned({ userId: "user-1", authenticationType: "password" }),
+    ).resolves.toEqual({ preferredLocale: null });
 
     expect(createKVSessionMock).toHaveBeenCalledOnce();
     expect(deleteKVSessionMock).not.toHaveBeenCalled();
@@ -87,6 +90,19 @@ describe("createSessionUnlessBanned", () => {
       expect.stringMatching(/^user-1:/),
       expect.objectContaining({ httpOnly: true }),
     );
+  });
+
+    test("returns the account's served locale so the client can apply it", async () => {
+    const preferredLocale = ENABLED_LOCALES[ENABLED_LOCALES.length - 1];
+    createKVSessionMock.mockImplementation(async () => {
+      const session = buildStoredSession();
+
+      return { ...session, user: { ...session.user, preferredLocale } };
+    });
+
+    await expect(
+      createSessionUnlessBanned({ userId: "user-1", authenticationType: "password" }),
+    ).resolves.toEqual({ preferredLocale });
   });
 
   // The race this helper exists for: the chokepoint's own check read D1 before the ban landed, so

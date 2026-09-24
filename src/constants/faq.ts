@@ -1,4 +1,4 @@
-import type { Messages } from "next-intl";
+import type { Messages } from "use-intl/core";
 
 import { GITHUB_REPO_URL } from "@/constants";
 

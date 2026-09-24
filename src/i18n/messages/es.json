@@ -734,6 +734,8 @@
         "confirmCancelAction": "Sí, cancelar",
         "errorStartCheckout": "No se pudo iniciar el pago",
         "errorTrialUnavailable": "La prueba gratuita no está disponible para este equipo.",
+        "errorTrialPaymentMethodUnsupported": "Este método de pago no se puede usar con este plan. Elige otro método de pago.",
+        "trialSetupPending": "Tu banco aún está verificando tu método de pago. Vuelve a cargar esta página más tarde para terminar de iniciar la prueba gratuita.",
         "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
         "errorNoClientSecret": "No se pudo iniciar la suscripción. Inténtalo de nuevo.",
         "errorPlanChangeRequiresPaidAccess": "Completa el pago pendiente antes de cambiar de plan.",

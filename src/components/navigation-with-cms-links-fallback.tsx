@@ -2,9 +2,9 @@
 
 // Client component on purpose: a Suspense fallback must not suspend, and resolving its one string
 // on the server would force `NavFooterLayout` to be async. `useTranslations` reads the locale from
-// NextIntlClientProvider, so it neither suspends nor touches `headers()`.
+// AppIntlProvider, so it neither suspends nor touches `headers()`.
 import { Menu } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import {
   NavigationActionSkeleton,

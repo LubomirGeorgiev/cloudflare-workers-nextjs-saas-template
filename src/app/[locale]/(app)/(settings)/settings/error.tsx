@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useEffect } from "react";
 
 import { PageErrorState } from "@/components/page-error-state";

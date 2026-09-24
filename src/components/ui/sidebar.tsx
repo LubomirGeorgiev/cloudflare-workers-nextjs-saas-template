@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRender } from "@base-ui/react/use-render"
 import { VariantProps, cva } from "class-variance-authority"
 import { PanelLeft } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { PlusIcon, Users } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { PendingInvitations } from "./pending-invitations";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 import type { TeamSummary } from "@/lib/teams/teams";
 
 export async function generateMetadata() {

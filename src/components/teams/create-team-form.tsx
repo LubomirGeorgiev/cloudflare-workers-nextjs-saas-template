@@ -11,7 +11,7 @@ import { useAction } from "next-safe-action/hooks";
 import type { InferSafeActionFnResult } from "next-safe-action";
 import { createTeamAction } from "@/actions/team-actions";
 import { createTeamSchema, type CreateTeamSchema } from "@/schemas/team.schema";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 type FormValues = CreateTeamSchema;
 

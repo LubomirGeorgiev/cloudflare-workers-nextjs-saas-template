@@ -7,24 +7,29 @@ import {
   useElements,
   Elements,
 } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/components/ui/card";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
+import { classifyConfirmedIntentStatus } from "@/lib/billing/confirm-outcome";
+import { buildPaymentReturnUrl, type TrialReturn } from "@/lib/billing/payment-return";
 
 interface StripePaymentFormProps {
   clientSecret: string;
+  // The plan currency. Setup mode passes it to Stripe, which then hides the payment methods
+  // that cannot pay the subscription (a SetupIntent itself has no currency).
+  currency: string;
   planName: string;
   priceLabel: string;
   // Trial checkouts collect a payment method without charging; the length drives the
   // "you won't be charged today" copy and is 0/undefined for immediate payments.
   trialDays?: number;
-  // Called after a successful confirm. For setup mode the confirmed SetupIntent id is
-  // passed so the parent can complete the trial server-side; payment mode passes
-  // nothing and the parent polls until the webhook flips the team active.
-  onSuccess: (confirmedSetupIntentId?: string) => void;
+  // Called once the intent succeeded or is processing. Setup mode passes the SetupIntent so
+  // the parent can complete the trial server-side; payment mode passes null and the parent
+  // polls until the webhook flips the team active.
+  onSuccess: (confirmedSetup: TrialReturn | null) => void;
   onCancel: () => void;
 }
 
@@ -41,7 +46,7 @@ function PaymentForm({
   trialDays,
   onSuccess,
   onCancel,
-}: StripePaymentFormProps) {
+}: Omit<StripePaymentFormProps, "currency">) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -51,6 +56,11 @@ function PaymentForm({
 
   const isSetupMode = isSetupIntentSecret(clientSecret);
   const isTrial = isSetupMode && Boolean(trialDays);
+
+  function failPayment(message: string | undefined) {
+    toast.error(message || t("paymentFailed"));
+    setIsProcessing(false);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,19 +72,43 @@ function PaymentForm({
     setIsProcessing(true);
 
     try {
-      const result = isSetupMode
-        ? await stripe.confirmSetup({ elements, redirect: "if_required" })
-        : await stripe.confirmPayment({ elements, redirect: "if_required" });
-
-      if (result.error) {
-        toast.error(result.error.message || t("paymentFailed"));
-        setIsProcessing(false);
-        return;
-      }
+      // "if_required" keeps cards inline; only a redirect-based method uses return_url. The
+      // browser builds it, so Stripe returns to the host that started the checkout.
+      const confirmParams = { return_url: buildPaymentReturnUrl(window.location.href) };
 
       // Do NOT flip subscription state from the client — the server verifies the
       // SetupIntent (setup mode) or the webhook confirms the payment (payment mode).
-      onSuccess("setupIntent" in result ? result.setupIntent?.id : undefined);
+      if (isSetupMode) {
+        // Deferred-intent Elements must validate and collect wallet data before the confirm.
+        const { error: submitError } = await elements.submit();
+        if (submitError) {
+          failPayment(submitError.message);
+          return;
+        }
+        const result = await stripe.confirmSetup({ elements, clientSecret, confirmParams, redirect: "if_required" });
+        if (result.error) {
+          failPayment(result.error.message);
+          return;
+        }
+        // A closed modal is not a failure: keep the dialog open so the user can pick another method.
+        if (classifyConfirmedIntentStatus(result.setupIntent.status) === "cancel") {
+          setIsProcessing(false);
+          return;
+        }
+        onSuccess({ setupIntentId: result.setupIntent.id });
+        return;
+      }
+
+      const result = await stripe.confirmPayment({ elements, confirmParams, redirect: "if_required" });
+      if (result.error) {
+        failPayment(result.error.message);
+        return;
+      }
+      if (classifyConfirmedIntentStatus(result.paymentIntent.status) === "cancel") {
+        setIsProcessing(false);
+        return;
+      }
+      onSuccess(null);
     } catch (error) {
       console.error("Payment error:", error);
       toast.error(error instanceof Error ? error.message : tErrors("unexpected"));
@@ -125,6 +159,7 @@ function PaymentForm({
   );
 }
 
+// fallow-ignore-next-line unused-export -- Reached by dynamic import from plan-cards.tsx.
 export function StripePaymentForm(props: StripePaymentFormProps) {
   const { resolvedTheme: theme } = useTheme();
   const stripePromise = useMemo(
@@ -135,17 +170,21 @@ export function StripePaymentForm(props: StripePaymentFormProps) {
     []
   );
 
+  const { clientSecret, currency, ...formProps } = props;
+  const appearanceTheme = theme === "dark" ? "night" : "stripe";
+  const options = useMemo<StripeElementsOptions>(() => {
+    const appearance = { theme: appearanceTheme } as const;
+    // Setup mode uses deferred-intent Elements so Stripe filters methods by the plan currency;
+    // `setupFutureUsage` matches the `usage` of the SetupIntent that startTrialSetupAction creates.
+    if (isSetupIntentSecret(clientSecret)) {
+      return { mode: "setup", currency: currency.toLowerCase(), setupFutureUsage: "off_session", appearance };
+    }
+    return { clientSecret, appearance };
+  }, [clientSecret, currency, appearanceTheme]);
+
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        clientSecret: props.clientSecret,
-        appearance: {
-          theme: theme === "dark" ? "night" : "stripe",
-        },
-      }}
-    >
-      <PaymentForm {...props} />
+    <Elements stripe={stripePromise} options={options}>
+      <PaymentForm clientSecret={clientSecret} {...formProps} />
     </Elements>
   );
 }

@@ -15,11 +15,12 @@ import { OG_IMAGE_CACHE_CONTROL, OG_IMAGE_CONTENT_TYPE } from "../../src/constan
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "../../src/i18n/config";
 import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
-// A crawler or an `<img>` never asks for HTML, which is exactly how `isOgImageRequest`
-// tells a generated card apart from a page whose slug looks like one.
+// A crawler or an `<img>` never asks for HTML; a page navigation always does.
 const CRAWLER_HEADERS = { accept: "image/*" } as const;
 const PAGE_HEADERS = { accept: "text/html" } as const;
 const REDIRECT_HOP_LIMIT = 3;
+// Derived from the enabled set, so a single-locale fork skips the cases that need two.
+const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
 type CacheDirectives = Record<string, string | true>;
 
@@ -100,20 +101,25 @@ test("serves generated OpenGraph cards with the shared card cache policy and no 
   }
 }, scaleE2ETimeout(60_000));
 
-test("keeps the locale cookie on a card path that is requested as a page", async () => {
-  const { path: cardPath } = await fetchOgCard("/blog");
-  const response = await fetchAppPath(cardPath, { headers: PAGE_HEADERS });
-
-  expect(response.status).toBe(200);
-  expect(getSetCookies(response).join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
-}, scaleE2ETimeout(60_000));
-
-test("sets the locale cookie on a normal page request", async () => {
+// The locale cookie means "the visitor chose this locale", so only the switcher writes it.
+test("sets no locale cookie on a normal page request", async () => {
   const response = await fetchAppPath("/blog", { headers: PAGE_HEADERS });
 
   expect(response.status).toBe(200);
-  expect(getSetCookies(response).join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
+  expect(getSetCookies(response).join(";")).not.toContain(`${LOCALE_COOKIE_NAME}=`);
 });
+
+test.runIf(I18N_ENABLED && ALTERNATE_LOCALE !== undefined)(
+  "sets no locale cookie on a prefixed page for a visitor who chose another locale",
+  async () => {
+    const response = await fetchAppPath(`/${ALTERNATE_LOCALE}/blog`, {
+      headers: { ...PAGE_HEADERS, cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` },
+    });
+
+    expect(response.status).toBe(200);
+    expect(getSetCookies(response).join(";")).not.toContain(`${LOCALE_COOKIE_NAME}=`);
+  }
+);
 
 test("serves the root llms.txt export with its shared cache policy", async () => {
   const response = await fetchAppPath(LLMS_TXT_PATH);
@@ -189,8 +195,7 @@ test("answers a warm anonymous docs request from the stored page", async () => {
 });
 
 // The behavior the policy above protects: a visitor who signals another locale is redirected to
-// it on the bare path. Derived from the enabled set, so a single-locale fork skips this.
-const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
+// it on the bare path.
 
 function locationPathname(response: Response): string | null {
   const location = response.headers.get("location");

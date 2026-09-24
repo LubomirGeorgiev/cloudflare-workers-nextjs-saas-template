@@ -11,7 +11,7 @@ import { passKeyCredentialTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { requireVerifiedEmail, createSessionUnlessBanned } from "@/utils/auth";
+import { requireVerifiedEmail, createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import { assertNotBanned } from "@/lib/account/ban";
 import { cookies, headers } from "next/headers";
 import { getIP } from "@/utils/get-IP";
@@ -231,7 +231,7 @@ export const generateAuthenticationOptionsAction = actionClient
 export const verifyAuthenticationAction = actionClient
   .inputSchema(verifyAuthenticationSchema)
   .action(async ({ parsedInput: input }) => {
-    return withRateLimit(async () => {
+    return withRateLimit(async (): Promise<SignInSuccess> => {
       const cookieStore = await cookies();
       const challenge = cookieStore.get(PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME)?.value;
 
@@ -275,12 +275,12 @@ export const verifyAuthenticationAction = actionClient
 
         assertNotBanned(owner);
 
-        await createSessionUnlessBanned({
+        const { preferredLocale } = await createSessionUnlessBanned({
           userId: credential.userId,
           authenticationType: "passkey",
           passkeyCredentialId: input.response.id,
         });
-        return { success: true };
+        return { success: true, preferredLocale };
       } catch (error) {
         if (error instanceof ActionError) {
           throw error;

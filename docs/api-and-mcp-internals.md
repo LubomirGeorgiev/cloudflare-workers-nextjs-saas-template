@@ -274,7 +274,7 @@ enforces.
 ## No request scope in the API and MCP entrypoints
 
 Both are plain Worker handlers with no App Router request scope. In shared `src/lib/**` and
-`src/utils/**` code, `getTranslations` from `next-intl/server` throws — use `getTranslator` from
+`src/utils/**` code, `getTranslations` from `@/i18n/server` throws — use `getTranslator` from
 `@/i18n/translator` — and `cookies()`/`headers()` throw unless an ALS-principal check short-circuits
 first, as `getUserLocale` does. `src/lib/api/shared-service-imports.test.ts` guards the import half.
 

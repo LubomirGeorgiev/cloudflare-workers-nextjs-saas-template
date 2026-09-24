@@ -1,7 +1,7 @@
 "use client";
 
 import { SearchIcon, XIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useQueryState } from "nuqs";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 

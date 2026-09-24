@@ -38,7 +38,7 @@ import {
   computeEntryTranslatableHashes,
   computeStaleFields,
 } from "@/lib/cms/translation-staleness";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
 import {
   CMS_STATUS_FILTER_ALL,
@@ -477,7 +477,7 @@ export async function getEntryLocaleSiblings(
   // Drop rows whose locale/status aren't in the known sets: a de-served or legacy
   // value must not be offered by the switcher as a valid sibling to link to.
   return rows.flatMap((row) => {
-    if (!isLocale(row.locale) || !isCmsEntryStatus(row.status)) {
+    if (!isKnownLocale(row.locale) || !isCmsEntryStatus(row.status)) {
       return [];
     }
     const staleFields =
@@ -523,7 +523,7 @@ export async function getEntryLocalesForSlugs(
   });
 
   for (const row of rows) {
-    if (!isLocale(row.locale)) {
+    if (!isKnownLocale(row.locale)) {
       continue;
     }
     const existing = coverage.get(row.slug) ?? new Set<Locale>();

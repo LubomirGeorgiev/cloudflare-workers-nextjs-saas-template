@@ -28,6 +28,7 @@ import { ROLES_ENUM } from "@/app/enums";
 import { getUserBannedAt, getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
 import { createBase64UrlToken, hashToken } from "@/utils/random-token";
 import { shouldUseSecureCookies } from "./cookie-security";
+import { isEnabledLocale, type Locale } from "@/i18n/config";
 
 const SESSION_TOKEN_BYTES = 48;
 
@@ -96,11 +97,28 @@ async function createSession({
   return session;
 }
 
+export interface SignInResult {
+  /** The account's stored locale, when it is served. The client applies it; see `useNavigateAfterAuth`. */
+  preferredLocale: Locale | null;
+}
+
+/** What a sign-in or sign-up action returns once the session exists. */
+export interface SignInSuccess extends SignInResult {
+  success: true;
+}
+
+// Every session write returns this, so no sign-in flow reads the preference on its own.
+function toSignInResult(session: KVSession): SignInResult {
+  const preferredLocale = session.user.preferredLocale;
+
+  return { preferredLocale: isEnabledLocale(preferredLocale) ? preferredLocale : null };
+}
+
 export async function createAndStoreSession(
   userId: string,
   authenticationType?: CreateKVSessionParams["authenticationType"],
   passkeyCredentialId?: CreateKVSessionParams["passkeyCredentialId"]
-) {
+): Promise<SignInResult> {
   const sessionToken = generateSessionToken();
   const session = await createSession({
     token: sessionToken,
@@ -113,6 +131,8 @@ export async function createAndStoreSession(
     userId,
     expiresAt: new Date(session.expiresAt)
   });
+
+  return toSignInResult(session);
 }
 
 interface CreateSessionUnlessBannedParams {
@@ -132,7 +152,7 @@ export async function createSessionUnlessBanned({
   userId,
   authenticationType,
   passkeyCredentialId,
-}: CreateSessionUnlessBannedParams): Promise<void> {
+}: CreateSessionUnlessBannedParams): Promise<SignInResult> {
   const sessionToken = generateSessionToken();
   const session = await createSession({
     token: sessionToken,
@@ -155,6 +175,8 @@ export async function createSessionUnlessBanned({
     userId,
     expiresAt: new Date(session.expiresAt),
   });
+
+  return toSignInResult(session);
 }
 
 async function validateSessionToken(token: string, userId: string): Promise<KVSession | null> {

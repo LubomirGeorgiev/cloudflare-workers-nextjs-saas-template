@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { SiGithub as GithubIcon } from "@icons-pack/react-simple-icons";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { Link } from "@/i18n/navigation";
 import { GITHUB_REPO_URL } from "@/constants";
 import { buttonVariants } from "@/components/ui/button";

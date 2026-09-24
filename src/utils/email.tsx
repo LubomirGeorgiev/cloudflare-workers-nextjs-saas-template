@@ -1,15 +1,13 @@
 import "server-only";
 
-import { createTranslator } from "next-intl";
-
 import {
   EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
   SITE_DOMAIN,
   SITE_NAME,
 } from "@/constants";
 import { EMAIL_LOGO_IMAGE } from "@/constants/logo-url";
-import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
-import { loadCatalog } from "@/i18n/message-catalogs";
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
+import { getTranslator } from "@/i18n/translator";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { escapeHtml } from "@/utils/escape-html";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
@@ -22,7 +20,7 @@ import {
 import { isLocalhost } from "./is-local";
 
 // The ban and unban notices are deliberately English only, and are the one documented exception
-// to "customer-facing email goes through next-intl with a row in every locale catalog".
+// to "customer-facing email goes through the catalogs, with a row in every locale".
 //
 // The reason a staff member types is free English text. Wrapping English staff prose in
 // translated chrome produces a half-translated email, and staff cannot review copy they cannot
@@ -58,22 +56,17 @@ const UNBAN_NOTICE_COPY = {
   footer: `This is an automated message from ${SITE_DOMAIN}.`,
 } as const;
 
-// The queue consumer has no request context (no cookies/headers), so it can't
-// call getUserLocale()/getTranslations(). `loadCatalog` keeps one explicit `import()`
-// per locale, so the Worker bundle never resolves a variable import path.
+// The queue consumer has no request context (no cookies/headers), so it takes `getTranslator`,
+// which needs none.
 async function getEmailTranslator(locale: string) {
   // Resolve against the full catalog, not ENABLED_LOCALES: email language follows
   // the recipient's stored preference and is decoupled from public-route i18n, so a
   // localized message catalog is used even when locale-prefixed routing is disabled.
-  const resolvedLocale: Locale = (LOCALES as readonly string[]).includes(locale)
-    ? (locale as Locale)
-    : DEFAULT_LOCALE;
-
-  const messages = await loadCatalog(resolvedLocale);
+  const resolvedLocale: Locale = isKnownLocale(locale) ? locale : DEFAULT_LOCALE;
 
   return {
     locale: resolvedLocale,
-    t: createTranslator({ locale: resolvedLocale, messages, namespace: "Emails" }),
+    t: await getTranslator({ locale: resolvedLocale, namespace: "Emails" }),
   };
 }
 

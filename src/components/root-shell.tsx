@@ -1,8 +1,6 @@
 import "server-only";
 import "@/app/globals.css";
 
-import { NextIntlClientProvider } from "next-intl";
-
 import { ThemeProvider } from "@/components/providers";
 import { NavigationTopLoader } from "@/components/navigation-top-loader";
 import { StreamedMetadataHoister } from "@/components/streamed-metadata-hoister";
@@ -15,6 +13,7 @@ import { getPublicConfig } from "@/flags";
 import { getClientMessages } from "@/i18n/client-messages";
 import { CLIENT_MESSAGE_SCOPES } from "@/i18n/client-namespaces";
 import type { Locale } from "@/i18n/config";
+import { AppIntlProvider } from "@/i18n/provider";
 import { SiteJsonLd } from "@/lib/seo/json-ld";
 
 async function PublicConfigRootHydrator() {
@@ -51,7 +50,7 @@ export async function RootShell({ locale, children }: RootShellProps) {
         {/* Site-wide Organization + WebSite graph, on every page because it describes the site,
             not the route. Page-level schema references these by `@id` rather than repeating them. */}
         <SiteJsonLd />
-        <NextIntlClientProvider locale={locale} messages={messages}>
+        <AppIntlProvider locale={locale} messages={messages}>
           <PublicConfigRootHydrator />
           <StreamedMetadataHoister />
           <NavigationTopLoader />
@@ -69,7 +68,7 @@ export async function RootShell({ locale, children }: RootShellProps) {
           </ThemeProvider>
           <Toaster richColors closeButton position="top-right" expand duration={7000} />
           <AskiChatStickyBanner />
-        </NextIntlClientProvider>
+        </AppIntlProvider>
       </body>
     </html>
   );

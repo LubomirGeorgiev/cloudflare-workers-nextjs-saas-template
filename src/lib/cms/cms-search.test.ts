@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
-import { loadMessages } from "@/i18n/load-messages";
+import { loadCatalog } from "@/i18n/message-catalogs";
 import type { MessageTree } from "@/i18n/message-catalogs";
 
 const {
@@ -46,7 +46,7 @@ const CMS_SEARCH_ROW = {
 
 /** The MCP page's own title, so the query stays right whatever a fork renames it to. */
 async function mcpTitle(): Promise<string> {
-  const client = (await loadMessages(DEFAULT_LOCALE)).Client as MessageTree;
+  const client = (await loadCatalog(DEFAULT_LOCALE)).Client as MessageTree;
   const docs = client.Docs as MessageTree;
 
   return (docs.Mcp as MessageTree).title as string;

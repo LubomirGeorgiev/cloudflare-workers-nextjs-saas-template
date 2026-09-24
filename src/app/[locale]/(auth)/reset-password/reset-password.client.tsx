@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
 import type { ResetPasswordSchema } from "@/schemas/reset-password.schema";
 import { useEffect } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 export default function ResetPasswordClientComponent() {
   const router = useRouter();

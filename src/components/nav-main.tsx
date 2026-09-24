@@ -19,7 +19,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Link } from "@/i18n/navigation"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 import type { NavItem, NavMainItem } from "./app-sidebar-data"
 
 type Props = {

@@ -114,9 +114,9 @@ describe("message catalogs", () => {
     },
   );
 
-  // This is what lets `loadMessages` skip a fallback merge: with no runtime backfill, a key a
+  // This is what lets `loadCatalog` skip a fallback merge: with no runtime backfill, a key a
   // translation omits renders its raw path. Downstream projects with intentionally partial
-  // translations should drop this test and merge the default catalog in `load-messages.ts`.
+  // translations should drop this test and merge the default catalog in `message-catalogs.ts`.
   test.each(nonDefaultLocales)(
     "%s.json defines every key in the default catalog",
     async (locale) => {
@@ -137,7 +137,7 @@ describe("message catalogs", () => {
     },
   );
 
-  // Placeholder drift ({count} dropped or {name} renamed in a translation) makes next-intl
+  // Placeholder drift ({count} dropped or {name} renamed in a translation) makes the translator
   // throw or render wrong at runtime; only compare keys the translation actually defines.
   test.each(nonDefaultLocales)(
     "%s.json keeps ICU placeholders in sync with the default catalog",

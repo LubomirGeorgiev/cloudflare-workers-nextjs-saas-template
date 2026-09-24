@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Bot, Check, Copy, Download, ExternalLink, MoreHorizontal } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";

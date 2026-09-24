@@ -18,8 +18,7 @@ import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 // inheriting) because the root layout cannot see the [locale] param during
 // static generation.
 //
-// Uses `getTranslator` rather than `next-intl/server`, for the reason `buildRootMetadata` gives:
-// the request-scoped API builds a fresh config and ICU cache per request and reads `headers()`.
+// Uses `getTranslator` rather than `@/i18n/server`, for the reason `buildRootMetadata` gives.
 export async function buildSiteOpenGraph(locale: Locale): Promise<Metadata["openGraph"]> {
   const t = await getTranslator({ locale, namespace: "Landing.meta" });
 

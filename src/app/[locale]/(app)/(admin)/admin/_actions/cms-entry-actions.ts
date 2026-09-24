@@ -26,7 +26,7 @@ import {
 } from "@/lib/cms/entry";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { revalidateCmsEntryPaths } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-entry-revalidation";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, isLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, isKnownLocale, type Locale } from "@/i18n/config";
 
 // A listed entry augmented with translation-group coverage for its (collection, slug): the enabled locales
 // still missing (so the table can flag incomplete translations) and the total number of locale rows in the
@@ -234,7 +234,7 @@ export const generateSeoDescriptionAction = actionClient
       title: entry.title,
       content: entry.content,
       collectionSlug: entry.collection,
-      locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
+      locale: isKnownLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
     });
 
     if (!description) {

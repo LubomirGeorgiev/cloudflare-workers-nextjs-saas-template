@@ -1,27 +1,33 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "@/i18n/config";
-import { buildLocaleCookieValue } from "@/i18n/locale-cookie";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME, type Locale } from "@/i18n/config";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
 import { localizedPathname } from "@/i18n/localized-pathname";
 
 vi.mock("server-only", () => ({}));
 
-// `localeDetection` is `I18N_ENABLED` in the real config, so a fork sets it either way. Mocked
-// rather than assumed, so both settings are covered whichever one this checkout ships.
-const localeDetection = vi.hoisted(() => ({ enabled: true }));
+// A fork serves one locale or several, so both are covered whichever one this checkout ships. The
+// served set is narrowed rather than `LOCALE_DETECTION` alone, because production derives it from that set.
+const servedLocales = vi.hoisted(() => ({ single: false }));
 
-vi.mock("@/i18n/routing", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/i18n/routing")>();
+vi.mock("@/i18n/config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/i18n/config")>();
+
+  function enabledLocales(): readonly Locale[] {
+    return servedLocales.single ? [actual.DEFAULT_LOCALE] : actual.ENABLED_LOCALES;
+  }
 
   return {
-    routing: {
-      ...actual.routing,
-      get localeDetection() {
-        return localeDetection.enabled;
-      },
+    ...actual,
+    get ENABLED_LOCALES() {
+      return enabledLocales();
     },
+    get LOCALE_DETECTION() {
+      return enabledLocales().length > 1;
+    },
+    isEnabledLocale: (value: string | null | undefined): value is Locale =>
+      enabledLocales().includes(value as Locale),
   };
 });
 
@@ -30,7 +36,7 @@ const { resolveEdgeHtmlCacheEntry } = await import("./edge-html-cache");
 /** A public page in every fork: the blog listing is the root of a whole public subtree. */
 const CANONICAL_PATH = localizedPathname({ pathname: BLOG_BASE_PATH, locale: DEFAULT_LOCALE });
 
-// The other spelling of the same page, whichever one `localePrefix` makes canonical. next-intl
+// The other spelling of the same page, whichever one `localizedPathname` makes canonical. The proxy
 // answers it with a redirect, so the gate must never store or serve it.
 const NON_CANONICAL_PATH = CANONICAL_PATH === BLOG_BASE_PATH
   ? `/${DEFAULT_LOCALE}${BLOG_BASE_PATH}`
@@ -59,7 +65,7 @@ function resolve({
 
 describe("resolveEdgeHtmlCacheEntry", () => {
   beforeEach(() => {
-    localeDetection.enabled = true;
+    servedLocales.single = false;
   });
 
   test("resolves the canonical public page for an anonymous visitor", () => {
@@ -75,10 +81,11 @@ describe("resolveEdgeHtmlCacheEntry", () => {
   });
 
   test.each([
+    ["a locale prefix in another case", { pathname: `/${DEFAULT_LOCALE.toUpperCase()}${BLOG_BASE_PATH}` }],
+    ["an empty segment below the locale prefix", { pathname: `/${DEFAULT_LOCALE}/${BLOG_BASE_PATH}` }],
+    ["a repeated slash the proxy collapses", { pathname: `/${CANONICAL_PATH}` }],
+    ["a percent-encoded spelling of the canonical path", { pathname: CANONICAL_PATH.replace(/[a-z]$/, (c) => `%${c.charCodeAt(0).toString(16)}`) }],
     ["a signed-in visitor", { headers: { cookie: `${AUTH_SESSION_PRESENT_COOKIE_NAME}=1` } }],
-    ["a locale cookie the served set no longer holds", {
-      headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
-    }],
     ["a client-side navigation", { headers: { rsc: "1" } }],
     ["a write method", { method: "POST" }],
     ["a query string", { pathname: `${CANONICAL_PATH}?page=2` }],
@@ -95,59 +102,32 @@ describe("resolveEdgeHtmlCacheEntry", () => {
     },
   );
 
-  // A hit never reaches `src/proxy.ts`, so the entry carries the cookie the proxy would have set.
-  // These pin next-intl's `syncCookie` rules, not a rule of our own.
-  describe("the locale cookie a hit sets", () => {
-    const DEFAULT_COOKIE = buildLocaleCookieValue(DEFAULT_LOCALE);
-
-    test("is set when the request carries no cookie and no Accept-Language", () => {
-      expect(resolve()?.localeCookie).toBe(DEFAULT_COOKIE);
-    });
-
-    test("is set when Accept-Language names no served locale", () => {
-      expect(resolve({ headers: { "accept-language": "*" } })?.localeCookie).toBe(DEFAULT_COOKIE);
-    });
-
-    test("is not set again when the request already carries it", () => {
-      expect(resolve({
-        headers: { cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` },
-      })?.localeCookie).toBeNull();
-    });
-
-    test("is not set when Accept-Language already negotiates the served locale", () => {
-      expect(resolve({
-        headers: { "accept-language": `${DEFAULT_LOCALE}-XX,${DEFAULT_LOCALE};q=0.9` },
-      })?.localeCookie).toBeNull();
-    });
-
-    test("is not set on a non-document request", () => {
-      expect(resolve({ headers: { "sec-fetch-dest": "empty" } })?.localeCookie).toBeNull();
-    });
-
-    test.runIf(ALTERNATE_LOCALE !== undefined)(
-      "is set on a prefixed page when Accept-Language negotiates another locale",
-      () => {
-        const prefixed = localizedPathname({ pathname: BLOG_BASE_PATH, locale: ALTERNATE_LOCALE! });
-
-        expect(resolve({
-          headers: { "accept-language": DEFAULT_LOCALE },
-          pathname: prefixed,
-        })?.localeCookie).toBe(buildLocaleCookieValue(ALTERNATE_LOCALE!));
-      },
-    );
+  // The shared resolver drops a cookie the served set no longer holds, so the request still lands
+  // on the stored locale.
+  test("serves a visitor whose locale cookie the served set no longer holds", () => {
+    expect(resolve({
+      headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
+    })).toMatchObject({ locale: DEFAULT_LOCALE });
   });
 
-  // With detection off next-intl negotiates nothing, so the signals below decide nothing either and
-  // the visitor they used to send to the app can read the stored copy.
-  describe("with locale detection off", () => {
-    beforeEach(() => {
-      localeDetection.enabled = false;
-    });
+  // The prefix decides on its own, so a cookie for another locale neither blocks nor changes it.
+  test.runIf(ALTERNATE_LOCALE !== undefined)(
+    "serves a prefixed page whatever locale the cookie names",
+    () => {
+      const prefixed = localizedPathname({ pathname: BLOG_BASE_PATH, locale: ALTERNATE_LOCALE! });
 
-    test("ignores a locale cookie the served set no longer holds", () => {
       expect(resolve({
-        headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
-      })).not.toBeNull();
+        headers: { cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` },
+        pathname: prefixed,
+      })).toMatchObject({ locale: ALTERNATE_LOCALE, servedPathname: prefixed });
+    },
+  );
+
+  // With one served locale the resolver negotiates nothing, so the signals below decide nothing
+  // either and the visitor they used to send to the app can read the stored copy.
+  describe("with a single served locale", () => {
+    beforeEach(() => {
+      servedLocales.single = true;
     });
 
     test.runIf(ALTERNATE_LOCALE !== undefined)("ignores Accept-Language", () => {
@@ -156,17 +136,23 @@ describe("resolveEdgeHtmlCacheEntry", () => {
       })).not.toBeNull();
     });
 
+    // The router no longer serves the de-served prefix, so a copy stored under it would outlive it.
+    test.runIf(ALTERNATE_LOCALE !== undefined)("refuses a de-served locale prefix", () => {
+      expect(resolve({
+        pathname: localizedPathname({ pathname: BLOG_BASE_PATH, locale: ALTERNATE_LOCALE! }),
+      })).toBeNull();
+    });
+
     test("still refuses a signed-in visitor", () => {
       expect(resolve({
         headers: { cookie: `${AUTH_SESSION_PRESENT_COOKIE_NAME}=1` },
       })).toBeNull();
     });
 
-    // The proxy still syncs an outdated cookie with detection off; so must a hit.
-    test("rewrites a locale cookie the served set no longer holds", () => {
+    test("serves a visitor whose locale cookie the served set no longer holds", () => {
       expect(resolve({
         headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
-      })?.localeCookie).toBe(buildLocaleCookieValue(DEFAULT_LOCALE));
+      })).toMatchObject({ locale: DEFAULT_LOCALE });
     });
   });
 });

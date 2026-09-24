@@ -6,19 +6,20 @@ import { getDB } from "@/db"
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
-import { createAndStoreSession } from "@/utils/auth";
+import { createAndStoreSession, type SignInSuccess } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
+import { getNewAccountLocale } from "@/i18n/new-account-locale";
 
 export const signUpAction = actionClient
   .inputSchema(signUpSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
-      async () => {
+      async (): Promise<SignInSuccess> => {
         const db = getDB();
 
         if (await isTurnstileEnabled()) {
@@ -56,6 +57,7 @@ export const signUpAction = actionClient
             lastName: input.lastName,
             passwordHash: hashedPassword,
             signUpIpAddress: await getIP(),
+            preferredLocale: await getNewAccountLocale(),
           })
           .returning();
 
@@ -64,20 +66,20 @@ export const signUpAction = actionClient
         }
 
         try {
-          await createAndStoreSession(user.id, "password");
+          const { preferredLocale } = await createAndStoreSession(user.id, "password");
 
           await sendUserVerificationEmail({
             userId: user.id,
             email: user.email,
             username: user.firstName || user.email,
           });
+
+          return { success: true, preferredLocale };
         } catch (error) {
           console.error(error)
 
           throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Auth.SignUp.errorCreateSession" });
         }
-
-        return { success: true };
       },
       RATE_LIMITS.SIGN_UP
     );

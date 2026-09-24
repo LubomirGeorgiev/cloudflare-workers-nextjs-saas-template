@@ -18,7 +18,7 @@ import { isLocalhost } from "@/utils/is-local";
 import { usePathname } from "@/i18n/navigation";
 import { Route } from "next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 const pagesToBypass: Route[] = [
   "/verify-email",

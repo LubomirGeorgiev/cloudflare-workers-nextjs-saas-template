@@ -14,7 +14,7 @@ import Image from "next/image"
 import { SITE_URL } from "@/constants"
 import { buildBlogPostGraph } from "@/lib/seo/blog-json-ld"
 import { contentLocale, JsonLd } from "@/lib/seo/json-ld"
-import { DEFAULT_LOCALE, getOpenGraphLocales, isLocale, type Locale } from "@/i18n/config"
+import { DEFAULT_LOCALE, getOpenGraphLocales, isKnownLocale, type Locale } from "@/i18n/config"
 import { buildAlternates, noindexNonDefaultLocale } from "@/utils/i18n-metadata"
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -91,7 +91,7 @@ export async function generateMetadata({
     updatedAt: entry.updatedAt,
   })
 
-  const validLocales = availableLocales.filter(isLocale)
+  const validLocales = availableLocales.filter(isKnownLocale)
 
   // A fallback render serves default-locale content under a non-default-locale
   // prefix (noindexed, mixed-language), so canonical/OG URLs point at the real

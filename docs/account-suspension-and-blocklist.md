@@ -223,7 +223,7 @@ Leaving the external reason blank is a legitimate, common choice. The notice sti
 was suspended and points at support.
 
 **The email is always English.** This is a documented exception to the rule that customer-facing
-email goes through next-intl with a row in every locale catalog. The reason a staff member types is
+email goes through the catalogs, with a row in every locale. The reason a staff member types is
 free English text, and wrapping English staff prose in translated chrome produces a half-translated
 email that staff cannot review. Pass the literal `BAN_EMAIL_LOCALE`, not `DEFAULT_LOCALE`: a fork can
 change its default locale, and this copy stays English either way.

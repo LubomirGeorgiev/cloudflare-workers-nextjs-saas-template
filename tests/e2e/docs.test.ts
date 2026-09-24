@@ -119,7 +119,7 @@ test("does not advertise a Markdown alternate on a missing docs page", async () 
   const link = response.headers.get("link") ?? "";
 
   expect(response.status).toBe(404);
-  // next-intl stamps its own `rel="alternate"; hreflang=` values here, so pin the Markdown one.
+  // Other `rel="alternate"` values share this header, so pin the Markdown one by its type.
   expect(link).not.toContain('type="text/markdown"');
   expect(link).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
 });

@@ -37,7 +37,6 @@ import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
 import { mayBeStoredHtmlPage } from "./src/lib/edge/edge-html-cache-prefilter";
 import { isCmsImageSource } from "./src/utils/cms-image-source";
-import { isOgImageRequest } from "./src/lib/og/og-paths";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
 import { looksLikeApiKey } from "./src/utils/api-key-format";
@@ -76,34 +75,6 @@ function collapseDisabledLocalePrefix(url: URL): Response | null {
   target.pathname = stripped;
 
   return Response.redirect(target.toString(), 307);
-}
-
-// An OG card is a public image whose locale is already in its path, so the locale cookie next-intl
-// sets buys it nothing — and Workers Caching bypasses any response carrying Set-Cookie. Social
-// crawlers never send cookies back, so without this every crawl re-renders (satori + resvg). Safe
-// as a blanket delete only because no other cookie is set on these routes, and because a page URL
-// shaped like a card (`/blog/opengraph-image-launch`) is excluded by the request itself.
-function withoutOgCardCookie({
-  headers,
-  pathname,
-  response,
-}: {
-  headers: Headers;
-  pathname: string;
-  response: Response;
-}): Response {
-  if (!response.headers.has("set-cookie") || !isOgImageRequest({ pathname, headers })) {
-    return response;
-  }
-
-  const stripped = new Headers(response.headers);
-  stripped.delete("set-cookie");
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: stripped,
-  });
 }
 
 // The OpenAPI document is deliberately readable without a credential (it is what agent clients and
@@ -628,7 +599,7 @@ const worker = {
     const withDiscovery = await withHtmlAgentDiscovery({
       method: request.method,
       pathname,
-      response: withoutOgCardCookie({ headers: request.headers, pathname, response }),
+      response,
     });
 
     return finishEdgeHtmlPage({

@@ -11,7 +11,7 @@ import {
 import { useSelectedLayoutSegment } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import { capitalize } from "@/utils/text";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 // Known route segments that have a dedicated Settings.Nav translation label.
 const SEGMENT_TITLE_KEYS: Record<string, "security" | "sessions" | "apiMcp"> = {

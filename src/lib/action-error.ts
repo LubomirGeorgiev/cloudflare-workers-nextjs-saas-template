@@ -1,4 +1,4 @@
-import type { Messages } from "next-intl";
+import type { Messages } from "use-intl/core";
 
 // Dotted path to every string leaf of the message catalog, e.g.
 // "Client.Dashboard.Teams.errorJoinLimit". Non-string leaves (arrays used via

@@ -1,37 +1,24 @@
-import type { Locale } from "./config";
-import { routing } from "./routing";
+import { DEFAULT_LOCALE, type Locale } from "./config";
 
-// Deliberately does NOT use `getPathname` from `./navigation`: that module is built with
-// next-intl's `createNavigation`, which imports `next/navigation` client hooks that fail to
-// load outside a Next.js module graph (Workers integration tests, queue consumers sending
-// emails, unit tests). The routing config defines no `pathnames` map, so localizing a
-// pathname is purely a locale-prefix decision.
-type LocalePrefixMode = "always" | "as-needed" | "never";
-
-// Widened via a parameter (not a const annotation, which flow-narrowing defeats)
-// so the branching stays valid if a downstream template changes the routing mode.
-function resolveLocalePrefixMode(
-  prefix: LocalePrefixMode | { mode?: LocalePrefixMode } | undefined,
-): LocalePrefixMode {
-  if (typeof prefix === "object") {
-    return prefix.mode ?? "always";
-  }
-  // "always" is next-intl's default when unset.
-  return prefix ?? "always";
+interface LocalizedPathnameArgs {
+  pathname: string;
+  locale: Locale;
+  /** Prefix even when the default locale would not be. The middleware rewrite needs it: the app routes live under `app/[locale]/`. */
+  forcePrefix?: boolean;
 }
 
-// The single home for "which URL serves this path in this locale". The edge HTML cache, the
-// sitemap, robots.txt, the Markdown routes, and the locale switcher must all agree on it.
-export function localizedPathname({ pathname, locale }: { pathname: string; locale: Locale }): string {
+// The single home for "which URL serves this path in this locale". As-needed prefixing: the default
+// locale is served bare and every other locale is prefixed. The middleware, the navigation surface,
+// the edge HTML cache, the sitemap, robots.txt, and the Markdown routes must all agree on it.
+// Keep it free of `next/*`, so Workers integration tests and queue consumers can call it too.
+export function localizedPathname({
+  pathname,
+  locale,
+  forcePrefix = false,
+}: LocalizedPathnameArgs): string {
   const normalized = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  const mode = resolveLocalePrefixMode(routing.localePrefix);
-  const needsPrefix = mode === "never"
-    ? false
-    : mode === "as-needed"
-      ? locale !== routing.defaultLocale
-      : true;
 
-  if (!needsPrefix) {
+  if (!forcePrefix && locale === DEFAULT_LOCALE) {
     return normalized;
   }
 

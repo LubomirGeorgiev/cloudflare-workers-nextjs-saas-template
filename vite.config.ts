@@ -72,10 +72,8 @@ export default defineConfig({
       "use-sync-external-store/shim/with-selector",
     ],
     exclude: [
-      // Do NOT pre-bundle next-intl/use-intl: Vite would inline a second copy of
-      // use-intl's React context, so the provider and hooks read different
-      // IntlContext instances ("context ... was not found"). Excluding keeps one.
-      "next-intl",
+      // Do NOT pre-bundle use-intl: Vite would inline a second copy of its React context, so the
+      // provider and the hooks would read different IntlContext instances. Excluding keeps one.
       "use-intl",
       "lucide-react",
       // TODO Check if future version of @base-ui are optimized for Vite and remove from this list
@@ -96,9 +94,7 @@ export default defineConfig({
   },
   resolve: {
     dedupe: [
-      // Collapse next-intl/use-intl to a single physical copy so the IntlContext
-      // object is shared between the provider and client hooks (see optimizeDeps).
-      "next-intl",
+      // One physical copy of use-intl, so the provider and client hooks share one IntlContext.
       "use-intl",
       "@tiptap/core",
       "@tiptap/pm",

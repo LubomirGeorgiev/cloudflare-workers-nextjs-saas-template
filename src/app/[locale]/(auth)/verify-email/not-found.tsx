@@ -1,6 +1,6 @@
 "use client";
 
-// "use client" on purpose: not-found gets no `params`, so the locale comes from `NextIntlClientProvider`.
+// "use client" on purpose: not-found gets no `params`, so the locale comes from `AppIntlProvider`.
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Link } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 export default function NotFound() {
   const t = useTranslations("Client.Auth.VerifyEmail");

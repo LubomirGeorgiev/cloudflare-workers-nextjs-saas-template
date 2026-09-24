@@ -1,7 +1,7 @@
 "use client";
 
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { toast } from "sonner";
 import { ExternalLink } from "lucide-react";
 

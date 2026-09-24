@@ -11,7 +11,7 @@ import {
   KeyRound,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import {
   DOCS_ROUTE_SECTIONS,
@@ -113,7 +113,7 @@ export function DocsRouteLinks({ onNavigate }: { onNavigate?: () => void }) {
                 CMS_NAVIGATION_TYPE_ICON_CLASS[CMS_NAVIGATION_NODE_TYPES.GROUP]
               )}
             />
-            {/* next-intl cannot type-check a key built at runtime; the catalog is the contract. */}
+            {/* TypeScript cannot type-check a key built at runtime; the catalog is the contract. */}
             <span className="truncate">{t(section.labelKey as Parameters<typeof t>[0])}</span>
           </div>
 

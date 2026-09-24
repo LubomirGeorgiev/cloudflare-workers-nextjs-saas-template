@@ -3,7 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { BadgeCheck, MoreHorizontal, ShieldQuestion } from "lucide-react";
 import type { InferSafeActionFnResult } from "next-safe-action";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

@@ -6,7 +6,7 @@ import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { cookies, headers } from "next/headers";
-import { createAndStoreSession } from "@/utils/auth";
+import { createAndStoreSession, type SignInSuccess } from "@/utils/auth";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -15,6 +15,7 @@ import { completePasskeyRegistrationSchema, passkeyEmailSchema } from "@/schemas
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
+import { getNewAccountLocale } from "@/i18n/new-account-locale";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
 import {
   consumeWebAuthnChallenge,
@@ -64,6 +65,7 @@ export const startPasskeyRegistrationAction = actionClient
             firstName: input.firstName,
             lastName: input.lastName,
             signUpIpAddress: ipAddress,
+            preferredLocale: await getNewAccountLocale(),
           })
           .returning();
 
@@ -112,7 +114,7 @@ export const startPasskeyRegistrationAction = actionClient
 
 export const completePasskeyRegistrationAction = actionClient
   .inputSchema(completePasskeyRegistrationSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(async ({ parsedInput: input }): Promise<SignInSuccess> => {
     const cookieStore = await cookies();
     const challenge = cookieStore.get(PASSKEY_CHALLENGE_COOKIE_NAME)?.value;
 
@@ -157,9 +159,9 @@ export const completePasskeyRegistrationAction = actionClient
         username: user.firstName || user.email,
       });
 
-      await createAndStoreSession(userId, "passkey", input.response.id);
+      const { preferredLocale } = await createAndStoreSession(userId, "passkey", input.response.id);
 
-      return { success: true };
+      return { success: true, preferredLocale };
     } catch (error) {
       console.error("Failed to register passkey:", error);
       throw new ActionError("PRECONDITION_FAILED", { key: "Client.Auth.SignUp.errorRegisterFailed" });

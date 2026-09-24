@@ -6,7 +6,7 @@ import { usePublicAuthFeatureState } from "@/state/public-config";
 import Google from "@/icons/google";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "@/i18n/client";
 
 export default function SSOButtons({
   isSignIn = false

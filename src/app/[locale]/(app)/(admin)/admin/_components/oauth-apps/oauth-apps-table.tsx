@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback, useEffect, useMemo } from "react";
 import { toast } from "sonner";

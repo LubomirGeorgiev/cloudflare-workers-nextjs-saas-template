@@ -38,7 +38,9 @@ import {
   ENABLED_LOCALES,
   LOCALES,
   LOCALE_COOKIE_NAME,
+  LOCALE_HEADER_NAME,
 } from "@/i18n/config";
+import { localizedPathname } from "@/i18n/localized-pathname";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import { purgeEdgeHtmlPages } from "@/lib/edge/edge-html-cache";
 import {
@@ -52,6 +54,9 @@ import {
 } from "@/utils/trusted-client-ip";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
 import proxy from "@/proxy";
+
+// How Vinext carries a header middleware added to the forwarded request.
+const MIDDLEWARE_REQUEST_HEADER_PREFIX = "x-middleware-request-";
 
 const innerFetchMock = vi.hoisted(() => vi.fn());
 
@@ -112,46 +117,30 @@ describe("worker edge integration", () => {
     expect(innerFetchMock).not.toHaveBeenCalled();
   });
 
-  // The card route is the one place next-intl's locale cookie must not reach the response: a
-  // `Set-Cookie` keeps the card out of Workers Caching, and a crawler never sends it back anyway.
-  test("strips the locale cookie from an OpenGraph card fetched by a crawler", async () => {
-    innerFetchMock.mockImplementationOnce(async () =>
-      new Response("png", {
-        headers: {
-          "content-type": "image/png",
-          "set-cookie": `${LOCALE_COOKIE_NAME}=en; Path=/`,
-        },
-      }),
-    );
+  // A `Set-Cookie` out of middleware pins the response to `no-store`, which would keep an OG card
+  // out of Workers Caching. The proxy only reads the locale cookie; the switcher writes it.
+  test.each([
+    ["an OpenGraph card fetched by a crawler", "/blog/opengraph-image", { accept: "image/*" }],
+    ["a page navigation", "/blog", { accept: "text/html", "sec-fetch-dest": "document" }],
+  ])("never writes a cookie on %s", (_label, pathname, headers) => {
+    const proxied = proxy(new NextRequest(new Request(`https://example.com${pathname}`, { headers })));
 
-    const response = await worker.fetch(
-      new Request("https://example.com/blog/opengraph-image", { headers: { accept: "image/*" } }),
-      env,
-      createExecutionContext(),
-    );
-
-    expect(response.status).toBe(200);
-    expect(response.headers.getSetCookie()).toEqual([]);
-    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(proxied.headers.getSetCookie()).toEqual([]);
   });
 
-  test("keeps the locale cookie on a card-shaped path that a browser navigates to", async () => {
-    innerFetchMock.mockImplementationOnce(async () =>
-      new Response("<html></html>", {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "set-cookie": `${LOCALE_COOKIE_NAME}=en; Path=/`,
-        },
-      }),
+  // The one mechanism a unit test cannot reach: the render reads the resolved locale from a
+  // forwarded request header, which only a real `NextResponse` can carry.
+  test.each(ENABLED_LOCALES)("forwards the resolved %s locale to the render", (locale) => {
+    const proxied = proxy(
+      new NextRequest(
+        new Request(`https://example.com${localizedPathname({ pathname: "/blog", locale })}`),
+      ),
+    );
+    const forwarded = proxied.headers.get(
+      `${MIDDLEWARE_REQUEST_HEADER_PREFIX}${LOCALE_HEADER_NAME}`,
     );
 
-    const response = await worker.fetch(
-      new Request("https://example.com/blog/opengraph-image", { headers: { accept: "text/html" } }),
-      env,
-      createExecutionContext(),
-    );
-
-    expect(response.headers.getSetCookie()).toEqual([`${LOCALE_COOKIE_NAME}=en; Path=/`]);
+    expect(forwarded).toBe(locale);
   });
 
   // Flag-aware pair: with i18n on, a prefixed path is the app's to route; with it off, the edge
@@ -678,13 +667,13 @@ describe("edge HTML page cache", () => {
   // The alternate served locale, so a single-locale fork skips the cases that need two.
   const ALTERNATE_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
-  // Every request shape next-intl's `syncCookie` decides differently. The first carries no locale
-  // signal, which is the one shape that gets the cookie, so the negative block below drops it.
-  const LOCALE_COOKIE_CASES: ReadonlyArray<[string, Record<string, string>]> = [
+  // Request shapes that once decided whether a locale cookie was due. None of them gets one now.
+  const LOCALE_SIGNAL_CASES: ReadonlyArray<[string, Record<string, string>]> = [
     ["carries no locale signal", {}],
     ["already carries the cookie", { cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` }],
+    ["carries a cookie the served set no longer holds", { cookie: `${LOCALE_COOKIE_NAME}=zz` }],
     ["negotiates the served locale from Accept-Language", { "accept-language": DEFAULT_LOCALE }],
-    ["is not a document request", { "sec-fetch-dest": "empty" }],
+    ["sends a wildcard Accept-Language", { "accept-language": "*" }],
   ];
 
   function htmlPageResponse({
@@ -702,7 +691,7 @@ describe("edge HTML page cache", () => {
     });
   }
 
-  // The same page, but with the `Set-Cookie` the real next-intl middleware writes for this request.
+  // The same page, carrying whatever `Set-Cookie` the real `src/proxy.ts` writes for this request.
   async function proxiedHtmlPageResponse(request: Request): Promise<Response> {
     const proxied = proxy(new NextRequest(request));
     const headers = new Headers({
@@ -715,11 +704,6 @@ describe("edge HTML page cache", () => {
     }
 
     return new Response(PAGE_BODY, { headers });
-  }
-
-  /** The `name=value` pair of each cookie; `src/i18n/routing.test.ts` pins the attributes. */
-  function cookiePairs(response: Response): string[] {
-    return response.headers.getSetCookie().map((cookie) => cookie.split(";")[0].trim());
   }
 
   // The put settles through `waitUntil`, so every request the next assertion depends on is drained.
@@ -774,18 +758,10 @@ describe("edge HTML page cache", () => {
     expect(hit.headers.get("cache-control")).toBe(PAGE_CACHE_CONTROL);
   });
 
-  // A hit never runs `src/proxy.ts`, which is what sets the locale cookie on a miss. next-intl
-  // writes it only when the request carries none and negotiates nothing else, so a hit does too.
-  test("a hit sets the locale cookie for a visitor without one", async () => {
-    await fetchPage(PAGE_PATH);
-    const hit = await fetchPage(PAGE_PATH);
-
-    expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
-    expect(hit.headers.getSetCookie().join(";")).toContain(`${LOCALE_COOKIE_NAME}=`);
-  });
-
-  test.each(LOCALE_COOKIE_CASES.filter(([, headers]) => Object.keys(headers).length > 0))(
-    "a hit sets no locale cookie when the request %s",
+  // The rendered page below sets a cookie, and the stored copy answers every anonymous visitor, so
+  // a hit must replay none. Neither the cache nor `src/proxy.ts` writes the locale cookie.
+  test.each(LOCALE_SIGNAL_CASES)(
+    "a hit sets no cookie when the request %s",
     async (_label, headers) => {
       await fetchPage(PAGE_PATH);
       const hit = await fetchPage(PAGE_PATH, { headers: { ...PAGE_HEADERS, ...headers } });
@@ -795,21 +771,23 @@ describe("edge HTML page cache", () => {
     },
   );
 
-  // The two tests above pin our own mirror of next-intl's `syncCookie`. This one pins the mirror to
-  // next-intl: the miss runs the real `src/proxy.ts`, so an upgrade that changes the rule fails
-  // here instead of leaving a hit that writes a cookie the miss would not.
-  test.each(LOCALE_COOKIE_CASES)(
-    "a hit repeats the locale cookie next-intl writes on a miss when the request %s",
-    async (_label, headers) => {
+  // A visit to a prefixed page never changes the visitor's choice, on a miss or on a hit.
+  test.runIf(ALTERNATE_LOCALE !== undefined)(
+    "a prefixed page sets no cookie for a visitor who chose another locale",
+    async () => {
       innerFetchMock.mockImplementation(proxiedHtmlPageResponse);
 
-      const requestInit = { headers: { ...PAGE_HEADERS, ...headers } };
-      const miss = await fetchPage(PAGE_PATH, requestInit);
-      const hit = await fetchPage(PAGE_PATH, requestInit);
+      const alternatePath = localizedPathname({ pathname: PAGE_PATH, locale: ALTERNATE_LOCALE! });
+      const init = {
+        headers: { ...PAGE_HEADERS, cookie: `${LOCALE_COOKIE_NAME}=${DEFAULT_LOCALE}` },
+      };
+      const miss = await fetchPage(alternatePath, init);
+      const hit = await fetchPage(alternatePath, init);
 
       expect(edgeCacheStatus(miss)).toBe(EDGE_HTML_CACHE_STATUS.MISS);
       expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
-      expect(cookiePairs(hit)).toEqual(cookiePairs(miss));
+      expect(miss.headers.getSetCookie()).toEqual([]);
+      expect(hit.headers.getSetCookie()).toEqual([]);
     },
   );
 

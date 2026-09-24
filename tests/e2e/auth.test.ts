@@ -13,6 +13,7 @@ import {
   expectAppToast,
   fillAppLabel,
   fillAppPlaceholder,
+  getAppCookie,
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
@@ -35,6 +36,9 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "../../src/schemas/password.schema";
 import { NAME_MIN_LENGTH } from "../../src/constants";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "../../src/i18n/config";
+import { loadCatalog } from "../../src/i18n/message-catalogs";
+import { localizedPathname } from "../../src/i18n/localized-pathname";
 
 const NAME_MIN_LENGTH_MESSAGE = `Must be at least ${NAME_MIN_LENGTH} characters`;
 
@@ -72,6 +76,24 @@ test("shows a visible error toast for invalid credentials", async () => {
   await clickAppRole("button", "Sign In with Password");
 
   await expectAppToast("Invalid email or password");
+});
+
+// Derived from the served set, so a fork with other locales, or with i18n off, still passes.
+const NON_DEFAULT_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
+
+test.skipIf(!NON_DEFAULT_LOCALE)("signs a user in under their stored locale", async () => {
+  const preferredLocale = NON_DEFAULT_LOCALE!;
+  const email = `preferred-locale-${Date.now()}@example.com`;
+
+  await createVerifiedUserInLocalD1({ email, idPrefix: "usr_locale", preferredLocale });
+
+  // The form is on the default locale; the stored preference must move the target under its prefix.
+  await signInWithPassword({
+    email,
+    password: SEEDED_USER_PASSWORD,
+    redirectPath: "/dashboard",
+    expectedPathname: localizedPathname({ pathname: "/dashboard", locale: preferredLocale }),
+  });
 });
 
 test("sanitizes unsafe sign-in redirect targets", async () => {
@@ -144,6 +166,32 @@ test("creates and verifies a new password account", async () => {
   await expectAppPathname("/dashboard");
   await expectNoAppToast("Verifying your email...");
   await expectAppText("Dashboard", { exact: true });
+}, scaleE2ETimeout(18_000));
+
+test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password account signs up in", async () => {
+  const locale = NON_DEFAULT_LOCALE!;
+  const email = `sign-up-locale-${Date.now()}@example.com`;
+  // The form renders in the page locale, so its copy comes from that locale's catalog.
+  const { Common, SignUp } = (await loadCatalog(locale)).Client.Auth;
+  const signUpPath = localizedPathname({ pathname: "/sign-up", locale });
+
+  // A fresh context has no locale cookie, so only the sign-up hand-off can write one.
+  await loadAppFrame(`${signUpPath}?redirect=%2Fdashboard`, { waitForHydration: true });
+  expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBeUndefined();
+
+  await fillAppPlaceholder(Common.emailPlaceholder, email);
+  await fillAppPlaceholder(SignUp.firstNamePlaceholder, "Locale");
+  await fillAppPlaceholder(SignUp.lastNamePlaceholder, "Account");
+  await fillAppPlaceholder(Common.passwordPlaceholder, "correct horse battery staple");
+  await clickAppRole("button", SignUp.createAccountWithPassword);
+
+  await expectAppPathname(localizedPathname({ pathname: "/dashboard", locale }));
+  expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBe(locale);
+
+  const storedLocale = await queryLocalD1({
+    sql: `select preferredLocale from user where email = ${sqlStringLiteral(email)} limit 1;`,
+  });
+  expect(storedLocale).toBe(locale);
 }, scaleE2ETimeout(18_000));
 
 test("keeps forgot-password responses enumeration-safe", async () => {

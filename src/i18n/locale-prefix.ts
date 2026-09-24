@@ -1,40 +1,48 @@
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, type Locale } from "./config";
 
-// The one match both public functions need, over whichever catalog the caller passes. A hit gives
-// back the locale and the path below it; a bare path gives back `null`.
-function matchLocalePrefix({
+interface LocalePrefixMatch {
+  locale: Locale;
+  /** Path below the prefix. `/` when the prefix is the whole path. */
+  pathname: string;
+}
+
+// The one prefix rule. Case-insensitive, so `/ES/blog` names `es` and the middleware can redirect
+// it to its one spelling. The catalog is the only thing the exports below vary.
+function matchPrefix({
   pathname,
   locales,
 }: {
   pathname: string;
   locales: readonly Locale[];
-}): { locale: Locale; pathname: string } | null {
+}): LocalePrefixMatch | null {
+  const lowered = pathname.toLowerCase();
+
   for (const locale of locales) {
-    if (pathname === `/${locale}`) {
-      return { locale, pathname: "/" };
-    }
-    if (pathname.startsWith(`/${locale}/`)) {
-      return { locale, pathname: pathname.slice(locale.length + 1) };
+    const prefix = `/${locale.toLowerCase()}`;
+
+    if (lowered === prefix || lowered.startsWith(`${prefix}/`)) {
+      return { locale, pathname: pathname.slice(prefix.length) || "/" };
     }
   }
 
   return null;
 }
 
-// The bare path behind a locale-prefixed one, or `null` when the path carries no prefix. Checks the
-// full LOCALES catalog, not just the enabled set, so paths for disabled locales are caught too.
-export function stripLocalePrefix(pathname: string): string | null {
-  return matchLocalePrefix({ pathname, locales: LOCALES })?.pathname ?? null;
+/**
+ * The served locale prefix this path carries, or `null` when it carries none. With `I18N_ENABLED`
+ * off a de-served prefix must miss here, or the request would resolve to a locale nobody serves.
+ */
+export function matchLocalePrefix(pathname: string): LocalePrefixMatch | null {
+  return matchPrefix({ pathname, locales: ENABLED_LOCALES });
 }
 
-// The locale the URL itself names, and the path below it. A bare path names the default locale.
-// Follows the served set, not the catalog above: with `I18N_ENABLED` off a de-served prefix is no
-// longer a locale prefix, so it must miss here rather than resolve to a page the router lost.
-export function splitLocalePrefix(pathname: string): { locale: Locale; pathname: string } {
-  return (
-    matchLocalePrefix({ pathname, locales: ENABLED_LOCALES }) ?? {
-      locale: DEFAULT_LOCALE,
-      pathname,
-    }
-  );
+// `matchLocalePrefix`, with a bare path read as the default locale.
+export function splitLocalePrefix(pathname: string): LocalePrefixMatch {
+  return matchLocalePrefix(pathname) ?? { locale: DEFAULT_LOCALE, pathname };
+}
+
+// The bare path behind a prefix from the full LOCALES catalog, or `null` when there is none. The
+// full catalog, so a de-served prefix is still a prefix to collapse or replace, never a page path.
+export function stripLocalePrefix(pathname: string): string | null {
+  return matchPrefix({ pathname, locales: LOCALES })?.pathname ?? null;
 }

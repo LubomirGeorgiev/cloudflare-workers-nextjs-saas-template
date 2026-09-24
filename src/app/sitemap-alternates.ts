@@ -1,7 +1,7 @@
 import "server-only";
 
 import { I18N_ENABLED } from "@/constants";
-import { DEFAULT_LOCALE, isLocale, LOCALES } from "@/i18n/config";
+import { DEFAULT_LOCALE, isKnownLocale, LOCALES } from "@/i18n/config";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
 // Builds the hreflang `alternates.languages` map (one absolute URL per locale, plus `x-default`) for routes
@@ -25,7 +25,7 @@ export function entryAlternates(
   }
 
   for (const locale of locales) {
-    if (!isLocale(locale)) {
+    if (!isKnownLocale(locale)) {
       continue;
     }
 

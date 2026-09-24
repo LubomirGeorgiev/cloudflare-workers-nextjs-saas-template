@@ -84,7 +84,7 @@ function getPublicBuildEnv(env) {
   );
 }
 
-export function getE2EBuildEnv() {
+function getE2EBuildEnv() {
   return {
     ...publicBuildEnv,
     // The Wrangler preview still runs with getE2ERuntimeEnv().
@@ -117,7 +117,6 @@ export function getE2ERuntimeEnv() {
     [appTestModeVar]: "true",
     E2E_BASE_URL: baseUrl,
     E2E_PREVIEW_LOG_FILE: previewLogFile,
-    E2E_WRANGLER_STATE_DIR: stateDir,
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: "",
     TURNSTILE_SECRET_KEY: "",
   };
@@ -515,6 +514,10 @@ export function createE2EEnvironment() {
           ...process.env,
           ...runtimeEnv,
           NODE_ENV: "production",
+          // tests/e2e/local-wrangler-state.ts sends its SQL through the local explorer API.
+          X_LOCAL_EXPLORER: "true",
+          // The explorer sends a telemetry event per API call unless metrics are off.
+          WRANGLER_SEND_METRICS: "false",
         },
         stdio: ["ignore", "pipe", "pipe"],
       }

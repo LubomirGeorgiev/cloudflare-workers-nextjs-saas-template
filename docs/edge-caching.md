@@ -26,10 +26,9 @@ The layout export is load-bearing. Without it, Vinext takes the shortest `cacheL
 `revalidate` export still came back with `s-maxage=3600`. A child segment can override the layout's
 `dynamic`, which is why the E2E test checks the pages and not the layout.
 
-The reason is the locale redirect. `src/proxy.ts` runs next-intl on every page request: it
-rewrites a bare default-locale path to its `[locale]` route, redirects a visitor with a locale
-cookie or a matching `Accept-Language` to their locale, and sets the locale cookie. That logic
-runs inside the Worker. Workers Caching sits in front of the Worker, so an edge hit skips it.
+The reason is the locale redirect. `src/proxy.ts` runs `decideLocaleRoute` on every page request:
+it rewrites a bare default-locale path to its `[locale]` route, redirects a visitor with a locale
+cookie or a matching `Accept-Language` to their locale. That logic runs inside the Worker. Workers Caching sits in front of the Worker, so an edge hit skips it.
 
 We measured this on the deployed site before the change. Once `/` was stored, a request with
 `Accept-Language: es` or with the `es` locale cookie got the stored English page with a `HIT`,
@@ -56,20 +55,19 @@ without a request, names exactly the same key.
 
 **The stored copy is a rewritten clone.** Its `cache-control` is `EDGE_HTML_CACHE_CONTROL`
 (`public, s-maxage=…`), which the Cache API honors and which overrides the page's own `no-store`;
-its `Set-Cookie` is removed; the visitor's own policy is parked in a private header and put back on
-a hit. The locale cookie is put back too, under next-intl's own `syncCookie` rules: only on a
-document request, and only when the request carries no locale cookie (or an outdated one) and its
-`Accept-Language` does not already negotiate the served locale. A returning visitor therefore gets
-no `Set-Cookie` from a hit, exactly as from a miss. That mirror is pinned to next-intl itself: in
-`tests/integration/worker-edge.test.ts` the miss runs the real `src/proxy.ts`, and the hit must set
-the same locale cookie, so an upgrade that changes the rule fails there. So a hit and a miss leave
+its `Set-Cookie` is removed, because one stored copy answers every anonymous visitor; the
+visitor's own policy is parked in a private header and put back on a hit. A hit sets no cookie.
+Neither does a miss: the locale cookie records an explicit choice, so only an explicit choice
+writes it (`src/i18n/locale-cookie.ts` names the writers), and `src/proxy.ts` and this cache
+only read it. The rule is pinned in
+`tests/integration/worker-edge.test.ts`. So a hit and a miss leave
 the Worker with the same headers, and
 `tests/e2e/cache-headers.test.ts` still sees an uncacheable page. The header
 `x-edge-html-cache: hit | miss | bypass` is stamped on every HTML response;
 `pnpm metrics:ttfb` prints it beside `cf-cache-status` in its `cache=` field.
 
-**What gets stored** is the whole post-processed page — after `withHtmlAgentDiscovery`, after
-`withoutOgCardCookie`, after the metadata stamp — so a hit carries the discovery relations, the
+**What gets stored** is the whole post-processed page — after `withHtmlAgentDiscovery` and after
+the metadata stamp — so a hit carries the discovery relations, the
 Early Hints `Link` header, and the `Vary` a miss carries. The body streams (Suspense), so the copy
 is written through `ctx.waitUntil`; a visitor never waits on it. Only a `200` with a `text/html`
 content type is written, and only from a `GET`.
@@ -87,14 +85,13 @@ Every condition is decided from the URL and the request headers alone, before th
 | `Accept` does not ask for Markdown | Guaranteed by order: the Markdown branch of `worker-entrypoint.ts` has already answered. |
 | The path is a public page | `/`, `STATIC_PUBLIC_ROUTES`, and everything under `BLOG_BASE_PATH` and `DOCS_BASE_PATH`. |
 | The path is not an OpenGraph card | A card and its page share a URL and differ only by `Accept`, which this key does not name. |
-| The URL is the canonical one for its locale | `localizedPathname` decides it, so `as-needed` routing is honored: `/es/blog` qualifies, `/en/blog` does not, because next-intl answers that with a redirect. |
-| next-intl must resolve the request to that locale | A prefixed path decides on its own. A bare path qualifies only when the locale cookie is absent or already the default, and `Accept-Language` names no other served locale. With `localeDetection` off (i18n disabled) next-intl negotiates nothing, so the gate skips the cookie and header checks and a stale locale cookie no longer forces a miss. |
+| `decideLocaleRoute` serves the request | The decision `src/proxy.ts` acts on, called here with the same signals: the path prefix decides on its own, then the locale cookie, then `Accept-Language`. A redirect decision is a miss, so `as-needed` routing is honored: `/es/blog` qualifies, `/en/blog` and `/EN/blog` do not. With `LOCALE_DETECTION` off (i18n disabled) it negotiates nothing, so neither a stale cookie nor a foreign `Accept-Language` forces a miss. |
+| The URL is the decision's canonical spelling | The proxy also serves other spellings of the same page (`//blog`, `/%62log`). A copy under one of those keys would outlive every purge, so only the canonical spelling is stored. |
 
-That last row is what makes a bare path safe to store. `/blog` is the default locale's page only
+The `decideLocaleRoute` row is what makes a bare path safe to store. `/blog` is the default locale's page only
 for a visitor `src/proxy.ts` would not have redirected; anyone who signals another served locale
-bypasses the copy and gets their `307`. The `Accept-Language` test is a deliberate substring match,
-broader than the real negotiation: any mention of another served locale hands the decision back to
-the proxy.
+bypasses the copy and gets their `307`. Because both sides call `decideLocaleRoute`, the gate
+cannot drift from the proxy — there is one rule, not a mirror of one.
 
 ### The purge, and why it runs before the warm
 
@@ -248,12 +245,17 @@ Each of these responses is a pure function of its URL, so a hit that skips the W
 
 | Route | Policy | Set by |
 | --- | --- | --- |
-| Generated OpenGraph cards | `OG_IMAGE_CACHE_CONTROL` | The card route; `worker-entrypoint.ts` strips the locale cookie from it |
+| Generated OpenGraph cards | `OG_IMAGE_CACHE_CONTROL` | The card route; `src/proxy.ts` writes no cookie on any response |
 | `/llms.txt`, `/docs/llms.txt` | `DOCS_LLMS_TXT_CACHE_CONTROL` | The route handler |
 | `/api/docs/search` | `DOCS_SEARCH_CACHE_CONTROL` | The route handler |
 | `/markdown/*` and `.md` twins | `CMS_MARKDOWN_CACHE_CONTROL`, `MARKDOWN_PAGE_CACHE_CONTROL` | `worker-entrypoint.ts` |
 | `/sitemap.xml`, `/robots.txt` | `METADATA_ROUTE_EDGE_CACHE_CONTROL` | `worker-entrypoint.ts`, see below |
 | OpenAPI document, API catalog | `STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL` | Each producer |
+
+Middleware must never add `Set-Cookie` to a card: Vinext pins any response that carries
+`Set-Cookie` out of middleware to `no-store, must-revalidate`, overwriting the `Cache-Control` the
+route set. Stripping the cookie afterwards leaves that policy behind, and every crawl re-rasterizes
+the card through satori and resvg. `src/proxy.ts` writes no cookie at all, so no card gets one.
 
 The constants live in `src/constants/cache-control.ts`, and `tests/e2e/cache-headers.test.ts`
 asserts each route against the constant it uses, so a route cannot drift from its test.

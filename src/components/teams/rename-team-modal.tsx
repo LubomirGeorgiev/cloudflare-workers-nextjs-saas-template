@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { renameTeamSchema, type RenameTeamSchema } from "@/schemas/team.schema";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 
 interface RenameTeamModalProps {

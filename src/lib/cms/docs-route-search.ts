@@ -3,7 +3,7 @@ import "server-only";
 import { API_DOCS_PATH } from "@/constants";
 import { INDEXED_DOCS_ROUTES, type DocsRouteId } from "@/constants/docs-routes";
 import type { Locale } from "@/i18n/config";
-import { loadMessages } from "@/i18n/load-messages";
+import { loadCatalog } from "@/i18n/message-catalogs";
 import type { MessageTree } from "@/i18n/message-catalogs";
 import { operationAnchorId, scopeOfOperation, walkOperations } from "@/lib/api/openapi-walk";
 import { lazyValue, lazyValueByKey } from "@/utils/lazy-value";
@@ -137,7 +137,7 @@ function collectNamespaceText(tree: MessageTree): NamespaceText {
 }
 
 // Catalog strings are indexed raw, so a snippet would otherwise show a reader the ICU placeholders
-// and rich-text tags that `next-intl` fills in at render time.
+// and rich-text tags that the translator fills in at render time.
 function normalizeIndexedText(text: string): string {
   return text
     .replace(/<\/?[a-z][^>]*>/gi, "")
@@ -194,7 +194,7 @@ function lastPathSegment(pathname: string): string {
 }
 
 async function buildRouteDocuments(locale: Locale): Promise<DocsRouteSearchDocument[]> {
-  const docsMessages = (await loadMessages(locale)).Client as MessageTree | undefined;
+  const docsMessages = (await loadCatalog(locale)).Client as MessageTree | undefined;
   const namespaces = (docsMessages?.Docs ?? {}) as MessageTree;
 
   return INDEXED_DOCS_ROUTES.flatMap((route) => {

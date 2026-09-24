@@ -4,29 +4,34 @@ import { eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
+import { actionClient } from "@/lib/safe-action";
+import { setUserLocaleSchema } from "@/schemas/locale.schema";
 import { getCurrentSession } from "@/utils/auth";
+import { RATE_LIMITS } from "@/utils/with-rate-limit";
+import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
-import {
-  ENABLED_LOCALES,
-  type Locale,
-} from "./config";
+// Logged-in users get the locale saved to the DB so the preference follows them across devices.
+// The client owns the non-HttpOnly cookie: mutating it here makes Vinext revalidate the old
+// localized route, so `useChangeLocale` writes it only after this action returns.
+export const setUserLocaleAction = actionClient
+  .inputSchema(setUserLocaleSchema)
+  .action(async ({ parsedInput: { locale } }) => {
+    return withUserRateLimit(
+      async () => {
+        const session = await getCurrentSession();
 
-// Logged-in users get the locale saved to the DB so the preference follows them
-// across devices. The client owns the non-HttpOnly cookie: mutating it here makes
-// Vinext revalidate the old localized route, whose prefetches restore that locale.
-export async function setUserLocale(locale: Locale): Promise<void> {
-  // Validate against the served set: the UI hides the switcher when i18n is off,
-  // but this action is the real trust boundary, so reject any locale that isn't
-  // actually served rather than persisting an un-routed preference.
-  if (!ENABLED_LOCALES.includes(locale)) {
-    throw new Error(`Unsupported locale: ${locale}`);
-  }
+        // An anonymous visitor has no row to write; the cookie is the whole preference.
+        if (!session?.user) {
+          return { success: true };
+        }
 
-  const session = await getCurrentSession();
-  if (session?.user) {
-    await getDB()
-      .update(userTable)
-      .set({ preferredLocale: locale })
-      .where(eq(userTable.id, session.user.id));
-  }
-}
+        await getDB()
+          .update(userTable)
+          .set({ preferredLocale: locale })
+          .where(eq(userTable.id, session.user.id));
+
+        return { success: true };
+      },
+      RATE_LIMITS.SETTINGS,
+    );
+  });

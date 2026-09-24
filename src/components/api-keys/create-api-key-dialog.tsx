@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { ApiKeyCreationDialog } from "@/components/api-keys/api-key-creation-dialog";
 import { ApiKeySecretReveal } from "@/components/api-keys/api-key-secret-reveal";

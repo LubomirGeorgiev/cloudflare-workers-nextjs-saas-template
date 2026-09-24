@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { enUS, es } from "date-fns/locale";
 
-import { type Locale } from "@/i18n/config";
+import { DEFAULT_TIME_ZONE, type Locale } from "@/i18n/config";
 
 const DATE_FNS_LOCALES = {
   en: enUS,
@@ -18,7 +18,7 @@ export function formatDate(date: string | Date, locale: Locale): string {
     year: "numeric",
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: DEFAULT_TIME_ZONE,
   }).format(dateObj);
 }
 
@@ -29,7 +29,7 @@ export function formatDateTime(date: string | Date | number, locale: Locale): st
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "UTC",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 }
 

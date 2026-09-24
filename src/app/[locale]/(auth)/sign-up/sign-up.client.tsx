@@ -25,7 +25,7 @@ import { KeyIcon } from 'lucide-react'
 import { usePublicAuthFeatureState } from "@/state/public-config";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 interface SignUpClientProps {
   redirectPath: string;
@@ -48,10 +48,10 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     onExecute: () => {
       showLoadingToast(t("toastCreatingAccount"))
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast()
       toast.success(t("toastAccountCreated"))
-      navigateAfterAuth(redirectPath)
+      navigateAfterAuth({ redirectPath, preferredLocale: data?.preferredLocale })
     }
   })
 
@@ -61,10 +61,10 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
       toast.error(error.serverError?.message)
       setIsRegistering(false)
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast()
       toast.success(t("toastAccountCreated"))
-      navigateAfterAuth(redirectPath)
+      navigateAfterAuth({ redirectPath, preferredLocale: data?.preferredLocale })
     }
   })
 

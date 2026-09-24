@@ -34,12 +34,11 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       // it as plain Node; `cache-control.ts` re-exports it.
       "src/constants/edge-html-cache.ts",
       "src/constants/oauth.ts",
-      // Two URL-only rules the proxy used to own: the disabled-i18n prefix collapse and the
-      // OpenGraph cookie strip. Both run on every request, so neither can sit behind an `import()`.
+      // The one URL-only rule the proxy used to own: the disabled-i18n prefix collapse. It runs on
+      // every request, so it cannot sit behind an `import()`.
       "src/i18n/config.ts",
       "src/i18n/locale-prefix.ts",
       "src/i18n/localized-paths.ts",
-      "src/lib/og/og-paths.ts",
       // Two string constants and their catalog. The entry builds the internal endpoints' bearer
       // challenge and RFC 9728 document itself — it cannot do that from behind an `import()`,
       // because both are stamped on responses the provider has already produced.
@@ -63,30 +62,14 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/proxy.ts",
       "src/constants.ts",
       "src/constants/oauth.ts",
+      // The locale route itself: the pure decision and the resolver and prefix rule behind it. All
+      // of it runs on every localized request.
       "src/i18n/config.ts",
+      "src/i18n/locale-prefix.ts",
+      "src/i18n/localized-pathname.ts",
       "src/i18n/localized-paths.ts",
-      "src/i18n/routing.ts",
-    ],
-  },
-  // next-intl's request config is reached from the proxy above, so its tail is startup cost too.
-  {
-    entry: "src/i18n/request.ts",
-    closure: [
-      "src/i18n/request.ts",
-      "src/constants.ts",
-      "src/constants/oauth.ts",
-      // The `Accept-Language` matcher `locale.ts` always carried, in its own leaf so the edge HTML
-      // cache can mirror next-intl's cookie sync without pulling `next/headers` into a hit.
-      "src/i18n/accept-language.ts",
-      "src/i18n/config.ts",
-      "src/i18n/load-messages.ts",
-      "src/i18n/locale.ts",
-      "src/i18n/message-catalogs.ts",
-      "src/i18n/routing.ts",
-      "src/lib/action-error.ts",
-      "src/lib/api/principal.ts",
-      "src/utils/lazy-value.ts",
-      "src/utils/name-initials.ts",
+      "src/i18n/middleware.ts",
+      "src/i18n/resolve-locale.ts",
     ],
   },
   // Vinext registers these two as static imports in the entry's route table — the one exception to
@@ -102,11 +85,10 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/constants.ts",
       "src/constants/oauth.ts",
       // Protected routes live under `app/[locale]`, so robots.txt needs one rule per served locale
-      // and reaches the canonical prefix helper. `config`/`routing` are already on the proxy's
-      // closure, so `localized-pathname.ts` is the only module this actually adds to a cold isolate.
+      // and reaches the canonical prefix helper. Both modules are already on the proxy's closure,
+      // so this entry adds nothing to a cold isolate.
       "src/i18n/config.ts",
       "src/i18n/localized-pathname.ts",
-      "src/i18n/routing.ts",
     ],
   },
 ];

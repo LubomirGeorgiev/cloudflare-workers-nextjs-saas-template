@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { CmsNavigationNodeIcon } from "@/components/cms-navigation-node-icon";
 import { Link, usePathname } from "@/i18n/navigation";

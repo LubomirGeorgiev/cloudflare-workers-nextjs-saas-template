@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 
 import { ROLES_ENUM } from "@/app/enums";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

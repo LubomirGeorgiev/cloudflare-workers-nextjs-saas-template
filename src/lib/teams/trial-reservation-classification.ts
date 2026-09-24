@@ -21,10 +21,25 @@ const DEFINITE_STRIPE_FAILURE_ERRORS = [
   Stripe.errors.StripeInvalidGrantError,
 ] as const;
 
+// The definite failures where Stripe refused the request itself, not our credentials or
+// account. The payment method and price are fixed for one trial attempt, so a retry fails too.
+const REQUEST_REJECTION_ERRORS = [
+  Stripe.errors.StripeCardError,
+  Stripe.errors.StripeInvalidRequestError,
+] as const;
+
 // True only when the error proves Stripe created nothing. The instanceof check also rejects
 // any non-Stripe throw (a plain object with a matching `type` string does not qualify);
 // connection, generic API, rate-limit, and idempotency errors are ambiguous (false), so the
 // caller keeps the reservation.
 export function isDefiniteStripeFailure(error: unknown): boolean {
   return DEFINITE_STRIPE_FAILURE_ERRORS.some((errorClass) => error instanceof errorClass);
+}
+
+// True when Stripe refused the trial subscription for its payment method or request, e.g. a
+// method type that does not support the plan currency. Always a definite failure, so Stripe
+// created nothing; the caller must not ask the customer to retry with the same method.
+export function isPaymentMethodRejection(error: unknown): boolean {
+  return isDefiniteStripeFailure(error)
+    && REQUEST_REJECTION_ERRORS.some((errorClass) => error instanceof errorClass);
 }

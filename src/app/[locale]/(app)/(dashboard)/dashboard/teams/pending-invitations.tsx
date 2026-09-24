@@ -12,7 +12,7 @@ import {
 import type { getPendingInvitationsForCurrentUser } from "@/lib/teams/team-members";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 // Derive the DTO from the server function so the shape stays in sync automatically.
 // Type-only import from a server-only module is erased at compile time.

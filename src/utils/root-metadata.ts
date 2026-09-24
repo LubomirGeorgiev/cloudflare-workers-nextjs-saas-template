@@ -8,9 +8,8 @@ import { getTranslator } from "@/i18n/translator";
 
 // Site-wide metadata defaults for the root layout `app/[locale]/layout.tsx`.
 //
-// Uses `getTranslator` rather than `next-intl/server`: the request-scoped API resolves the locale
-// through `requestLocale`, which reads `headers()` and would mark the render dynamic — the exact
-// thing taking the locale from the URL segment exists to avoid.
+// Uses `getTranslator` rather than `@/i18n/server`: the request-scoped API reads `headers()`, which
+// marks the render dynamic — the exact thing taking the locale from the URL segment exists to avoid.
 export async function buildRootMetadata(locale: Locale): Promise<Metadata> {
   const t = await getTranslator({ locale, namespace: "Landing.meta" });
   const description = t("description");

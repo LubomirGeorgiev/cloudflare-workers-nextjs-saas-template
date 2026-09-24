@@ -1,4 +1,4 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 import { PageHeader } from "@/components/page-header";

@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 import type { NavItem } from "./app-sidebar-data"
 
 type Props = {

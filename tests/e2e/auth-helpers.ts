@@ -18,6 +18,7 @@ interface CreateVerifiedUserInLocalD1Params {
   firstName?: string;
   idPrefix?: string;
   lastName?: string;
+  preferredLocale?: string | null;
   role?: "admin" | "user";
 }
 
@@ -26,6 +27,7 @@ export async function createVerifiedUserInLocalD1({
   firstName = "Verified",
   idPrefix = "usr_e2e",
   lastName = "Account",
+  preferredLocale = null,
   role = "user",
 }: CreateVerifiedUserInLocalD1Params): Promise<void> {
   const passwordHash = await queryLocalD1({
@@ -54,7 +56,8 @@ export async function createVerifiedUserInLocalD1({
         emailVerified,
         signUpIpAddress,
         googleAccountId,
-        avatar
+        avatar,
+        preferredLocale
       )
       values (
         ${sqlStringLiteral(userId)},
@@ -69,7 +72,8 @@ export async function createVerifiedUserInLocalD1({
         ${now},
         '127.0.0.1',
         null,
-        null
+        null,
+        ${preferredLocale === null ? "null" : sqlStringLiteral(preferredLocale)}
       );
     `,
   });

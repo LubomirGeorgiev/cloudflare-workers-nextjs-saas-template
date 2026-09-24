@@ -30,13 +30,16 @@ import {
   cancelSubscriptionSchema,
   teamBillingSchema,
   updateAddonQuantitySchema,
+  type TrialSetupMetadata,
 } from "@/schemas/billing.schema";
-import { getLocale } from "next-intl/server";
+import { getLocale } from "@/i18n/server";
 import {
   getStripeSubscriptionTransitionPolicy,
   REVENUE_PRESERVING_CANCEL_PARAMS,
 } from "@/constants/subscription-lifecycle";
-import { SITE_URL } from "@/constants";
+import { TEAMS_DASHBOARD_PATH } from "@/constants";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+import { getRequestSiteUrl } from "@/utils/request-site-url";
 
 // Reads the invoice's confirmation_secret client secret from an expanded subscription.
 function readClientSecret(subscription: Stripe.Subscription): string | null {
@@ -45,6 +48,17 @@ function readClientSecret(subscription: Stripe.Subscription): string | null {
     return null;
   }
   return invoice.confirmation_secret?.client_secret ?? null;
+}
+
+// requireTeamPermission already proved membership, so a missing row is a deleted team.
+async function requireTeam(teamId: string) {
+  const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
+
+  if (!team) {
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Billing.errorStartCheckout" });
+  }
+
+  return team;
 }
 
 async function assertBillingEnabled() {
@@ -111,12 +125,11 @@ export const createSubscriptionAction = actionClient
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
       const stripe = await getStripe();
-      const db = getDB();
 
-      const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
+      const team = await requireTeam(teamId);
 
       try {
-        if (team?.stripeSubscriptionId) {
+        if (team.stripeSubscriptionId) {
           await settleRecordedSubscription({ teamId, recordedSubscriptionId: team.stripeSubscriptionId });
         }
 
@@ -144,7 +157,7 @@ export const createSubscriptionAction = actionClient
         });
 
         if (!claimedSlot) {
-          return await convergeOnWinningCheckout({ teamId, losingSubscriptionId: subscription.id });
+          return convergeOnWinningCheckout({ teamId, losingSubscriptionId: subscription.id });
         }
 
         // The slot is claimed; persist the full snapshot before responding.
@@ -206,10 +219,10 @@ export const startTrialSetupAction = actionClient
         throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
       }
 
-      const team = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
+      const team = await requireTeam(teamId);
 
       try {
-        if (team?.stripeSubscriptionId) {
+        if (team.stripeSubscriptionId) {
           await settleRecordedSubscription({ teamId, recordedSubscriptionId: team.stripeSubscriptionId });
         }
 
@@ -221,7 +234,8 @@ export const startTrialSetupAction = actionClient
         const setupIntent = await stripe.setupIntents.create({
           customer: customerId,
           usage: "off_session",
-          metadata: { teamId, planId, interval },
+          // completeTrialSubscription reads the plan and interval back from here.
+          metadata: { teamId, planId, interval } satisfies TrialSetupMetadata,
         });
 
         if (!setupIntent.client_secret) {
@@ -245,29 +259,21 @@ export const startTrialSetupAction = actionClient
 // Stripe charges it automatically the moment the trial ends.
 export const completeTrialAction = actionClient
   .inputSchema(completeTrialSchema)
-  .action(async ({ parsedInput: { teamId, planId, interval, setupIntentId } }) => {
+  .action(async ({ parsedInput: { teamId, setupIntentId } }) => {
     return withRateLimit(async () => {
       await assertBillingEnabled();
 
       const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
 
-      // Eligibility is checked when the persisted attempt is acquired inside the service.
-      // Doing it here would reject the retained reservation needed to resume an ambiguous
-      // Stripe request with its stable idempotency key.
-      const trialDays = getPlan(planId).trialDays ?? 0;
-      if (trialDays <= 0) {
-        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
-      }
-
+      // The service reads the plan from the SetupIntent and checks eligibility when it acquires
+      // the persisted attempt. A check here would reject the retained reservation needed to
+      // resume an ambiguous Stripe request with its stable idempotency key.
       try {
         await completeTrialSubscription({
           teamId,
           userId: session.user.id,
           actingUserEmail: session.user.email,
-          planId,
-          interval,
           setupIntentId,
-          trialDays,
         });
 
         return { success: true };
@@ -470,7 +476,7 @@ export const createBillingPortalSessionAction = actionClient
       }
 
       try {
-        const locale = await getLocale();
+        const [locale, baseUrl] = await Promise.all([getLocale(), getRequestSiteUrl()]);
         // Provisioned by `pnpm stripe:setup`: enables billing-details editing (business
         // name, address, VAT/tax IDs), invoices, and payment method updates. When unset,
         // Stripe falls back to the account's default portal configuration.
@@ -479,7 +485,9 @@ export const createBillingPortalSessionAction = actionClient
         const portalSession = await (await getStripe()).billingPortal.sessions.create({
           customer: team.stripeCustomerId,
           ...(portalConfigurationId ? { configuration: portalConfigurationId } : {}),
-          return_url: `${SITE_URL}/dashboard/teams/${team.slug}/billing`,
+          // The request host, so a preview deployment returns to itself. The locale prefix stays,
+          // because a bare path would let the proxy pick the locale from the cookie instead.
+          return_url: absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${team.slug}/billing`, locale, baseUrl }),
           // The template's locales (en/es) are all valid portal locales. Downstream
           // projects adding a locale Stripe doesn't support should map or omit this.
           locale: locale as Stripe.BillingPortal.SessionCreateParams.Locale,

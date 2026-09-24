@@ -1,9 +1,9 @@
-// Client components receive their messages from `NextIntlClientProvider`. The root provider forwards ONLY
+// Client components receive their messages from `AppIntlProvider`. The root provider forwards ONLY
 // the top-level `Client` namespace (see `getClientMessages`), so every `useTranslations(...)` call inside a
 // client component must reference a namespace under `Client.` (e.g. `useTranslations("Client.Auth.SignIn")`). A call to any other namespace would read messages that are never serialized to the client, so the lookup would throw at runtime. Server components, metadata, and server actions use `getTranslations` (async) and may read any namespace — including `Client.*` (the strings live in one place and are not duplicated) — so this rule only applies to `useTranslations` inside files carrying the `"use client"` directive.
 const CLIENT_NAMESPACE = "Client"
 const HOOK_NAME = "useTranslations"
-const NEXT_INTL_MODULE = "next-intl"
+const CLIENT_HOOKS_MODULE = "@/i18n/client"
 
 // A file ships to the client only if it opens with the `"use client"` directive. Path-based detection would
 // miss client components living outside `[locale]` (settings, dashboard, shared `src/components`), which
@@ -53,7 +53,7 @@ export const clientTranslationsUnderClientNamespaceRule = {
   },
   create(context) {
     let isClientComponent = false
-    // Local binding for `useTranslations` from `next-intl`; tracked so aliased
+    // Local binding for `useTranslations` from the client seam; tracked so aliased
     // imports (`import { useTranslations as useT }`) are still matched and
     // unrelated identically-named functions are not.
     let hookLocalName = null
@@ -63,7 +63,7 @@ export const clientTranslationsUnderClientNamespaceRule = {
         isClientComponent = hasUseClientDirective(node)
       },
       ImportDeclaration(node) {
-        if (node.source?.value !== NEXT_INTL_MODULE) {
+        if (node.source?.value !== CLIENT_HOOKS_MODULE) {
           return
         }
         for (const specifier of node.specifiers) {

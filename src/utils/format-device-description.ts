@@ -1,4 +1,4 @@
-import type { useTranslations } from "next-intl";
+import type { useTranslations } from "@/i18n/client";
 
 import type { ParsedUserAgent } from "@/types";
 

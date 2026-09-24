@@ -1,5 +1,5 @@
 import { PageHeader } from "@/components/page-header"
-import { getTranslations } from "next-intl/server"
+import { getTranslations } from "@/i18n/server"
 
 export default async function Page() {
   const t = await getTranslations("Client.Dashboard.Home")

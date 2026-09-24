@@ -12,7 +12,7 @@ import {
 import { getCmsEntryBySlug, type GetCmsCollectionResult } from "@/lib/cms/entry";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
 import type { CollectionsUnion } from "@/../cms.config";
 
 // The author and tag lines belong to the frame, so the copy button must load the same relations as
@@ -98,7 +98,7 @@ async function loadCachedDocsEntryArtifacts({
     entry,
     sourceUrl: absoluteLocalizedUrl({
       pathname: sourcePathname,
-      locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
+      locale: isKnownLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
     }),
   });
 }

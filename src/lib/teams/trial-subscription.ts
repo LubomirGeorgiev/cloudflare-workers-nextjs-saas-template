@@ -6,7 +6,10 @@ import { ActionError } from "@/lib/action-error";
 import { getStripe } from "@/lib/stripe";
 import { getDB } from "@/db";
 import { getPlanPriceId } from "@/utils/plan-prices";
-import type { BillingInterval, TeamPlanId } from "@/constants/plans";
+import { getPlan } from "@/constants/plans";
+import { v } from "@/lib/validation";
+import { trialSetupMetadataSchema } from "@/schemas/billing.schema";
+import { TRIAL_SETUP_PENDING_REASON } from "@/lib/billing/payment-return";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 import {
   claimTeamSubscription,
@@ -24,6 +27,7 @@ import {
   recordReservationSubscription,
   releaseTrialReservation,
 } from "@/lib/teams/trial-reservation";
+import { isPaymentMethodRejection } from "@/lib/teams/trial-reservation-classification";
 import type { TeamTrialReservation } from "@/db/schema";
 
 // Only reservations this old are swept: young enough rows may still belong to an in-flight
@@ -37,10 +41,7 @@ interface CompleteTrialSubscriptionParams {
   teamId: string;
   userId: string;
   actingUserEmail: string | null;
-  planId: TeamPlanId;
-  interval: BillingInterval;
   setupIntentId: string;
-  trialDays: number;
 }
 
 // The immutable Stripe inputs needed to (re)create a trial subscription with a reservation's
@@ -102,7 +103,7 @@ function stripeErrorName(error: unknown): string {
 // exists) → finalized (team+user stamped, reservation released) / definitely-failed
 // (reservation released, error rethrown) / ambiguous (reservation retained for recovery).
 export async function completeTrialSubscription(params: CompleteTrialSubscriptionParams): Promise<void> {
-  const { teamId, userId, actingUserEmail, planId, interval, setupIntentId, trialDays } = params;
+  const { teamId, userId, actingUserEmail, setupIntentId } = params;
   const stripe = await getStripe();
   const db = getDB();
 
@@ -123,18 +124,27 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
 
   // The SetupIntent id arrives from the client: only one that succeeded for THIS team's
   // customer may start the trial.
-  if (setupCustomerId !== customerId || setupIntent.status !== "succeeded" || !paymentMethodId) {
+  if (setupCustomerId !== customerId) {
+    throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
+  }
+  // A distinct reason, so the client retries only while the bank still verifies the card.
+  if (setupIntent.status === "processing") {
+    throw new ActionError("PRECONDITION_FAILED", { key: TRIAL_SETUP_PENDING_REASON });
+  }
+  if (setupIntent.status !== "succeeded" || !paymentMethodId) {
     throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
   }
 
-  // ...and only for the exact team/plan/interval it was stamped with in startTrialSetupAction,
-  // so a stale dialog cannot start a mismatched subscription.
-  const setupMetadata = setupIntent.metadata ?? {};
-  if (
-    setupMetadata.teamId !== teamId ||
-    setupMetadata.planId !== planId ||
-    setupMetadata.interval !== interval
-  ) {
+  // The plan and interval come only from the metadata startTrialSetupAction stamped, so the
+  // client cannot pick a different plan than the one it set up.
+  const setupMetadata = v.safeParse(trialSetupMetadataSchema, setupIntent.metadata ?? {});
+  if (!setupMetadata.success || setupMetadata.output.teamId !== teamId) {
+    throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
+  }
+  const { planId, interval } = setupMetadata.output;
+
+  const trialDays = getPlan(planId).trialDays ?? 0;
+  if (trialDays <= 0) {
     throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialUnavailable" });
   }
 
@@ -168,6 +178,12 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
       await releaseTrialReservation({ teamId, userId });
     } else {
       await markReservationRecoveryAttempt({ id: trialAttempt.id, lastError: stripeErrorName(stripeError) });
+    }
+    // The same payment method fails the same way on every retry, so refuse with a
+    // non-retryable code and a reason the customer can act on.
+    if (isPaymentMethodRejection(stripeError)) {
+      console.error("completeTrialSubscription: Stripe rejected the payment method", stripeError);
+      throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorTrialPaymentMethodUnsupported" });
     }
     throw stripeError;
   }

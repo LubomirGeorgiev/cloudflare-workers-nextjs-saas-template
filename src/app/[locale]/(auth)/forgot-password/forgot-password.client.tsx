@@ -23,7 +23,7 @@ import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
 import { usePublicAuthFeatureState } from "@/state/public-config";
 import { useEffect } from "react";
 import { v } from "@/lib/validation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 type ForgotPasswordSchema = v.InferOutput<typeof forgotPasswordSchema>;
 

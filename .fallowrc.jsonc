@@ -7,7 +7,14 @@
     "@hono/standard-validator",
     // Rasterizer for the favicon entries. Imported, but only by `scripts/generate-logo-assets.mjs`,
     // which fallow reads as production code and so rejects the devDependency it is.
-    "sharp"
+    "sharp",
+    // Optional peers vinext resolves by name for the App Router (`vinext/dist/utils/project.js`).
+    "@vitejs/plugin-rsc",
+    "react-server-dom-webpack",
+    // Required peer of vinext, which imports it for SSR and hydration; only tests import it directly.
+    "react-dom",
+    // Loaded by `@plugin` in `src/app/globals.css` at build time; the Worker never imports it.
+    "@tailwindcss/typography"
   ],
   // Loaded by path, not by import: the vite plugin in tools/ spawns the generator, which aliases
   // these stubs into the module graph it builds.
@@ -20,6 +27,9 @@
     // Metadata routes call these exports through dynamic imports.
     "src/lib/og/content-og-image.tsx"
   ],
+  // Vendored shadcn kit: each file exports its full slot set so forks can use the parts the
+  // template does not. The oxlint `project/no-unused-module-exports` line disables record the same choice.
+  "ignoreExports": [{ "file": "src/components/ui/**", "exports": ["*"] }],
   "health": {
     "ignore": [
       // Vendored upstream rules (see tools/oxlint/anti-slop/UPSTREAM.md). Upstream owns their structure.

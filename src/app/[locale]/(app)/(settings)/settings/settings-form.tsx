@@ -22,7 +22,7 @@ import { useAction } from "next-safe-action/hooks";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 type UserSettingsFormValues = UserSettingsSchema;
 

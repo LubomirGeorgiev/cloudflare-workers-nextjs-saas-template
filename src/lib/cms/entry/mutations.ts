@@ -46,7 +46,7 @@ import {
   computeEntryTranslatableHashes,
   computeStaleFields,
 } from "@/lib/cms/translation-staleness";
-import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
+import { DEFAULT_LOCALE, isKnownLocale } from "@/i18n/config";
 import type { SourceContentHashes } from "@/types/cms";
 import { v } from "@/lib/validation";
 import { idField } from "@/schemas/fields";
@@ -180,7 +180,7 @@ async function resolveUpdatedSeoDescription({
     content: (content ?? existingEntry.content) as JSONContent,
     collectionSlug: existingEntry.collection,
     // `locale` is a raw text column; fall back to the default if it left the catalog.
-    locale: isLocale(existingEntry.locale) ? existingEntry.locale : DEFAULT_LOCALE,
+    locale: isKnownLocale(existingEntry.locale) ? existingEntry.locale : DEFAULT_LOCALE,
   });
 
   return generatedDescription || seoDescription;
@@ -587,7 +587,7 @@ export async function retranslateCmsEntry(params: { id: string }): Promise<CmsEn
   // `as` cast: a row whose locale left the catalog (removed from LOCALES, or hand-inserted)
   // must fail loudly instead of firing a mis-targeted translation request.
   const targetLocale = translationEntry.locale;
-  if (!isLocale(targetLocale)) {
+  if (!isKnownLocale(targetLocale)) {
     throw new Error(`Translation entry "${id}" has an unsupported locale: "${targetLocale}"`);
   }
 

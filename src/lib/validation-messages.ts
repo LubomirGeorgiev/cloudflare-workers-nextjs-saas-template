@@ -14,9 +14,9 @@ export function encodeValidationMessage(key: string, params: Record<string, unkn
   return `${validationKey(key)} ${JSON.stringify(params)}`;
 }
 
-// next-intl can't type-check runtime-built keys decoded from Valibot messages.
+// A translator can't type-check runtime-built keys decoded from Valibot messages.
 // Callers still pass real `useTranslations`/`getTranslations` translators.
-// oxlint-disable-next-line typescript/no-explicit-any -- bridges next-intl's strongly-keyed translator to a runtime-built key.
+// oxlint-disable-next-line typescript/no-explicit-any -- bridges the strongly-keyed translator to a runtime-built key.
 type AnyValidationTranslator = (...args: any[]) => string;
 
 export function translateValidationKey(

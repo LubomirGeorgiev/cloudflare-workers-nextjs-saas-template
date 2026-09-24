@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRender } from "@base-ui/react/use-render"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 import {
   Controller,
   ControllerProps,
@@ -177,7 +177,6 @@ FormMessage.displayName = "FormMessage"
 
 // oxlint-disable project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
 export {
-// fallow-ignore-next-line unused-export
   useFormField,
   Form,
   FormItem,

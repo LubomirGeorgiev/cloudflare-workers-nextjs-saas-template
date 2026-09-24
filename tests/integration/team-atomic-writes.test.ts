@@ -38,7 +38,7 @@ vi.mock("@/utils/email", async (importOriginal) => ({
   sendTeamInvitationEmail: sendInvitationEmailMock,
 }));
 
-vi.mock("next-intl/server", () => ({
+vi.mock("@/i18n/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("@/i18n/locale", () => ({

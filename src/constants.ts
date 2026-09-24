@@ -153,10 +153,12 @@ export const SESSION_COOKIE_NAME = "session";
 export const AUTH_SESSION_PRESENT_COOKIE_NAME = "auth_session_present";
 export const GOOGLE_OAUTH_STATE_COOKIE_NAME = "google-oauth-state";
 export const GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME = "google-oauth-code-verifier";
+// The locale the Google sign-in started in. The callback path is bare, so its own locale can differ.
+export const GOOGLE_OAUTH_LOCALE_COOKIE_NAME = "google-oauth-locale";
 
 // Master switch for internationalization. When false, the app serves only DEFAULT_LOCALE: the
 // `/<locale>` prefixed routes, language switcher, hreflang/alternate meta tags, per-locale sitemap entries,
-// and Accept-Language locale detection are all disabled. The next-intl translation layer still powers UI strings from the default catalog, so single-language sites keep working.
+// and Accept-Language locale detection are all disabled. The translation layer still powers UI strings from the default catalog, so single-language sites keep working.
 export const I18N_ENABLED = true;
 
 export const BLOG_POSTS_PER_PAGE = 12;

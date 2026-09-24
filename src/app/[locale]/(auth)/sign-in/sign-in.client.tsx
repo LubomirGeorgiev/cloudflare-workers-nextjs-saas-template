@@ -23,7 +23,7 @@ import { startAuthentication } from "@simplewebauthn/browser";
 import { signInAction } from "./sign-in.action";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 interface SignInClientProps {
   redirectPath: string;
@@ -51,10 +51,10 @@ function PasskeyAuthenticationButton({ redirectPath }: PasskeyAuthenticationButt
       dismissLoadingToast();
       toast.error(error.serverError?.message || t("toastPasskeyAuthError"));
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast();
       toast.success(t("toastAuthSuccess"));
-      navigateAfterAuth(redirectPath);
+      navigateAfterAuth({ redirectPath, preferredLocale: data?.preferredLocale });
     },
   });
 
@@ -124,10 +124,10 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
     onExecute: () => {
       showLoadingToast(t("toastSigningIn"));
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast();
       toast.success(t("toastSignInSuccess"));
-      navigateAfterAuth(redirectPath);
+      navigateAfterAuth({ redirectPath, preferredLocale: data?.preferredLocale });
     },
   });
 

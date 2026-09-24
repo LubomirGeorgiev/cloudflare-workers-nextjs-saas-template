@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { createTranslator } from "next-intl";
+import { createTranslator } from "use-intl/core";
 
 import { DEFAULT_LOCALE } from "./config";
 import { TEAM_PLAN_IDS } from "@/constants/plans";

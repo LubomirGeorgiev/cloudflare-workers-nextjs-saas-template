@@ -12,7 +12,7 @@ import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-ca
 import { v } from "@/lib/validation";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
 import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 export default function GoogleCallbackClientComponent() {
   const router = useRouter();
@@ -33,10 +33,10 @@ export default function GoogleCallbackClientComponent() {
     onExecute: () => {
       showLoadingToast(t("toastSigningIn"));
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast();
       toast.success(t("toastSignInSuccess"));
-      navigateAfterAuth();
+      navigateAfterAuth({ preferredLocale: data?.preferredLocale });
     },
   });
   const error = result.serverError;

@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 
 interface ThemeSwitchProps {
   children?: React.ReactNode

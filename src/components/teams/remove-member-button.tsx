@@ -13,7 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAction } from "next-safe-action/hooks";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 interface RemoveMemberButtonProps {
   teamId: string;

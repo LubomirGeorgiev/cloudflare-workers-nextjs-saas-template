@@ -1,7 +1,7 @@
 "use client";
 
 import { Bot } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 import { ApiKeySecretPanel } from "@/components/api-keys/api-key-secret-panel";
 import { RestApiQuickstart } from "@/components/api-keys/rest-api-quickstart";

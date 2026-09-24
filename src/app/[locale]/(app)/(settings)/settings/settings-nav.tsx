@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import type messages from "@/i18n/messages/en.json";
 
 // Valid label keys under the `Client.Settings.Nav` message namespace, derived from

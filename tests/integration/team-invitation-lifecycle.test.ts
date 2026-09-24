@@ -36,7 +36,7 @@ vi.mock("@/utils/email", async (importOriginal) => ({
 
 // getTranslations / getUserLocale also depend on request context; the invite path only uses them
 // for fallback email copy + a locale that is handed to the (mocked) email sender.
-vi.mock("next-intl/server", () => ({
+vi.mock("@/i18n/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("@/i18n/locale", () => ({

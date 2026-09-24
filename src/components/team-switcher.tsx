@@ -24,7 +24,7 @@ import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { useTranslations } from "next-intl"
+import { useTranslations } from "@/i18n/client"
 import { useRouter } from "next/navigation"
 
 export function TeamSwitcher({

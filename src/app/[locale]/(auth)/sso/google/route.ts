@@ -6,11 +6,12 @@ import { cookies } from "next/headers";
 import {
   GOOGLE_OAUTH_STATE_COOKIE_NAME,
   GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME,
+  GOOGLE_OAUTH_LOCALE_COOKIE_NAME,
 } from "@/constants";
 import ms from "ms";
 import { isGoogleSSOEnabled } from "@/flags";
 import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
-import { getLocale } from "next-intl/server";
+import { getLocale } from "@/i18n/server";
 import { shouldUseSecureCookies } from "@/utils/cookie-security";
 
 export async function GET() {
@@ -47,6 +48,8 @@ export async function GET() {
       const cookieStore = await cookies()
       cookieStore.set(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, cookieOptions)
       cookieStore.set(GOOGLE_OAUTH_CODE_VERIFIER_COOKIE_NAME, codeVerifier, cookieOptions)
+      // Google returns to a bare callback path that resolves its own locale; a new account keeps this one.
+      cookieStore.set(GOOGLE_OAUTH_LOCALE_COOKIE_NAME, locale, cookieOptions)
     } catch (error) {
       console.error('Error generating Google OAuth state and code verifier', error)
       return redirect({ href: "/", locale })

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "@/i18n/client";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,13 @@ import {
   resumePaymentAction,
   getTeamSubscriptionAction,
 } from "../billing.actions";
+import {
+  classifyTrialCompletionFailure,
+  type PaymentReturnAction,
+  type PaymentReturnOutcome,
+  type TrialReturn,
+} from "@/lib/billing/payment-return";
+import { usePaymentReturn } from "./use-payment-return";
 import dynamic from "next/dynamic";
 
 // Stripe Elements only mounts inside the checkout dialog. A static import would put it on the
@@ -77,16 +84,10 @@ interface PlanCardsProps {
 
 interface PaymentDialogState {
   clientSecret: string;
-  planId: TeamPlanId;
-  // Interval captured when the dialog opened; completing a trial must submit exactly
-  // what the SetupIntent was created with, not the live toggle state.
-  interval: BillingInterval;
+  currency: string;
   planName: string;
   priceLabel: string;
   trialDays?: number;
-  // True when the dialog confirms a trial's SetupIntent (card-first flow) rather than
-  // an invoice payment; success must then complete the trial server-side.
-  isTrialSetup?: boolean;
 }
 
 export function PlanCards({
@@ -102,6 +103,7 @@ export function PlanCards({
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
   const tCommon = useTranslations("Client.Common");
+  const tErrors = useTranslations("Client.Errors");
   const locale = useLocale();
   const format = useFormatter();
   const router = useRouter();
@@ -153,6 +155,8 @@ export function PlanCards({
   const { executeAsync: resumeAsync, isExecuting: isResuming } = useAction(resumePaymentAction);
   const { executeAsync: getSubscriptionAsync } = useAction(getTeamSubscriptionAction);
 
+  const clearPaymentReturn = usePaymentReturn({ onReturn: handlePaymentReturn });
+
   const busy = isChanging || isCanceling || isSubscribing || isStartingTrial || isCompletingTrial || isResuming || isActivating;
 
   const stopActivationPolling = useIntervalWhen(
@@ -202,7 +206,7 @@ export function PlanCards({
     planId: TeamPlanId,
     interval: BillingInterval,
     result: { serverError?: { message?: string }; data?: { clientSecret?: string } } | undefined,
-    options?: Pick<PaymentDialogState, "trialDays" | "isTrialSetup">
+    options?: Pick<PaymentDialogState, "trialDays">
   ) {
     if (result?.serverError) {
       toast.error(result.serverError.message ?? t("errorPaymentProvider"));
@@ -217,8 +221,7 @@ export function PlanCards({
     const amount = getPlanAmount({ plan, interval });
     setPaymentDialog({
       clientSecret,
-      planId,
-      interval,
+      currency: plan.currency,
       planName: plan.name,
       priceLabel: `${formatPrice({ amount, currency: plan.currency, locale })}${t(interval === "year" ? "perYear" : "perMonth")}`,
       ...options,
@@ -238,10 +241,7 @@ export function PlanCards({
       planId,
       billingInterval,
       await startTrialSetupAsync({ teamId, planId, interval: billingInterval }),
-      {
-        trialDays: TEAM_PLANS[planId].trialDays,
-        isTrialSetup: true,
-      }
+      { trialDays: TEAM_PLANS[planId].trialDays }
     );
   }
 
@@ -249,28 +249,53 @@ export function PlanCards({
     openPaymentDialogFromResult(currentPlanId, currentInterval ?? "month", await resumeAsync({ teamId }));
   }
 
-  async function handlePaymentSuccess(confirmedSetupIntentId?: string) {
+  // Shared by the inline confirm and the return from a redirect-based payment method.
+  // The outcome tells a return whether a reload may run it again.
+  async function finishCheckout({ trial }: { trial: TrialReturn | null }): Promise<PaymentReturnOutcome> {
     // Trials only start once the server verifies the confirmed SetupIntent and creates
     // the subscription; a verified card is a hard requirement for trial access.
-    if (paymentDialog?.isTrialSetup) {
-      if (!confirmedSetupIntentId) {
-        toast.error(t("errorPaymentProvider"));
-        return;
-      }
-      const result = await completeTrialAsync({
-        teamId,
-        planId: paymentDialog.planId,
-        interval: paymentDialog.interval,
-        setupIntentId: confirmedSetupIntentId,
-      });
-      if (result?.serverError || !result?.data?.success) {
-        toast.error(result?.serverError?.message ?? t("errorPaymentProvider"));
-        return;
+    if (trial) {
+      const result = await completeTrialAsync({ teamId, setupIntentId: trial.setupIntentId }).catch(() => undefined);
+      if (!result?.data?.success) {
+        const failure = classifyTrialCompletionFailure({
+          code: result?.serverError?.code,
+          reason: result?.serverError?.reason,
+        });
+        if (failure === "pending") {
+          toast.info(t("trialSetupPending"));
+          return "retry";
+        }
+        toast.error(result?.serverError?.message ?? tErrors("unexpected"));
+        return failure;
       }
     }
     setPaymentDialog(null);
     activationPollAttemptRef.current = 0;
     setIsActivating(true);
+    return "final";
+  }
+
+  // Only a trial dialog confirms a SetupIntent, so a confirmed one always completes a trial.
+  async function handlePaymentSuccess(confirmedSetup: TrialReturn | null) {
+    const outcome = await finishCheckout({ trial: confirmedSetup });
+    // This checkout replaces any return still in the query; a reload must not retry the old one.
+    if (outcome === "final") {
+      clearPaymentReturn();
+    }
+  }
+
+  async function handlePaymentReturn(action: PaymentReturnAction): Promise<PaymentReturnOutcome> {
+    if (action.kind === "failed") {
+      toast.error(t("paymentFailed"));
+      return "final";
+    }
+    if (action.kind === "trialPending" || action.kind === "completeTrial") {
+      return finishCheckout({ trial: { setupIntentId: action.setupIntentId } });
+    }
+    if (action.kind === "poll") {
+      return finishCheckout({ trial: null });
+    }
+    return "final";
   }
 
   return (
@@ -462,6 +487,7 @@ export function PlanCards({
           {paymentDialog && (
             <StripePaymentForm
               clientSecret={paymentDialog.clientSecret}
+              currency={paymentDialog.currency}
               planName={paymentDialog.planName}
               priceLabel={paymentDialog.priceLabel}
               trialDays={paymentDialog.trialDays}

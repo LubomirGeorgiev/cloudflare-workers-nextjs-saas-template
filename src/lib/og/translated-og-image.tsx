@@ -1,6 +1,6 @@
 import "server-only"
 
-import type { Messages, NestedValueOf } from "next-intl"
+import type { Messages, NestedValueOf } from "use-intl/core"
 import type { ImageResponse } from "next/og"
 
 import type { Locale } from "@/i18n/config"

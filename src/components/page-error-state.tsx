@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCw } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 

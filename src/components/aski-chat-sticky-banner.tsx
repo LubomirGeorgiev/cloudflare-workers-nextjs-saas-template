@@ -5,7 +5,7 @@ import { ChevronLeft, X } from "lucide-react";
 import { AskiChatLogo } from "@/components/aski-chat-logo";
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "./ui/button";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 
 const STORAGE_KEY = "aski-chat-banner-collapsed";
 const ASKI_CHAT_BANNER_URL = "https://aski.chat?utm_source=saas-template-sticky-banner";

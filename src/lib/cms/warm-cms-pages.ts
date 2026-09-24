@@ -1,6 +1,6 @@
 import "server-only";
 
-import { DEFAULT_LOCALE, ENABLED_LOCALES, isLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, ENABLED_LOCALES, isKnownLocale, type Locale } from "@/i18n/config";
 import type { CmsEntryRef } from "@/lib/cms/cms-cache-invalidation";
 import { cmsEntryListingPath, cmsEntryPagePath } from "@/lib/cms/cms-entry-page-purge";
 import { getEntryLocales } from "@/lib/cms/entry/queries";
@@ -43,7 +43,7 @@ async function resolveWarmLocales(entry: CmsEntryRef): Promise<Locale[]> {
     });
 
     const served = locales.filter(
-      (locale): locale is Locale => isLocale(locale) && ENABLED_LOCALES.includes(locale),
+      (locale): locale is Locale => isKnownLocale(locale) && ENABLED_LOCALES.includes(locale),
     );
 
     return served.length > 0 ? served : [DEFAULT_LOCALE];

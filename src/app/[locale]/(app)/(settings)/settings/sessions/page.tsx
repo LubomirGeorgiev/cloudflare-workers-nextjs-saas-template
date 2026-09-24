@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getSessionsAction } from "./sessions.actions";
 import { PageErrorState } from "@/components/page-error-state";
 import { resolvePageAction } from "@/utils/page-action-result";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 
 export async function generateMetadata() {
   const t = await getTranslations("Client.Settings.Sessions");

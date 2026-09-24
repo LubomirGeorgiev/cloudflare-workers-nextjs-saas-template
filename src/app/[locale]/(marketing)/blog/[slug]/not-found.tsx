@@ -1,8 +1,8 @@
 "use client";
 
-// "use client" on purpose: not-found gets no `params`, so the locale comes from `NextIntlClientProvider`.
+// "use client" on purpose: not-found gets no `params`, so the locale comes from `AppIntlProvider`.
 import { Link } from "@/i18n/navigation"
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 

@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { PASSKEY_AUTHENTICATOR_IDS } from "@/utils/passkey-authenticator-ids";
 import { cn } from "@/lib/utils";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "@/i18n/client";
 import type { ParsedUserAgent } from "@/types";
 
 interface PasskeyRegistrationButtonProps {

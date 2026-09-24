@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchIcon } from "lucide-react";
 import { useRouter } from "@/i18n/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "@/i18n/client";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useAction } from "next-safe-action/hooks";
 import { useDebounceValue } from "usehooks-ts";

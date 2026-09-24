@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Route } from "next";
 import { headers } from "next/headers";
-import { getLocale } from "next-intl/server";
+import { getLocale } from "@/i18n/server";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL, TEAMS_DASHBOARD_PATH } from "@/constants";
 import { redirect } from "@/i18n/navigation";

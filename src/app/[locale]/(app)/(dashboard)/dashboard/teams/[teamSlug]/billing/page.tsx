@@ -1,4 +1,4 @@
-
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { hasTeamPermission } from "@/utils/team-auth";
 import { TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { PageHeader } from "@/components/page-header";
@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getTeamSubscription, isTrialEligible } from "@/utils/team-subscription";
 import { requireTeamAccess } from "../team-page-guard";
 import { isBillingEnabled } from "@/flags";
-import { getTranslations } from "next-intl/server";
+import { getTranslations } from "@/i18n/server";
 import { PlanCards } from "./_components/plan-cards";
 import { AddonCards } from "./_components/addon-cards";
 import { CustomerPortalButton } from "./_components/customer-portal-button";
@@ -79,17 +79,20 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
           </Alert>
         )}
 
-        <PlanCards
-          teamId={team.id}
-          currentPlanId={subscription.planId}
-          currentInterval={subscription.interval}
-          status={subscription.status}
-          planExpiresAt={subscription.planExpiresAt}
-          cancelAtPeriodEnd={subscription.cancelAtPeriodEnd}
-          needsPaymentAction={subscription.needsPaymentAction}
-          canManage={canManage}
-          isTrialEligible={trialEligible}
-        />
+        {/* PlanCards reads the query Stripe appends when a payment method redirects back here. */}
+        <NuqsAdapter>
+          <PlanCards
+            teamId={team.id}
+            currentPlanId={subscription.planId}
+            currentInterval={subscription.interval}
+            status={subscription.status}
+            planExpiresAt={subscription.planExpiresAt}
+            cancelAtPeriodEnd={subscription.cancelAtPeriodEnd}
+            needsPaymentAction={subscription.needsPaymentAction}
+            canManage={canManage}
+            isTrialEligible={trialEligible}
+          />
+        </NuqsAdapter>
 
         <AddonCards
           teamId={team.id}

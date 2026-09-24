@@ -23,13 +23,33 @@ export const changePlanSchema = v.object({
   interval: billingInterval,
 });
 
-// Completes the card-first trial flow: the client passes back the SetupIntent it
-// confirmed so the server can verify it before creating the trialing subscription.
+// Completes the card-first trial flow: the client passes back the SetupIntent it confirmed.
+// The plan and interval come from the SetupIntent metadata, never from the client.
 export const completeTrialSchema = v.object({
   teamId: teamIdField(),
-  planId: v.picklist(paidPlanIds),
-  interval: billingInterval,
   setupIntentId: idField(),
+});
+
+// What startTrialSetupAction stamps on the SetupIntent. The interval has no default here, so a
+// SetupIntent without complete metadata cannot start a trial.
+export const trialSetupMetadataSchema = v.object({
+  teamId: teamIdField(),
+  planId: v.picklist(paidPlanIds),
+  interval: v.picklist(AVAILABLE_BILLING_INTERVALS),
+});
+
+export type TrialSetupMetadata = v.InferOutput<typeof trialSetupMetadataSchema>;
+
+// Stripe does not document every redirect_status value. Only "succeeded" and "processing"
+// continue a checkout, so any other value reads as "failed".
+const redirectStatus = v.fallback(v.picklist(["succeeded", "processing", "failed"]), "failed");
+
+// The query a redirect-based payment method brings back to the billing page. Anyone can craft
+// that link, so this only picks the next UI step; completeTrialAction re-verifies the SetupIntent.
+export const paymentReturnSchema = v.object({
+  setupIntentId: v.nullish(idField()),
+  paymentIntentId: v.nullish(idField()),
+  redirectStatus: v.nullish(redirectStatus),
 });
 
 export const cancelSubscriptionSchema = v.object({

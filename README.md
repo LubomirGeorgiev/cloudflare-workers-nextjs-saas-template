@@ -146,35 +146,62 @@ Vinext is not a fork of Next.js and is not affiliated with Vercel. It is still e
   - 📊 Per-tenant Analytics
   - 🔐 Tenant-specific Configurations
   - 💼 Team Collaboration Features
-- 🌐 Internationalization (i18n) with next-intl
-  - 🍪 Cookie-based locale with Accept-Language negotiation (no URL changes)
+- 🌐 Internationalization (i18n) on `use-intl` and an in-repo routing layer
+  - 🔗 Localized URLs: the default locale is served bare, every other locale is prefixed
+  - 🍪 Locale from the URL prefix, then the cookie, then `Accept-Language`
   - 🔀 Locale switcher in the footer
   - 🗂️ JSON message catalogs (English and Spanish included)
-  - 🧭 Auto-detected by Vinext (no `createNextIntlPlugin` wrapper needed)
   - 🔒 Type-safe message keys
 
 ## Internationalization (i18n)
 
-The template ships with [next-intl](https://next-intl.dev/) configured in
-"without i18n routing" mode: the active locale is resolved from a `NEXT_LOCALE`
-cookie, falling back to the request's `Accept-Language` header and then the
-default locale, so URLs stay unchanged across the app.
+The template owns its i18n layer. [use-intl](https://www.npmjs.com/package/use-intl)
+supplies the ICU translator and the React hooks; everything around it — the locale
+routing, the middleware, and the server API — lives in `src/i18n/`.
 
-Everything lives in `src/i18n/`:
+Every page lives under `src/app/[locale]/`, so the URL carries the locale. Prefixing
+is "as needed": the default locale is served at the bare path (`/blog`) and every
+other locale is prefixed (`/es/blog`). `src/proxy.ts` resolves the locale once per
+request — URL prefix, then the `selected_locale` cookie, then `Accept-Language`, then
+the default — and rewrites or redirects from that one answer. It only reads the cookie:
+only an explicit choice writes it, and `src/i18n/locale-cookie.ts` names the writers.
 
-- `config.ts` — locale list, default locale, cookie name, and switcher labels.
-- `request.ts` — the Vinext-auto-detected next-intl request config.
-- `locale.ts` / `locale-actions.ts` — server-side locale resolution and the cookie-setting server action.
-- `messages/<locale>.json` — one message catalog per locale.
+Module map:
+
+| Module | What it owns |
+| --- | --- |
+| `config.ts` | Locale list, default locale, served set, cookie name, switcher labels |
+| `resolve-locale.ts` | The one answer to "what locale is this request" |
+| `middleware.ts` | The pure locale route (`decideLocaleRoute`); `src/proxy.ts` is its adapter |
+| `localized-pathname.ts` | The one answer to "which URL serves this path in this locale" |
+| `navigation.ts` | `Link`, `usePathname`, `useRouter`, `getPathname`, `redirect`, `permanentRedirect` |
+| `server.ts` | `getLocale` and `getTranslations` for the current App Router request |
+| `client.ts` / `provider.tsx` | `useTranslations`/`useLocale`/`useFormatter`, and the provider above them |
+| `translator.ts` | `getTranslator`, the locale-explicit translator that needs no request scope |
+| `locale.ts` / `locale-actions.ts` | The user's own locale, and the action that stores it |
+| `locale-cookie.client.ts` | `enterLocale`: writes the locale cookie, then loads the page under the new locale |
+| `post-auth-target.ts` | Where a sign-in lands, and which locale cookie it writes |
+| `new-account-locale.ts` | The locale a new account stores: the locale of the sign-up page |
+| `messages/<locale>.json` | One message catalog per locale |
+
+Which import to reach for:
+
+- Client components: `useTranslations` from `@/i18n/client`.
+- Server components, metadata, and server actions: `getTranslations` from `@/i18n/server`.
+- Shared `src/lib/**` and `src/utils/**`, the API, and MCP: `getTranslator` from
+  `@/i18n/translator`. Those run outside the App Router, where `headers()` throws.
+- Links and redirects: `@/i18n/navigation`, never `next/navigation`.
 
 To add a locale (e.g. French):
 
-1. Add `"fr"` to `LOCALES` and a `fr` entry to `LOCALE_LABELS` in `src/i18n/config.ts`.
-2. Create `src/i18n/messages/fr.json` mirroring the keys in `en.json`.
+1. Add `"fr"` to `LOCALES` and a `fr` entry to `LOCALE_LABELS` and `LOCALE_OG_MAP` in
+   `src/i18n/config.ts`.
+2. Add an `fr` loader to `CATALOG_LOADERS` in `src/i18n/message-catalogs.ts`.
+3. Create `src/i18n/messages/fr.json` with every key in `en.json`; nothing merges the
+   default catalog in at runtime.
 
-Use `useTranslations` in client components and `getTranslations` in server
-components. `messages/en.json` is the source of truth for type-safe keys via the
-augmentation in `src/i18n/next-intl.d.ts`.
+`messages/en.json` is the source of truth for type-safe keys, through the augmentation
+in `src/i18n/use-intl.d.ts`.
 
 ## Planned features (TODO):
 

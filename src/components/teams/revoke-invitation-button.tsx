@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useAction } from "next-safe-action/hooks";
 import { TrashIcon } from "lucide-react";

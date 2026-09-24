@@ -103,14 +103,6 @@ describe("base-path SITE_URL handling", () => {
       I18N_ENABLED: true,
       SITE_URL: "https://example.com/app",
     }));
-    vi.doMock("@/i18n/navigation", async () => {
-      const { DEFAULT_LOCALE } = await import("@/i18n/config");
-
-      return {
-        getPathname: ({ href, locale }: { href: string; locale: string }) =>
-          locale === DEFAULT_LOCALE ? href : `/${locale}${href}`,
-      };
-    });
 
     const { localizedSitemapAlternates, entryAlternates } = await import("./sitemap-alternates");
 

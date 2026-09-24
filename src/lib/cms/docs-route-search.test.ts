@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
-import { loadMessages } from "@/i18n/load-messages";
+import { loadCatalog } from "@/i18n/message-catalogs";
 import type { MessageTree } from "@/i18n/message-catalogs";
 import { FIXTURE_API_OPERATION } from "../../../tests/fixtures/api-openapi-document";
 
@@ -23,7 +23,7 @@ const ROUTE_NAMESPACES = new Map(
 const META_KEY = INDEXED_DOCS_ROUTES[0].metaNamespace.split(".").at(-1) as string;
 
 async function docsNamespace({ locale, namespace }: { locale: Locale; namespace: string }): Promise<MessageTree> {
-  const client = (await loadMessages(locale)).Client as MessageTree;
+  const client = (await loadCatalog(locale)).Client as MessageTree;
   const docs = client.Docs as MessageTree;
 
   return docs[namespace] as MessageTree;

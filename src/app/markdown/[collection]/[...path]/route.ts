@@ -19,7 +19,7 @@ import { applyRateLimitHeaders } from "@/lib/api/rate-limit-headers";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { localizedPathname } from "@/i18n/localized-pathname";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
 import { consumeRateLimit, RATE_LIMITS, RateLimitError } from "@/utils/with-rate-limit";
 
 interface CachedMarkdownEntry {
@@ -122,7 +122,7 @@ async function handleMarkdownRouteRequest({
   const collectionSlug = collection;
   const requestUrl = new URL(request.url);
   const requestedLocale = requestUrl.searchParams.get("locale");
-  const locale = requestedLocale && isLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
+  const locale = requestedLocale && isKnownLocale(requestedLocale) ? requestedLocale : DEFAULT_LOCALE;
   const resolution = await resolveMarkdownEntry({ collectionSlug, path });
   const wantsDownload = requestUrl.searchParams.has("download");
 
@@ -302,7 +302,7 @@ async function renderCachedEntryMarkdown({
       entry,
       sourceUrl: absoluteLocalizedUrl({
         pathname: sourcePathname,
-        locale: isLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
+        locale: isKnownLocale(entry.locale) ? entry.locale : DEFAULT_LOCALE,
       }),
     }),
     slug: entry.slug,

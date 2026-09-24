@@ -1,5 +1,6 @@
 import { MARKDOWN_EXTENSION, SITE_URL } from "@/constants";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
+import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
+import { localizedPathname } from "@/i18n/localized-pathname";
 
 /** The index segment, because neither a bare `/.md` nor a locale root `/es.md` is a usable URL. */
 const INDEX_PAGE_SEGMENT = "/index";
@@ -39,7 +40,7 @@ export function buildAbsoluteSourcePageUrl({ pathname }: { pathname: string }): 
 }
 
 // The locale variant of a page path, as `resolveMdRequestTarget` builds it and as the page
-// Markdown cache key therefore holds it. The default locale keeps the bare path.
+// Markdown cache key therefore holds it. The prefix rule itself is `localizedPathname`'s.
 export function localizedPagePathname({
   locale,
   pathname,
@@ -47,11 +48,7 @@ export function localizedPagePathname({
   locale: Locale;
   pathname: string;
 }): string {
-  if (locale === DEFAULT_LOCALE) {
-    return pathname;
-  }
-
-  return pathname === "/" ? `/${locale}` : `/${locale}${pathname}`;
+  return localizedPathname({ pathname, locale });
 }
 
 /** Inverse rule: `.md` path to page path, or `null` when the path is not a Markdown path. */

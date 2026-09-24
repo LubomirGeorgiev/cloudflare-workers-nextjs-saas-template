@@ -28,8 +28,9 @@ import { and, eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { teamTable, teamTrialReservationTable, userTable } from "@/db/schema";
-import { PAID_PLAN_IDS, type TeamPlanId } from "@/constants/plans";
+import { PAID_PLAN_IDS, TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
 import { isTrialEligible } from "@/utils/team-subscription";
+import { TRIAL_SETUP_PENDING_REASON } from "@/lib/billing/payment-return";
 import {
   completeTrialSubscription,
   settleStaleTrialReservations,
@@ -40,8 +41,11 @@ const db = getDB();
 const dayInMs = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 
-// Template-safe: derive the plan under test from the catalog rather than a literal name.
-const PAID_PLAN_ID: TeamPlanId = PAID_PLAN_IDS[0];
+// Template-safe: derive the plan under test from the catalog rather than a literal name. The
+// service reads the trial length from the plan, so prefer a paid plan that offers a trial.
+const PAID_PLAN_ID: TeamPlanId =
+  PAID_PLAN_IDS.find((planId) => (TEAM_PLANS[planId].trialDays ?? 0) > 0) ?? PAID_PLAN_IDS[0];
+const HAS_TRIAL_PLAN = (TEAM_PLANS[PAID_PLAN_ID].trialDays ?? 0) > 0;
 const PAID_PRICE_ID = `price_${PAID_PLAN_ID}_lifecycle`;
 process.env[`STRIPE_PRICE_${PAID_PLAN_ID.toUpperCase()}`] = PAID_PRICE_ID;
 
@@ -208,7 +212,7 @@ beforeEach(async () => {
 
 // ----- completeTrialSubscription -----
 
-test("completeTrialSubscription releases the reservation on success and stamps user + team", async () => {
+test.skipIf(!HAS_TRIAL_PLAN)("completeTrialSubscription releases the reservation on success and stamps user + team", async () => {
   const customerId = uid("cus");
   const { teamId, userId } = await seedTeamAndUser({ customerId });
   const subId = uid("sub");
@@ -223,10 +227,7 @@ test("completeTrialSubscription releases the reservation on success and stamps u
     teamId,
     userId,
     actingUserEmail: "owner@example.com",
-    planId: PAID_PLAN_ID,
-    interval: "month",
     setupIntentId: "seti_x",
-    trialDays: 14,
   });
 
   const reservation = await findReservation(teamId, userId);
@@ -241,7 +242,7 @@ test("completeTrialSubscription releases the reservation on success and stamps u
   expect(await isTrialEligible({ teamId, userId })).toBe(false);
 });
 
-test("completeTrialSubscription RETAINS the reservation on an ambiguous Stripe failure", async () => {
+test.skipIf(!HAS_TRIAL_PLAN)("completeTrialSubscription RETAINS the reservation on an ambiguous Stripe failure", async () => {
   const customerId = uid("cus");
   const { teamId, userId } = await seedTeamAndUser({ customerId });
 
@@ -259,10 +260,7 @@ test("completeTrialSubscription RETAINS the reservation on an ambiguous Stripe f
       teamId,
       userId,
       actingUserEmail: "owner@example.com",
-      planId: PAID_PLAN_ID,
-      interval: "month",
       setupIntentId: "seti_x",
-      trialDays: 14,
     }),
   ).rejects.toBeInstanceOf(Stripe.errors.StripeConnectionError);
 
@@ -281,14 +279,21 @@ test("completeTrialSubscription RETAINS the reservation on an ambiguous Stripe f
   expect(await isTrialEligible({ teamId, userId })).toBe(false);
 });
 
-test("completeTrialSubscription RELEASES the reservation on a definite Stripe failure", async () => {
+// A rejected payment method gets a final refusal, so the client stops repeating the create call.
+test.skipIf(!HAS_TRIAL_PLAN).each([
+  ["a declined card", () => new Stripe.errors.StripeCardError({ message: "card declined" })],
+  [
+    "an unsupported payment method type",
+    () => new Stripe.errors.StripeInvalidRequestError({ message: "unsupported", param: "default_payment_method" }),
+  ],
+] as const)("completeTrialSubscription RELEASES the reservation and refuses %s as final", async (_label, makeError) => {
   const customerId = uid("cus");
   const { teamId, userId } = await seedTeamAndUser({ customerId });
 
   const { client } = makeFakeStripe({
     setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" }),
     create: async () => {
-      throw new Stripe.errors.StripeCardError({ message: "card declined" });
+      throw makeError();
     },
   });
   stripeState.client = client;
@@ -298,16 +303,97 @@ test("completeTrialSubscription RELEASES the reservation on a definite Stripe fa
       teamId,
       userId,
       actingUserEmail: "owner@example.com",
-      planId: PAID_PLAN_ID,
-      interval: "month",
       setupIntentId: "seti_x",
-      trialDays: 14,
     }),
-  ).rejects.toBeInstanceOf(Stripe.errors.StripeCardError);
+  ).rejects.toMatchObject({
+    code: "PRECONDITION_FAILED",
+    messageKey: "Client.Dashboard.Billing.errorTrialPaymentMethodUnsupported",
+  });
 
   const reservation = await findReservation(teamId, userId);
   expect(reservation).toBeUndefined();
-  // Nothing was created, so the user is eligible to retry.
+  // Nothing was created, so the user is eligible to retry with another payment method.
+  expect(await isTrialEligible({ teamId, userId })).toBe(true);
+});
+
+// A definite failure of our own credentials is not the customer's fault: release, but rethrow as is.
+test.skipIf(!HAS_TRIAL_PLAN)("completeTrialSubscription RELEASES the reservation and rethrows a credential failure", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+
+  const { client } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" }),
+    create: async () => {
+      throw new Stripe.errors.StripeAuthenticationError({ message: "invalid api key" });
+    },
+  });
+  stripeState.client = client;
+
+  await expect(
+    completeTrialSubscription({
+      teamId,
+      userId,
+      actingUserEmail: "owner@example.com",
+      setupIntentId: "seti_x",
+    }),
+  ).rejects.toBeInstanceOf(Stripe.errors.StripeAuthenticationError);
+
+  expect(await findReservation(teamId, userId)).toBeUndefined();
+  expect(await isTrialEligible({ teamId, userId })).toBe(true);
+});
+
+// The client sends only the SetupIntent id, so the metadata is the one source of the plan.
+test.skipIf(!HAS_TRIAL_PLAN).each([
+  ["no plan", { planId: undefined }],
+  ["a plan that cannot be bought", { planId: "not-a-plan" }],
+  ["no interval", { interval: undefined }],
+  ["another team", { teamId: "team_other" }],
+])("completeTrialSubscription refuses a SetupIntent whose metadata has %s", async (_label, override) => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+  const setupIntent = makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" });
+  setupIntent.metadata = { ...setupIntent.metadata, ...override } as Stripe.Metadata;
+
+  const { client, calls } = makeFakeStripe({ setupIntent });
+  stripeState.client = client;
+
+  await expect(
+    completeTrialSubscription({
+      teamId,
+      userId,
+      actingUserEmail: "owner@example.com",
+      setupIntentId: setupIntent.id,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+
+  expect(calls.created).toHaveLength(0);
+  expect(await findReservation(teamId, userId)).toBeUndefined();
+});
+
+// The client keeps the return query only for the pending reason, so a failed card must not send it.
+test.skipIf(!HAS_TRIAL_PLAN).each([
+  ["processing", TRIAL_SETUP_PENDING_REASON],
+  ["requires_payment_method", "Client.Dashboard.Billing.errorTrialUnavailable"],
+] as const)("completeTrialSubscription refuses a %s SetupIntent with its own reason", async (status, messageKey) => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+  const setupIntent = makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" });
+  setupIntent.status = status;
+
+  const { client, calls } = makeFakeStripe({ setupIntent });
+  stripeState.client = client;
+
+  await expect(
+    completeTrialSubscription({
+      teamId,
+      userId,
+      actingUserEmail: "owner@example.com",
+      setupIntentId: setupIntent.id,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED", messageKey });
+
+  expect(calls.created).toHaveLength(0);
+  expect(await findReservation(teamId, userId)).toBeUndefined();
   expect(await isTrialEligible({ teamId, userId })).toBe(true);
 });
 
