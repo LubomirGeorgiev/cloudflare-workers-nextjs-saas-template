@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
 import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
+import { INTEGRATION_OPTIMIZED_DEPENDENCIES } from "./tools/integration-optimized-dependencies.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
 
 function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
@@ -73,6 +74,11 @@ export default defineConfig({
     },
   },
   test: {
+    deps: {
+      optimizer: {
+        ssr: { enabled: true, include: INTEGRATION_OPTIMIZED_DEPENDENCIES },
+      },
+    },
     include: ["tests/integration/**/*.test.ts"],
     reporters: process.env.GITHUB_ACTIONS === "true" ? ["dot", "github-actions"] : ["default"],
     setupFiles: ["./tests/integration/apply-d1-migrations.ts"],
