@@ -15,7 +15,7 @@ vi.mock("server-only", () => ({}));
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => cookieStore),
-  // Local HTTP, so the cookies below are the unsecured, sameSite=lax pair.
+  // Local HTTP, so the cookies below are the unsecured pair. sameSite is lax on every host.
   headers: vi.fn(async () => new Headers({
     [__INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER]: "http",
   })),

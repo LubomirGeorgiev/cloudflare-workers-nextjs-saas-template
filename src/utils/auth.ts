@@ -3,7 +3,6 @@ import "server-only";
 import ms from "ms"
 import { parse as parseCookieHeader } from "hono/utils/cookie";
 import { cookies } from "next/headers";
-import { isLocalhost } from "@/utils/is-local";
 import {
   createKVSession,
   deleteKVSession,
@@ -239,16 +238,18 @@ interface SetSessionTokenCookieParams {
 export async function setSessionTokenCookie({ token, userId, expiresAt }: SetSessionTokenCookieParams): Promise<void> {
   const cookieStore = await cookies();
   const secure = await shouldUseSecureCookies();
+  // Lax, not Strict: a bank payment (iDEAL, SEPA) returns from the bank's site, and a Strict
+  // cookie is not sent then, so the dashboard sees no session and drops the Stripe return query.
   cookieStore.set(SESSION_COOKIE_NAME, encodeSessionCookie(userId, token), {
     httpOnly: true,
-    sameSite: isLocalhost ? "lax" : "strict",
+    sameSite: "lax",
     secure,
     expires: expiresAt,
     path: "/",
   });
   cookieStore.set(AUTH_SESSION_PRESENT_COOKIE_NAME, "1", {
     httpOnly: false,
-    sameSite: isLocalhost ? "lax" : "strict",
+    sameSite: "lax",
     secure,
     expires: expiresAt,
     path: "/",
