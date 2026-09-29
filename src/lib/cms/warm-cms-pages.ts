@@ -10,6 +10,7 @@ import { isLocalhost } from "@/utils/is-local";
 import { isTestMode } from "@/utils/is-test-mode";
 import { mapInBatches } from "@/utils/map-in-batches";
 import { runInBackground } from "@/utils/run-in-background";
+import { withSpan } from "@/utils/trace";
 
 /** Names the warmer in the origin logs, so a fork can filter or block these hits. */
 export const CMS_WARM_USER_AGENT = "cms-cache-warmer";
@@ -24,6 +25,12 @@ export const MAX_WARM_URLS_PER_CALL = 12;
 const MAX_IN_FLIGHT_WARM_URLS = 24;
 
 const WARM_FETCH_BATCH_SIZE = 4;
+
+const WARM_SPAN_NAME = "app.cms.warm";
+const URL_COUNT_ATTRIBUTE = "app.cms.url_count";
+const CAPPED_ATTRIBUTE = "app.cms.capped";
+const WARM_OK_COUNT_ATTRIBUTE = "app.cms.warm_ok_count";
+const WARM_FAILED_COUNT_ATTRIBUTE = "app.cms.warm_failed_count";
 
 // Collapses the listing-page URL that every entry of one collection shares.
 const inFlightWarmUrls = new Set<string>();
@@ -88,7 +95,8 @@ function buildEntryWarmUrls({
   return urls;
 }
 
-async function warmUrl(url: string): Promise<void> {
+// Never rejects: a fetch that throws counts as a failed warm.
+async function warmUrl(url: string): Promise<boolean> {
   try {
     const response = await fetch(url, {
       method: "GET",
@@ -97,8 +105,11 @@ async function warmUrl(url: string): Promise<void> {
     });
 
     await response.body?.cancel();
+
+    return response.ok;
   } catch {
     // Best effort: the first visitor pays the miss, exactly as before.
+    return false;
   } finally {
     inFlightWarmUrls.delete(url);
   }
@@ -110,11 +121,13 @@ function hasReachedWarmCap(urls: string[]): boolean {
   return urls.length >= MAX_WARM_URLS_PER_CALL || inFlightWarmUrls.size >= MAX_IN_FLIGHT_WARM_URLS;
 }
 
-async function warmUrls(entries: CmsEntryRef[]): Promise<void> {
+async function warmUrls({ entries, span }: { entries: CmsEntryRef[]; span: Span }): Promise<void> {
   const urls: string[] = [];
+  let capped = false;
 
   for (const entry of entries) {
     if (hasReachedWarmCap(urls)) {
+      capped = true;
       break;
     }
 
@@ -124,6 +137,7 @@ async function warmUrls(entries: CmsEntryRef[]): Promise<void> {
 
     for (const url of buildEntryWarmUrls({ entry, locales })) {
       if (hasReachedWarmCap(urls)) {
+        capped = true;
         break;
       }
 
@@ -136,11 +150,22 @@ async function warmUrls(entries: CmsEntryRef[]): Promise<void> {
     }
   }
 
-  await mapInBatches({
+  span.setAttributes({ [URL_COUNT_ATTRIBUTE]: urls.length, [CAPPED_ATTRIBUTE]: capped });
+
+  const results = await mapInBatches({
     items: urls,
     batchSize: WARM_FETCH_BATCH_SIZE,
     fn: (url) => warmUrl(url),
   });
+
+  if (span.isTraced) {
+    const okCount = results.filter(Boolean).length;
+
+    span.setAttributes({
+      [WARM_OK_COUNT_ATTRIBUTE]: okCount,
+      [WARM_FAILED_COUNT_ATTRIBUTE]: results.length - okCount,
+    });
+  }
 }
 
 /**
@@ -153,5 +178,5 @@ export function warmCmsEntryPages({ entries }: { entries: CmsEntryRef[] }): void
     return;
   }
 
-  runInBackground(warmUrls(entries));
+  runInBackground(withSpan({ name: WARM_SPAN_NAME, run: (span) => warmUrls({ entries, span }) }));
 }

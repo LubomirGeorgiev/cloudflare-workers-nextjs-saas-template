@@ -1,241 +1,140 @@
 # Cloudflare Workers Next.js SaaS Template - AI Assistant Guidelines
 
-Repo-specific rules only. Product overview, features, setup, and deployment live in `README.md`.
+Production-ready Next.js SaaS template on Cloudflare Workers: authentication, multi-tenancy, billing, admin tools, email workflows. Stack: Next.js App Router and RSC on Vinext + Vite, TypeScript, Tailwind CSS, Shadcn UI / Base UI, Drizzle ORM, Cloudflare D1 / KV / R2 / Images, session auth modeled on Lucia (no Lucia package), Zustand, NUQS.
 
-This file states the rules. The reasoning, file maps, and procedures behind them live in `./docs/` — read the relevant guide before working in that area:
+This file holds repo-specific rules only. `README.md` has setup and deployment. The reasons behind the rules are in `./docs/`. Before you work in an area, read its guide:
 
 | Guide | Read before |
 | --- | --- |
 | [docs/api-and-mcp-internals.md](docs/api-and-mcp-internals.md) | Touching `src/api/`, `src/mcp/`, the OpenAPI document, or the `/docs/api` reference UI |
 | [docs/extending-api-and-mcp.md](docs/extending-api-and-mcp.md) | Adding endpoints, scopes, or tools in a fork |
 | [docs/database-and-migrations.md](docs/database-and-migrations.md) | Changing `src/db/schema.ts`, generating a migration, or merging upstream ones |
+| [docs/i18n-and-locale-routing.md](docs/i18n-and-locale-routing.md) | Touching `src/i18n/`, `src/proxy.ts`, the root layout, or a route outside `app/[locale]/` |
 | [docs/account-suspension-and-blocklist.md](docs/account-suspension-and-blocklist.md) | Touching the ban path, the registration blocklist, or a staff Stripe cancellation |
 | [docs/worker-hot-path-and-bundle-size.md](docs/worker-hot-path-and-bundle-size.md) | Adding imports to the Worker entrypoint or another hot path |
+| [docs/tracing.md](docs/tracing.md) | Adding a span, a span attribute, or an outcome value, or changing `src/utils/trace.ts` |
 | [docs/edge-caching.md](docs/edge-caching.md) | Adding a `revalidate` or `dynamic` export to a page, or changing any `Cache-Control`, `Vary`, or `Cache-Tag` header the Worker sets |
-| [docs/cursor-cloud-environment.md](docs/cursor-cloud-environment.md) | Running the app or the E2E suite in Cursor Cloud |
+| [docs/cursor-cloud-environment.md](docs/cursor-cloud-environment.md) | Running anything in Cursor Cloud: the default Node is too old, and plain `pnpm dev` hangs without Cloudflare auth |
 
-## Project Context
+## Scope
 
-Production-ready Next.js SaaS template on Cloudflare Workers with Vinext and Vite. Core areas: authentication, multi-tenancy, billing, admin tools, email workflows.
+Deliver what was asked, at the scope intended. If a better approach exists, say so in one sentence and continue as asked. Add no file, abstraction, or option that the task does not need.
 
-Stack: Next.js App Router, React Server Components, TypeScript, Tailwind CSS, Vinext + Vite, Shadcn UI / Base UI, Drizzle ORM, Cloudflare Workers / D1 / KV / R2 / Images, Lucia Auth, Zustand, NUQS.
+## Vinext and Checks
 
-## Vinext
+Vinext is Cloudflare's experimental Vite-based implementation of the Next.js API: `pnpm dev`, `pnpm build`, `pnpm start`, `pnpm run check:vinext`. GitHub Actions deploys; do not run `pnpm deploy`. Do not bring back `next dev`, `next build`, or OpenNext unless the user asks to migrate off Vinext.
 
-Cloudflare's experimental Vite-based implementation of the public Next.js API surface: App Router conventions, RSC, route handlers, server actions, and `next/*` imports all apply, but dev/build/start/deploy run through Vinext and Vite.
+Run the checks that match the change:
 
-- `pnpm dev` — Vinext dev server
-- `pnpm build` — build with Vinext and Vite
-- `pnpm start` — local Vinext production server
-- `pnpm run check:vinext` — Vinext compatibility scan
+| Change | Run |
+| --- | --- |
+| Any code change | `pnpm run lint`, `pnpm run typecheck`, `pnpm run test:unit` |
+| Routing, RSC or server actions, bindings, middleware, build config, deployment | Also `pnpm run check:vinext` and `pnpm run build` |
+| Stripe webhooks, the scheduler, bindings, SQL conditions | Also `pnpm run test:integration` |
+| User journeys, routing, auth | Also `pnpm run test:e2e` |
+| Finished work, before you hand it back | `pnpx fallow audit` |
 
-Never deploy manually (`pnpm deploy`); deployment is handled by GitHub Actions.
+- When real D1/KV/Queue behavior matters more than a mock, write the test in `tests/integration/`.
+- Fix an `anti-slop/*` lint finding; do not cast around it (`tools/oxlint/anti-slop/UPSTREAM.md` covers updates). Keep `oxlint` and `@oxlint/plugins` at the same exact version.
+- Mark an intentional fire-and-forget promise with `void`. When a type is wrong about runtime behavior, disable the type-aware rule on that line and say why.
+- Tests must pass in forks that change names, domains, branding, resource names, and flags. Derive expected values from constants, config, or payload structure, never from template-specific copy or URLs. When a flag can disable a feature, skip its test when off and cover the disabled fallback.
 
-Do not reintroduce legacy `next dev`/`next build`/OpenNext commands unless explicitly asked to migrate off Vinext. Treat Vinext as experimental: for changes touching routing, RSC/server actions, Cloudflare bindings, middleware, build config, or deployment, run `pnpm run check:vinext`, `pnpm run typecheck`, and `pnpm run build` when feasible. References: https://vinext.io/ and https://github.com/cloudflare/vinext.
+## Code Style
 
-## General Coding Rules
+- Functional, declarative TypeScript; no classes. Named exports. Lowercase-with-dashes directories.
+- Order a file as: exported component, subcomponents, helpers, static content, types.
+- Always use braces, with the body on its own line. Oxlint's `curly --fix` writes `if (x) {return null;}` on one line; expand it.
+- A function you define with more than one parameter takes one named object. Callbacks whose signature a library sets are exempt.
+- Use `function` for pure functions. Prefer interfaces over types. Use const objects, not enums.
+- Comment only non-trivial logic, edge cases, workarounds, and business rules: why, not what, in 3 lines or fewer. Delete a comment only when it is no longer true. Keep a TODO until the work is done and verified.
+- Add `import "server-only"` to server-only modules, except `page.tsx`. Use `pnpm`.
+- Do not edit `worker-configuration.d.ts`. Change `wrangler.jsonc` and run `pnpm run cf-typegen`.
+- Put module-level tunables (batch sizes, TTLs, limits, prefixes, allowlists) at the top of the file. Put cross-cutting constants in `src/constants.ts`, `src/constants/`, or `src/app/enums.ts`; utilities in `src/utils/` or `src/lib/`; schemas in `src/schemas/`; cache tags and helpers in `src/utils/cache.ts`.
 
-- Concise, technical TypeScript. Functional and declarative patterns; avoid classes.
-- Prefer iteration and modularization over duplication.
-- Descriptive names (`isLoading`, `hasError`). Named exports. Lowercase-with-dashes directories.
-- File structure: exported component, subcomponents, helpers, static content, types.
-- Never delete comments unless they are no longer relevant.
+## One Rule, One Home
 
-### Control Flow
+Before you write a helper, constant, type, or schema, search for one and reuse it. Keep a one-off pattern inline.
 
-- Braces always, body on its own line. Oxlint's `curly` catches the missing braces but its `--fix` writes `if (x) {return null;}` on one line — expand it.
-
-### Comments
-
-Comment only non-trivial logic, edge cases, workarounds, and business rules — why, not what. Max 3 lines, to the point. Keep TODOs until the work is actually completed and verified.
-
-### Functions and Types
-
-- More than one parameter → pass a named object.
-- Use the `function` keyword for pure functions.
-- Prefer interfaces over types. Avoid enums; use maps or const objects.
-- Never hand-edit the generated `worker-configuration.d.ts`; update `wrangler.jsonc` and run `pnpm run cf-typegen`.
-
-### Constants
-
-- Module-level tunables (batch sizes, TTLs, limits, prefixes, allowlists) go at the top of the file, after imports and any types they depend on — never buried mid-file next to their only caller.
-- Global or cross-cutting configs belong in `src/constants.ts` (or `src/constants/` / `src/app/enums.ts` when that is the existing home). Keep a constant file-local only when it is truly private to that module.
-
-### Imports and Packages
-
-- Add `import "server-only"` to server-only modules, except `page.tsx`.
-- Check `package.json` before adding a package. Use `pnpm` for all package management.
-
-### Verification
-
-- `pnpm run lint` (Oxlint), `pnpm run typecheck`, `pnpm run test:unit` (co-located `*.test.ts`).
-- Oxlint loads two local plugins: `project/*` rules in `tools/oxlint-rules/` and the vendored `anti-slop/*` rules in `tools/oxlint/anti-slop/`. Fix an `anti-slop` finding instead of casting around it; enable more of its rules or update it by the notes in `tools/oxlint/anti-slop/UPSTREAM.md`. Keep `oxlint` and `@oxlint/plugins` at the same exact version.
-- `pnpm run lint` runs type-aware rules through `oxlint-tsgolint` (`no-floating-promises`, `await-thenable`, `no-unnecessary-type-assertion`). Mark an intentional fire-and-forget promise with `void`. When a type is wrong about runtime behavior, disable the rule on that line and say why.
-- `pnpm run test:integration` — Workers-runtime behavior with local Miniflare D1/KV/Queue bindings; especially for subscription billing (Stripe webhooks), scheduler, Cloudflare bindings, and SQL-condition changes.
-- `pnpm run test:e2e` — when changes could affect user journeys, routing, auth, or other integrated behavior.
-- `pnpx fallow audit` when work is done, to audit the final changes before handing back.
-- Run these after code changes when feasible, especially before handing work back.
-
-### Template-Safe Tests
-
-This repo is a template: tests must keep passing in downstream projects that customize names, domains, branding, Cloudflare resource names, feature flags, and environment constants.
-
-- No hard-coded template-specific URLs, project/resource names, or branded copy in assertions unless the value is intentionally fixed by the template contract.
-- Derive expected values from shared constants, configuration, generated fixtures, response payload structure, or invariant pathnames and behavior.
-- Make tests flag-aware for features a template flag can disable: skip enabled-feature behavior when disabled and include focused no-op/fallback coverage for the disabled mode.
-
-## DRY Rules
-
-- Extract repeated values (especially validation limits) into constants, and repeated formatting/code paths into utilities.
-- Reuse existing types, constants, helpers, and schemas before creating new ones.
-- Centralize cache tags and shared cache helpers in `src/utils/cache.ts`.
-- Prefer clear code over premature abstraction for simple one-off patterns.
-
-Homes: constants → `src/constants.ts` or `src/app/enums.ts`; utilities → `src/utils/` or `src/lib/`; schemas → `src/schemas/`; shared types → same file or `src/types.ts`.
-
-### One Rule, One Home
-
-- A business rule (a liveness predicate, a cap, an ordering) is a named function or constant. A second copy — a hand-negated predicate, the same rule as a raw SQL string, a private chunk loop, a local batch size — is a bug, not a style issue.
-- Before writing a helper, grep for one. The rule that decides something and the code that acts on it are different functions: a pure selector that takes data and returns a decision, and a thin caller that does the I/O. Test the selector without mocks.
-- A preview and the mutation it previews call the same selector. A warning that says what will happen must be computed by the code that makes it happen, never by a parallel implementation.
-- User-facing copy that describes a rule must match the predicate. Read the code, not the intent, before writing the message, and pin the pair with a test.
-- Read once per request. Do not list the same store twice on one path under two failure policies.
-- A new cap or retention limit needs a sweep for rows that already exceed it, not just a check on the write path.
-- When a binding accepts an array, send an array. One call per item is a subrequest budget leak.
-- Order writes so a failure leaves a safe state; do not add a repair write for a failure a different order would have made harmless.
-- A comment must not describe another module's behavior — it drifts into a false claim. Name the module and let the reader go there.
+- A business rule (a liveness predicate, a cap, an ordering) is one named function or constant. A second copy — a hand-negated predicate, the same rule as raw SQL, a private chunk loop, a local batch size — is a bug.
+- Split the rule from the I/O: a pure selector that returns a decision, and a thin caller that acts on it. Test the selector without mocks.
+- A preview and the mutation it previews call the same selector. User-facing copy that describes a rule must match the predicate; pin the pair with a test.
+- Read each store once per request. Do not list the same store twice on one path under two failure policies.
+- A new cap or retention limit needs a sweep for rows that already exceed it, not only a write-path check.
+- When a binding accepts an array, send one array, not one call per item.
+- Order writes so a failure leaves a safe state, instead of adding a repair write. Run destructive cleanup after the durable write: save the new thing, then revoke what it replaces.
+- A comment must not describe another module's behavior. Name the module instead.
 
 ## Frontend and Next.js
 
-- Prefer server components. Limit `use client`, `useEffect`, and local state; client components only for browser APIs or small interactive UI, wrapped in `Suspense` where appropriate.
-- Use React.cache (`cache` from `react`) for reusable server-side read functions that may run multiple times in one RSC render/request — especially request-scoped auth/session/config/database reads. Never wrap mutations, server actions, route handlers, or functions whose result must change within the same request.
-- Layout or shell chrome needing independent async server data: move it into a small server wrapper behind a local `Suspense` fallback. Only make an entire layout async when it must block for auth, redirects, request-scoped data, or decisions affecting the whole route.
-- Use dynamic loading for non-critical UI when useful. Use `nuqs` for URL search-param state. Declarative JSX, concise conditionals.
-- One root layout: `src/app/[locale]/layout.tsx`. It renders `RootShell` and `buildRootMetadata` from `src/utils/root-metadata.ts`, takes the locale from the URL segment, and is the only place an `<html>` element may appear. `app/layout.tsx` must never exist — a layout above `[locale]` cannot see the segment, so it could not set `<html lang>` from the URL. A second root would also make every crossing a full document load, tearing down the DOM and killing any toast raised just before it.
-- The signed-in app lives under that root, in `src/app/[locale]/(app)/` — `(admin)`, `(dashboard)`, `(settings)`, and the OAuth consent page. Those routes are session-gated, so `getLocale`/`getTranslations` are fine there. Public pages take the locale from the `[locale]` param and pass it to `getTranslator` from `@/i18n/translator`, which also works in the API and MCP handlers.
-- Public pages are never stored in a shared cache **in front of** the Worker: the root layout exports `dynamic = "force-dynamic"`, and no page may add `export const revalidate` or `export const dynamic = "force-static"`, because a hit there skips the Worker and with it the locale redirect. The Worker stores the rendered page itself, in the Cache API under a synthetic key (`src/lib/edge/edge-html-cache.ts`), so a warm anonymous request skips the render while the response the visitor reads keeps its uncacheable policy. The data behind a page is cached in KV through `setCacheScope` — see [docs/edge-caching.md](docs/edge-caching.md).
-- For a static public JSX page outside the blog and docs routes, update `STATIC_PUBLIC_ROUTES` in `src/constants/public-routes.ts`.
-  This list adds the page to the sitemap, Markdown allowlist, and `llms.txt`.
-- `src/proxy.ts` is a thin adapter over `decideLocaleRoute` in `src/i18n/middleware.ts`, which is pure and holds the whole locale route; it runs on every path `shouldLocalizePathname` accepts. The proxy never writes the locale cookie; it only reads it. The cookie records an explicit choice of locale, so only an explicit choice writes it; `src/i18n/locale-cookie.ts` names the writers. A `Set-Cookie` out of middleware would also make Vinext pin the response to `no-store`. `resolveRequestLocale` in `src/i18n/resolve-locale.ts` is the one answer to "what locale is this request"; the edge HTML cache calls the same function, so the two cannot drift. A rule the edge can decide from the URL alone (the disabled-i18n prefix collapse) lives in `worker-entrypoint.ts`. Its `config.matcher` only drops framework internals. Almost nothing belongs outside `app/[locale]/` now: only machine endpoints (`/api/*`, `/markdown/*`, `/llms.txt`) do, and each needs its segment in `NON_LOCALIZED_PATH_SEGMENTS` in `src/i18n/localized-paths.ts` — `localized-paths.test.ts` walks `src/app/` and fails if you forget.
-- The repo owns its i18n layer; `use-intl` supplies only the ICU translator and the React hooks. Four import homes, and no other: `@/i18n/client` for client hooks, `@/i18n/server` for `getLocale`/`getTranslations` in an App Router request, `@/i18n/translator` for `getTranslator` everywhere else, `@/i18n/navigation` for links and redirects. Outside `src/i18n/` only a catalog *type* may come from `use-intl/core` directly; a translator or a hook must come from one of the four. `localizedPathname` in `src/i18n/localized-pathname.ts` is the one answer to "which URL serves this path in this locale" — the middleware, the navigation surface, the edge cache, and the sitemap all call it. The module map is in `README.md`.
-- Every page route is localized, so `redirect`, `Link`, and `useRouter` come from `@/i18n/navigation`, never from `next/navigation`. Only a target in `NON_LOCALIZED_PATH_SEGMENTS` uses plain `next/navigation` — a locale prefix on one of those 404s. `notFound` and a refresh-only `useRouter` are locale-agnostic and stay on `next/navigation`.
-- `src/app/[locale]/(app)/(admin)/` is deliberately English-only: it is staff tooling, so literal copy there is the convention, not an oversight — do not "fix" it or open findings against it. Everything a customer can reach (marketing, auth, `(app)/(dashboard)`, `(app)/(settings)`, emails) must go through `@/i18n/client` or `@/i18n/server`, with a row in every locale catalog. Shared components used by both, like `src/components/data-table.tsx` and `src/components/ui/*`, follow the customer-facing rule.
-- Tailwind, Shadcn UI, and Base UI, consistent with the existing design system. Responsive, mobile-first, light/dark mode. A `container` class always pairs with `mx-auto`.
+- Prefer server components. Use `use client` only for browser APIs or small interactive UI. Keep `useEffect` and local state to a minimum.
+- Wrap a reusable server-side read (auth, session, config, database) in React `cache`. Never wrap mutations, server actions, route handlers, or reads that must change within one request.
+- Give layout chrome with its own async data a small server wrapper behind a local `Suspense`. Make a whole layout async only when it must block for auth, redirects, or a route-wide decision.
+- Use RSC for server state, Zustand only for real client state, and `nuqs` for URL state.
+- Follow the existing Tailwind, Shadcn UI, and Base UI design system: responsive, mobile-first, light and dark. Pair `container` with `mx-auto`.
+
+### Routing, Caching, and i18n
+
+- `src/app/[locale]/layout.tsx` is the one root layout. Never create `app/layout.tsx`.
+- Keep `dynamic = "force-dynamic"` on the root layout. No page exports `revalidate` or `dynamic = "force-static"`. Cache page data in KV through `setCacheScope`.
+- Add a new static public page outside blog and docs to `STATIC_PUBLIC_ROUTES` in `src/constants/public-routes.ts`.
+- Only machine endpoints live outside `app/[locale]/`; each needs its segment in `NON_LOCALIZED_PATH_SEGMENTS` (a test checks this).
+- Only the writers named in `src/i18n/locale-cookie.ts` write the locale cookie. Call `resolveRequestLocale` and `localizedPathname`; do not re-derive a locale or a localized URL.
+- Import i18n only from `@/i18n/client`, `@/i18n/server` (signed-in `(app)` routes and server actions), `@/i18n/translator` (public pages pass their `[locale]` param; also API, MCP, and shared lib code), and `@/i18n/navigation`. Take `Link`, `redirect`, and `useRouter` from `@/i18n/navigation`; use `next/navigation` only for non-localized targets, `notFound`, and refresh-only routers.
+- Customer-facing copy, including emails and shared components in `src/components/`, goes through the catalogs with a row in every locale. `src/app/[locale]/(app)/(admin)/` is English-only staff tooling on purpose; do not translate it or report it.
 
 ## Authentication
 
-Lucia Auth; logic lives in `src/utils/auth.ts` and `src/utils/kv-session.ts`.
-
-- Server components: `getCurrentSession` from `src/utils/auth.ts`.
-- Client components: `useSessionStore()` from `src/state/session.ts`.
-- AI agents may use the test credentials `test@test.com` / `password` with browser automation to test authenticated flows.
+- Server: `getCurrentSession` from `src/utils/auth.ts`. Client: `useSessionStore()` from `src/state/session.ts`.
+- For browser tests of signed-in flows, use `test@test.com` / `password`.
 
 ## Public API, OAuth, and MCP
 
-One pipeline, not four features: an endpoint described once becomes a documented operation, an entry in the server-rendered reference at `/docs/api`, and an MCP tool. Hono app in `src/api/` at `/api/v1`, spec at `/api/v1/openapi.json`, RFC 9727 catalog at `/.well-known/api-catalog`, OAuth 2.1 provider wrapping the Worker in `worker-entrypoint.ts`, MCP server at `/mcp`. File map, error semantics, rate-limit headers, MCP derivation, KV key spaces, and the docs-UI internals: [docs/api-and-mcp-internals.md](docs/api-and-mcp-internals.md).
+One declaration becomes a REST operation at `/api/v1`, an entry in `/docs/api`, and an MCP tool.
 
-- Declare every route once, with `...apiOperation({ ... })` from `src/api/operation.ts` spread ahead of its validators: a unique `operationId`, `summary`, agent-readable `description`, `tags`, `scope`, `audience`, and success `responses`. From that one call come the `security` metadata, the shared `COMMON_ERROR_RESPONSES`, and the guard that enforces scope and audience before any validator runs.
-- The `description` is what an agent sees as the tool description: what the operation does, changes, and returns — no marketing copy, no repo jargon.
-- Never reimplement business rules in a handler. Mount on a router in `src/api/routes/` or via `registerCustomRoutes` in `src/api/index.ts`, validate with `apiValidator(target, schema)` (or `teamIdParam()`) from `src/api/middleware/problem-json.ts`, and call the existing `src/lib/**` service — server actions and the API share one code path.
-- `audience` is `"account"`, `"team"` (addresses a `teamId` path parameter), or `"any"`. A route that declares no policy fails the route-table audit in `tests/integration/api-route-policy.test.ts`.
-- Type every response mapper as `v.InferOutput<typeof schema>`; nothing validates responses at runtime, so that annotation is all that keeps the payload and the published document from drifting.
-- `operationId`s and scope names are public contract — renaming one renames a tool in already-configured clients.
-- Machine responses are i18n-exempt: throw `ActionError` with a stable code and never translate an API payload. A new error code or `FIELD_ERROR_CODES` entry needs a `/docs/api/errors` row in every locale catalog, and any refusal a caller can act on needs a row in `src/lib/api/error-details.ts` naming the limit and the way out.
-- MCP tools are derived from the build-time document, never hand-written; curate with `MCP_TOOL_OVERRIDES`, `...hiddenFromMcp()`, or `registerCustomTools`. Never move derivation, or the document, back to runtime.
-- The `/docs/api` reference is server-rendered from our own view model — never reintroduce a spec-rendering dependency (Scalar, Swagger UI, any multi-megabyte browser bundle).
-- The API and MCP entrypoints are plain Worker handlers with no App Router request scope: in shared `src/lib/**` and `src/utils/**`, use `getTranslator` from `@/i18n/translator` rather than `getTranslations` from `@/i18n/server`, and expect `cookies()`/`headers()` to throw.
-- App code must never read or write the `OAUTH_RESERVED_KV_PREFIXES` key space (`src/constants/kv-prefixes.ts`); `src/lib/oauth/kv-prefixes.test.ts` enforces the split.
-- A change to the public surface should also reach `src/lib/cms/build-llms-txt.ts` and `src/app/sitemap.ts`.
-- The internal admin surface (`/api/admin/v1`, `/mcp/admin`) is a **separate** Hono app, scope catalog, and build-time document. Declare its routes with `...adminOperation({ ... })` from `src/api/admin/operation.ts`. Never add an `admin:*` scope to `API_SCOPES`, never import `src/lib/api/admin-scopes.ts` (it is `server-only`) from a client component, and never serve the internal document anywhere but `ADMIN_API_OPENAPI_PATH`. That one route answers an admin cookie session or an admin bearer credential and nothing else; it refuses everyone with problem+json and no `WWW-Authenticate` challenge, and it stays unadvertised — absent from the published document, the RFC 9727 catalog, `llms.txt`, and the sitemap. OAuth may grant an internal scope only through `clampAdminScopesForConsent` (live admin + verified client). The generator fails the build if an internal identifier reaches the published document.
+- Declare each route once with `...apiOperation({ ... })` from `src/api/operation.ts`, ahead of its validators. Validate with `apiValidator` or `teamIdParam` from `src/api/middleware/problem-json.ts`.
+- Write the `description` for an agent: what the operation does, changes, and returns.
+- Call the existing `src/lib/**` service; do not reimplement business rules in a handler.
+- Type every response mapper as `v.InferOutput<typeof schema>`; nothing validates responses at runtime.
+- `operationId`s and scope names are public contract. A rename renames a tool in configured clients.
+- Do not translate machine responses. Throw `ActionError` with a stable code. A new code needs a `/docs/api/errors` row in every locale catalog. A refusal the caller can act on needs a row in `src/lib/api/error-details.ts`.
+- Curate MCP tools with `MCP_TOOL_OVERRIDES`, `hiddenFromMcp()`, or `registerCustomTools`. Keep tool derivation and the document at build time.
+- Do not add a spec-rendering dependency (Scalar, Swagger UI) for `/docs/api`.
+- The API and MCP have no App Router request scope. Shared `src/lib/**` and `src/utils/**` code uses `getTranslator`, and `cookies()`/`headers()` throw there.
+- App code never touches the `OAUTH_RESERVED_KV_PREFIXES` key space.
+- When the public surface changes, update `src/lib/cms/build-llms-txt.ts` and `src/app/sitemap.ts`.
+- The admin surface (`/api/admin/v1`, `/mcp/admin`) is a separate app, scope catalog, and document. Declare its routes with `...adminOperation({ ... })`. Never move an admin scope, route, or document into the public ones.
 
 ## Database and Migrations
 
-- Schema lives in `src/db/schema.ts`.
-- Never use Drizzle transactions; Cloudflare D1 does not support them.
-- Never pass `id` when inserting or updating with Drizzle; IDs are autogenerated in the schema.
-- Never write SQL migration files manually. After schema changes, run `pnpm db:generate [MIGRATION_NAME]`.
-- One new migration per commit, unless a human is explicitly asked and grants permission for more. Otherwise consolidate before committing: delete the incremental migration files, regenerate a single migration from the final schema, and reset/re-migrate local dev DB state so its journal matches.
-- Never introduce database-level defaults — no Drizzle `.default(...)` / SQL `DEFAULT`, including on new tables; a runtime `$defaultFn()` is fine. New columns must be nullable and unconstrained. Prefer independent `index()`/`uniqueIndex()` over schema-level `.unique()`. Treat `DROP COLUMN` and generated-column changes as destructive.
-- **The tripwire:** after `pnpm db:generate`, read the full generated SQL and snapshot diff. `CREATE TABLE __new_*`, `INSERT INTO __new_* ... SELECT`, `DROP TABLE`, `PRAGMA foreign_keys=OFF`, or a `DROP COLUMN`/`ADD COLUMN` replacement pair means a full table rebuild — stop, do not apply or deploy, and fix the drift that caused it. Never hand-edit those statements out, and never force one through with `PRAGMA legacy_alter_table` or `defer_foreign_keys`.
+- D1 has no transactions. For writes that must land together, use one `db.$client.batch([...])`.
+- Do not pass `id` on insert or update. Do not write SQL migrations by hand; run `pnpm db:generate [MIGRATION_NAME]`.
+- Add one new migration per commit unless a human permits more. Otherwise delete the incremental files, regenerate one migration, and reset the local dev DB.
+- No database-level defaults (`.default(...)`, SQL `DEFAULT`), also on new tables; `$defaultFn()` is fine. New columns are nullable and unconstrained. Prefer `index()`/`uniqueIndex()` over `.unique()`. Treat `DROP COLUMN` and generated-column changes as destructive.
+- **The tripwire:** after `pnpm db:generate`, read the full SQL and snapshot diff. `CREATE TABLE __new_*`, `INSERT INTO __new_* ... SELECT`, `DROP TABLE`, `PRAGMA foreign_keys=OFF`, or a `DROP COLUMN`/`ADD COLUMN` pair means a table rebuild. Stop, do not apply or deploy, and fix the drift. Never hand-edit those statements out or force them through with `PRAGMA legacy_alter_table` or `defer_foreign_keys`.
 
-Why SQLite forces rebuilds and what they cost on D1, the approval path when one is unavoidable, and the procedure for merging upstream template migrations into a fork: [docs/database-and-migrations.md](docs/database-and-migrations.md).
+## Cloudflare
 
-## Cloudflare Rules
+- Get bindings from `cloudflare:workers` in server-only code; use `getCloudflareContext` when you also need request `cf` metadata.
+- Add a new environment variable to `.env.example` unless it is a public value in `wrangler.jsonc`. After you add a primitive to `wrangler.jsonc`, run `pnpm run cf-typegen`.
+- Reuse the existing KV namespace.
+- **Every KV `put` passes a TTL.** KV never evicts, so a key without one lives forever. Omit it only for a key space closed by code (a fixed set of names), and say so in a comment. A helper that writes for a caller takes the TTL as a required parameter.
+- A TTL that paces work must outlive its interval (`PACED_RUN_TTL_INTERVALS` in `src/lib/scheduler/paced-run.ts`).
+- On every upgrade of a third-party KV writer, including `@cloudflare/workers-oauth-provider` on `OAUTH_KV`, re-audit its key prefixes and TTLs.
+- Queue messages carry IDs and small fields. The consumer loads the full record.
+- Keep edge-only routing and header forwarding in `worker-entrypoint.ts`.
+- Cloudflare MCP: query Turnstile and Images in separate `execute` calls. Together they can fail with `10000: Authentication error`.
 
-- Bindings come from `cloudflare:workers` in server-only code; use `getCloudflareContext` when code also needs forwarded request `cf` metadata.
-- Workers integration tests live under `tests/integration/` (`vitest.integration.config.ts`); prefer them when real D1/KV/Queue behavior matters more than mocked unit tests.
-- New environment variable → add to `.env.example` unless it is a public value hard-coded in `wrangler.jsonc`; add a short comment above it if its purpose is not 100% obvious.
-- New Cloudflare primitive in `wrangler.jsonc` → run `pnpm run cf-typegen`.
-- KV: always reuse the existing namespace in `wrangler.jsonc`; no new namespaces unless explicitly required.
-- **Every KV write needs a bound, or the key space grows forever.** KV has no eviction: a key without `expirationTtl`/`expiration` lives until something deletes it, and nothing sweeps the namespace. Pass a TTL on every `put`. Omit one only when the key space is closed by code (a fixed set of names, not user, session, request, or hash-derived input) — and say so in a comment. When a helper writes on a caller's behalf, type the TTL as a required parameter rather than an optional one, as `src/utils/kv-record.ts` does.
-- A TTL that paces work must outlive the interval it paces, or the key expires between runs and the cadence silently tightens. See `PACED_RUN_TTL_INTERVALS` in `src/lib/scheduler/paced-run.ts`.
-- Re-audit third-party KV writers on every upgrade, not just their key prefixes: check whether each `put` carries a TTL and which config makes it conditional. `@cloudflare/workers-oauth-provider` drops the grant TTL when `refreshTokenTTL` is undefined, and writes `client:` with no TTL from `helpers.createClient()` and `grant:` with no TTL on the implicit flow.
-- `OAUTH_KV` is a second binding onto that same namespace, because `@cloudflare/workers-oauth-provider` hardcodes the name. Re-audit the library's key usage (including its `list()` prefixes) on every upgrade, the same discipline as the drizzle-kit rule; the prefix ownership split is in [docs/api-and-mcp-internals.md](docs/api-and-mcp-internals.md).
-- Queue messages have payload size limits: pass stable identifiers and small primitive fields, then load full records/blob content from D1, KV, R2, or other storage inside the consumer.
-- The Worker entrypoint is `worker-entrypoint.ts`; keep edge-only routing and header forwarding there.
-- Suggest Wrangler commands when relevant.
+## Async Work
 
-### Cloudflare MCP
-
-Never bundle Turnstile (`/accounts/{account_id}/challenges/widgets`) and Images (`/accounts/{account_id}/images/v1/*`) API calls in the same `execute` invocation — query them in separate MCP calls. Bundled together they can fail the entire request with `10000: Authentication error`, even when other account endpoints work individually.
-
-## State, Security, and Performance
-
-- RSC for server state; Zustand only where client state is actually needed; NUQS for URL state.
-- Preserve rate limiting, input validation, and sanitization patterns.
-- Optimize for Web Vitals and efficient data fetching.
-
-### Parallel Awaits
-
-- `Promise.all` independent consecutive awaits; leave borderline cases sequential — a missed one costs nothing, a wrong one is a bug.
-- Keep sequential: guards before what they guard, reads that must see an earlier write, D1/cross-store writes, awaits split by an early return, load-bearing error fall-through.
-- Never `Promise.all(items.map(...))` over an unbounded array — use `mapInBatches` from `src/utils/map-in-batches.ts`.
-- Skip React `cache()` reads and repeated `getTranslations`/`cookies`/`headers` — already memoized.
-- Post-commit effects that must not fail a committed write get their own `.catch` per entry (`renameTeam` in `src/lib/teams/teams.ts`).
-- Destructive cleanup runs after the durable write, never before it. Mint or save the new thing first, then revoke or delete what it replaces; a failed write must never leave the user with less than they started with.
+- `Promise.all` independent consecutive awaits. Leave borderline cases sequential.
+- Keep sequential: guards before what they guard, reads that must see an earlier write, D1 or cross-store writes, awaits split by an early return, and load-bearing error fall-through.
+- Never `Promise.all` over an unbounded array; use `mapInBatches` from `src/utils/map-in-batches.ts`.
+- Give each post-commit effect its own `.catch`, so it cannot fail the committed write (see `renameTeam` in `src/lib/teams/teams.ts`).
 
 ## Forms, Validation, and Server Actions
 
-### Schemas
-
-- All Valibot schemas live in `src/schemas/`. Import `v` and shared validation helpers from `src/lib/validation.ts` — never Valibot directly in schema files.
-- Reuse the same schema on client and server; do not duplicate validation between React Hook Form and server actions.
-- Export both the schema and its inferred type.
-- **Every input string and array states a maximum.** Without one the caller decides how much CPU, D1 row, and KV value budget a request spends. Use the domain limit if there is one, otherwise the shared field rules in `src/schemas/fields.ts` (`idField`, `tokenField`, `slugField`) or the ceilings in `src/constants.ts` (`ID_MAX_LENGTH`, `TOKEN_MAX_LENGTH`, `EMAIL_MAX_LENGTH`, ...). `emailString()` carries `EMAIL_MAX_LENGTH` itself; `trimmedString()` is the trim-then-bound helper for typed labels. `src/schemas/bounded-strings.test.ts` walks the real schema graph and fails on any unbounded leaf — `src/schemas/api/` *response* schemas are exempt, but a new *request* schema there needs a line in that test.
-
-```typescript
-import { emailString, minString, v } from "@/lib/validation";
-
-export const mySchema = v.object({
-  email: emailString(),
-  password: minString(8),
-});
-
-export type MySchema = v.InferOutput<typeof mySchema>;
-```
-
-### Localized Validation Messages
-
-- User-facing schema messages are stable validation keys, not inline English copy.
-- Helpers from `src/lib/validation.ts` (`requiredString`, `emailString`, `minString`, `maxString`, `minMaxString`) emit localized `Validation.*` keys automatically.
-- Custom messages: `validationKey("messageName")` or `encodeValidationMessage("messageName", params)` from `src/lib/validation.ts`; never hard-code the `Validation.` prefix in schemas.
-- Add new validation keys to `Client.Validation` in every locale catalog under `src/i18n/messages/`.
-- `FormMessage` and `actionClient` translate keyed messages via `translateValidationKey`; non-keyed inline messages pass through unchanged and must not be used for user-facing form validation.
-
-### Server Actions
-
-- All form-handling server actions use `actionClient` from `src/lib/safe-action.ts` with `.inputSchema(schema)`.
-- Authenticated actions: follow `src/app/[locale]/(app)/(settings)/settings/settings.actions.ts` (`requireVerifiedEmail`, `withRateLimit`, `revalidatePath` cache invalidation).
-- More complex authed actions that also invalidate CMS/KV caches: see `deleteCmsMediaAction`/`updateCmsMediaAction` in `src/app/[locale]/(app)/(admin)/admin/_actions/cms-media-actions.ts`.
-
-### Client Forms
-
-Use `react-hook-form` with `valibotResolver(schema)`, `useAction` from `next-safe-action/hooks` to call actions, and toast notifications for loading/success/error.
-
-Reference implementation: action `src/app/[locale]/(auth)/sign-up/sign-up.actions.ts`, form `src/app/[locale]/(auth)/sign-up/sign-up.client.tsx`, schema `src/schemas/signup.schema.ts`.
-
-## Cursor Cloud specific instructions
-
-The repo requires Node **>= 22.18** (the `engines` floor); the VM's default `/exec-daemon/node` is 22.14 and fails `pnpm build`/`pnpm dev`, so run `nvm use 24` if a shell resolves the wrong one. For offline dev use `CLOUDFLARE_VITE_FORCE_LOCAL=true pnpm dev` — plain `pnpm dev` opens a Cloudflare remote proxy session and hangs without auth. Sign in with `test@test.com` / `password`.
-
-Full caveats — remote bindings, Miniflare state and seeding, the IPv6 localhost gotcha, Turnstile, and the Playwright browser the E2E suite needs: [docs/cursor-cloud-environment.md](docs/cursor-cloud-environment.md).
+- Valibot schemas live in `src/schemas/` and import `v` and helpers from `src/lib/validation.ts`. Use one schema on client and server, and export its inferred type.
+- **Every input string and array states a maximum.** Use the domain limit, the field rules in `src/schemas/fields.ts`, or the ceilings in `src/constants.ts`. `src/schemas/bounded-strings.test.ts` fails on an unbounded leaf; a new request schema in `src/schemas/api/` needs a line there.
+- A user-facing validation message is a key, not English copy. Use the `src/lib/validation.ts` helpers, `validationKey`, or `encodeValidationMessage`, and add new keys to `Client.Validation` in every locale catalog.
+- Server actions use `actionClient` from `src/lib/safe-action.ts` with `.inputSchema(schema)`. For authed actions, follow `src/app/[locale]/(app)/(settings)/settings/settings.actions.ts`; for ones that also purge CMS or KV caches, follow `src/app/[locale]/(app)/(admin)/admin/_actions/cms-media-actions.ts`.
+- Client forms use `react-hook-form` with `valibotResolver`, `useAction` from `next-safe-action/hooks`, and toasts. Reference: `src/app/[locale]/(auth)/sign-up/`.

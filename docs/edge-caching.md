@@ -65,6 +65,8 @@ the Worker with the same headers, and
 `tests/e2e/cache-headers.test.ts` still sees an uncacheable page. The header
 `x-edge-html-cache: hit | miss | bypass` is stamped on every HTML response;
 `pnpm metrics:ttfb` prints it beside `cf-cache-status` in its `cache=` field.
+In Workers traces, the `app.request` span copies the header value to `app.edge_html_cache`.
+The cache read runs in a child span, `app.edge_html_cache.lookup`.
 
 **What gets stored** is the whole post-processed page — after `withHtmlAgentDiscovery` and after
 the metadata stamp — so a hit carries the discovery relations, the
@@ -313,8 +315,7 @@ Re-check this on a Vinext upgrade, the same as the other pinned-behavior audits.
 ## Workers Caching is configuration, not code
 
 `wrangler.jsonc` turns on Cloudflare Workers Caching with `"cache": { "enabled": true }` (around line
-25). The feature needs Wrangler 4.69.0 or above; this repo pins `^4.128.0` and compatibility date
-`2026-08-03`.
+25). The feature needs Wrangler 4.69.0 or above; `package.json` pins a later version.
 
 The only code that calls the Cache API is `src/lib/edge/edge-html-cache.ts`, and it is the *inner*
 layer: it stores pages under a synthetic key that no request carries. Everything in the table above

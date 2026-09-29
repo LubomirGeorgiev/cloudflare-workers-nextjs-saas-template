@@ -14,6 +14,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { invitationIdSchema, inviteUserSchema, removeMemberSchema, revokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
 
 export const inviteUserAction = actionClient
+  .metadata({ actionName: "inviteUserAction" })
   .inputSchema(inviteUserSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
@@ -29,6 +30,7 @@ export const inviteUserAction = actionClient
   });
 
 export const removeTeamMemberAction = actionClient
+  .metadata({ actionName: "removeTeamMemberAction" })
   .inputSchema(removeMemberSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -44,6 +46,7 @@ export const removeTeamMemberAction = actionClient
   });
 
 export const revokeTeamInvitationAction = actionClient
+  .metadata({ actionName: "revokeTeamInvitationAction" })
   .inputSchema(revokeTeamInvitationSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -59,6 +62,7 @@ export const revokeTeamInvitationAction = actionClient
   });
 
 export const acceptInvitationAction = actionClient
+  .metadata({ actionName: "acceptInvitationAction" })
   .inputSchema(invitationIdSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -75,6 +79,7 @@ export const acceptInvitationAction = actionClient
   });
 
 export const getPendingInvitationsForCurrentUserAction = actionClient
+  .metadata({ actionName: "getPendingInvitationsForCurrentUserAction" })
   .action(async () => {
     return runVerifiedAction({
       actionName: "Failed to get pending team invitations",

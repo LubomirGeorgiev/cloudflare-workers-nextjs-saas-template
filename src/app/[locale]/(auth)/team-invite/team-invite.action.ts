@@ -9,6 +9,7 @@ import { RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
 export const acceptTeamInviteAction = actionClient
+  .metadata({ actionName: "acceptTeamInviteAction" })
   .inputSchema(teamInviteSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(

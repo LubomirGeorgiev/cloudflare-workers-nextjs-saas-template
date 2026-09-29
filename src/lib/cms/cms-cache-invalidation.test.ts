@@ -11,6 +11,7 @@ const {
   purgeCmsEntryEdgeHtmlPagesMock,
   purgeMarkdownPageCacheMock,
   revalidateCacheTagMock,
+  spans,
   warmCmsEntryPagesMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
@@ -18,10 +19,27 @@ const {
   purgeCmsEntryEdgeHtmlPagesMock: vi.fn(async () => undefined),
   purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
   revalidateCacheTagMock: vi.fn(),
+  spans: [] as Array<{ name: string; attributes: Record<string, unknown> }>,
   warmCmsEntryPagesMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
+
+vi.mock("@/utils/trace", () => ({
+  withSpan: ({ name, run }: { name: string; run: (span: unknown) => Promise<unknown> }) => {
+    const record = { name, attributes: {} as Record<string, unknown> };
+    const span = {
+      isTraced: true,
+      setAttributes: (values: Record<string, unknown>) => {
+        Object.assign(record.attributes, values);
+        return span;
+      },
+    };
+
+    spans.push(record);
+    return run(span);
+  },
+}));
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
@@ -81,6 +99,7 @@ const COLLECTIONS_WITHOUT_NAVIGATION = collectionSlugs.filter(
 describe("CMS cache invalidation", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    spans.length = 0;
   });
 
   test("clears all CMS collection caches by enumerating scoped tags", async () => {
@@ -194,4 +213,35 @@ describe("CMS cache invalidation", () => {
       expect(purgeMarkdownPageCacheMock).not.toHaveBeenCalled();
     },
   );
+
+  test("an entry invalidation records its collection, slug count, and warm flag, but no slug", async () => {
+    const collectionSlug = collectionSlugs[0];
+
+    await invalidateEntryAndCollection({
+      collectionSlug,
+      slug: "new-slug",
+      alsoPurgeSlugs: ["old-slug", "new-slug"],
+      warm: true,
+    });
+
+    expect(spans).toEqual([{
+      name: "app.cms.invalidate",
+      attributes: {
+        "app.cms.collection": collectionSlug,
+        "app.cms.slug_count": 2,
+        "app.cms.warm": true,
+      },
+    }]);
+  });
+
+  test("a failed invalidation still rejects through the span", async () => {
+    const failure = new Error("cache tag purge failed");
+    purgeCmsEntryEdgeHtmlPagesMock.mockRejectedValueOnce(failure);
+
+    await expect(
+      invalidateEntryAndCollection({ collectionSlug: collectionSlugs[0], slug: "launch-notes", warm: true }),
+    ).rejects.toBe(failure);
+    expect(warmCmsEntryPagesMock).not.toHaveBeenCalled();
+    expect(spans[0]?.attributes["app.cms.warm"]).toBe(true);
+  });
 });

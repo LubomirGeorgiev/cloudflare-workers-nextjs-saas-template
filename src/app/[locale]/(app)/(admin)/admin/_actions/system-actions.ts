@@ -17,6 +17,7 @@ const CMS_AFFECTING_ACTION_TYPES: SystemAction["type"][] = [
 // No `confirm` field here: the panel's AlertDialog is this caller's confirmation, while the REST
 // purges take one in the body because a machine caller has no dialog.
 export const runSystemAction = actionClient
+  .metadata({ actionName: "runSystemAction" })
   .inputSchema(systemActionSchema)
   .action(async ({ parsedInput }) => {
     await requireAdmin();

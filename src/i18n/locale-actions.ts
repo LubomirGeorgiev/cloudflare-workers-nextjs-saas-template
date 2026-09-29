@@ -14,6 +14,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 // The client owns the non-HttpOnly cookie: mutating it here makes Vinext revalidate the old
 // localized route, so `useChangeLocale` writes it only after this action returns.
 export const setUserLocaleAction = actionClient
+  .metadata({ actionName: "setUserLocaleAction" })
   .inputSchema(setUserLocaleSchema)
   .action(async ({ parsedInput: { locale } }) => {
     return withUserRateLimit(

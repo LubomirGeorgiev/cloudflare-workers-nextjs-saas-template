@@ -13,6 +13,7 @@ import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
 import { assertNotBanned } from "@/lib/account/ban";
 
 export const resetPasswordAction = actionClient
+  .metadata({ actionName: "resetPasswordAction" })
   .inputSchema(resetPasswordSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

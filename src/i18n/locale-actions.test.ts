@@ -48,8 +48,11 @@ vi.mock("@/db", () => ({
 }));
 
 // Runs the real input schema, so the test covers the trust boundary and not a stub of it.
-vi.mock("@/lib/safe-action", () => ({
-  actionClient: {
+vi.mock("@/lib/safe-action", () => {
+  const actionClient = {
+    metadata() {
+      return actionClient;
+    },
     inputSchema(schema: v.GenericSchema) {
       return {
         action(handler: (args: { parsedInput: unknown }) => Promise<unknown>) {
@@ -65,8 +68,10 @@ vi.mock("@/lib/safe-action", () => ({
         },
       };
     },
-  },
-}));
+  };
+
+  return { actionClient };
+});
 
 const { setUserLocaleAction } = await import("./locale-actions");
 

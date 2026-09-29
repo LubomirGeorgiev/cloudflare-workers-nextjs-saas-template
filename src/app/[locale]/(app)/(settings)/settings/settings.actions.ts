@@ -9,6 +9,7 @@ import { RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
 export const updateUserProfileAction = actionClient
+  .metadata({ actionName: "updateUserProfileAction" })
   .inputSchema(userSettingsSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(

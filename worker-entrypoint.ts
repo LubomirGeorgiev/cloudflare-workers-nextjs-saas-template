@@ -3,7 +3,7 @@
 // Composition only: this file decides *what runs in what order*, never what any policy is. The
 // OAuth-owned pieces (issuance and anonymous throttling, DCR mirroring, API-key token resolution)
 // live in `src/lib/oauth/edge/`, are lazily imported, and are unit-testable without a Worker.
-// Put every new edge concern in its own helper, never inline in `fetch`: `fetch` is at its
+// Put every new edge concern in its own helper, never inline in `handleFetch`: it is at its
 // complexity cap, and each helper stays readable and testable on its own.
 import { OAuthProvider } from "@cloudflare/workers-oauth-provider";
 import handler from "vinext/server/fetch-handler";
@@ -21,9 +21,11 @@ import {
   MARKDOWN_CONTENT_TYPE,
   MARKDOWN_EXTENSION,
   MCP_PATH,
+  OAUTH_AUTHORIZE_PATH,
   OAUTH_ISSUANCE_THROTTLED_METHODS,
   OAUTH_PROTECTED_RESOURCE_PATH,
   OAUTH_REGISTER_PATH,
+  OAUTH_TOKEN_PATH,
 } from "./src/constants";
 import {
   EDGE_CACHED_METADATA_ROUTE_TAGS,
@@ -46,9 +48,52 @@ import {
   __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
 } from "./src/utils/trusted-client-ip";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./src/utils/request-protocol";
+import { withSpan } from "./src/utils/trace";
 
 const OPENAPI_SPEC_METHODS: ReadonlySet<string> = new Set(API_OPENAPI_SPEC_METHODS);
 const CATALOG_METHODS: ReadonlySet<string> = new Set(API_CATALOG_METHODS);
+
+// Workers trace names. Vinext's own spans (`BaseServer.handleRequest` and below) nest under the
+// request span, because they run inside its callback. HTTP keys use the OpenTelemetry names.
+const REQUEST_SPAN_NAME = "app.request";
+const EDGE_HTML_CACHE_LOOKUP_SPAN_NAME = "app.edge_html_cache.lookup";
+const SCHEDULED_SPAN_NAME = "app.scheduled";
+const QUEUE_SPAN_NAME = "app.queue";
+const ROUTE_KIND_ATTRIBUTE = "app.route.kind";
+const EDGE_HTML_CACHE_ATTRIBUTE = "app.edge_html_cache";
+
+// The provider serves this discovery document itself, so no app constant names it.
+const OAUTH_AUTHORIZATION_SERVER_METADATA_PATH = "/.well-known/oauth-authorization-server";
+
+// Low-cardinality on purpose: a trace filter groups by these, never by the raw pathname.
+const ROUTE_KIND = {
+  ADMIN_API: "admin_api",
+  ADMIN_MCP: "admin_mcp",
+  API: "api",
+  EDGE: "edge",
+  IMAGE: "image",
+  MARKDOWN: "markdown",
+  MCP: "mcp",
+  OAUTH: "oauth",
+  PAGE: "page",
+} as const;
+
+// The routes outside `apiHandlers` that are not app pages; each API handler names its own kind.
+// A trailing slash means a prefix, as in `matchesApiRoute`. A path not listed is a Next app page.
+const NON_API_ROUTE_KINDS: readonly { kind: RouteKind; routes: string[] }[] = [
+  {
+    kind: ROUTE_KIND.OAUTH,
+    routes: [
+      OAUTH_AUTHORIZE_PATH,
+      OAUTH_TOKEN_PATH,
+      OAUTH_REGISTER_PATH,
+      OAUTH_AUTHORIZATION_SERVER_METADATA_PATH,
+      OAUTH_PROTECTED_RESOURCE_PATH,
+      `${OAUTH_PROTECTED_RESOURCE_PATH}/`,
+    ],
+  },
+  { kind: ROUTE_KIND.IMAGE, routes: [IMAGE_OPTIMIZATION_PATH] },
+];
 
 function handleCustomEdge(pathname: string): Response | null {
   if (pathname === "/_worker/health") {
@@ -112,6 +157,7 @@ const nextAppHandler = {
 // Imported on first use, never at startup: the MCP SDK builds its whole protocol schema set at
 // import time, and no other route should pay for that on a cold isolate.
 const mcpHandler = {
+  routeKind: ROUTE_KIND.MCP,
   fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
     (await import("./src/mcp")).mcpApiHandler.fetch(request, env, ctx),
 };
@@ -119,6 +165,7 @@ const mcpHandler = {
 // Same reason: the Hono app statically reaches the whole service layer, including Stripe billing.
 // A page request must not evaluate any of it, so the API is a lazy handler too.
 const apiHandler = {
+  routeKind: ROUTE_KIND.API,
   fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
     (await import("./src/api")).apiApp.fetch(request, env, ctx),
 };
@@ -142,6 +189,7 @@ const apiCatalogHandler = {
 // same provider funnel deliberately: an admin API key is resolved by `resolveExternalToken` exactly
 // as any other key is, so there is one credential path, not a second one to keep in step.
 const adminApiHandler = {
+  routeKind: ROUTE_KIND.ADMIN_API,
   fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> => {
     // Answered from the wrapper rather than as a Hono route, so the internal app still publishes no
     // document route. The provider has already validated the credential onto `ctx.props`, which is
@@ -156,6 +204,7 @@ const adminApiHandler = {
 };
 
 const adminMcpHandler = {
+  routeKind: ROUTE_KIND.ADMIN_MCP,
   fetch: async (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> =>
     (await import("./src/mcp/admin")).adminMcpApiHandler.fetch(request, env, ctx),
 };
@@ -176,12 +225,16 @@ const apiHandlers = {
   ...internalApiHandlers,
   [`${API_V1_BASE_PATH}/`]: apiHandler,
   [MCP_PATH]: mcpHandler,
-};
+} satisfies Record<string, ApiRouteHandler>;
 
 // Read once at module scope rather than per request: the tables are fixed, and both matchers run on
 // the response path of every API request.
 const PROVIDER_API_ROUTES = Object.keys(apiHandlers);
 const INTERNAL_API_ROUTES = Object.keys(internalApiHandlers);
+const ROUTE_KIND_ROUTES: readonly { kind: RouteKind; routes: string[] }[] = [
+  ...Object.entries(apiHandlers).map(([route, { routeKind }]) => ({ kind: routeKind, routes: [route] })),
+  ...NON_API_ROUTE_KINDS,
+];
 
 function matchesApiRoute({ routes, pathname }: { routes: string[]; pathname: string }): boolean {
   return routes.some((route) =>
@@ -352,6 +405,14 @@ type EdgeHtmlPageLookup =
       store: (args: { ctx: ExecutionContext; response: Response }) => Response;
     };
 
+type RouteKind = (typeof ROUTE_KIND)[keyof typeof ROUTE_KIND];
+
+// The route kind sits on the handler, so a new `apiHandlers` entry cannot be traced as a page.
+interface ApiRouteHandler {
+  routeKind: RouteKind;
+  fetch: (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response>;
+}
+
 const NO_EDGE_HTML_PAGE: EdgeHtmlPageLookup = { kind: "bypass" };
 
 async function lookupEdgeHtmlPage({
@@ -365,6 +426,20 @@ async function lookupEdgeHtmlPage({
     return NO_EDGE_HTML_PAGE;
   }
 
+  // After the prefilter, so only a request that may read the cache gets a span.
+  return withSpan({
+    name: EDGE_HTML_CACHE_LOOKUP_SPAN_NAME,
+    run: () => readEdgeHtmlPageLookup({ request, url }),
+  });
+}
+
+async function readEdgeHtmlPageLookup({
+  request,
+  url,
+}: {
+  request: Request;
+  url: URL;
+}): Promise<EdgeHtmlPageLookup> {
   const cache = await import("./src/lib/edge/edge-html-cache");
   const entry = cache.resolveEdgeHtmlCacheEntry({
     headers: request.headers,
@@ -543,73 +618,23 @@ async function fetchAppRequest({ request, url, env, ctx }: {
 }
 
 const worker = {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-    const { pathname } = url;
+  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return withSpan({
+      name: REQUEST_SPAN_NAME,
+      run: async (span) => {
+        span.setAttribute("http.request.method", request.method);
+        const response = await handleFetch({ request, env, ctx, span });
 
-    const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, url });
-    if (earlyResponse) {
-      return earlyResponse;
-    }
+        // The stamped header is the one record of the cache result, so the span reads it back.
+        if (span.isTraced) {
+          span.setAttributes({
+            "http.response.status_code": response.status,
+            [EDGE_HTML_CACHE_ATTRIBUTE]: response.headers.get(EDGE_HTML_CACHE_HEADER) ?? undefined,
+          });
+        }
 
-    // Header normalization applies to every branch below — including everything behind the OAuth
-    // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
-    const forwarded = withForwardedCfHeaders({ request, url });
-
-    const markdownResponse = await handleMarkdownEdgeRequest({
-      request: forwarded,
-      env,
-      ctx,
-      pathname,
-    });
-    if (markdownResponse) {
-      return markdownResponse;
-    }
-
-    // After the Markdown branch on purpose: an `Accept: text/markdown` request has already been
-    // answered, so the stored copy never has to name that header in its key.
-    const edgeHtmlPage = await lookupEdgeHtmlPage({ request, url });
-    if (edgeHtmlPage.kind === "hit") {
-      return edgeHtmlPage.response;
-    }
-
-    // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
-    // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.
-    if (OAUTH_ISSUANCE_THROTTLED_METHODS.includes(request.method)) {
-      const throttled = await (await getThrottleGates())
-        .getIssuanceThrottleResponse({ request: forwarded, pathname });
-      if (throttled) {
-        return throttled;
-      }
-    }
-
-    // The provider owns /oauth/token, /oauth/register, both discovery documents, and bearer
-    // validation for `apiHandlers`; everything else falls through to the Next app.
-    const response = await fetchAppRequest({ request: forwarded, url, env, ctx });
-
-    if (response.status === 401 && isProviderApiPath(pathname)) {
-      return handleApiRefusal({ origin: url.origin, pathname, request: forwarded, response });
-    }
-
-    if (request.method === "POST" && response.status === 201 && pathname === OAUTH_REGISTER_PATH) {
-      (await import("./src/lib/oauth/edge/dcr-mirror"))
-        .mirrorDcrRegistrationResponse({ response, ctx });
-    }
-
-    const withDiscovery = await withHtmlAgentDiscovery({
-      method: request.method,
-      pathname,
-      response,
-    });
-
-    return finishEdgeHtmlPage({
-      ctx,
-      lookup: edgeHtmlPage,
-      response: withMetadataRouteEdgeCache({
-        method: request.method,
-        pathname,
-        response: withDiscovery,
-      }),
+        return response;
+      },
     });
   },
 
@@ -618,18 +643,134 @@ const worker = {
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const { handleSchedulerCron } = await import("./src/lib/scheduler/worker");
 
-    ctx.waitUntil(handleSchedulerCron({
-      env,
-      now: new Date(controller.scheduledTime),
+    // The span surrounds the `waitUntil` work, so it ends when the jobs end, not when this returns.
+    ctx.waitUntil(withSpan({
+      name: SCHEDULED_SPAN_NAME,
+      run: (span) => {
+        span.setAttribute("faas.cron", controller.cron);
+
+        return handleSchedulerCron({ env, now: new Date(controller.scheduledTime) });
+      },
     }));
   },
 
-  async queue(batch: MessageBatch<ScheduledQueueMessage>, __env: Env, __ctx: ExecutionContext): Promise<void> {
-    const { handleSchedulerQueue } = await import("./src/lib/scheduler/worker");
+  queue(batch: MessageBatch<ScheduledQueueMessage>, __env: Env, __ctx: ExecutionContext): Promise<void> {
+    return withSpan({
+      name: QUEUE_SPAN_NAME,
+      run: async (span) => {
+        span.setAttributes({
+          "messaging.destination.name": batch.queue,
+          "messaging.batch.message_count": batch.messages.length,
+        });
+        const { handleSchedulerQueue } = await import("./src/lib/scheduler/worker");
 
-    await handleSchedulerQueue(batch);
+        await handleSchedulerQueue(batch);
+      },
+    });
   },
 } satisfies ExportedHandler<Env, ScheduledQueueMessage>;
+
+// Guarded because the table scan is wasted on the unsampled requests.
+function setPathRouteKind({ span, pathname }: { span: Span; pathname: string }): void {
+  if (!span.isTraced) {
+    return;
+  }
+
+  span.setAttribute(ROUTE_KIND_ATTRIBUTE, routeKindForPath(pathname));
+}
+
+function routeKindForPath(pathname: string): RouteKind {
+  const match = ROUTE_KIND_ROUTES.find(({ routes }) => matchesApiRoute({ routes, pathname }));
+
+  return match?.kind ?? ROUTE_KIND.PAGE;
+}
+
+// Each exit sets the route kind once: the edge answers know their kind, the rest read the path.
+async function handleFetch({
+  request,
+  env,
+  ctx,
+  span,
+}: {
+  request: Request;
+  env: Env;
+  ctx: ExecutionContext;
+  span: Span;
+}): Promise<Response> {
+  const url = new URL(request.url);
+  const { pathname } = url;
+
+  const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, url });
+  if (earlyResponse) {
+    span.setAttribute(ROUTE_KIND_ATTRIBUTE, ROUTE_KIND.EDGE);
+
+    return earlyResponse;
+  }
+
+  // Header normalization applies to every branch below — including everything behind the OAuth
+  // provider — so the API sees the same trusted client IP and Cloudflare context the Next app does.
+  const forwarded = withForwardedCfHeaders({ request, url });
+
+  const markdownResponse = await handleMarkdownEdgeRequest({
+    request: forwarded,
+    env,
+    ctx,
+    pathname,
+  });
+  if (markdownResponse) {
+    span.setAttribute(ROUTE_KIND_ATTRIBUTE, ROUTE_KIND.MARKDOWN);
+
+    return markdownResponse;
+  }
+
+  setPathRouteKind({ span, pathname });
+
+  // After the Markdown branch on purpose: an `Accept: text/markdown` request has already been
+  // answered, so the stored copy never has to name that header in its key.
+  const edgeHtmlPage = await lookupEdgeHtmlPage({ request, url });
+  if (edgeHtmlPage.kind === "hit") {
+    return edgeHtmlPage.response;
+  }
+
+  // The gate enforces this same set; reading it here too is what keeps the KV limiter off the
+  // graph for the GET traffic that is nearly all of it. One constant, so they cannot diverge.
+  if (OAUTH_ISSUANCE_THROTTLED_METHODS.includes(request.method)) {
+    const throttled = await (await getThrottleGates())
+      .getIssuanceThrottleResponse({ request: forwarded, pathname });
+    if (throttled) {
+      return throttled;
+    }
+  }
+
+  // The provider owns /oauth/token, /oauth/register, both discovery documents, and bearer
+  // validation for `apiHandlers`; everything else falls through to the Next app.
+  const response = await fetchAppRequest({ request: forwarded, url, env, ctx });
+
+  if (response.status === 401 && isProviderApiPath(pathname)) {
+    return handleApiRefusal({ origin: url.origin, pathname, request: forwarded, response });
+  }
+
+  if (request.method === "POST" && response.status === 201 && pathname === OAUTH_REGISTER_PATH) {
+    (await import("./src/lib/oauth/edge/dcr-mirror"))
+      .mirrorDcrRegistrationResponse({ response, ctx });
+  }
+
+  const withDiscovery = await withHtmlAgentDiscovery({
+    method: request.method,
+    pathname,
+    response,
+  });
+
+  return finishEdgeHtmlPage({
+    ctx,
+    lookup: edgeHtmlPage,
+    response: withMetadataRouteEdgeCache({
+      method: request.method,
+      pathname,
+      response: withDiscovery,
+    }),
+  });
+}
 
 async function withHtmlAgentDiscovery({
   method,

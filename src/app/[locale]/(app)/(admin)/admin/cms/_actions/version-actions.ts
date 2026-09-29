@@ -13,6 +13,7 @@ import { requireAdmin } from "@/utils/auth";
 import { cmsEntryVersionListSchema, cmsEntryVersionRefSchema } from "@/schemas/cms-version.schema";
 
 export const getCmsEntryVersionsAction = actionClient
+  .metadata({ actionName: "getCmsEntryVersionsAction" })
   .inputSchema(cmsEntryVersionListSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -22,6 +23,7 @@ export const getCmsEntryVersionsAction = actionClient
   });
 
 export const getCmsEntryVersionCountAction = actionClient
+  .metadata({ actionName: "getCmsEntryVersionCountAction" })
   .inputSchema(cmsEntryVersionListSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -31,6 +33,7 @@ export const getCmsEntryVersionCountAction = actionClient
   });
 
 export const revertCmsEntryVersionAction = actionClient
+  .metadata({ actionName: "revertCmsEntryVersionAction" })
   .inputSchema(cmsEntryVersionRefSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -51,6 +54,7 @@ export const revertCmsEntryVersionAction = actionClient
   });
 
 export const deleteCmsEntryVersionAction = actionClient
+  .metadata({ actionName: "deleteCmsEntryVersionAction" })
   .inputSchema(cmsEntryVersionRefSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();

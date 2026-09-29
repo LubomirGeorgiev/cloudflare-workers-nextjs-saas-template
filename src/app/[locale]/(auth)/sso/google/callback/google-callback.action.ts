@@ -35,6 +35,7 @@ const GOOGLE_OAUTH_COOKIE_NAMES = [
 const GOOGLE_OAUTH_COOKIE_PATH = "/";
 
 export const googleSSOCallbackAction = actionClient
+  .metadata({ actionName: "googleSSOCallbackAction" })
   .inputSchema(googleSSOCallbackSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async (): Promise<SignInSuccess> => {

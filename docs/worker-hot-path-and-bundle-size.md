@@ -10,7 +10,7 @@ Three separate budgets. Know which one your change spends.
 
 Uploaded is not the same as evaluated. A 250 KiB chunk behind `await import()` costs upload only, and only on the route that reaches it.
 
-**Why an `import()` is nearly free here.** The build runs `no_bundle: true` with an `ESModule` rule over `**/*.js`, so wrangler uploads every chunk as its own module in the Worker bundle — 651 files today, and `Total Upload` matches the bytes on disk exactly. That uncompressed figure is the one Cloudflare measures against the 64 MiB limit; the gzip figure next to it is informational only. There is no filesystem and no runtime fetch: `import()` resolves against modules the isolate already holds. What it actually costs is compiling and evaluating that module's top level, once per isolate. That is the whole reason moving a static import to a dynamic one shifts cost off the startup budget instead of merely relocating a download.
+**Why an `import()` is nearly free here.** The build runs `no_bundle: true` with an `ESModule` rule over `**/*.js`, so wrangler uploads every chunk as its own module in the Worker bundle — hundreds of files, and `Total Upload` matches the bytes on disk exactly. That uncompressed figure is the one Cloudflare measures against the 64 MiB limit; the gzip figure next to it is informational only. There is no filesystem and no runtime fetch: `import()` resolves against modules the isolate already holds. What it actually costs is compiling and evaluating that module's top level, once per isolate. That is the whole reason moving a static import to a dynamic one shifts cost off the startup budget instead of merely relocating a download.
 
 ## Rules
 

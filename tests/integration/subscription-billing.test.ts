@@ -7,7 +7,11 @@ import type Stripe from "stripe";
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import { teamTable, teamMembershipTable, userTable } from "@/db/schema";
-import { handleStripeEvent, type StripeSubscriptionFetcher } from "@/utils/stripe-webhook-handler";
+import {
+  handleStripeEvent,
+  STRIPE_EVENT_RESULT,
+  type StripeSubscriptionFetcher,
+} from "@/utils/stripe-webhook-handler";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
 import { claimTeamSubscription, isTrialEligible, markUserTrialUsed } from "@/utils/team-subscription";
 import { DEFAULT_PLAN_ID, PAID_PLAN_IDS, type TeamPlanId } from "@/constants/plans";
@@ -449,7 +453,7 @@ describe("Stripe subscription webhook handling", () => {
     await expect(handleStripeEvent(
       makeSubscriptionEvent("customer.created", subscription),
       { stripe: rejectingStripe() },
-    )).resolves.toBeUndefined();
+    )).resolves.toBe(STRIPE_EVENT_RESULT.IGNORED);
 
     const team = await getTeam("team_a");
     expect(team?.stripeSubscriptionId).toBeNull();
@@ -462,7 +466,7 @@ describe("Stripe subscription webhook handling", () => {
     } as unknown as Stripe.Event;
 
     await expect(handleStripeEvent(event, { stripe: rejectingStripe() }))
-      .resolves.toBeUndefined();
+      .resolves.toBe(STRIPE_EVENT_RESULT.NO_SUBSCRIPTION);
   });
 
   test("a subscription for a vanished team resolves without throwing", async () => {
@@ -472,7 +476,7 @@ describe("Stripe subscription webhook handling", () => {
     await expect(handleStripeEvent(
       makeSubscriptionEvent("customer.subscription.updated", subscription),
       { stripe: fakeStripe(subscription) },
-    )).resolves.toBeUndefined();
+    )).resolves.toBe(STRIPE_EVENT_RESULT.OK);
   });
 
   test("invoice.payment_failed marks the team past_due", async () => {

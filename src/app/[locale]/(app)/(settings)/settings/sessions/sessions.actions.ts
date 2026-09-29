@@ -8,12 +8,14 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 
 export const getSessionsAction = actionClient
+  .metadata({ actionName: "getSessionsAction" })
   .inputSchema(v.void())
   .action(async () => {
     return withUserRateLimit(getUserSessions, RATE_LIMITS.SETTINGS);
   });
 
 export const deleteSessionAction = actionClient
+  .metadata({ actionName: "deleteSessionAction" })
   .inputSchema(deleteSessionSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

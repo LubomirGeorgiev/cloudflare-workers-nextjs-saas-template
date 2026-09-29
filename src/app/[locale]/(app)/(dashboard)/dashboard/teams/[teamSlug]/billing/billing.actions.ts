@@ -118,6 +118,7 @@ async function convergeOnWinningCheckout({
 }
 
 export const createSubscriptionAction = actionClient
+  .metadata({ actionName: "createSubscriptionAction" })
   .inputSchema(createSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
@@ -206,6 +207,7 @@ async function resolveTrialDays({
 // can verify a payment method. No subscription exists at this point — abandoning the
 // dialog grants no trial and no access.
 export const startTrialSetupAction = actionClient
+  .metadata({ actionName: "startTrialSetupAction" })
   .inputSchema(createSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
@@ -258,6 +260,7 @@ export const startTrialSetupAction = actionClient
 // method. Every trial therefore starts with a chargeable card already attached, and
 // Stripe charges it automatically the moment the trial ends.
 export const completeTrialAction = actionClient
+  .metadata({ actionName: "completeTrialAction" })
   .inputSchema(completeTrialSchema)
   .action(async ({ parsedInput: { teamId, setupIntentId } }) => {
     return withRateLimit(async () => {
@@ -288,6 +291,7 @@ export const completeTrialAction = actionClient
   });
 
 export const changePlanAction = actionClient
+  .metadata({ actionName: "changePlanAction" })
   .inputSchema(changePlanSchema)
   .action(async ({ parsedInput: { teamId, planId, interval } }) => {
     return withRateLimit(async () => {
@@ -344,6 +348,7 @@ export const changePlanAction = actionClient
 // first purchase, updates its quantity, or deletes it at 0. Prorations land on the next
 // invoice, so no payment confirmation step is needed here.
 export const updateAddonQuantityAction = actionClient
+  .metadata({ actionName: "updateAddonQuantityAction" })
   .inputSchema(updateAddonQuantitySchema)
   .action(async ({ parsedInput: { teamId, addonId, quantity } }) => {
     return withRateLimit(async () => {
@@ -407,6 +412,7 @@ export const updateAddonQuantityAction = actionClient
   });
 
 export const cancelSubscriptionAction = actionClient
+  .metadata({ actionName: "cancelSubscriptionAction" })
   .inputSchema(cancelSubscriptionSchema)
   .action(async ({ parsedInput: { teamId, atPeriodEnd } }) => {
     return withRateLimit(async () => {
@@ -438,6 +444,7 @@ export const cancelSubscriptionAction = actionClient
 // Fetches the open invoice's confirmation_secret so the client can re-confirm a
 // past_due / incomplete payment (SCA) via the Payment Element.
 export const resumePaymentAction = actionClient
+  .metadata({ actionName: "resumePaymentAction" })
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
     return withRateLimit(async () => {
@@ -461,6 +468,7 @@ export const resumePaymentAction = actionClient
 // and billing details. Plan changes and cancellation stay in-app (see actions above);
 // keep them disabled in the portal configuration so there is a single code path.
 export const createBillingPortalSessionAction = actionClient
+  .metadata({ actionName: "createBillingPortalSessionAction" })
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
     return withRateLimit(async () => {
@@ -507,6 +515,7 @@ export const createBillingPortalSessionAction = actionClient
 // Read-only polling action: the client calls this after confirmPayment to detect when
 // the webhook has flipped the team to `active`.
 export const getTeamSubscriptionAction = actionClient
+  .metadata({ actionName: "getTeamSubscriptionAction" })
   .inputSchema(teamBillingSchema)
   .action(async ({ parsedInput: { teamId } }) => {
     return getTeamBillingSummary(teamId);

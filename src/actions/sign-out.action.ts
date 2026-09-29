@@ -8,7 +8,9 @@ import {
 } from "@/utils/auth";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
-export const signOutAction = actionClient.action(async () => {
+export const signOutAction = actionClient
+  .metadata({ actionName: "signOutAction" })
+  .action(async () => {
   return withRateLimit(
     async () => {
       const session = await getCurrentSession()

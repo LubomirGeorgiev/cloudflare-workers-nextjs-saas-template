@@ -9,6 +9,7 @@ import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { v } from "@/lib/validation";
 
 export const sendVerificationAction = actionClient
+  .metadata({ actionName: "sendVerificationAction" })
   .inputSchema(v.void())
   .action(async () => {
     return withRateLimit(

@@ -5,6 +5,14 @@ import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import type { KVSession } from "@/utils/kv-session";
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
+import { withSpan } from "@/utils/trace";
+
+const PRINCIPAL_RESOLVE_SPAN_NAME = "app.auth.principal.resolve";
+const PRINCIPAL_RESOLVE_ATTRIBUTES = {
+  credentialKind: "app.auth.principal.credential_kind",
+  cache: "app.auth.principal.cache",
+  outcome: "app.auth.principal.outcome",
+} as const;
 
 // Shared by the two bearer-credential snapshot caches (`apikey:` and `oauthgrant:`): both live in
 // the same KV namespace as sessions and both cache the same user shape, so the KV handle, key
@@ -212,4 +220,30 @@ export function reviveUserDates(user: KVSession["user"]): KVSession["user"] {
     emailVerified: user.emailVerified ? new Date(user.emailVerified) : user.emailVerified,
     bannedAt: user.bannedAt ? new Date(user.bannedAt) : user.bannedAt,
   };
+}
+
+// One span for both bearer lookups, so a trace filter on `credential_kind` compares like with like.
+export function tracePrincipalResolve<T>({
+  credentialKind,
+  resolve,
+}: {
+  credentialKind: "api_key" | "oauth_grant";
+  resolve: () => Promise<{ principal: T; cache?: string; outcome: string }>;
+}): Promise<T> {
+  return withSpan({
+    name: PRINCIPAL_RESOLVE_SPAN_NAME,
+    run: async (span) => {
+      const { principal, cache, outcome } = await resolve();
+
+      if (span.isTraced) {
+        span.setAttributes({
+          [PRINCIPAL_RESOLVE_ATTRIBUTES.credentialKind]: credentialKind,
+          [PRINCIPAL_RESOLVE_ATTRIBUTES.cache]: cache,
+          [PRINCIPAL_RESOLVE_ATTRIBUTES.outcome]: outcome,
+        });
+      }
+
+      return principal;
+    },
+  });
 }

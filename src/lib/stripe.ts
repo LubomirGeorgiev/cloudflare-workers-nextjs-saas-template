@@ -19,7 +19,7 @@ export const getStripe = lazyValue(async (): Promise<Stripe> => {
   const { default: StripeSdk } = await import("stripe");
 
   return new StripeSdk(stripeSecretKey, {
-    apiVersion: "2026-07-29.dahlia",
+    apiVersion: "2026-08-26.dahlia",
     typescript: true,
     httpClient: StripeSdk.createFetchHttpClient()
   });

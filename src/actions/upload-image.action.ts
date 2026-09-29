@@ -38,6 +38,7 @@ function generateUniqueFilename({
 }
 
 export const uploadImageAction = actionClient
+  .metadata({ actionName: "uploadImageAction" })
   .inputSchema(uploadImageSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async () => {

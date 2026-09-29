@@ -15,6 +15,7 @@ import { revalidateAdminTeam, revalidateAdminTeamAndUser } from "./admin-revalid
 // `applyTeamRename` is the member-facing rename minus the team-permission check, so staff and
 // members cannot drift apart. No acting member here: an admin renames a team they are not in.
 export const setTeamNameAction = actionClient
+  .metadata({ actionName: "setTeamNameAction" })
   .inputSchema(setTeamNameSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -30,6 +31,7 @@ export const setTeamNameAction = actionClient
 // `removeUserFromTeam` is the same service the user detail page removes a membership with, so the
 // two admin surfaces cannot disagree about who may be removed (an owner may not).
 export const removeTeamMemberAction = actionClient
+  .metadata({ actionName: "adminRemoveTeamMemberAction" })
   .inputSchema(removeTeamMemberSchema)
   .action(async ({ parsedInput: input }) => {
     const result = await removeUserFromTeam(input);
@@ -42,6 +44,7 @@ export const removeTeamMemberAction = actionClient
 // owner cannot end up passing different Stripe parameters. Immediate, never at period end, and it
 // never refunds — a refund is issued by hand in the Stripe dashboard.
 export const cancelTeamSubscriptionAction = actionClient
+  .metadata({ actionName: "cancelTeamSubscriptionAction" })
   .inputSchema(cancelTeamSubscriptionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();

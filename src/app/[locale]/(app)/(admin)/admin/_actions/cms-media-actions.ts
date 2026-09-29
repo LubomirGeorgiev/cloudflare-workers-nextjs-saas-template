@@ -22,6 +22,7 @@ import {
 } from "@/schemas/cms-media.schema";
 
 export const listCmsMediaAction = actionClient
+  .metadata({ actionName: "listCmsMediaAction" })
   .inputSchema(listCmsMediaSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -84,6 +85,7 @@ export const listCmsMediaAction = actionClient
   });
 
 export const getCmsMediaDetailsAction = actionClient
+  .metadata({ actionName: "getCmsMediaDetailsAction" })
   .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -167,6 +169,7 @@ function updateImageNodesInContent(
 }
 
 export const updateCmsMediaAction = actionClient
+  .metadata({ actionName: "updateCmsMediaAction" })
   .inputSchema(updateCmsMediaSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -269,6 +272,7 @@ export const updateCmsMediaAction = actionClient
   });
 
 export const getCmsMediaByBucketKeyAction = actionClient
+  .metadata({ actionName: "getCmsMediaByBucketKeyAction" })
   .inputSchema(cmsMediaBucketKeySchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -291,6 +295,7 @@ export const getCmsMediaByBucketKeyAction = actionClient
   });
 
 export const deleteCmsMediaAction = actionClient
+  .metadata({ actionName: "deleteCmsMediaAction" })
   .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {

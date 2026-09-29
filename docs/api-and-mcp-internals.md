@@ -243,8 +243,8 @@ tables apart; `src/lib/api/admin-scopes.test.ts` pins the catalog separation at 
 
 Machine responses are i18n-exempt by design: throw `ActionError` with a stable code and let the
 problem mapper emit `code` plus an untranslated `detail`. Localized copy stays in the message
-catalogs; never translate an API payload. New codes need a row on `/docs/api/errors` in both
-catalogs.
+catalogs; never translate an API payload. New codes need a row on `/docs/api/errors` in every
+locale catalog.
 
 Validation failures answer with an `errors` array whose entries are `{ in, pointer, code, params? }`
 — the OpenAPI parameter location, an RFC 6901 JSON Pointer, and a code from `FIELD_ERROR_CODES`.
@@ -322,6 +322,11 @@ second binding onto the same namespace because the library hardcodes that name. 
 stay disjoint; `src/lib/oauth/kv-prefixes.test.ts` enforces it, and the library's key usage
 (including its `list()` prefixes) is re-audited on every upgrade.
 
+The audit also checks whether each library `put` carries a TTL, and which config makes it
+conditional. Known gaps: the library drops the grant TTL when `refreshTokenTTL` is undefined, and
+it writes `client:` with no TTL from `helpers.createClient()` and `grant:` with no TTL on the
+implicit flow.
+
 ## The reference UI at /docs/api
 
 Ours, not a spec viewer: no Scalar, no Swagger UI, no multi-megabyte browser bundle, and no
@@ -370,4 +375,4 @@ a route (it would get indexed on every deployed fork); it lives at
 
 A change to the public surface should also be reflected in `src/lib/cms/build-llms-txt.ts` and
 `src/app/sitemap.ts`. Migration discipline for `api_key` and `oauth_app` is unchanged: the same
-no-DB-defaults, nullable-column, one-migration-per-PR rules as every other table.
+no-DB-defaults, nullable-column, one-migration-per-commit rules as every other table.

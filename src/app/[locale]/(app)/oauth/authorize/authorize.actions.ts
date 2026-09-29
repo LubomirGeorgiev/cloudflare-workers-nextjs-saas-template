@@ -26,6 +26,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 // Returns the URL to send the browser to rather than redirecting itself: the destination is the
 // third-party client's callback, which `next/navigation`'s redirect cannot leave the app for.
 export const decideConsentAction = actionClient
+  .metadata({ actionName: "decideConsentAction" })
   .inputSchema(oauthConsentSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {
@@ -98,6 +99,7 @@ export const decideConsentAction = actionClient
  * until someone approves it and verification would have nothing to mark.
  */
 export const verifyConsentClientAction = actionClient
+  .metadata({ actionName: "verifyConsentClientAction" })
   .inputSchema(oauthVerifyClientSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {

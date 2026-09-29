@@ -4,8 +4,26 @@ import { getIP } from "./get-IP";
 import ms from "ms";
 import { isLocalhost } from "./is-local";
 import { isTestMode } from "./is-test-mode";
+import { withSpan } from "./trace";
 
 const UNKNOWN_IP_RATE_LIMIT_KEY = "unknown-ip";
+
+const CHARGE_SPAN_NAME = "app.ratelimit.charge";
+const BUCKET_ATTRIBUTE = "app.ratelimit.bucket";
+const OUTCOME_ATTRIBUTE = "app.ratelimit.outcome";
+const KEY_KIND_ATTRIBUTE = "app.ratelimit.key_kind";
+const DEFERRED_ATTRIBUTE = "app.ratelimit.deferred";
+
+const CHARGE_OUTCOME = {
+  ALLOWED: "allowed",
+  LIMITED: "limited",
+} as const;
+
+const KEY_KIND = {
+  USER: "user",
+  IP: "ip",
+  UNKNOWN_IP: "unknown_ip",
+} as const;
 
 export interface RateLimitConfig {
   userIdentifier?: string;
@@ -216,41 +234,75 @@ export class RateLimitError extends Error {
 async function chargeBucket(
   config: RateLimitConfig
 ): Promise<{ key: string; quota: RateLimitSnapshot }> {
-  // Normalize a falsy identifier to undefined so an empty string can't collapse every
-  // request into one shared bucket or skip the IP fallback.
-  const userIdentifier = config.userIdentifier || undefined;
+  return withSpan({
+    name: CHARGE_SPAN_NAME,
+    isExpected: (error) => error instanceof RateLimitError,
+    run: async (span) => {
+      // The IP is read only when the selector will use it.
+      const ip = config.userIdentifier ? undefined : await getIP();
+      const { key, kind } = selectRateLimitKey({ userIdentifier: config.userIdentifier, ip });
 
-  const ip = userIdentifier === undefined ? await getIP() : undefined;
-  const key = userIdentifier ?? ip ?? UNKNOWN_IP_RATE_LIMIT_KEY;
+      if (kind === KEY_KIND.UNKNOWN_IP) {
+        console.warn(
+          `Rate limit "${config.identifier}" used ${UNKNOWN_IP_RATE_LIMIT_KEY} because the trusted client IP header was unavailable.`
+        );
+      }
 
-  if (!userIdentifier && !ip) {
-    console.warn(
-      `Rate limit "${config.identifier}" used ${UNKNOWN_IP_RATE_LIMIT_KEY} because the trusted client IP header was unavailable.`
-    );
-  }
+      span.setAttributes({
+        [BUCKET_ATTRIBUTE]: config.identifier,
+        [KEY_KIND_ATTRIBUTE]: kind,
+        [DEFERRED_ATTRIBUTE]: config.deferWrite === true,
+      });
 
-  const rateLimitResult = await checkRateLimit({
-    key,
-    options: {
-      identifier: config.identifier,
-      limit: config.limit,
-      windowInSeconds: config.windowInSeconds,
-      deferWrite: config.deferWrite,
+      const rateLimitResult = await checkRateLimit({
+        key,
+        options: {
+          identifier: config.identifier,
+          limit: config.limit,
+          windowInSeconds: config.windowInSeconds,
+          deferWrite: config.deferWrite,
+        },
+      });
+
+      span.setAttribute(
+        OUTCOME_ATTRIBUTE,
+        rateLimitResult.success ? CHARGE_OUTCOME.ALLOWED : CHARGE_OUTCOME.LIMITED
+      );
+
+      const quota: RateLimitSnapshot = {
+        limit: rateLimitResult.limit,
+        remaining: Math.max(0, rateLimitResult.remaining),
+        resetSeconds: Math.max(0, Math.ceil(rateLimitResult.reset - Date.now() / 1000)),
+        windowInSeconds: config.windowInSeconds,
+      };
+
+      if (!rateLimitResult.success) {
+        throw new RateLimitError(quota.resetSeconds, quota);
+      }
+
+      return { key, quota };
     },
   });
+}
 
-  const quota: RateLimitSnapshot = {
-    limit: rateLimitResult.limit,
-    remaining: Math.max(0, rateLimitResult.remaining),
-    resetSeconds: Math.max(0, Math.ceil(rateLimitResult.reset - Date.now() / 1000)),
-    windowInSeconds: config.windowInSeconds,
-  };
-
-  if (!rateLimitResult.success) {
-    throw new RateLimitError(quota.resetSeconds, quota);
+// The one key order: the caller's identifier, then the trusted client IP, then one shared bucket.
+// A truthiness test, so an empty identifier cannot collapse every request into one bucket.
+function selectRateLimitKey({
+  userIdentifier,
+  ip,
+}: {
+  userIdentifier: string | undefined;
+  ip: string | null | undefined;
+}): { key: string; kind: (typeof KEY_KIND)[keyof typeof KEY_KIND] } {
+  if (userIdentifier) {
+    return { key: userIdentifier, kind: KEY_KIND.USER };
   }
 
-  return { key, quota };
+  if (ip) {
+    return { key: ip, kind: KEY_KIND.IP };
+  }
+
+  return { key: UNKNOWN_IP_RATE_LIMIT_KEY, kind: KEY_KIND.UNKNOWN_IP };
 }
 
 /**

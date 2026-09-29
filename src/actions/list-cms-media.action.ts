@@ -8,6 +8,7 @@ import { desc, like, or } from "drizzle-orm";
 import { listCmsMediaForPickerSchema } from "@/schemas/cms-media.schema";
 
 export const listCmsMediaForPickerAction = actionClient
+  .metadata({ actionName: "listCmsMediaForPickerAction" })
   .inputSchema(listCmsMediaForPickerSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();

@@ -14,6 +14,7 @@ import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
 import { assertNotBanned } from "@/lib/account/ban";
 
 export const verifyEmailAction = actionClient
+  .metadata({ actionName: "verifyEmailAction" })
   .inputSchema(verifyEmailSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

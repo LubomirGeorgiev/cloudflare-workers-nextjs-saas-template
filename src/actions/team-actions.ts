@@ -10,6 +10,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { createTeamSchema, renameTeamSchema } from "@/schemas/team.schema";
 
 export const createTeamAction = actionClient
+  .metadata({ actionName: "createTeamAction" })
   .inputSchema(createTeamSchema)
   .action(async ({ parsedInput: input }) => {
     return runVerifiedAction({
@@ -20,6 +21,7 @@ export const createTeamAction = actionClient
   });
 
 export const renameTeamAction = actionClient
+  .metadata({ actionName: "renameTeamAction" })
   .inputSchema(renameTeamSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -42,6 +44,7 @@ export const renameTeamAction = actionClient
   });
 
 export const getUserTeamsAction = actionClient
+  .metadata({ actionName: "getUserTeamsAction" })
   .action(async () => {
     return runVerifiedAction({
       actionName: "Failed to get user teams",

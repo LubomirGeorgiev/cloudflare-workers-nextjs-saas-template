@@ -48,6 +48,7 @@ async function revalidateCmsTagPaths(slug?: string): Promise<void> {
 }
 
 export const listCmsTagsAction = actionClient
+  .metadata({ actionName: "listCmsTagsAction" })
   .action(async () => {
     await requireAdmin();
     const tags = await getCmsTags();
@@ -55,6 +56,7 @@ export const listCmsTagsAction = actionClient
   });
 
 export const createCmsTagAction = actionClient
+  .metadata({ actionName: "createCmsTagAction" })
   .inputSchema(createCmsTagActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
@@ -77,6 +79,7 @@ export const createCmsTagAction = actionClient
   });
 
 export const updateCmsTagAction = actionClient
+  .metadata({ actionName: "updateCmsTagAction" })
   .inputSchema(updateCmsTagActionSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -99,6 +102,7 @@ export const updateCmsTagAction = actionClient
   });
 
 export const deleteCmsTagAction = actionClient
+  .metadata({ actionName: "deleteCmsTagAction" })
   .inputSchema(cmsTagIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -111,6 +115,7 @@ export const deleteCmsTagAction = actionClient
   });
 
 export const createTagTranslationAction = actionClient
+  .metadata({ actionName: "createTagTranslationAction" })
   .inputSchema(createCmsTagTranslationActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();

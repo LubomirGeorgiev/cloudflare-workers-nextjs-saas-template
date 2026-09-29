@@ -53,6 +53,8 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/utils/cms-image-source.ts",
       "src/utils/random-token.ts",
       "src/utils/request-protocol.ts",
+      // The one span helper. It imports only `cloudflare:workers`, which the runtime provides.
+      "src/utils/trace.ts",
       "src/utils/trusted-client-ip.ts",
     ],
   },

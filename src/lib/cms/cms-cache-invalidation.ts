@@ -21,6 +21,12 @@ import {
 } from "@/lib/cms/cms-search";
 import { clearNavigationMemos } from "@/lib/cms/navigation-memos";
 import { warmCmsEntryPages } from "@/lib/cms/warm-cms-pages";
+import { withSpan } from "@/utils/trace";
+
+const INVALIDATE_SPAN_NAME = "app.cms.invalidate";
+const COLLECTION_ATTRIBUTE = "app.cms.collection";
+const SLUG_COUNT_ATTRIBUTE = "app.cms.slug_count";
+const WARM_ATTRIBUTE = "app.cms.warm";
 
 export interface CmsIncludeRelations {
   createdByUser?: boolean;
@@ -201,29 +207,40 @@ export async function invalidateEntryAndCollection({
     slug: entrySlug,
   }));
 
-  const invalidations = [
-    // Inside this call, never after it: the warm below fetches the page through the edge, so a
-    // stored copy that outlives this purge is what the warm would read and re-store.
-    purgeCmsEntryEdgeHtmlPages({ entries }),
-    ...entries.map((entry) => invalidateCmsEntryCache({ collectionSlug, slug: entry.slug })),
-    invalidateCmsCollectionCache({ collectionSlug }),
-    invalidateCmsCollectionCountCache({ collectionSlug }),
-    invalidateCmsNavigationCachesForCollection({ collectionSlug }),
-    invalidateSitemapCache(),
-    invalidateCmsTagsCache(),
-  ];
+  await withSpan({
+    name: INVALIDATE_SPAN_NAME,
+    run: async (span) => {
+      span.setAttributes({
+        [COLLECTION_ATTRIBUTE]: collectionSlug,
+        [SLUG_COUNT_ATTRIBUTE]: entries.length,
+        [WARM_ATTRIBUTE]: warm,
+      });
 
-  if (isCollectionSearchEnabled(collectionSlug)) {
-    invalidations.push(invalidateCmsSearchCache(collectionSlug));
-  }
+      const invalidations = [
+        // Inside this call, never after it: the warm below fetches the page through the edge, so a
+        // stored copy that outlives this purge is what the warm would read and re-store.
+        purgeCmsEntryEdgeHtmlPages({ entries }),
+        ...entries.map((entry) => invalidateCmsEntryCache({ collectionSlug, slug: entry.slug })),
+        invalidateCmsCollectionCache({ collectionSlug }),
+        invalidateCmsCollectionCountCache({ collectionSlug }),
+        invalidateCmsNavigationCachesForCollection({ collectionSlug }),
+        invalidateSitemapCache(),
+        invalidateCmsTagsCache(),
+      ];
 
-  await Promise.all(invalidations);
+      if (isCollectionSearchEnabled(collectionSlug)) {
+        invalidations.push(invalidateCmsSearchCache(collectionSlug));
+      }
 
-  // After the tags are dropped, never before: a warm that started earlier would re-store the old
-  // body. Fire and forget, so the publish does not wait for the re-render.
-  if (warm) {
-    warmCmsEntryPages({ entries: [{ collection: collectionSlug, slug }] });
-  }
+      await Promise.all(invalidations);
+
+      // After the tags are dropped, never before: a warm that started earlier would re-store the old
+      // body. Fire and forget, so the publish does not wait for the re-render.
+      if (warm) {
+        warmCmsEntryPages({ entries: [{ collection: collectionSlug, slug }] });
+      }
+    },
+  });
 }
 
 export async function invalidateAllCmsCollectionCaches(): Promise<void> {

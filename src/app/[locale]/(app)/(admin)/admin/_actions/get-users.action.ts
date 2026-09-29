@@ -8,6 +8,7 @@ import { requireAdmin } from "@/utils/auth"
 // The query itself lives in `src/lib/admin/users.ts` so this action and the internal REST/MCP
 // surface list users through one code path.
 export const getUsersAction = actionClient
+  .metadata({ actionName: "getUsersAction" })
   .inputSchema(getUsersSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()

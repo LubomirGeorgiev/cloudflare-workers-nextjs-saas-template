@@ -2,13 +2,39 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 const {
   checkRateLimitMock,
+  enteredSpans,
+  fakeSpan,
   getIPMock,
   resetRateLimitMock,
-} = vi.hoisted(() => ({
-  checkRateLimitMock: vi.fn(),
-  getIPMock: vi.fn(),
-  resetRateLimitMock: vi.fn(),
-}));
+  spanAttributes,
+} = vi.hoisted(() => {
+  const attributes = new Map<string, unknown>();
+  const span = {
+    isTraced: true,
+    recordException: vi.fn(),
+    setAttribute: vi.fn((key: string, value: unknown) => {
+      attributes.set(key, value);
+
+      return span;
+    }),
+    setAttributes: vi.fn((values: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(values)) {
+        attributes.set(key, value);
+      }
+
+      return span;
+    }),
+  };
+
+  return {
+    checkRateLimitMock: vi.fn(),
+    enteredSpans: [] as string[],
+    fakeSpan: span,
+    getIPMock: vi.fn(),
+    resetRateLimitMock: vi.fn(),
+    spanAttributes: attributes,
+  };
+});
 
 vi.mock("server-only", () => ({}));
 
@@ -29,10 +55,28 @@ vi.mock("./rate-limit", () => ({
   resetRateLimit: resetRateLimitMock,
 }));
 
-const { RATE_LIMITS, withRateLimit } = await import("@/utils/with-rate-limit");
+// Pass-through, like the runtime: the real `withSpan` runs, so its exception policy is under test.
+vi.mock("cloudflare:workers", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  tracing: {
+    enterSpan: (name: string, callback: (span: unknown) => unknown) => {
+      enteredSpans.push(name);
+
+      return callback(fakeSpan);
+    },
+  },
+}));
+
+const { RATE_LIMITS, RateLimitError, consumeRateLimit, withRateLimit } = await import(
+  "@/utils/with-rate-limit"
+);
+
+const CHARGE_SPAN_NAME = "app.ratelimit.charge";
 
 describe("withRateLimit", () => {
   afterEach(() => {
+    enteredSpans.length = 0;
+    spanAttributes.clear();
     vi.clearAllMocks();
   });
 
@@ -213,5 +257,68 @@ describe("withRateLimit", () => {
 
     expect(consoleError).toHaveBeenCalledOnce();
     consoleError.mockRestore();
+  });
+
+  test("tags an allowed IP-keyed charge with its bucket and deferred write", async () => {
+    getIPMock.mockResolvedValue("203.0.113.10");
+    checkRateLimitMock.mockResolvedValue({
+      success: true,
+      remaining: 49,
+      reset: Date.now() / 1000 + 60,
+      limit: 50,
+    });
+
+    await consumeRateLimit(RATE_LIMITS.GET_SESSION_API);
+
+    expect(enteredSpans).toEqual([CHARGE_SPAN_NAME]);
+    expect(Object.fromEntries(spanAttributes)).toEqual({
+      "app.ratelimit.bucket": RATE_LIMITS.GET_SESSION_API.identifier,
+      "app.ratelimit.key_kind": "ip",
+      "app.ratelimit.deferred": true,
+      "app.ratelimit.outcome": "allowed",
+    });
+  });
+
+  test("tags a limited charge and throws, without an exception", async () => {
+    checkRateLimitMock.mockResolvedValue({
+      success: false,
+      remaining: 0,
+      reset: Date.now() / 1000 + 60,
+      limit: RATE_LIMITS.SIGN_IN_ACCOUNT.limit,
+    });
+    const action = vi.fn(async () => "ok");
+
+    await expect(withRateLimit(
+      action,
+      {
+        ...RATE_LIMITS.SIGN_IN_ACCOUNT,
+        userIdentifier: "account:digest",
+      },
+    )).rejects.toBeInstanceOf(RateLimitError);
+
+    expect(action).not.toHaveBeenCalled();
+    expect(spanAttributes.get("app.ratelimit.bucket")).toBe(RATE_LIMITS.SIGN_IN_ACCOUNT.identifier);
+    expect(spanAttributes.get("app.ratelimit.key_kind")).toBe("user");
+    expect(spanAttributes.get("app.ratelimit.deferred")).toBe(false);
+    expect(spanAttributes.get("app.ratelimit.outcome")).toBe("limited");
+    expect(fakeSpan.recordException).not.toHaveBeenCalled();
+  });
+
+  test("tags a charge without a trusted client IP as unknown_ip", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    getIPMock.mockResolvedValue(null);
+    checkRateLimitMock.mockResolvedValue({
+      success: true,
+      remaining: 14,
+      reset: Date.now() / 1000 + 60,
+      limit: RATE_LIMITS.SIGN_IN.limit,
+    });
+
+    await consumeRateLimit(RATE_LIMITS.SIGN_IN);
+
+    expect(spanAttributes.get("app.ratelimit.key_kind")).toBe("unknown_ip");
+    expect(spanAttributes.get("app.ratelimit.outcome")).toBe("allowed");
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    consoleWarn.mockRestore();
   });
 });

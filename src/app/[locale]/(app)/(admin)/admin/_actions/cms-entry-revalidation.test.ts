@@ -20,7 +20,9 @@ vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
 
-vi.mock("cloudflare:workers", () => ({
+// Keeps the untraced `tracing` stub, which the purge's span needs.
+vi.mock("cloudflare:workers", async (importOriginal) => ({
+  ...await importOriginal<Record<string, unknown>>(),
   env: {
     KV_STORE: {
       delete: kvDeleteMock,

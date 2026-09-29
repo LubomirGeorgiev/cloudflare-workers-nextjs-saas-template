@@ -8,6 +8,7 @@ import { requireAdmin } from "@/utils/auth"
 // The query itself lives in `src/lib/admin/blocked-emails.ts` so this action and the internal
 // REST/MCP surface list the blocklist through one code path.
 export const getBlockedEmailsAction = actionClient
+  .metadata({ actionName: "getBlockedEmailsAction" })
   .inputSchema(getBlockedEmailsSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()

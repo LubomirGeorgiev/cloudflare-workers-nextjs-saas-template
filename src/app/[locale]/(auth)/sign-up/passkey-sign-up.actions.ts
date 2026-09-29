@@ -27,6 +27,7 @@ import {
 const PASSKEY_CHALLENGE_COOKIE_NAME = "passkey_challenge";
 
 export const startPasskeyRegistrationAction = actionClient
+  .metadata({ actionName: "startPasskeyRegistrationAction" })
   .inputSchema(passkeyEmailSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
@@ -113,6 +114,7 @@ export const startPasskeyRegistrationAction = actionClient
   });
 
 export const completePasskeyRegistrationAction = actionClient
+  .metadata({ actionName: "completePasskeyRegistrationAction" })
   .inputSchema(completePasskeyRegistrationSchema)
   .action(async ({ parsedInput: input }): Promise<SignInSuccess> => {
     const cookieStore = await cookies();

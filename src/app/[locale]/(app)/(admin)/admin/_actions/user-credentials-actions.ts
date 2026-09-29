@@ -18,6 +18,7 @@ import { revalidateAdminTeamAndUser, revalidateAdminUser } from "./admin-revalid
 // rule lives in `./admin-revalidate.ts` and both action files apply it.
 
 export const revokeUserConnectedAppAction = actionClient
+  .metadata({ actionName: "revokeUserConnectedAppAction" })
   .inputSchema(revokeUserConnectedAppSchema)
   .action(async ({ parsedInput: input }) => {
     const result = await revokeUserConnectedApp(input);
@@ -27,6 +28,7 @@ export const revokeUserConnectedAppAction = actionClient
   });
 
 export const revokeUserApiKeyAction = actionClient
+  .metadata({ actionName: "revokeUserApiKeyAction" })
   .inputSchema(revokeUserApiKeySchema)
   .action(async ({ parsedInput: input }) => {
     const result = await revokeUserApiKey(input);
@@ -36,6 +38,7 @@ export const revokeUserApiKeyAction = actionClient
   });
 
 export const removeUserFromTeamAction = actionClient
+  .metadata({ actionName: "removeUserFromTeamAction" })
   .inputSchema(removeUserFromTeamSchema)
   .action(async ({ parsedInput: input }) => {
     const result = await removeUserFromTeam(input);

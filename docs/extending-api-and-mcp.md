@@ -28,7 +28,7 @@ router.post(
     audience: "account",
     responses: { 201: jsonResponse({ description: "The created widget.", schema: widgetSchema }) },
   }),
-  validator("json", createWidgetSchema, validationHook),
+  apiValidator("json", createWidgetSchema),
   async (c) => c.json(await createWidget(c.req.valid("json")), 201),
 );
 ```

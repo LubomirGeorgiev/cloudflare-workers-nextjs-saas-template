@@ -17,6 +17,7 @@ import {
   putApiKeySnapshot,
   readApiKeySnapshot,
   reviveUserDates,
+  tracePrincipalResolve,
 } from "@/utils/kv-principal-cache";
 import type { KVSession } from "@/utils/kv-session";
 import { mapInBatches } from "@/utils/map-in-batches";
@@ -108,9 +109,16 @@ export function resetApiKeyUsageThrottleForTests(): void {
 
 // The bearer hot path. Returns null for anything that is not a currently valid key; it never
 // throws for bad input, so callers can map null straight onto 401.
-export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal | null> {
+export function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal | null> {
+  return tracePrincipalResolve({
+    credentialKind: "api_key",
+    resolve: () => resolveApiKeyPrincipal(secret),
+  });
+}
+
+async function resolveApiKeyPrincipal(secret: string): Promise<ApiKeyResolution> {
   if (!looksLikeApiKey(secret)) {
-    return null;
+    return { principal: null, outcome: "malformed" };
   }
 
   const keyHash = await hashToken(secret);
@@ -118,7 +126,7 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
 
   if (isUsableSnapshot(cached)) {
     touchLastUsedAt({ keyId: cached.keyId, lastUsedAt: cached.lastUsedAt });
-    return toPrincipal(cached);
+    return { principal: toPrincipal(cached), cache: "hit", outcome: "ok" };
   }
 
   const db = getDB();
@@ -135,17 +143,23 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
     },
   });
 
-  if (!key || key.revokedAt) {
-    return null;
+  if (!key) {
+    return { principal: null, cache: "miss", outcome: "not_found" };
+  }
+  if (key.revokedAt) {
+    return { principal: null, cache: "miss", outcome: "revoked" };
   }
   if (key.expiresAt && key.expiresAt.getTime() <= Date.now()) {
-    return null;
+    return { principal: null, cache: "miss", outcome: "expired" };
   }
 
   const identity = await loadPrincipalIdentity(key.userId);
 
-  if (!identity || isBanned(identity.user)) {
-    return null;
+  if (!identity) {
+    return { principal: null, cache: "miss", outcome: "user_not_found" };
+  }
+  if (isBanned(identity.user)) {
+    return { principal: null, cache: "miss", outcome: "banned" };
   }
 
   const snapshot: CachedApiKey = {
@@ -163,7 +177,7 @@ export async function getApiKeyPrincipal(secret: string): Promise<ApiPrincipal |
   await putApiKeySnapshot({ keyHash, snapshot });
   touchLastUsedAt({ keyId: key.id, lastUsedAt: snapshot.lastUsedAt });
 
-  return toPrincipal(snapshot);
+  return { principal: toPrincipal(snapshot), cache: "miss", outcome: "ok" };
 }
 
 export async function deleteApiKeyCache({ keyHash }: { keyHash: string }): Promise<void> {
@@ -184,4 +198,11 @@ export async function purgeUserApiKeyCache(userId: string): Promise<void> {
     batchSize: API_KEY_PURGE_BATCH_SIZE,
     fn: ({ keyHash }) => deleteApiKeySnapshot({ keyHash }),
   });
+}
+
+interface ApiKeyResolution {
+  principal: ApiPrincipal | null;
+  /** Absent when the secret fails the format check, since no cache read happens then. */
+  cache?: "hit" | "miss";
+  outcome: "ok" | "malformed" | "not_found" | "revoked" | "expired" | "user_not_found" | "banned";
 }

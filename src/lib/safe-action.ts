@@ -1,10 +1,35 @@
 import "server-only";
 
 import { createSafeActionClient } from "next-safe-action";
+import { unstable_rethrow } from "next/navigation";
 import { getTranslations } from "@/i18n/server";
 import { ActionError, type ActionErrorMessageKey, type ActionErrorMessageParams } from "@/lib/action-error";
 import { translateValidationKey } from "@/lib/validation-messages";
+import { actionMetadataSchema } from "@/schemas/action-metadata.schema";
+import { recordSpanException, withSpan } from "@/utils/trace";
 import { RateLimitError } from "@/utils/with-rate-limit";
+
+const ACTION_SPAN_NAME = "app.action";
+const ACTION_NAME_ATTRIBUTE = "app.action.name";
+const ACTION_OUTCOME_ATTRIBUTE = "app.action.outcome";
+const ACTION_NAVIGATION_KIND_ATTRIBUTE = "app.action.navigation_kind";
+const REDIRECT_NAVIGATION_KIND = "redirect";
+const REDIRECT_DIGEST_PREFIX = "NEXT_REDIRECT;";
+
+const ACTION_OUTCOME = {
+  OK: "ok",
+  VALIDATION_ERROR: "validation_error",
+  RATE_LIMITED: "rate_limited",
+  INTERNAL_ERROR: "internal_error",
+  NAVIGATION: "navigation",
+} as const;
+
+const RATE_LIMITED_ERROR_CODE = "RATE_LIMITED";
+const INTERNAL_SERVER_ERROR_CODE = "INTERNAL_SERVER_ERROR";
+
+// `handleServerError` runs inside `next()`, where the action span is out of reach. It marks its
+// unexpected-error results here, so the middleware can tell them apart from an ActionError.
+const unexpectedServerErrors = new WeakMap<ActionServerError, Error>();
 
 export interface ActionServerError {
   code: string;
@@ -25,7 +50,12 @@ async function translateErrorKey(
 }
 
 const baseActionClient = createSafeActionClient({
+  // With a schema, next-safe-action refuses `.action()` until `.metadata()` names the action.
+  defineMetadataSchema: () => actionMetadataSchema,
   async handleServerError(error): Promise<ActionServerError> {
+    // vinext's redirect digest has no type or status, so next-safe-action misses it as a navigation.
+    unstable_rethrow(error);
+
     if (error instanceof ActionError) {
       return {
         code: error.code,
@@ -39,7 +69,7 @@ const baseActionClient = createSafeActionClient({
     if (error instanceof RateLimitError) {
       const t = await getTranslations("Client.Errors");
       return {
-        code: "RATE_LIMITED",
+        code: RATE_LIMITED_ERROR_CODE,
         message: t("rateLimitExceeded", {
           minutes: Math.ceil(error.retryAfterSeconds / 60),
         }),
@@ -48,26 +78,62 @@ const baseActionClient = createSafeActionClient({
 
     console.error("Safe action error:", error);
     const t = await getTranslations("Client.Errors");
-    return {
-      code: "INTERNAL_SERVER_ERROR",
+    const serverError: ActionServerError = {
+      code: INTERNAL_SERVER_ERROR_CODE,
       message: t("unexpected"),
     };
+    unexpectedServerErrors.set(serverError, error);
+
+    return serverError;
   },
 });
 
-export const actionClient = baseActionClient.use(async ({ next }) => {
-  const result = await next();
+export const actionClient = baseActionClient.use(({ next, metadata }) =>
+  withSpan({
+    name: ACTION_SPAN_NAME,
+    isExpected: isRedirectSignal,
+    run: async (span) => {
+      span.setAttribute(ACTION_NAME_ATTRIBUTE, metadata.actionName);
 
-  if (typeof result.validationErrors !== "undefined") {
-    result.serverError = {
-      code: "INPUT_PARSE_ERROR",
-      message: await getValidationErrorMessage(result.validationErrors),
-    };
-    result.validationErrors = undefined;
-  }
+      let result: Awaited<ReturnType<typeof next>>;
 
-  return result;
-});
+      try {
+        result = await next();
+      } catch (error) {
+        if (isRedirectSignal(error)) {
+          span.setAttribute(ACTION_OUTCOME_ATTRIBUTE, ACTION_OUTCOME.NAVIGATION);
+          span.setAttribute(ACTION_NAVIGATION_KIND_ATTRIBUTE, REDIRECT_NAVIGATION_KIND);
+        }
+
+        throw error;
+      }
+
+      span.setAttribute(ACTION_OUTCOME_ATTRIBUTE, getActionOutcome(result));
+
+      if (result.navigationKind) {
+        span.setAttribute(ACTION_NAVIGATION_KIND_ATTRIBUTE, result.navigationKind);
+      }
+
+      const unexpectedError = result.serverError
+        ? unexpectedServerErrors.get(result.serverError)
+        : undefined;
+
+      if (unexpectedError) {
+        recordSpanException({ span, error: unexpectedError });
+      }
+
+      if (typeof result.validationErrors !== "undefined") {
+        result.serverError = {
+          code: "INPUT_PARSE_ERROR",
+          message: await getValidationErrorMessage(result.validationErrors),
+        };
+        result.validationErrors = undefined;
+      }
+
+      return result;
+    },
+  }),
+);
 
 async function getValidationErrorMessage(validationErrors: unknown): Promise<string> {
   const messages = collectValidationMessages(validationErrors);
@@ -104,4 +170,44 @@ function collectValidationMessages(value: unknown): string[] {
       .filter(([key]) => key !== "_errors")
       .flatMap(([, child]) => collectValidationMessages(child)),
   ];
+}
+
+// Same precedence as next-safe-action's result: a navigation wins, then validation, then a server error.
+function getActionOutcome(result: {
+  navigationKind?: string;
+  validationErrors?: unknown;
+  serverError?: ActionServerError;
+}): string {
+  if (result.navigationKind) {
+    return ACTION_OUTCOME.NAVIGATION;
+  }
+
+  if (typeof result.validationErrors !== "undefined") {
+    return ACTION_OUTCOME.VALIDATION_ERROR;
+  }
+
+  if (!result.serverError) {
+    return ACTION_OUTCOME.OK;
+  }
+
+  if (unexpectedServerErrors.has(result.serverError)) {
+    return ACTION_OUTCOME.INTERNAL_ERROR;
+  }
+
+  if (result.serverError.code === RATE_LIMITED_ERROR_CODE) {
+    return ACTION_OUTCOME.RATE_LIMITED;
+  }
+
+  return result.serverError.code;
+}
+
+// A copy of `isRedirectError` in vinext's `next/navigation` shim, which the `next` types do not
+// export. It matches both vinext's digest and the Next.js form; `handleServerError` rethrows these.
+function isRedirectSignal(error: unknown): error is Error & { digest: string } {
+  return (
+    error instanceof Error &&
+    "digest" in error &&
+    typeof error.digest === "string" &&
+    error.digest.startsWith(REDIRECT_DIGEST_PREFIX)
+  );
 }

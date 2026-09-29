@@ -16,6 +16,7 @@ import {
   putGrantSnapshot,
   readGrantSnapshot,
   reviveUserDates,
+  tracePrincipalResolve,
 } from "@/utils/kv-principal-cache";
 import type { KVSession } from "@/utils/kv-session";
 import { createRandomId } from "@/utils/random-token";
@@ -43,9 +44,16 @@ function isUsableSnapshot(cached: CachedOAuthGrant | null): cached is CachedOAut
 // the only job left is turning a grant into the same principal shape a cookie session produces.
 // The snapshot is cached for OAUTH_GRANT_CACHE_TTL_SECONDS and dropped early by
 // `purgeUserPrincipalCaches` on a session refresh, or by `deleteOAuthGrantCache` on revocation.
-export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<ApiPrincipal | null> {
+export function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<ApiPrincipal | null> {
+  return tracePrincipalResolve({
+    credentialKind: "oauth_grant",
+    resolve: () => resolveOAuthGrantPrincipal(props),
+  });
+}
+
+async function resolveOAuthGrantPrincipal(props: OAuthBearerProps): Promise<OAuthGrantResolution> {
   if (!props.userId) {
-    return null;
+    return { principal: null, outcome: "malformed" };
   }
 
   // A token minted before the exchange callback ran (or one deliberately downscoped to nothing)
@@ -66,14 +74,23 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
     generation = read.generation;
 
     if (isUsableSnapshot(read.snapshot) && read.snapshot.userId === props.userId) {
-      return toPrincipal({ cached: read.snapshot, props, scopes });
+      return {
+        principal: toPrincipal({ cached: read.snapshot, props, scopes }),
+        cache: "hit",
+        outcome: "ok",
+      };
     }
   }
 
+  // A token without a grant id has no snapshot key, so it always reads D1.
+  const cache = props.grantId ? "miss" : "bypass";
   const identity = await loadPrincipalIdentity(props.userId);
 
-  if (!identity || isBanned(identity.user)) {
-    return null;
+  if (!identity) {
+    return { principal: null, cache, outcome: "user_not_found" };
+  }
+  if (isBanned(identity.user)) {
+    return { principal: null, cache, outcome: "banned" };
   }
 
   const snapshot: CachedOAuthGrant = {
@@ -87,7 +104,7 @@ export async function getOAuthGrantPrincipal(props: OAuthBearerProps): Promise<A
     await putGrantSnapshot({ grantId: props.grantId, snapshot, generation });
   }
 
-  return toPrincipal({ cached: snapshot, props, scopes });
+  return { principal: toPrincipal({ cached: snapshot, props, scopes }), cache, outcome: "ok" };
 }
 
 function toPrincipal({
@@ -126,4 +143,11 @@ export async function purgeUserGrantCache(userId: string): Promise<void> {
   await kv.put(getGrantGenerationKey(userId), createRandomId(), {
     expirationTtl: OAUTH_GRANT_GENERATION_TTL_SECONDS,
   });
+}
+
+interface OAuthGrantResolution {
+  principal: ApiPrincipal | null;
+  /** `bypass` for a token with no grant id; absent when the props fail the identity check. */
+  cache?: "hit" | "miss" | "bypass";
+  outcome: "ok" | "malformed" | "user_not_found" | "banned";
 }

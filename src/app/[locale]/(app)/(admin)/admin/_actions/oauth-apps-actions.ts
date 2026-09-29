@@ -14,6 +14,7 @@ import {
 import { requireAdmin } from "@/utils/auth";
 
 export const getOAuthAppsAction = actionClient
+  .metadata({ actionName: "getOAuthAppsAction" })
   .inputSchema(listOAuthAppsSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -41,6 +42,7 @@ function toHost(uri: string): string {
 // Verification decides the consent scope tier. For DCR clients it also opts the expiring
 // registration into renewal; stable CIMD and operator-issued identities need no lease renewal.
 export const setOAuthAppVerifiedAction = actionClient
+  .metadata({ actionName: "setOAuthAppVerifiedAction" })
   .inputSchema(setOAuthAppVerifiedSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -54,6 +56,7 @@ export const setOAuthAppVerifiedAction = actionClient
 // `deleteClient` cascades: every grant for this client, across all users, and their tokens go
 // with it. The D1 row is removed after, so a failed cascade leaves the app visible and retryable.
 export const deleteOAuthAppAction = actionClient
+  .metadata({ actionName: "deleteOAuthAppAction" })
   .inputSchema(oauthAppClientIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();

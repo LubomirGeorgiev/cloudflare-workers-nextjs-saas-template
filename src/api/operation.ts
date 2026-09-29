@@ -7,6 +7,7 @@ import { audienceGuard } from "@/api/middleware/audience";
 import { securityForScope } from "@/api/openapi-document";
 import { COMMON_ERROR_RESPONSES } from "@/api/openapi";
 import { createPolicyMarker } from "@/api/operation-policy";
+import { traceApiOperation } from "@/api/operation-trace";
 import type { ApiEnv } from "@/api/types";
 import { audienceExtension, type ApiOperationAudience } from "@/lib/api/audience";
 import { requirePrincipal, requireScope } from "@/lib/api/principal";
@@ -49,17 +50,21 @@ function policyGuard(policy: ApiOperationPolicy): MiddlewareHandler<ApiEnv> {
   //
   // A null-scope operation still asserts a principal rather than skipping the layer: `apiAuth`
   // rejects an anonymous request already, so this only fails closed if that door is ever moved.
-  const guard: MiddlewareHandler<ApiEnv> = (c, next) => {
-    assertAudience(c);
+  const guard: MiddlewareHandler<ApiEnv> = (c, next) =>
+    traceApiOperation({
+      c,
+      next,
+      operation: { ...policy, surface: "public" },
+      guard: () => {
+        assertAudience(c);
 
-    if (policy.scope === null) {
-      requirePrincipal();
-    } else {
-      requireScope(policy.scope);
-    }
-
-    return next();
-  };
+        if (policy.scope === null) {
+          requirePrincipal();
+        } else {
+          requireScope(policy.scope);
+        }
+      },
+    });
 
   return policyMarker.carry({ guard, policy });
 }

@@ -37,6 +37,7 @@ export type CmsEntryListRow = CmsCollectionListItem & {
 };
 
 export const listCmsEntriesAction = actionClient
+  .metadata({ actionName: "listCmsEntriesAction" })
   .inputSchema(listCmsEntriesSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -86,6 +87,7 @@ export const listCmsEntriesAction = actionClient
   });
 
 export const createCmsEntryAction = actionClient
+  .metadata({ actionName: "createCmsEntryAction" })
   .inputSchema(createCmsEntrySchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
@@ -111,6 +113,7 @@ export const createCmsEntryAction = actionClient
   });
 
 export const updateCmsEntryAction = actionClient
+  .metadata({ actionName: "updateCmsEntryAction" })
   .inputSchema(updateCmsEntrySchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -132,6 +135,7 @@ export const updateCmsEntryAction = actionClient
   });
 
 export const deleteCmsEntryAction = actionClient
+  .metadata({ actionName: "deleteCmsEntryAction" })
   .inputSchema(cmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -148,6 +152,7 @@ export const deleteCmsEntryAction = actionClient
   });
 
 export const createTranslationAction = actionClient
+  .metadata({ actionName: "createTranslationAction" })
   .inputSchema(createCmsEntryTranslationActionSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin();
@@ -178,6 +183,7 @@ export const createTranslationAction = actionClient
 // re-anchors its staleness snapshot. Overwrites AI output in place (translations are
 // not hand-tuned in this template).
 export const retranslateTranslationAction = actionClient
+  .metadata({ actionName: "retranslateTranslationAction" })
   .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -200,6 +206,7 @@ export const retranslateTranslationAction = actionClient
 // Clears the stale flag without changing content — for when an admin has reconciled
 // the translation by hand and only wants the badge to go away.
 export const markTranslationReviewedAction = actionClient
+  .metadata({ actionName: "markTranslationReviewedAction" })
   .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -220,6 +227,7 @@ export const markTranslationReviewedAction = actionClient
   });
 
 export const generateSeoDescriptionAction = actionClient
+  .metadata({ actionName: "generateSeoDescriptionAction" })
   .inputSchema(requiredCmsEntryIdSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();

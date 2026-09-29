@@ -43,6 +43,7 @@ async function blockBannedEmail({
 }
 
 export const banUserAction = actionClient
+  .metadata({ actionName: "banUserAction" })
   .inputSchema(banUserSchema)
   .action(async ({ parsedInput: { alsoBlockEmail, ...input } }) => {
     const session = await requireAdmin()
@@ -68,6 +69,7 @@ export const banUserAction = actionClient
   })
 
 export const unbanUserAction = actionClient
+  .metadata({ actionName: "unbanUserAction" })
   .inputSchema(unbanUserSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin()

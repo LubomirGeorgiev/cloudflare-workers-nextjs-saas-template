@@ -16,6 +16,7 @@ import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 import { getNewAccountLocale } from "@/i18n/new-account-locale";
 
 export const signUpAction = actionClient
+  .metadata({ actionName: "signUpAction" })
   .inputSchema(signUpSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

@@ -14,18 +14,21 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 // Key create/revoke live in `@/actions/api-key-actions` because the team settings section drives
 // the same flows with a `teamId`; everything here is personal-account-specific.
 export const getApiKeysAction = actionClient
+  .metadata({ actionName: "getApiKeysAction" })
   .inputSchema(v.void())
   .action(async () => {
     return withUserRateLimit(listUserApiKeys, RATE_LIMITS.SETTINGS);
   });
 
 export const getConnectedAppsAction = actionClient
+  .metadata({ actionName: "getConnectedAppsAction" })
   .inputSchema(v.void())
   .action(async () => {
     return withUserRateLimit(listConnectedApps, RATE_LIMITS.SETTINGS);
   });
 
 export const revokeConnectedAppAction = actionClient
+  .metadata({ actionName: "revokeConnectedAppAction" })
   .inputSchema(revokeOAuthGrantSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {

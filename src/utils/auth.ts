@@ -28,8 +28,12 @@ import { getUserBannedAt, getUserFromDB, getUserTeamsWithPermissions } from "@/u
 import { createBase64UrlToken, hashToken } from "@/utils/random-token";
 import { shouldUseSecureCookies } from "./cookie-security";
 import { isEnabledLocale, type Locale } from "@/i18n/config";
+import { withSpan } from "@/utils/trace";
 
 const SESSION_TOKEN_BYTES = 48;
+
+const SESSION_VALIDATE_SPAN_NAME = "app.auth.session.validate";
+const SESSION_OUTCOME_ATTRIBUTE = "app.auth.session.outcome";
 
 const getSessionLength = () => {
   return ms("30d");
@@ -179,18 +183,36 @@ export async function createSessionUnlessBanned({
 }
 
 async function validateSessionToken(token: string, userId: string): Promise<KVSession | null> {
+  return withSpan({
+    name: SESSION_VALIDATE_SPAN_NAME,
+    run: async (span) => {
+      const { outcome, session } = await resolveSessionToken({ token, userId });
+      span.setAttribute(SESSION_OUTCOME_ATTRIBUTE, outcome);
+
+      return session;
+    },
+  });
+}
+
+async function resolveSessionToken({
+  token,
+  userId,
+}: {
+  token: string;
+  userId: string;
+}): Promise<SessionValidation> {
   const sessionId = await generateSessionId(token);
 
   const session = await getKVSession(sessionId, userId);
 
   if (!session) {
-    return null;
+    return { outcome: SESSION_OUTCOME.MISSING, session: null };
   }
 
   // If the session has expired, delete it and return null
   if (Date.now() >= session.expiresAt) {
     await deleteKVSession(sessionId, userId);
-    return null;
+    return { outcome: SESSION_OUTCOME.EXPIRED, session: null };
   }
 
   // Belt and braces behind the ban itself, which deletes every session of the user, and behind
@@ -198,31 +220,31 @@ async function validateSessionToken(token: string, userId: string): Promise<KVSe
   // the ban's eventually-consistent KV listing missed; that session lives until it expires.
   if (isBanned(session.user)) {
     await deleteKVSession(sessionId, userId);
-    return null;
+    return { outcome: SESSION_OUTCOME.BANNED, session: null };
   }
 
   if (!session.version || session.version !== CURRENT_SESSION_VERSION) {
     const updatedSession = await updateKVSession(sessionId, userId, new Date(session.expiresAt));
 
     if (!updatedSession) {
-      return null;
+      return { outcome: SESSION_OUTCOME.REFRESH_FAILED, session: null };
     }
 
     // The refresh rebuilds the snapshot from D1, so the check above only tested the stale copy.
     // Without this re-test a stale-version session of a banned user authenticates one request.
     if (isBanned(updatedSession.user)) {
       await deleteKVSession(sessionId, userId);
-      return null;
+      return { outcome: SESSION_OUTCOME.REFRESHED_BANNED, session: null };
     }
 
     updatedSession.user.initials = getInitials(`${updatedSession.user.firstName} ${updatedSession.user.lastName}`);
 
-    return updatedSession;
+    return { outcome: SESSION_OUTCOME.VERSION_REFRESHED, session: updatedSession };
   }
 
   session.user.initials = getInitials(`${session.user.firstName} ${session.user.lastName}`);
 
-  return session;
+  return { outcome: SESSION_OUTCOME.VALID, session };
 }
 
 export async function invalidateSession(sessionId: string, userId: string): Promise<void> {
@@ -403,4 +425,21 @@ export function requireAdmin({
   doNotThrowError = false,
 }: RequireSessionOptions = {}): Promise<CurrentSession | null> {
   return getRequiredAdmin(doNotThrowError);
+}
+
+// Low-cardinality span values. A ban found on the rebuilt snapshot has its own value, so a trace
+// shows which of the two ban checks refused the session.
+const SESSION_OUTCOME = {
+  BANNED: "banned",
+  EXPIRED: "expired",
+  MISSING: "missing",
+  REFRESHED_BANNED: "refreshed_banned",
+  REFRESH_FAILED: "refresh_failed",
+  VALID: "valid",
+  VERSION_REFRESHED: "version_refreshed",
+} as const;
+
+interface SessionValidation {
+  outcome: (typeof SESSION_OUTCOME)[keyof typeof SESSION_OUTCOME];
+  session: KVSession | null;
 }

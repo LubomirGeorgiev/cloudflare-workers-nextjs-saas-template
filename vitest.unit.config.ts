@@ -14,6 +14,9 @@ export default defineConfig({
       "virtual:api-openapi-document": fileURLToPath(
         new URL("./tests/fixtures/api-openapi-document.ts", import.meta.url)
       ),
+      "cloudflare:workers": fileURLToPath(
+        new URL("./tests/fixtures/cloudflare-workers.ts", import.meta.url)
+      ),
       ...vinextTestAliases,
     },
   },

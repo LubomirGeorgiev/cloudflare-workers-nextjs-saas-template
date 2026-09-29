@@ -36,6 +36,7 @@ const PASSKEY_REGISTRATION_CHALLENGE_COOKIE_NAME = "passkey_registration_challen
 const PASSKEY_AUTHENTICATION_CHALLENGE_COOKIE_NAME = "passkey_authentication_challenge";
 
 export const generateRegistrationOptionsAction = actionClient
+  .metadata({ actionName: "generateRegistrationOptionsAction" })
   .inputSchema(generateRegistrationOptionsSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {
@@ -86,6 +87,7 @@ export const generateRegistrationOptionsAction = actionClient
   });
 
 export const verifyRegistrationAction = actionClient
+  .metadata({ actionName: "verifyRegistrationAction" })
   .inputSchema(verifyRegistrationSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {
@@ -148,6 +150,7 @@ export const verifyRegistrationAction = actionClient
   });
 
 export const deletePasskeyAction = actionClient
+  .metadata({ actionName: "deletePasskeyAction" })
   .inputSchema(deletePasskeySchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(async () => {
@@ -205,6 +208,7 @@ export const deletePasskeyAction = actionClient
   });
 
 export const generateAuthenticationOptionsAction = actionClient
+  .metadata({ actionName: "generateAuthenticationOptionsAction" })
   .inputSchema(v.void())
   .action(async () => {
     return withRateLimit(async () => {
@@ -229,6 +233,7 @@ export const generateAuthenticationOptionsAction = actionClient
   });
 
 export const verifyAuthenticationAction = actionClient
+  .metadata({ actionName: "verifyAuthenticationAction" })
   .inputSchema(verifyAuthenticationSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(async (): Promise<SignInSuccess> => {

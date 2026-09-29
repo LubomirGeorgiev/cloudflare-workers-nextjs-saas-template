@@ -45,6 +45,9 @@ const actionClientMock = {
   inputSchema() {
     return actionClientMock;
   },
+  metadata() {
+    return actionClientMock;
+  },
 };
 
 vi.mock("@/lib/safe-action", () => ({

@@ -13,6 +13,7 @@ import { revokeOAuthGrantSchema } from "@/schemas/oauth.schema";
 // with the rule it protects rather than at each caller.
 
 export const createAdminApiKeyAction = actionClient
+  .metadata({ actionName: "createAdminApiKeyAction" })
   .inputSchema(createAdminApiKeySchema)
   .action(async ({ parsedInput: input }) => {
     const created = await createAdminApiKey(input);
@@ -24,6 +25,7 @@ export const createAdminApiKeyAction = actionClient
   });
 
 export const revokeAdminApiKeyAction = actionClient
+  .metadata({ actionName: "revokeAdminApiKeyAction" })
   .inputSchema(revokeAdminApiKeySchema)
   .action(async ({ parsedInput: input }) => {
     await revokeAdminApiKey({ keyId: input.keyId });
@@ -35,6 +37,7 @@ export const revokeAdminApiKeyAction = actionClient
 
 
 export const revokeAdminOAuthGrantAction = actionClient
+  .metadata({ actionName: "revokeAdminOAuthGrantAction" })
   .inputSchema(revokeOAuthGrantSchema)
   .action(async ({ parsedInput: input }) => {
     await revokeAdminOAuthGrant({ grantId: input.grantId });

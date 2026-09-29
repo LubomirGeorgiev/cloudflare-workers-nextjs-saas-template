@@ -4,12 +4,37 @@ import { API_KEY_PREFIX_LIVE, CURRENT_API_KEY_CACHE_VERSION } from "@/constants"
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import { generateApiKey } from "@/utils/api-key-format";
 
-const { getCloudflareContextMock, update, updateSet } = vi.hoisted(() => {
+const {
+  findFirst,
+  getCloudflareContextMock,
+  getUserFromDBMock,
+  spanAttributes,
+  fakeSpan,
+  update,
+  updateSet,
+} = vi.hoisted(() => {
   const updateWhere = vi.fn(() => Promise.resolve());
   const updateSet = vi.fn(() => ({ where: updateWhere }));
+  const attributes = new Map<string, unknown>();
+  const span = {
+    isTraced: true,
+    recordException: vi.fn(),
+    setAttribute: vi.fn(),
+    setAttributes: vi.fn((values: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(values)) {
+        attributes.set(key, value);
+      }
+
+      return span;
+    }),
+  };
 
   return {
+    findFirst: vi.fn(),
     getCloudflareContextMock: vi.fn(),
+    getUserFromDBMock: vi.fn(),
+    spanAttributes: attributes,
+    fakeSpan: span,
     update: vi.fn(() => ({ set: updateSet })),
     updateSet,
   };
@@ -26,12 +51,17 @@ vi.mock("@/utils/cloudflare-context", () => ({
 }));
 
 vi.mock("@/db", () => ({
-  getDB: () => ({ update }),
+  getDB: () => ({ update, query: { apiKeyTable: { findFirst } } }),
 }));
 
 vi.mock("@/utils/session-user", () => ({
-  getUserFromDB: vi.fn(),
-  getUserTeamsWithPermissions: vi.fn(),
+  getUserFromDB: getUserFromDBMock,
+  getUserTeamsWithPermissions: vi.fn(async () => []),
+}));
+
+vi.mock("@/utils/trace", () => ({
+  withSpan: ({ run }: { run: (span: typeof fakeSpan) => Promise<unknown> }) => run(fakeSpan),
+  recordSpanException: vi.fn(),
 }));
 
 const {
@@ -42,6 +72,8 @@ const {
 const { getApiKeySnapshotKey } = await import("@/utils/kv-principal-cache");
 
 const USER_ID = "user_key_owner";
+const CACHE_ATTRIBUTE = "app.auth.principal.cache";
+const OUTCOME_ATTRIBUTE = "app.auth.principal.outcome";
 // A scope no catalog can contain, standing in for one a fork removed after the key was issued.
 const RETIRED_SCOPE = "removed-by-a-fork:read";
 
@@ -180,3 +212,85 @@ describe("API key usage stamping", () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe("API key principal resolve span", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    store.clear();
+    spanAttributes.clear();
+    resetApiKeyUsageThrottleForTests();
+    getCloudflareContextMock.mockResolvedValue({ env: { KV_STORE: kv } });
+  });
+
+  test("tags a cache hit as ok", async () => {
+    const secret = await seedKeyWithScopes([]);
+
+    await getApiKeyPrincipal(secret);
+
+    expect(spanAttributes.get("app.auth.principal.credential_kind")).toBe("api_key");
+    expect(spanAttributes.get(CACHE_ATTRIBUTE)).toBe("hit");
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("ok");
+  });
+
+  test("tags a secret that fails the format check without a cache read", async () => {
+    const principal = await getApiKeyPrincipal("not-an-api-key");
+
+    expect(principal).toBeNull();
+    expect(kv.get).not.toHaveBeenCalled();
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("malformed");
+    expect(spanAttributes.get(CACHE_ATTRIBUTE)).toBeUndefined();
+  });
+
+  test.each([
+    ["not_found", () => undefined],
+    ["revoked", () => keyRow({ revokedAt: new Date() })],
+    ["expired", () => keyRow({ expiresAt: new Date(Date.now() - 1) })],
+  ])("tags a %s key found on the D1 fallback", async (outcome, row) => {
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
+    findFirst.mockResolvedValue(row());
+
+    const principal = await getApiKeyPrincipal(secret);
+
+    expect(principal).toBeNull();
+    expect(spanAttributes.get(CACHE_ATTRIBUTE)).toBe("miss");
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(outcome);
+  });
+
+  test("tags a key whose owner is banned", async () => {
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
+    findFirst.mockResolvedValue(keyRow());
+    const { user } = buildSnapshot({ scopes: [], lastUsedAt: null });
+    getUserFromDBMock.mockResolvedValue({ ...user, bannedAt: new Date() });
+
+    const principal = await getApiKeyPrincipal(secret);
+
+    expect(principal).toBeNull();
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("banned");
+  });
+
+  test("tags a live key rebuilt from D1 as a miss that resolved", async () => {
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
+    findFirst.mockResolvedValue(keyRow());
+    getUserFromDBMock.mockResolvedValue(buildSnapshot({ scopes: [], lastUsedAt: null }).user);
+
+    const principal = await getApiKeyPrincipal(secret);
+
+    expect(principal?.userId).toBe(USER_ID);
+    expect(spanAttributes.get(CACHE_ATTRIBUTE)).toBe("miss");
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("ok");
+  });
+});
+
+// Recent enough by default that the usage touch short-circuits before it reaches D1.
+function keyRow(overrides: { revokedAt?: Date | null; expiresAt?: Date | null } = {}) {
+  return {
+    id: "akey_1",
+    userId: USER_ID,
+    teamId: null,
+    scopes: [],
+    expiresAt: null,
+    revokedAt: null,
+    lastUsedAt: new Date(),
+    ...overrides,
+  };
+}

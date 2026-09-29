@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 import { OAUTH_MAINTENANCE_INTERVAL_MINUTES } from "@/constants/oauth";
-import { SCHEDULED_JOB_TYPES, type ScheduledQueueMessage } from "@/lib/scheduler/jobs";
+import {
+  EMAIL_TEMPLATE_TYPES,
+  SCHEDULED_JOB_TYPES,
+  type ScheduledQueueMessage,
+} from "@/lib/scheduler/jobs";
 
 const {
   dispatchScheduledJobsToQueueMock,
@@ -18,6 +22,39 @@ const {
   renewVerifiedOAuthClientsMock: vi.fn(),
   runScheduledJobMock: vi.fn(),
   settleStaleTrialReservationsMock: vi.fn(),
+}));
+
+// One record per span, so a test can find a span by its task or job type.
+const { recordedSpans } = vi.hoisted(() => ({
+  recordedSpans: [] as Array<{
+    name: string;
+    attributes: Record<string, unknown>;
+    exceptions: unknown[];
+  }>,
+}));
+
+vi.mock("@/utils/trace", () => ({
+  withSpan: ({ name, run }: { name: string; run: (span: unknown) => Promise<unknown> }) => {
+    const record = { name, attributes: {} as Record<string, unknown>, exceptions: [] as unknown[] };
+    const span = {
+      isTraced: true,
+      record,
+      setAttribute: (key: string, value: unknown) => {
+        record.attributes[key] = value;
+        return span;
+      },
+      setAttributes: (values: Record<string, unknown>) => {
+        Object.assign(record.attributes, values);
+        return span;
+      },
+    };
+
+    recordedSpans.push(record);
+    return run(span);
+  },
+  recordSpanException: ({ span, error }: { span: { record: { exceptions: unknown[] } }; error: unknown }) => {
+    span.record.exceptions.push(error);
+  },
 }));
 
 vi.mock("@/lib/scheduler/scheduler", () => ({
@@ -50,26 +87,43 @@ const BILLING_ENV_KEYS = [
 
 const { handleSchedulerCron, handleSchedulerQueue } = await import("@/lib/scheduler/worker");
 
+const JOB_SPAN_NAME = "app.scheduler.job";
+const MAINTENANCE_SPAN_NAME = "app.scheduler.maintenance";
+const OUTCOME_ATTRIBUTE = "app.scheduler.outcome";
+const TASK_ATTRIBUTE = "app.scheduler.task";
+
 function createMessage({
   attempts = 1,
+  body,
   runAt,
 }: {
   attempts?: number;
+  body?: Omit<ScheduledQueueMessage, "runAt">;
   runAt: Date;
 }) {
   return {
     id: "message-1",
     attempts,
     body: {
-      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
-      payload: {
-        entryId: "entry-1",
-      },
+      ...(body ?? {
+        type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+        payload: {
+          entryId: "entry-1",
+        },
+      }),
       runAt: runAt.toISOString(),
-    } satisfies ScheduledQueueMessage,
+    } as ScheduledQueueMessage,
     ack: vi.fn(),
     retry: vi.fn(),
   };
+}
+
+function spansNamed(name: string) {
+  return recordedSpans.filter((span) => span.name === name);
+}
+
+function maintenanceSpan(task: string) {
+  return spansNamed(MAINTENANCE_SPAN_NAME).find((span) => span.attributes[TASK_ATTRIBUTE] === task);
 }
 
 // The cron reads the Stripe env directly, so pin it per test instead of inheriting the machine's.
@@ -132,6 +186,7 @@ describe("scheduler worker", () => {
     vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.clearAllMocks();
+    recordedSpans.length = 0;
   });
 
   test("cron dispatches persisted jobs at the scheduled time", async () => {
@@ -349,5 +404,150 @@ describe("scheduler worker", () => {
       type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
     }));
     consoleError.mockRestore();
+  });
+
+  describe("spans", () => {
+    test("a deferred message records its job type, attempts, and outcome", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-29T10:00:00.000Z"));
+      const message = createMessage({ attempts: 2, runAt: new Date("2026-05-29T10:00:30.000Z") });
+
+      await handleSchedulerQueue({ messages: [message] } as unknown as MessageBatch<ScheduledQueueMessage>);
+
+      expect(spansNamed(JOB_SPAN_NAME)).toEqual([expect.objectContaining({
+        attributes: {
+          "app.scheduler.job_type": message.body.type,
+          "app.scheduler.attempts": 2,
+          [OUTCOME_ATTRIBUTE]: "deferred",
+        },
+      })]);
+    });
+
+    test("an acknowledged email job records its template", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-29T10:00:00.000Z"));
+      const message = createMessage({
+        body: {
+          type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
+          payload: {
+            to: "person@example.com",
+            template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+            locale: "en",
+            data: { resetToken: "token", username: "person" },
+          },
+        },
+        runAt: new Date("2026-05-29T10:00:00.000Z"),
+      });
+
+      await handleSchedulerQueue({ messages: [message] } as unknown as MessageBatch<ScheduledQueueMessage>);
+
+      const [span] = spansNamed(JOB_SPAN_NAME);
+      expect(span?.attributes).toMatchObject({
+        "app.scheduler.job_type": SCHEDULED_JOB_TYPES.EMAIL_SEND,
+        "app.scheduler.email_template": EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+        [OUTCOME_ATTRIBUTE]: "acked",
+      });
+      // Only code identifiers: nothing from the payload a person wrote or owns.
+      expect(JSON.stringify(span?.attributes)).not.toContain("person");
+    });
+
+    test("an unknown job type collapses to one value instead of the raw string", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-29T10:00:00.000Z"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      runScheduledJobMock.mockRejectedValueOnce(new Error("Unknown scheduled job type"));
+      const message = createMessage({
+        body: { type: "made-up-type", payload: null } as unknown as Omit<ScheduledQueueMessage, "runAt">,
+        runAt: new Date("2026-05-29T10:00:00.000Z"),
+      });
+
+      await handleSchedulerQueue({ messages: [message] } as unknown as MessageBatch<ScheduledQueueMessage>);
+
+      expect(spansNamed(JOB_SPAN_NAME)[0]?.attributes["app.scheduler.job_type"]).toBe("unknown");
+      consoleError.mockRestore();
+    });
+
+    test("a failed job records the exception and the retried outcome", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-29T10:00:00.000Z"));
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const failure = new Error("database unavailable");
+      runScheduledJobMock.mockRejectedValueOnce(failure);
+      const message = createMessage({ runAt: new Date("2026-05-29T09:59:59.000Z") });
+
+      await handleSchedulerQueue({ messages: [message] } as unknown as MessageBatch<ScheduledQueueMessage>);
+
+      const [span] = spansNamed(JOB_SPAN_NAME);
+      expect(span?.attributes[OUTCOME_ATTRIBUTE]).toBe("retried");
+      expect(span?.exceptions).toEqual([failure]);
+      expect(message.retry).toHaveBeenCalledOnce();
+      consoleError.mockRestore();
+    });
+
+    test("each message in a batch gets its own span", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-05-29T10:00:00.000Z"));
+      const due = createMessage({ runAt: new Date("2026-05-29T10:00:00.000Z") });
+      const later = createMessage({ runAt: new Date("2026-05-29T10:05:00.000Z") });
+
+      await handleSchedulerQueue({ messages: [due, later] } as unknown as MessageBatch<ScheduledQueueMessage>);
+
+      expect(spansNamed(JOB_SPAN_NAME).map((span) => span.attributes[OUTCOME_ATTRIBUTE])).toEqual([
+        "acked",
+        "deferred",
+      ]);
+    });
+
+    test("a claimed paced run records dispatched for the claim and ok for each sweep", async () => {
+      stubBillingConfigured(false);
+      dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+      await runCron(new Date("2026-05-29T10:00:00.000Z")).result;
+
+      expect(maintenanceSpan("oauth_maintenance")?.attributes[OUTCOME_ATTRIBUTE]).toBe("dispatched");
+      for (const task of [
+        "oauth_expired_cimd_prune",
+        "oauth_expired_data_purge",
+        "oauth_verified_client_renewal",
+      ]) {
+        expect(maintenanceSpan(task)?.attributes[OUTCOME_ATTRIBUTE]).toBe("ok");
+      }
+      expect(maintenanceSpan("trial_reservation_recovery")).toBeUndefined();
+    });
+
+    test("a paced run another tick holds records skipped_not_claimed", async () => {
+      stubBillingConfigured(true);
+      const now = new Date("2026-05-29T10:35:00.000Z");
+      dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+      await runCron(now, createPacingKV(new Date(now.getTime() - 60_000))).result;
+
+      expect(maintenanceSpan("oauth_maintenance")?.attributes[OUTCOME_ATTRIBUTE]).toBe(
+        "skipped_not_claimed",
+      );
+      expect(maintenanceSpan("oauth_expired_data_purge")).toBeUndefined();
+      expect(maintenanceSpan("trial_reservation_recovery")?.attributes[OUTCOME_ATTRIBUTE]).toBe("ok");
+    });
+
+    test("a failing sweep records the exception and failed on its own span, not on the claim", async () => {
+      stubBillingConfigured(false);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const failure = new Error("oauth kv unavailable");
+      dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+      purgeExpiredOAuthDataMock.mockRejectedValueOnce(failure);
+
+      await runCron(new Date("2026-05-29T10:00:00.000Z")).result;
+
+      const failed = maintenanceSpan("oauth_expired_data_purge");
+      expect(failed?.attributes[OUTCOME_ATTRIBUTE]).toBe("failed");
+      expect(failed?.exceptions).toEqual([failure]);
+      expect(maintenanceSpan("oauth_maintenance")?.attributes[OUTCOME_ATTRIBUTE]).toBe("dispatched");
+      expect(maintenanceSpan("oauth_maintenance")?.exceptions).toEqual([]);
+      expect(consoleError).toHaveBeenCalledWith(
+        "handleSchedulerCron: OAuth expired data purge failed",
+        failure,
+      );
+      consoleError.mockRestore();
+    });
   });
 });

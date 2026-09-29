@@ -31,6 +31,7 @@ function revalidateApiKeySurfaces(teamSlug: string | null): void {
 // Shared by the personal settings page and the team settings section: the only difference is
 // whether `teamId` is present, which is also what decides the permission check in the service.
 export const createApiKeyAction = actionClient
+  .metadata({ actionName: "createApiKeyAction" })
   .inputSchema(createApiKeySchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -48,6 +49,7 @@ export const createApiKeyAction = actionClient
   });
 
 export const updateApiKeyScopesAction = actionClient
+  .metadata({ actionName: "updateApiKeyScopesAction" })
   .inputSchema(updateApiKeyScopesSchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(
@@ -63,6 +65,7 @@ export const updateApiKeyScopesAction = actionClient
   });
 
 export const revokeApiKeyAction = actionClient
+  .metadata({ actionName: "revokeApiKeyAction" })
   .inputSchema(revokeApiKeySchema)
   .action(async ({ parsedInput: input }) => {
     return withUserRateLimit(

@@ -11,11 +11,13 @@ const {
   isLocalhostMock,
   isTestModeMock,
   runInBackgroundMock,
+  warmSpans,
 } = vi.hoisted(() => ({
   getEntryLocalesMock: vi.fn(),
   isLocalhostMock: { value: false },
   isTestModeMock: vi.fn(() => false),
   runInBackgroundMock: vi.fn(),
+  warmSpans: [] as Array<{ name: string; attributes: Record<string, unknown> }>,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -23,6 +25,22 @@ vi.mock("server-only", () => ({}));
 // Reached through the shared entry-path helpers, which sit beside the KV purge sweep.
 vi.mock("cloudflare:workers", () => ({
   env: {},
+}));
+
+vi.mock("@/utils/trace", () => ({
+  withSpan: ({ name, run }: { name: string; run: (span: unknown) => Promise<unknown> }) => {
+    const record = { name, attributes: {} as Record<string, unknown> };
+    const span = {
+      isTraced: true,
+      setAttributes: (values: Record<string, unknown>) => {
+        Object.assign(record.attributes, values);
+        return span;
+      },
+    };
+
+    warmSpans.push(record);
+    return run(span);
+  },
 }));
 
 vi.mock("@/lib/cms/entry/queries", () => ({
@@ -82,6 +100,7 @@ describe.skipIf(!WARMABLE_COLLECTION)("warmCmsEntryPages", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
+    warmSpans.length = 0;
   });
 
   test("warms the entry page, its listing, and both Markdown twins", async () => {
@@ -164,6 +183,40 @@ describe.skipIf(!WARMABLE_COLLECTION)("warmCmsEntryPages", () => {
     await expect(flushWarms()).resolves.toBeUndefined();
 
     expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  test("records the URL count and the ok and failed fetches on the warm span", async () => {
+    fetchMock
+      .mockRejectedValueOnce(new Error("origin down"))
+      .mockResolvedValueOnce(new Response("", { status: 500 }));
+
+    warmCmsEntryPages({ entries: [{ collection, slug: SLUG }] });
+    await flushWarms();
+
+    const urlCount = fetchMock.mock.calls.length;
+    expect(warmSpans).toEqual([{
+      name: "app.cms.warm",
+      attributes: {
+        "app.cms.url_count": urlCount,
+        "app.cms.capped": false,
+        "app.cms.warm_ok_count": urlCount - 2,
+        "app.cms.warm_failed_count": 2,
+      },
+    }]);
+  });
+
+  test("marks the warm span capped when the URL bound drops URLs", async () => {
+    getEntryLocalesMock.mockResolvedValue([...ENABLED_LOCALES]);
+
+    warmCmsEntryPages({
+      entries: Array.from({ length: 20 }, (_unused, index) => ({ collection, slug: `${SLUG}-${index}` })),
+    });
+    await flushWarms();
+
+    expect(warmSpans[0]?.attributes).toMatchObject({
+      "app.cms.url_count": MAX_WARM_URLS_PER_CALL,
+      "app.cms.capped": true,
+    });
   });
 
   test("warms nothing on localhost", async () => {

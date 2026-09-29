@@ -6,6 +6,7 @@ import { docsSearchQuerySchema } from "@/schemas/docs-search.schema";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 export const searchDocsAction = actionClient
+  .metadata({ actionName: "searchDocsAction" })
   .inputSchema(docsSearchQuerySchema)
   .action(async ({ parsedInput }) => {
     const results = await withRateLimit(async () => {

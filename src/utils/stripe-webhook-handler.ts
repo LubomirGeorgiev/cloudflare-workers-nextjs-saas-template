@@ -65,14 +65,14 @@ interface HandleStripeEventOptions {
 export async function handleStripeEvent(
   event: Stripe.Event,
   { stripe }: HandleStripeEventOptions = {},
-): Promise<void> {
+): Promise<StripeEventResult> {
   if (!HANDLED_EVENTS.has(event.type)) {
-    return;
+    return STRIPE_EVENT_RESULT.IGNORED;
   }
 
   const subscriptionId = getEventSubscriptionId(event);
   if (!subscriptionId) {
-    return;
+    return STRIPE_EVENT_RESULT.NO_SUBSCRIPTION;
   }
 
   const client = stripe ?? (await getStripe());
@@ -87,4 +87,15 @@ export async function handleStripeEvent(
   }
 
   await reconcileTeamFromSubscription({ subscription });
+
+  return STRIPE_EVENT_RESULT.OK;
 }
+
+// Keep these low-cardinality: `src/app/api/stripe/webhook/route.ts` puts them on a trace span.
+export const STRIPE_EVENT_RESULT = {
+  IGNORED: "ignored",
+  NO_SUBSCRIPTION: "no_subscription",
+  OK: "ok",
+} as const;
+
+type StripeEventResult = (typeof STRIPE_EVENT_RESULT)[keyof typeof STRIPE_EVENT_RESULT];

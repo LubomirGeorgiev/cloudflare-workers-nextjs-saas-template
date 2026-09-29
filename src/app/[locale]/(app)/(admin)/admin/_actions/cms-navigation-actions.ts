@@ -14,6 +14,7 @@ import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
 
 export const saveCmsNavigationTreeAction = actionClient
+  .metadata({ actionName: "saveCmsNavigationTreeAction" })
   .inputSchema(saveCmsNavigationTreeSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -28,6 +29,7 @@ export const saveCmsNavigationTreeAction = actionClient
 // a { locale: text } map for the admin manager to fill in. Falls back to the source
 // text per locale on any failure (aiTranslated:false lets the UI warn).
 export const translateNavTitleAction = actionClient
+  .metadata({ actionName: "translateNavTitleAction" })
   .inputSchema(translateNavTitleSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -62,6 +64,7 @@ export const translateNavTitleAction = actionClient
 // Icons matching what the admin typed, grouped by set, each with the sanitized SVG body the picker
 // renders inline. The admin browser never calls the icon service, so the picker needs no CSP change.
 export const searchCmsIconsAction = actionClient
+  .metadata({ actionName: "searchCmsIconsAction" })
   .inputSchema(searchCmsIconsSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
@@ -78,6 +81,7 @@ export const searchCmsIconsAction = actionClient
 // nothing: the document goes back to the client, which sends it again with the save so the server
 // parses it a second time and stays the only writer of `iconBody`.
 export const parseCmsCustomIconAction = actionClient
+  .metadata({ actionName: "parseCmsCustomIconAction" })
   .inputSchema(parseCmsCustomIconSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();

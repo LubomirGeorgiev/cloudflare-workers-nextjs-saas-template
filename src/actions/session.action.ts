@@ -8,6 +8,7 @@ import { getActiveTeamMembership } from "@/utils/team-membership";
 import { updateSelectedTeamSchema } from "@/schemas/session.schema";
 
 export const updateSelectedTeamAction = actionClient
+  .metadata({ actionName: "updateSelectedTeamAction" })
   .inputSchema(updateSelectedTeamSchema)
   .action(async ({ parsedInput: input }) => {
     try {

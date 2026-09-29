@@ -6,6 +6,7 @@ import { describeRoute, type DescribeRouteOptions, type ResponsesWithResolver } 
 import { securityForAdminScope } from "@/api/admin/openapi-document";
 import { COMMON_ERROR_RESPONSES } from "@/api/openapi";
 import { createPolicyMarker } from "@/api/operation-policy";
+import { traceApiOperation } from "@/api/operation-trace";
 import type { ApiEnv } from "@/api/types";
 import { assertAdminPrincipal } from "@/lib/admin/admin-principal";
 import type { AdminScope } from "@/lib/api/admin-scopes";
@@ -37,11 +38,14 @@ type AdminOperationSpec = Omit<DescribeRouteOptions, "security" | "responses"> &
   };
 
 function adminPolicyGuard(policy: AdminOperationPolicy): MiddlewareHandler<ApiEnv> {
-  const guard: MiddlewareHandler<ApiEnv> = async (c, next) => {
-    await assertAdminPrincipal({ scope: policy.scope });
-
-    return next();
-  };
+  // Every internal operation is account-level, so the span records that audience.
+  const guard: MiddlewareHandler<ApiEnv> = (c, next) =>
+    traceApiOperation({
+      c,
+      next,
+      operation: { ...policy, surface: "admin", audience: "account" },
+      guard: () => assertAdminPrincipal({ scope: policy.scope }),
+    });
 
   return adminPolicyMarker.carry({ guard, policy });
 }

@@ -14,6 +14,7 @@ import {
 import { requireAdmin } from "@/utils/auth"
 
 export const createBlockedEmailAction = actionClient
+  .metadata({ actionName: "createBlockedEmailAction" })
   .inputSchema(createBlockedEmailSchema)
   .action(async ({ parsedInput: input }) => {
     const session = await requireAdmin()
@@ -22,6 +23,7 @@ export const createBlockedEmailAction = actionClient
   })
 
 export const deleteBlockedEmailAction = actionClient
+  .metadata({ actionName: "deleteBlockedEmailAction" })
   .inputSchema(deleteBlockedEmailSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()
@@ -32,6 +34,7 @@ export const deleteBlockedEmailAction = actionClient
 // Read-only preview for the add dialog. Adding an entry never bans an existing account, so the
 // count is the whole of what staff get: they ban the matches one at a time from the users list.
 export const countMatchingUsersAction = actionClient
+  .metadata({ actionName: "countMatchingUsersAction" })
   .inputSchema(countMatchingUsersSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()

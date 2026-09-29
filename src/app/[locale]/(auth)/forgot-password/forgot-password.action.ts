@@ -15,6 +15,7 @@ import { getUserLocale } from "@/i18n/locale";
 import { isBanned } from "@/lib/account/ban";
 
 export const forgotPasswordAction = actionClient
+  .metadata({ actionName: "forgotPasswordAction" })
   .inputSchema(forgotPasswordSchema)
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(

@@ -1,12 +1,42 @@
 import { Hono } from "hono";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { ApiEnv } from "@/api/types";
 import { minString, v } from "@/lib/validation";
 import type { ApiPrincipal } from "@/lib/api/principal";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 
+const { fakeSpan, spanAttributes } = vi.hoisted(() => {
+  const attributes = new Map<string, unknown>();
+  const span = {
+    isTraced: true,
+    recordException: vi.fn(),
+    setAttribute: vi.fn((key: string, value: unknown) => {
+      attributes.set(key, value);
+
+      return span;
+    }),
+    setAttributes: vi.fn((values: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(values)) {
+        attributes.set(key, value);
+      }
+
+      return span;
+    }),
+  };
+
+  return { fakeSpan: span, spanAttributes: attributes };
+});
+
 vi.mock("server-only", () => ({}));
+
+// Pass-through, like the runtime: the real `withSpan` runs, so its exception policy is under test.
+vi.mock("cloudflare:workers", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  tracing: {
+    enterSpan: (_name: string, callback: (span: typeof fakeSpan) => unknown) => callback(fakeSpan),
+  },
+}));
 
 // The problem mapper reaches the KV limiter through `with-rate-limit`; stubbing it keeps the
 // Worker-only `cloudflare:workers` import out of a plain unit run.
@@ -19,6 +49,7 @@ vi.mock("@/utils/rate-limit", () => ({
   resetRateLimit: vi.fn(),
 }));
 
+const { ActionError } = await import("@/lib/action-error");
 const { apiValidator, problemJsonErrorHandler } = await import("@/api/middleware/problem-json");
 const { apiOperation, readOperationPolicy } = await import("@/api/operation");
 const { runWithPrincipal, toApiAudience } = await import("@/lib/api/principal");
@@ -29,6 +60,8 @@ const OWN_TEAM_ID = "team_own";
 const OTHER_TEAM_ID = "team_other";
 const bodySchema = v.object({ name: minString(1) });
 const OK_RESPONSE = { 200: { description: "ok" } };
+const HANDLER_ERROR_CODE = "NOT_FOUND";
+const OUTCOME_ATTRIBUTE = "app.api.outcome";
 
 // Holds the whole catalog unless a test narrows it, so an audience test can only ever fail on the
 // audience. There is no "unrestricted" principal: a cookie caller never enters the ALS at all.
@@ -86,6 +119,34 @@ function createApp() {
       responses: OK_RESPONSE,
     }),
     (c) => c.json({ ok: true }),
+  );
+
+  app.get(
+    "/boom",
+    ...apiOperation({
+      operationId: "boom",
+      summary: "Fail in the handler",
+      scope: "teams:read",
+      audience: "any",
+      responses: OK_RESPONSE,
+    }),
+    () => {
+      throw new ActionError(HANDLER_ERROR_CODE, "The handler failed.");
+    },
+  );
+
+  app.get(
+    "/crash",
+    ...apiOperation({
+      operationId: "crash",
+      summary: "Fail in the handler with an unexpected error",
+      scope: "teams:read",
+      audience: "any",
+      responses: OK_RESPONSE,
+    }),
+    () => {
+      throw new Error("unexpected");
+    },
   );
 
   return app;
@@ -265,5 +326,67 @@ describe("apiOperation", () => {
   test("a handler that went through no policy declaration reads back as undeclared", () => {
     expect(readOperationPolicy((c: unknown) => c)).toBeUndefined();
     expect(readOperationPolicy("not a handler")).toBeUndefined();
+  });
+});
+
+describe("operation span", () => {
+  beforeEach(() => {
+    spanAttributes.clear();
+    vi.clearAllMocks();
+  });
+
+  test("tags a served operation with its policy, principal, and an ok outcome", async () => {
+    const { status } = await call({ path: "/me", body: { name: "ok" } });
+
+    expect(status).toBe(200);
+    expect(Object.fromEntries(spanAttributes)).toEqual({
+      "app.api.surface": "public",
+      "app.api.operation_id": "updateMe",
+      "app.api.scope": ACCOUNT_SCOPE,
+      "app.api.audience": "account",
+      "app.api.principal_kind": "api_key",
+      [OUTCOME_ATTRIBUTE]: "ok",
+      "http.response.status_code": 200,
+    });
+    expect(fakeSpan.recordException).not.toHaveBeenCalled();
+  });
+
+  test("tags a guard refusal with its error code and records no exception", async () => {
+    const { body } = await call({ path: "/me", scopes: [], body: {} });
+
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(body.code);
+    expect(fakeSpan.recordException).not.toHaveBeenCalled();
+  });
+
+  test("tags a request with no principal", async () => {
+    const { body } = await call({ path: "/me", body: {}, withoutCredential: true });
+
+    expect(spanAttributes.get("app.api.principal_kind")).toBe("none");
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(body.code);
+  });
+
+  test("tags a rejected body with its status class", async () => {
+    const { status } = await call({ path: "/me", body: { wrong: "shape" } });
+
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(`${Math.floor(status / 100)}xx`);
+    expect(spanAttributes.get("http.response.status_code")).toBe(status);
+  });
+
+  test("reads an expected handler error off the context and records no exception", async () => {
+    const { status } = await call({ path: "/boom", method: "GET" });
+
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(HANDLER_ERROR_CODE);
+    expect(spanAttributes.get("http.response.status_code")).toBe(status);
+    expect(fakeSpan.recordException).not.toHaveBeenCalled();
+  });
+
+  test("records an unexpected handler error as an exception", async () => {
+    const { status } = await call({ path: "/crash", method: "GET" });
+
+    expect(status).toBeGreaterThanOrEqual(500);
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(`${Math.floor(status / 100)}xx`);
+    expect(fakeSpan.recordException).toHaveBeenCalledWith(
+      expect.objectContaining({ name: expect.any(String) }),
+    );
   });
 });

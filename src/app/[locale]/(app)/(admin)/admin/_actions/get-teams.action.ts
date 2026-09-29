@@ -8,6 +8,7 @@ import { requireAdmin } from "@/utils/auth"
 // The query itself lives in `src/lib/admin/teams.ts`, mirroring `get-users.action.ts`, so this
 // action and any internal REST/MCP surface list teams through one code path.
 export const getTeamsAction = actionClient
+  .metadata({ actionName: "getTeamsAction" })
   .inputSchema(getTeamsSchema)
   .action(async ({ parsedInput: input }) => {
     await requireAdmin()

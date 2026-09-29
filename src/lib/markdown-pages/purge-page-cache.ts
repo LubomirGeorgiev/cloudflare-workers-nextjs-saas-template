@@ -4,6 +4,7 @@ import { env as workerEnv } from "cloudflare:workers";
 
 import { ENABLED_LOCALES } from "@/i18n/config";
 import { mapInBatches } from "@/utils/map-in-batches";
+import { withSpan } from "@/utils/trace";
 
 import { buildMarkdownPageCacheKey } from "./page-cache";
 import { localizedPagePathname } from "./page-paths";
@@ -11,6 +12,10 @@ import { localizedPagePathname } from "./page-paths";
 // KV has no bulk list or delete, so a sweep is one request per prefix and per key. Keep each wave
 // small: the number of cached tag and author pages is unbounded.
 const PAGE_CACHE_KV_BATCH_SIZE = 10;
+
+const MARKDOWN_PURGE_SPAN_NAME = "app.cms.markdown_purge";
+const KEYS_DELETED_ATTRIBUTE = "app.cms.keys_deleted";
+const KEYS_FAILED_ATTRIBUTE = "app.cms.keys_failed";
 
 async function listPageCacheKeys(prefix: string): Promise<string[]> {
   const keys: string[] = [];
@@ -60,17 +65,31 @@ export async function purgeMarkdownPageCache({
 }: {
   pathnames: string[];
 }): Promise<void> {
-  const keyLists = await mapInBatches({
-    items: pageCacheKeyPrefixes(pathnames),
-    batchSize: PAGE_CACHE_KV_BATCH_SIZE,
-    fn: (prefix) => listPageCacheKeys(prefix),
-  });
+  await withSpan({
+    name: MARKDOWN_PURGE_SPAN_NAME,
+    run: async (span) => {
+      const keyLists = await mapInBatches({
+        items: pageCacheKeyPrefixes(pathnames),
+        batchSize: PAGE_CACHE_KV_BATCH_SIZE,
+        fn: (prefix) => listPageCacheKeys(prefix),
+      });
 
-  await mapInBatches({
-    items: Array.from(new Set(keyLists.flat())),
-    batchSize: PAGE_CACHE_KV_BATCH_SIZE,
-    // Own `.catch` per key: this runs after the publish committed, so one failed delete must not
-    // fail the action or stop the other keys.
-    fn: (key) => workerEnv.KV_STORE.delete(key).catch(() => undefined),
+      const deleted = await mapInBatches({
+        items: Array.from(new Set(keyLists.flat())),
+        batchSize: PAGE_CACHE_KV_BATCH_SIZE,
+        // Own rejection handler per key: this runs after the publish committed, so one failed delete must not
+        // fail the action or stop the other keys.
+        fn: (key) => workerEnv.KV_STORE.delete(key).then(() => true, () => false),
+      });
+
+      if (span.isTraced) {
+        const deletedCount = deleted.filter(Boolean).length;
+
+        span.setAttributes({
+          [KEYS_DELETED_ATTRIBUTE]: deletedCount,
+          [KEYS_FAILED_ATTRIBUTE]: deleted.length - deletedCount,
+        });
+      }
+    },
   });
 }
