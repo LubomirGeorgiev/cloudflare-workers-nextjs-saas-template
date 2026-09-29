@@ -25,7 +25,9 @@
     // imported normally by `src/api/operation.ts`, so only this one looks unreachable.
     "src/api/admin/openapi.ts",
     // Metadata routes call these exports through dynamic imports.
-    "src/lib/og/content-og-image.tsx"
+    "src/lib/og/content-og-image.tsx",
+    // Passed by path to Vitest from `scripts/run-integration-tests.mjs`, which runs it in shards.
+    "vitest.integration.config.ts"
   ],
   // Vendored shadcn kit: each file exports its full slot set so forks can use the parts the
   // template does not. The oxlint `project/no-unused-module-exports` line disables record the same choice.

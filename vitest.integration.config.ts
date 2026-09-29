@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
+import {
+  INTEGRATION_SHARD_ENV,
+  INTEGRATION_TEST_FILES,
+  selectShardCacheDir,
+} from "./scripts/utils/integration-shards.mjs";
 import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
+import { INTEGRATION_OPTIMIZED_DEPENDENCIES } from "./tools/integration-optimized-dependencies.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
 
 function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
@@ -24,6 +30,7 @@ function readNestedD1Migrations(migrationsPath: string): D1Migration[] {
 }
 
 export default defineConfig({
+  cacheDir: selectShardCacheDir({ shard: process.env[INTEGRATION_SHARD_ENV] }),
   // `vite.config.ts` injects the build id; the cache keys that carry it need one here too.
   define: { __MARKDOWN_BUILD_ID__: JSON.stringify("test-build-id") },
   logLevel: "error",
@@ -73,7 +80,12 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["tests/integration/**/*.test.ts"],
+    deps: {
+      optimizer: {
+        ssr: { enabled: true, include: INTEGRATION_OPTIMIZED_DEPENDENCIES },
+      },
+    },
+    include: [INTEGRATION_TEST_FILES],
     reporters: process.env.GITHUB_ACTIONS === "true" ? ["dot", "github-actions"] : ["default"],
     setupFiles: ["./tests/integration/apply-d1-migrations.ts"],
     testTimeout: 15_000,
