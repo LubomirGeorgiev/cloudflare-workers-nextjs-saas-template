@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 import { unstable_splitSqlQuery } from "wrangler";
+import { INTEGRATION_TEST_FILES } from "./scripts/utils/integration-shards.mjs";
 import { rejectNextRuntimeInternals, vinextTestAliases } from "./tests/vinext-test-runtime.ts";
 import { INTEGRATION_OPTIMIZED_DEPENDENCIES } from "./tools/integration-optimized-dependencies.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
@@ -79,7 +80,7 @@ export default defineConfig({
         ssr: { enabled: true, include: INTEGRATION_OPTIMIZED_DEPENDENCIES },
       },
     },
-    include: ["tests/integration/**/*.test.ts"],
+    include: [INTEGRATION_TEST_FILES],
     reporters: process.env.GITHUB_ACTIONS === "true" ? ["dot", "github-actions"] : ["default"],
     setupFiles: ["./tests/integration/apply-d1-migrations.ts"],
     testTimeout: 15_000,

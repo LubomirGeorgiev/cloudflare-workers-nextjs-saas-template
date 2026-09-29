@@ -13,6 +13,8 @@ import { INTEGRATION_OPTIMIZED_DEPENDENCIES } from "./integration-optimized-depe
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SCANNED_PATHS = ["src", "tests/integration", "worker-entrypoint.ts", "cms.config.ts"];
 const SOURCE_FILE = /\.(?:ts|tsx|mts|mjs|js)$/;
+// Co-located unit tests run in the unit suite, which never loads the pre-bundled copies.
+const UNIT_TEST_FILE = /\.test\.tsx?$/;
 
 describe("integration optimized dependencies", () => {
   test("list every subpath the code imports from a pre-bundled package", () => {
@@ -49,6 +51,10 @@ function sourceFiles(target: string): string[] {
 
   return fs
     .readdirSync(target, { recursive: true, encoding: "utf8" })
-    .filter((entry) => SOURCE_FILE.test(entry))
+    .filter((entry) => SOURCE_FILE.test(entry) && !isUnitTest({ target, entry }))
     .map((entry) => path.join(target, entry));
+}
+
+function isUnitTest({ target, entry }: { target: string; entry: string }): boolean {
+  return UNIT_TEST_FILE.test(entry) && path.relative(ROOT, target).split(path.sep)[0] === "src";
 }

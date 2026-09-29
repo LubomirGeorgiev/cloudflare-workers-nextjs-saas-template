@@ -1,16 +1,20 @@
 import { spawn } from "node:child_process";
+import { globSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { selectShardPlan } from "./utils/integration-shards.mjs";
+import { INTEGRATION_TEST_FILES, selectShardPlan } from "./utils/integration-shards.mjs";
 
 const CONFIG_FILE = "vitest.integration.config.ts";
 const VITEST_BIN = join(dirname(createRequire(import.meta.url).resolve("vitest/package.json")), "vitest.mjs");
 
 const passedArgs = process.argv.slice(2);
-const { shardCount, workersPerShard } = selectShardPlan({ cpuCount: availableParallelism() });
+const { shardCount, workersPerShard } = selectShardPlan({
+  cpuCount: availableParallelism(),
+  testFileCount: globSync(INTEGRATION_TEST_FILES).length,
+});
 
 // A filtered run can match fewer files than there are shards, and a shard with no files fails.
 if (passedArgs.length > 0 || shardCount === 1) {
