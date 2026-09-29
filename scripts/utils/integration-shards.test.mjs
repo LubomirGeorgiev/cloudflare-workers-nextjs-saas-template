@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { selectShardPlan } from "./integration-shards.mjs";
+import { selectShardCacheDir, selectShardPlan } from "./integration-shards.mjs";
 
 const MANY_FILES = 1000;
 
@@ -25,5 +25,16 @@ describe("integration shard plan", () => {
   test("keeps the worker count per shard fixed", () => {
     expect(selectShardPlan({ cpuCount: 2, testFileCount: MANY_FILES }).workersPerShard)
       .toBe(selectShardPlan({ cpuCount: 32, testFileCount: MANY_FILES }).workersPerShard);
+  });
+});
+
+describe("integration shard cache directory", () => {
+  test("gives each shard a directory of its own", () => {
+    expect(selectShardCacheDir({ shard: "1" })).not.toBe(selectShardCacheDir({ shard: "2" }));
+  });
+
+  test("keeps the Vite default for a run without shards", () => {
+    expect(selectShardCacheDir({ shard: undefined })).toBeUndefined();
+    expect(selectShardCacheDir({ shard: "" })).toBeUndefined();
   });
 });

@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { INTEGRATION_TEST_FILES, selectShardPlan } from "./utils/integration-shards.mjs";
+import { INTEGRATION_SHARD_ENV, INTEGRATION_TEST_FILES, selectShardPlan } from "./utils/integration-shards.mjs";
 
 const CONFIG_FILE = "vitest.integration.config.ts";
 const VITEST_BIN = join(dirname(createRequire(import.meta.url).resolve("vitest/package.json")), "vitest.mjs");
@@ -18,7 +18,7 @@ const { shardCount, workersPerShard } = selectShardPlan({
 
 // A filtered run can match fewer files than there are shards, and a shard with no files fails.
 if (passedArgs.length > 0 || shardCount === 1) {
-  process.exitCode = await runVitest(["run", "--config", CONFIG_FILE, ...passedArgs]);
+  process.exitCode = await runVitest({ args: ["run", "--config", CONFIG_FILE, ...passedArgs] });
 } else {
   process.exitCode = await runShards();
 }
@@ -30,17 +30,22 @@ async function runShards() {
 
   try {
     const shardExitCodes = await Promise.all(
-      Array.from({ length: shardCount }, (_, index) => runVitest([
-        "run",
-        "--config",
-        CONFIG_FILE,
-        `--shard=${index + 1}/${shardCount}`,
-        `--maxWorkers=${workersPerShard}`,
-        "--reporter=blob",
-        `--outputFile=${join(reportsDir, `blob-${index + 1}.json`)}`,
-      ])),
+      Array.from({ length: shardCount }, (_, index) => runVitest({
+        args: [
+          "run",
+          "--config",
+          CONFIG_FILE,
+          `--shard=${index + 1}/${shardCount}`,
+          `--maxWorkers=${workersPerShard}`,
+          "--reporter=blob",
+          `--outputFile=${join(reportsDir, `blob-${index + 1}.json`)}`,
+        ],
+        env: { ...process.env, [INTEGRATION_SHARD_ENV]: String(index + 1) },
+      })),
     );
-    const mergeExitCode = await runVitest(["run", "--config", CONFIG_FILE, `--mergeReports=${reportsDir}`]);
+    const mergeExitCode = await runVitest({
+      args: ["run", "--config", CONFIG_FILE, `--mergeReports=${reportsDir}`],
+    });
 
     // A shard that crashed writes no blob, so the merged report alone would not show it.
     return [...shardExitCodes, mergeExitCode].every((code) => code === 0) ? 0 : 1;
@@ -49,9 +54,9 @@ async function runShards() {
   }
 }
 
-function runVitest(args) {
+function runVitest({ args, env = process.env }) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [VITEST_BIN, ...args], { stdio: "inherit" });
+    const child = spawn(process.execPath, [VITEST_BIN, ...args], { env, stdio: "inherit" });
 
     child.on("error", () => resolve(1));
     child.on("exit", (code) => resolve(code ?? 1));
