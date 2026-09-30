@@ -333,25 +333,36 @@ export async function purgeEdgeHtmlPages({
     }
   }
 
+  let failedDeletes = 0;
+  let lastDeleteError: unknown;
   const [deleted] = await Promise.all([
     mapInBatches({
       items: Array.from(keys),
       batchSize: PURGE_BATCH_SIZE,
       // Own `.catch` per key: this runs after the mutation committed, so one failed delete must not
-      // fail the action or stop the other keys.
+      // fail the action or stop the other keys. One log per purge, so an outage cannot flood logs.
       fn: (key) => cache.delete(key).catch((error: unknown) => {
-        console.error("purgeEdgeHtmlPages: edge cache delete failed", error);
+        failedDeletes += 1;
+        lastDeleteError = error;
         return false;
       }),
     }),
     purgeEdgeHtmlPagesAcrossColos(Array.from(tags)),
   ]);
 
+  if (failedDeletes > 0) {
+    console.error("purgeEdgeHtmlPages: edge cache deletes failed", {
+      failed: failedDeletes,
+      total: keys.size,
+      error: lastDeleteError,
+    });
+  }
+
   return deleted.filter(Boolean).length;
 }
 
 /**
- * The same pages, purged zone-wide by tag so every data center drops them. Best effort and silent:
+ * The same pages, purged zone-wide by tag so every data center drops them. Best effort, logged only:
  * the local delete above already covers the colo that ran the mutation, and an unconfigured token
  * or a rate-limited zone must never fail a publish.
  *

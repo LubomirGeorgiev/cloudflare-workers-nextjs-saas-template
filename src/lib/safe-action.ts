@@ -126,7 +126,8 @@ export const actionClient = baseActionClient.use(({ next, metadata }) =>
         console.warn("Action refused", {
           action: metadata.actionName,
           code: result.serverError.code,
-          reason: result.serverError.reason,
+          // A plain-string `ActionError` has no key; its message is developer text, safe to log.
+          reason: result.serverError.reason ?? result.serverError.message,
         });
       }
 

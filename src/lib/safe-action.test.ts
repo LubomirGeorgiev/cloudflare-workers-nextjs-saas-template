@@ -69,6 +69,7 @@ describe("actionClient span", () => {
     enteredSpans.length = 0;
     spanAttributes.clear();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("tags a successful action with its metadata name and an ok outcome", async () => {
@@ -107,7 +108,11 @@ describe("actionClient span", () => {
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(code);
     expect(fakeSpan.recordException).not.toHaveBeenCalled();
     expect(consoleWarn).toHaveBeenCalledOnce();
-    expect(consoleWarn.mock.calls[0]?.[1]).toMatchObject({ action: ACTION_EXPORT_NAME, code });
+    expect(consoleWarn.mock.calls[0]?.[1]).toEqual({
+      action: ACTION_EXPORT_NAME,
+      code,
+      reason: "denied",
+    });
     expect(consoleError).not.toHaveBeenCalled();
     consoleWarn.mockRestore();
     consoleError.mockRestore();
