@@ -70,8 +70,9 @@ export async function getCmsNavigationEntryPaths({
     }
 
     return Array.from(paths);
-  } catch {
+  } catch (error) {
     // Best effort, like every other purge on this path: a failed lookup falls back to the TTL.
+    console.error("Navigation entry path lookup failed", error);
     return [];
   }
 }

@@ -106,7 +106,10 @@ async function convergeOnWinningCheckout({
   const winnerSubscription = winner?.stripeSubscriptionId
     ? await stripe.subscriptions.retrieve(winner.stripeSubscriptionId, {
       expand: ["latest_invoice.confirmation_secret"],
-    }).catch(() => null)
+    }).catch((error: unknown) => {
+      console.error("createSubscriptionAction: winning subscription retrieve failed", error);
+      return null;
+    })
     : null;
   const clientSecret = winnerSubscription ? readClientSecret(winnerSubscription) : null;
 

@@ -54,7 +54,8 @@ async function resolveWarmLocales(entry: CmsEntryRef): Promise<Locale[]> {
     );
 
     return served.length > 0 ? served : [DEFAULT_LOCALE];
-  } catch {
+  } catch (error) {
+    console.error("CMS warm-up: reading served locales failed", error);
     return [DEFAULT_LOCALE];
   }
 }
@@ -107,8 +108,9 @@ async function warmUrl(url: string): Promise<boolean> {
     await response.body?.cancel();
 
     return response.ok;
-  } catch {
+  } catch (error) {
     // Best effort: the first visitor pays the miss, exactly as before.
+    console.error("CMS warm-up: page fetch failed", error);
     return false;
   } finally {
     inFlightWarmUrls.delete(url);

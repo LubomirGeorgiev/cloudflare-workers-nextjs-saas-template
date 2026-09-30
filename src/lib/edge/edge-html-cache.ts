@@ -293,7 +293,9 @@ export function storeEdgeHtmlPage({
     statusText: response.statusText,
   });
 
-  ctx.waitUntil(cache.put(entry.key, copy).catch(() => undefined));
+  ctx.waitUntil(cache.put(entry.key, copy).catch((error: unknown) => {
+    console.error("Edge HTML cache write failed", error);
+  }));
 
   return response;
 }
@@ -337,7 +339,10 @@ export async function purgeEdgeHtmlPages({
       batchSize: PURGE_BATCH_SIZE,
       // Own `.catch` per key: this runs after the mutation committed, so one failed delete must not
       // fail the action or stop the other keys.
-      fn: (key) => cache.delete(key).catch(() => false),
+      fn: (key) => cache.delete(key).catch((error: unknown) => {
+        console.error("purgeEdgeHtmlPages: edge cache delete failed", error);
+        return false;
+      }),
     }),
     purgeEdgeHtmlPagesAcrossColos(Array.from(tags)),
   ]);
@@ -364,7 +369,8 @@ async function purgeEdgeHtmlPagesAcrossColos(tags: string[]): Promise<void> {
     if (config) {
       await purgeZoneCacheTags({ ...config, tags });
     }
-  } catch {
+  } catch (error) {
     // The TTL is the backstop.
+    console.error("purgeEdgeHtmlPagesAcrossColos: zone cache purge failed", error);
   }
 }

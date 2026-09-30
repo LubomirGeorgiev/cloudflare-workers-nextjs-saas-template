@@ -43,7 +43,8 @@ async function fetchIconifyJson<T>(path: string): Promise<T> {
     response = await fetch(`${getIconifyOrigin()}${path}`, {
       headers: { accept: "application/json" },
     });
-  } catch {
+  } catch (error) {
+    console.error("Iconify request failed", error);
     throw new ActionError("SERVICE_UNAVAILABLE", "The icon service could not be reached.");
   }
 
@@ -130,8 +131,9 @@ function buildIconSearchCacheKey(query: string): string {
 async function readCachedIconSearch(cacheKey: string): Promise<CmsIconSearchGroup[] | null> {
   try {
     return await workerEnv.KV_STORE.get<CmsIconSearchGroup[]>(cacheKey, "json") ?? null;
-  } catch {
+  } catch (error) {
     // A cache that cannot be read is a cold cache; the Iconify call below still answers.
+    console.error("readCachedIconSearch: KV read failed", error);
     return null;
   }
 }
@@ -144,8 +146,9 @@ async function writeCachedIconSearch(
     await workerEnv.KV_STORE.put(cacheKey, JSON.stringify(groups), {
       expirationTtl: CMS_ICON_SEARCH_CACHE_TTL_SECONDS,
     });
-  } catch {
+  } catch (error) {
     // Never fail a search the admin already has an answer for.
+    console.error("writeCachedIconSearch: KV write failed", error);
   }
 }
 

@@ -82,8 +82,9 @@ async function listPublicPagePathnames(): Promise<string[]> {
         pathnames.add(pathname);
       }
     }
-  } catch {
+  } catch (error) {
     // A partial purge is still correct; `EDGE_HTML_CACHE_TTL_SECONDS` bounds what it missed.
+    console.error("listPublicPagePathnames: collecting public pages failed", error);
   }
 
   return Array.from(pathnames);

@@ -165,7 +165,9 @@ export async function servePageMarkdown({
   ctx.waitUntil(
     env.KV_STORE.put(cacheKey, JSON.stringify({ body: markdown, cacheTag } satisfies CachedMarkdownPage), {
       expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS,
-    }).catch(() => undefined),
+    }).catch((error: unknown) => {
+      console.error("Markdown page cache write failed", error);
+    }),
   );
 
   return markdownResponse({ body: markdown, cacheTag, pathname: target.pathname, wantsDownload });
