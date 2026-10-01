@@ -42,12 +42,22 @@ export interface CmsIncludeRelations {
   tags?: boolean;
 }
 
-async function invalidateCacheTags(tags: string[]): Promise<void> {
-  await mapInBatches({
+// Returns the failures, so one failed tag does not stop the later batches.
+async function invalidateCacheTags(tags: string[]): Promise<unknown[]> {
+  const results = await mapInBatches({
     items: tags,
     batchSize: CACHE_TAG_INVALIDATION_BATCH_SIZE,
-    fn: (tag) => revalidateCacheTag(tag),
+    fn: async (tag) => {
+      try {
+        await revalidateCacheTag(tag);
+        return [];
+      } catch (error) {
+        return [error];
+      }
+    },
   });
+
+  return results.flat();
 }
 
 async function getAllCmsEntryRefs(): Promise<CmsEntryRef[]> {
@@ -76,7 +86,7 @@ export async function runCmsCacheInvalidation({
 }): Promise<void> {
   const uniqueTags = Array.from(new Set(tags));
 
-  await invalidateCacheTags(uniqueTags);
+  const tagFailures = await invalidateCacheTags(uniqueTags);
   // The memos hold reads of those tags, so they go before a page step can trigger a re-render.
   clearNavigationMemos();
 
@@ -86,6 +96,13 @@ export async function runCmsCacheInvalidation({
 
   // Awaited, so a warm after this call misses the edge.
   await purgeWorkersCacheAfterWrite({ tags: uniqueTags });
+
+  // The later steps still run for the tags that dropped. Throw now, so the caller sees the failure.
+  if (tagFailures.length > 0) {
+    throw tagFailures.length === 1
+      ? tagFailures[0]
+      : new AggregateError(tagFailures, `${tagFailures.length} CMS cache tag drops failed`);
+  }
 }
 
 /** What a navigation or search change of a collection drops, for an entry write and a navigation save. */

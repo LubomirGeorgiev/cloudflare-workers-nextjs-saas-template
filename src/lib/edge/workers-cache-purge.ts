@@ -59,7 +59,7 @@ async function tracePurge<TOutcome extends WorkersCachePurgeOutcome>({
   purge,
 }: {
   tags: readonly string[];
-  purge: (tags: string[]) => Promise<TOutcome>;
+  purge: (input: PurgeInput) => Promise<TOutcome>;
 }): Promise<TOutcome | WorkersCachePurgeRouteOutcome> {
   const uniqueTags = Array.from(new Set(tags.filter((tag) => tag.length > 0)));
   const purgeableTags = uniqueTags.filter((tag) => tag.length <= CACHE_TAG_MAX_LENGTH);
@@ -82,7 +82,7 @@ async function tracePurge<TOutcome extends WorkersCachePurgeOutcome>({
 
       let outcome: TOutcome | WorkersCachePurgeRouteOutcome;
       try {
-        outcome = await purge(purgeableTags);
+        outcome = await purge({ tags: purgeableTags, span });
       } catch (error) {
         // A failed purge leaves the entries to their TTL; it must never fail the write before it.
         console.error("Workers Caching purge failed", error);
@@ -101,34 +101,37 @@ export function isWorkersCachePurgeAvailable(): boolean {
   return typeof workersCache.purge === "function";
 }
 
-async function purgeOrDelegate(tags: string[]): Promise<WorkersCachePurgeOutcome> {
-  return isWorkersCachePurgeAvailable() ? runCachePurge(tags) : delegatePurge(tags);
+async function purgeOrDelegate(input: PurgeInput): Promise<WorkersCachePurgeOutcome> {
+  return isWorkersCachePurgeAvailable() ? runCachePurge(input) : delegatePurge(input);
 }
 
-async function purgeInRequestContext(tags: string[]): Promise<WorkersCachePurgeRouteOutcome> {
+async function purgeInRequestContext(input: PurgeInput): Promise<WorkersCachePurgeRouteOutcome> {
   return isWorkersCachePurgeAvailable()
-    ? runCachePurge(tags)
+    ? runCachePurge(input)
     : WORKERS_CACHE_PURGE_OUTCOME.SKIPPED_UNAVAILABLE;
 }
 
 // Only after `isWorkersCachePurgeAvailable` returned true.
-async function runCachePurge(tags: string[]): Promise<WorkersCachePurgeRouteOutcome> {
-  let failed = false;
+async function runCachePurge({ tags, span }: PurgeInput): Promise<WorkersCachePurgeRouteOutcome> {
+  const failed = await purgeEachChunk({
+    tags,
+    size: ZONE_PURGE_TAGS_PER_REQUEST,
+    span,
+    purgeChunk: async (tagChunk) => {
+      const result = await workersCache.purge({ tags: tagChunk });
 
-  // Sequential, because the tag list of a full CMS clear grows with the entry count.
-  for (const tagChunk of chunk({ items: tags, size: ZONE_PURGE_TAGS_PER_REQUEST })) {
-    const result = await workersCache.purge({ tags: tagChunk });
+      if (!result.success) {
+        console.error("Workers Caching purge refused", result.errors);
+      }
 
-    if (!result.success) {
-      failed = true;
-      console.error("Workers Caching purge refused", result.errors);
-    }
-  }
+      return result.success;
+    },
+  });
 
   return failed ? WORKERS_CACHE_PURGE_OUTCOME.FAILED : WORKERS_CACHE_PURGE_OUTCOME.OK;
 }
 
-async function delegatePurge(tags: string[]): Promise<WorkersCachePurgeOutcome> {
+async function delegatePurge({ tags, span }: PurgeInput): Promise<WorkersCachePurgeOutcome> {
   // Typed as always present, but a runtime without `ctx.exports` gives no loopback.
   const loopback: unknown = workerExports?.default;
 
@@ -139,28 +142,64 @@ async function delegatePurge(tags: string[]): Promise<WorkersCachePurgeOutcome> 
 
   // The main entrypoint, because Workers Caching purges only the cache of the calling entrypoint.
   const worker = workerExports.default({ props: WORKERS_CACHE_PURGE_PROPS });
+
+  const failed = await purgeEachChunk({
+    tags,
+    size: WORKERS_CACHE_PURGE_MAX_TAGS,
+    span,
+    purgeChunk: async (tagChunk) => {
+      const body: WorkersCachePurgeBody = { tags: tagChunk };
+      const response = await worker.fetch(new Request(`https://${SITE_DOMAIN}${WORKERS_CACHE_PURGE_PATH}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }));
+      const routeOutcome = await readRouteOutcome(response);
+
+      // A route outcome means the route span reports the purge result, so this span reports only
+      // the hand-off (docs/tracing.md, parent and child spans).
+      if (!routeOutcome) {
+        console.error("Workers Caching purge request failed", { status: response.status });
+      } else if (!response.ok) {
+        console.error("Workers Caching purge route did not purge", { outcome: routeOutcome });
+      }
+
+      return routeOutcome !== null;
+    },
+  });
+
+  return failed ? WORKERS_CACHE_PURGE_OUTCOME.FAILED : WORKERS_CACHE_PURGE_OUTCOME.DELEGATED;
+}
+
+/** Returns true when any chunk failed. `purgeChunk` returns false for a refused chunk. */
+async function purgeEachChunk({
+  tags,
+  size,
+  span,
+  purgeChunk,
+}: {
+  tags: string[];
+  size: number;
+  span: Span;
+  purgeChunk: (tagChunk: string[]) => Promise<boolean>;
+}): Promise<boolean> {
   let failed = false;
 
-  for (const tagChunk of chunk({ items: tags, size: WORKERS_CACHE_PURGE_MAX_TAGS })) {
-    const body: WorkersCachePurgeBody = { tags: tagChunk };
-    const response = await worker.fetch(new Request(`https://${SITE_DOMAIN}${WORKERS_CACHE_PURGE_PATH}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }));
-    const routeOutcome = await readRouteOutcome(response);
-
-    // A route outcome means the route span reports the purge result, so this span reports only
-    // the hand-off (docs/tracing.md, parent and child spans).
-    if (!routeOutcome) {
+  // Sequential, because the tag list of a full CMS clear grows with the entry count. A throw must
+  // not stop the loop, because each chunk that it skips stays cached until its edge copy expires.
+  for (const tagChunk of chunk({ items: tags, size })) {
+    try {
+      if (!(await purgeChunk(tagChunk))) {
+        failed = true;
+      }
+    } catch (error) {
       failed = true;
-      console.error("Workers Caching purge request failed", { status: response.status });
-    } else if (!response.ok) {
-      console.error("Workers Caching purge route did not purge", { outcome: routeOutcome });
+      console.error("Workers Caching purge chunk failed", error);
+      recordSpanException({ span, error });
     }
   }
 
-  return failed ? WORKERS_CACHE_PURGE_OUTCOME.FAILED : WORKERS_CACHE_PURGE_OUTCOME.DELEGATED;
+  return failed;
 }
 
 // `null` when the answer did not come from the route's purge step (props, body, or transport).
@@ -178,3 +217,8 @@ const ROUTE_OUTCOMES: readonly WorkersCachePurgeRouteOutcome[] = [
   WORKERS_CACHE_PURGE_OUTCOME.FAILED,
   WORKERS_CACHE_PURGE_OUTCOME.SKIPPED_UNAVAILABLE,
 ];
+
+interface PurgeInput {
+  tags: string[];
+  span: Span;
+}

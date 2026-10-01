@@ -481,12 +481,44 @@ describe("CMS cache invalidation", () => {
     expect(Math.max(entryMarkdownOrder, docsMarkdownOrder)).toBeLessThan(edgeOrder);
   });
 
-  test("a failed KV invalidation sends no Workers Caching purge", async () => {
+  test("a failed page purge sends no Workers Caching purge", async () => {
     purgeCmsEntryEdgeHtmlPagesMock.mockRejectedValueOnce(new Error("stored page purge failed"));
 
     await expect(
       invalidateEntryAndCollection({ collectionSlug: collectionSlugs[0], slug: "launch-notes" }),
     ).rejects.toThrow();
     expect(purgeWorkersCacheAfterWriteMock).not.toHaveBeenCalled();
+  });
+
+  // A failed tag drop must not leave the other tags, the stored pages, or the edge stale.
+  test("a failed KV tag drop still drops the other tags, purges the pages and the edge, then rejects", async () => {
+    const collectionSlug = collectionSlugs[0];
+    const entries = [{ collection: collectionSlug, slug: "launch-notes" }];
+    const failedTag = CACHE_TAGS.cmsEntry({ collectionSlug, slug: "launch-notes" });
+    const failure = new Error("KV tag drop failed");
+
+    revalidateCacheTagMock.mockImplementation(async (tag) => {
+      if (tag === failedTag) {
+        throw failure;
+      }
+    });
+
+    await expect(
+      invalidateEntryAndCollection({ collectionSlug, slug: "launch-notes", warm: true }),
+    ).rejects.toBe(failure);
+
+    const droppedTags = revalidateCacheTagMock.mock.calls.map(([tag]) => tag);
+
+    expect(droppedTags).toEqual(expect.arrayContaining([
+      failedTag,
+      CACHE_TAGS.cmsCollection(collectionSlug),
+      CACHE_TAGS.SITEMAP,
+      CACHE_TAGS.CMS_TAGS,
+    ]));
+    expect(purgeCmsEntryEdgeHtmlPagesMock).toHaveBeenCalledWith({ entries });
+    expect(purgeCmsEntryMarkdownPagesMock).toHaveBeenCalledWith({ entries });
+    expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledTimes(1);
+    expect(new Set(purgedTags())).toEqual(new Set(droppedTags));
+    expect(warmCmsEntryPagesMock).not.toHaveBeenCalled();
   });
 });

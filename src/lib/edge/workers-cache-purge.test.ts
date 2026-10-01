@@ -130,6 +130,21 @@ describe("purgeWorkersCacheTags in a request context", () => {
     expect(fakeSpan.recordException).toHaveBeenCalledTimes(1);
   });
 
+  // A full CMS clear can span many chunks; one throw must not leave the later ones cached.
+  test("a chunk that throws is logged and recorded, and the next chunk is still purged", async () => {
+    const purge = purgeAccepting();
+    purge.mockRejectedValueOnce(new Error("purge exploded"));
+    const tags = entryTags(ZONE_PURGE_TAGS_PER_REQUEST + 1);
+
+    await expect(purgeWorkersCacheTags({ tags })).resolves.toBeUndefined();
+
+    expect(purge).toHaveBeenCalledTimes(2);
+    expect(purge).toHaveBeenNthCalledWith(2, { tags: tags.slice(ZONE_PURGE_TAGS_PER_REQUEST) });
+    expect(console.error).toHaveBeenCalled();
+    expect(fakeSpan.recordException).toHaveBeenCalledTimes(1);
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
+  });
+
   // Cloudflare refuses a whole chunk for one bad tag, so the other tags must still go out.
   test("an over-long tag is dropped with a log, and the other tags are purged", async () => {
     const purge = purgeAccepting();
@@ -222,6 +237,20 @@ describe("purgeWorkersCacheTags without a request context", () => {
 
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
     expect(fakeSpan.recordException).toHaveBeenCalledTimes(1);
+  });
+
+  test("a chunk whose delegation throws is recorded, and the next chunk is still sent", async () => {
+    loopbackFetchMock.mockRejectedValueOnce(new Error("network down"));
+    const tags = entryTags(WORKERS_CACHE_PURGE_MAX_TAGS + 1);
+
+    await expect(purgeWorkersCacheTags({ tags })).resolves.toBeUndefined();
+
+    expect(loopbackFetchMock).toHaveBeenCalledTimes(2);
+    const [secondRequest] = loopbackFetchMock.mock.calls[1] ?? [];
+    expect(await secondRequest?.json()).toEqual({ tags: tags.slice(WORKERS_CACHE_PURGE_MAX_TAGS) });
+    expect(console.error).toHaveBeenCalled();
+    expect(fakeSpan.recordException).toHaveBeenCalledTimes(1);
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
   });
 
   test("without a loopback it skips with a log and sends nothing", async () => {

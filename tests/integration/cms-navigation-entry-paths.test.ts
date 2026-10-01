@@ -20,7 +20,7 @@ const TRANSLATION_LOCALE = LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 const ENTRY_COUNT = 95;
 // Small enough to stay under the D1 limit of 100 bound parameters per insert statement.
 const INSERT_BATCH_SIZE = 5;
-const AUTHOR_ID = "usr_nav_entry_paths_author";
+const AUTHOR_EMAIL = "nav-entry-paths-author@example.com";
 
 function slugAt(index: number): string {
   return `nav-path-entry-${index}`;
@@ -40,8 +40,8 @@ async function clearRows(): Promise<void> {
   ]);
 }
 
-async function seedDocsEntries(navigationKey: NonNullable<typeof NAVIGATION_KEY>): Promise<void> {
-  await db.insert(userTable).values({ id: AUTHOR_ID, email: `${AUTHOR_ID}@example.com` });
+async function seedDocsEntries(navigationKey: NonNullable<typeof NAVIGATION_KEY>): Promise<string> {
+  const [author] = await db.insert(userTable).values({ email: AUTHOR_EMAIL }).returning({ id: userTable.id });
 
   const indexes = Array.from({ length: ENTRY_COUNT }, (_, index) => index);
 
@@ -55,7 +55,7 @@ async function seedDocsEntries(navigationKey: NonNullable<typeof NAVIGATION_KEY>
         slug: slugAt(index),
         locale: DEFAULT_LOCALE,
         status: CMS_ENTRY_STATUS.PUBLISHED,
-        createdBy: AUTHOR_ID,
+        createdBy: author.id,
       })))
       .returning({ id: cmsEntryTable.id, slug: cmsEntryTable.slug });
 
@@ -69,12 +69,16 @@ async function seedDocsEntries(navigationKey: NonNullable<typeof NAVIGATION_KEY>
       sortOrder: indexes.findIndex((index) => slugAt(index) === entry.slug),
     })));
   }
+
+  return author.id;
 }
 
 describe.skipIf(!NAVIGATION_KEY)("getCmsNavigationEntryPaths against D1", () => {
+  let authorId: string;
+
   beforeEach(async () => {
     await clearRows();
-    await seedDocsEntries(NAVIGATION_KEY ?? DOCS_SLUG);
+    authorId = await seedDocsEntries(NAVIGATION_KEY ?? DOCS_SLUG);
   });
 
   it("resolves every path when the slugs span more than one lookup chunk", async () => {
@@ -100,7 +104,7 @@ describe.skipIf(!NAVIGATION_KEY)("getCmsNavigationEntryPaths against D1", () => 
       slug: slugAt(index),
       locale: TRANSLATION_LOCALE ?? DEFAULT_LOCALE,
       status: CMS_ENTRY_STATUS.PUBLISHED,
-      createdBy: AUTHOR_ID,
+      createdBy: authorId,
     });
 
     const paths = await getCmsNavigationEntryPaths({
