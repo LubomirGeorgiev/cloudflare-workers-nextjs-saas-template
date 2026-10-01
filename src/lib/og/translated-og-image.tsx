@@ -32,12 +32,14 @@ export async function renderTranslatedOgImage({
   namespace,
   eyebrow,
   meta,
+  cacheTags,
 }: {
   locale: Locale
   // Namespace holding the page's own meta copy, e.g. "Legal.Privacy.meta".
   namespace: MetaNamespace
   eyebrow?: OgEyebrowKey
   meta?: string
+  cacheTags?: readonly string[]
 }): Promise<ImageResponse> {
   const [t, tEyebrow] = await Promise.all([
     getTranslator({ locale, namespace }),
@@ -49,6 +51,7 @@ export async function renderTranslatedOgImage({
     description: t("description"),
     eyebrow: tEyebrow && eyebrow ? tEyebrow(eyebrow) : undefined,
     meta,
+    cacheTags,
   })
 }
 
@@ -64,6 +67,7 @@ export async function renderOgImageWithLocalizedEyebrow({
   title: string
   description?: string
   meta?: string
+  cacheTags?: readonly string[]
 }): Promise<ImageResponse> {
   const tEyebrow = await getTranslator({ locale, namespace: "OgImage" })
 

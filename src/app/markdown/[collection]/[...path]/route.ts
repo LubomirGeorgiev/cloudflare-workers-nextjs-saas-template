@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 import { cmsConfig, isCollectionSlug, type CollectionsUnion } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { CMS_MARKDOWN_CACHE_CONTROL } from "@/constants/cache-control";
+import { formatCacheTagHeader } from "@/constants/cache-tags";
 import { buildCmsEntryMarkdown } from "@/lib/cms/build-cms-entry-markdown-response";
+import { DOCS_NAVIGATION_CACHE_TAGS } from "@/lib/cms/cms-section-cache-tags";
 import {
   getCmsNavigationNodeByResolvedPath,
   getCmsNavigationRedirectByPath,
@@ -35,11 +37,6 @@ type DocsPathResolution =
 
 /** `no-navigation` is the one docs answer that leaves the bare entry slug worth trying. */
 type DocsNavigationResolution = DocsPathResolution | { type: "no-navigation" };
-
-const DOCS_RESOLUTION_CACHE_TAGS = [
-  CACHE_TAGS.cmsNavigation(DOCS_SLUG),
-  CACHE_TAGS.cmsRedirect(DOCS_SLUG),
-];
 
 function entryCacheTags({
   collectionSlug,
@@ -93,7 +90,7 @@ function renderedEntryResponse({
 }): Response {
   const headers: Record<string, string> = {
     "cache-control": CMS_MARKDOWN_CACHE_CONTROL,
-    "cache-tag": cacheTags.join(","),
+    "cache-tag": formatCacheTagHeader(cacheTags),
     "content-type": "text/markdown; charset=utf-8",
   };
 
@@ -161,7 +158,7 @@ async function handleMarkdownRouteRequest({
   // tags stay even on a `no-navigation` fall-through: the resolver declared them before it gave up.
   const cacheTags = [
     ...entryCacheTags({ collectionSlug, slug: resolution.slug }),
-    ...(collectionSlug === DOCS_SLUG ? DOCS_RESOLUTION_CACHE_TAGS : []),
+    ...(collectionSlug === DOCS_SLUG ? DOCS_NAVIGATION_CACHE_TAGS : []),
   ];
 
   return renderedEntryResponse({ cacheTags, entry, wantsDownload });
@@ -208,7 +205,7 @@ async function resolveCachedDocsMarkdownPath({
 }): Promise<DocsNavigationResolution> {
   "use cache: remote";
   setCacheScope({
-    tags: DOCS_RESOLUTION_CACHE_TAGS,
+    tags: DOCS_NAVIGATION_CACHE_TAGS,
     ttl: "8 hours",
   });
 

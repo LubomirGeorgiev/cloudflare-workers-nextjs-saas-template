@@ -11,24 +11,14 @@ vi.mock("@/db", () => ({
 
 const { getCmsNavigationEntryPaths } = await import("./cms-navigation-entry-paths");
 
-function mockDb({
-  entryRows,
-  navigationRows,
-}: {
-  entryRows: { id: string }[];
-  navigationRows: { resolvedPath: string | null }[];
-}) {
-  const findEntries = vi.fn(async () => entryRows);
-  const findNavigationItems = vi.fn(async () => navigationRows);
+// The real join runs against D1 in `tests/integration/cms-navigation-entry-paths.test.ts`.
+function mockDb(navigationRows: { resolvedPath: string | null }[]) {
+  const where = vi.fn(async () => navigationRows);
+  const query = { from: () => query, innerJoin: () => query, where };
 
-  getDBMock.mockReturnValue({
-    query: {
-      cmsEntryTable: { findMany: findEntries },
-      cmsNavigationItemTable: { findMany: findNavigationItems },
-    },
-  });
+  getDBMock.mockReturnValue({ select: () => query });
 
-  return { findEntries, findNavigationItems };
+  return { where };
 }
 
 describe("getCmsNavigationEntryPaths", () => {
@@ -37,25 +27,18 @@ describe("getCmsNavigationEntryPaths", () => {
   });
 
   test("resolves the public path of a docs entry from its navigation item", async () => {
-    const { findNavigationItems } = mockDb({
-      entryRows: [{ id: "cms_ent_1" }, { id: "cms_ent_2" }],
-      navigationRows: [{ resolvedPath: "/docs/guides/getting-started" }],
-    });
+    const { where } = mockDb([{ resolvedPath: "/docs/guides/getting-started" }]);
 
     const paths = await getCmsNavigationEntryPaths({
       entries: [{ collection: "docs", slug: "getting-started" }],
     });
 
     expect(paths).toEqual(["/docs/guides/getting-started"]);
-    // Every locale row of the slug, so an edited translation resolves the anchor's path too.
-    expect(findNavigationItems).toHaveBeenCalledWith({
-      where: { navigationKey: "docs", entryId: { in: ["cms_ent_1", "cms_ent_2"] } },
-      columns: { resolvedPath: true },
-    });
+    expect(where).toHaveBeenCalledTimes(1);
   });
 
   test("reads nothing for a collection whose URL comes from previewUrl", async () => {
-    mockDb({ entryRows: [{ id: "cms_ent_1" }], navigationRows: [] });
+    mockDb([]);
 
     const paths = await getCmsNavigationEntryPaths({
       entries: [{ collection: "blog", slug: "launch" }],
@@ -66,7 +49,7 @@ describe("getCmsNavigationEntryPaths", () => {
   });
 
   test("skips a navigation item that has no resolved path", async () => {
-    mockDb({ entryRows: [{ id: "cms_ent_1" }], navigationRows: [{ resolvedPath: null }] });
+    mockDb([{ resolvedPath: null }]);
 
     await expect(
       getCmsNavigationEntryPaths({ entries: [{ collection: "docs", slug: "orphan" }] }),

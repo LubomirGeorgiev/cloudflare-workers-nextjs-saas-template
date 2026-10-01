@@ -24,7 +24,8 @@ import {
   CMS_STATUS_FILTER_ALL,
   type CmsStatusFilter,
 } from "@/types/cms";
-import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
+import { CMS_TAGS_CACHE_TAGS } from "@/lib/cms/cms-section-cache-tags";
+import { setCacheScope } from "@/utils/cache";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
 
@@ -33,7 +34,7 @@ import { v } from "@/lib/validation";
 export async function getCmsTags(params?: GetCmsTagsParams) {
   "use cache: remote";
   setCacheScope({
-    tags: [CACHE_TAGS.CMS_TAGS],
+    tags: CMS_TAGS_CACHE_TAGS,
     ttl: "8 hours",
   });
 

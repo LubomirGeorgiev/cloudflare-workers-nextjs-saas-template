@@ -31,6 +31,7 @@ import {
   MARKDOWN_PAGE_CACHE_CONTROL,
   STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
 } from "@/constants/cache-control";
+import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { I18N_ENABLED } from "@/constants";
 import {
@@ -63,6 +64,7 @@ const innerFetchMock = vi.hoisted(() => vi.fn());
 // The Vite `define` that injects this is not applied under the test config, so the test supplies
 // the value the way `src/lib/scheduler/admin.test.ts` supplies the scheduler queue name.
 const MARKDOWN_BUILD_ID = "test-build-id";
+// No page render sets one today; the fixture sends it so the test proves the twin never copies it.
 const SOURCE_CACHE_TAG = "static-terms,_N_T_/terms";
 
 vi.mock("vinext/server/fetch-handler", () => ({
@@ -369,7 +371,8 @@ describe("worker edge integration", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    // A static page holds no CMS data, so its twin carries no tag: only a deploy changes it.
+    expect(response.headers.get("cache-tag")).toBeNull();
     expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
     // Our own TTL, not the page's: the rendered page above advertises a different CDN max-age.
     expect(response.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
@@ -387,9 +390,28 @@ describe("worker edge integration", () => {
       env,
       createExecutionContext(),
     );
-    expect(cachedResponse.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    expect(cachedResponse.headers.get("cache-tag")).toBeNull();
     await expect(cachedResponse.text()).resolves.toContain("Page body");
     expect(innerFetchMock).toHaveBeenCalledOnce();
+  });
+
+  // The edge stores the twin, so a CMS publish reaches it only through a tag the Worker derives.
+  test("tags a blog listing twin with the blog collection", async () => {
+    const cacheKey = `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:/blog`;
+    await env.KV_STORE.delete(cacheKey);
+    innerFetchMock.mockImplementationOnce(async () => new Response(
+      `<html><head><title>Blog - ${SITE_NAME}</title></head><body><main><h1>Blog</h1><p>Posts</p></main></body></html>`,
+      { headers: { "content-type": "text/html; charset=utf-8" } },
+    ));
+
+    const ctx = createExecutionContext();
+    const response = await worker.fetch(new Request("https://example.com/blog.md"), env, ctx);
+    await waitOnExecutionContext(ctx);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-tag")).toBe(
+      formatCacheTagHeader([CACHE_TAGS.cmsCollection("blog")]),
+    );
   });
 
   // A `.md` URL promises Markdown. A page the converter cannot frame still rendered, so it is

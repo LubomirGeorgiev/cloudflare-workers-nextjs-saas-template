@@ -32,7 +32,7 @@ vi.mock("@/lib/cms/media-tracking", () => ({
 }));
 
 vi.mock("@/lib/cms/cms-search", () => ({
-  invalidateCmsSearchCache: vi.fn(async () => undefined),
+  getCmsSearchCacheTags: () => [],
   isCollectionSearchEnabled: () => false,
   syncCmsEntrySearch: syncCmsEntrySearchMock,
 }));
@@ -45,6 +45,7 @@ vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
 
 vi.mock("@/lib/cms/cms-entry-page-purge", () => ({
   purgeCmsEntryEdgeHtmlPages: purgeCmsEntryEdgeHtmlPagesMock,
+  purgeCmsEntryMarkdownPages: async () => undefined,
 }));
 
 vi.mock("@/lib/cms/warm-cms-pages", () => ({

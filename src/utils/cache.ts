@@ -9,7 +9,7 @@ export { CACHE_TAGS } from "@/constants/cache-tags";
 
 interface CacheScopeOptions {
   ttl: ms.StringValue; // e.g., "1h", "5m", "1d"
-  tags?: string[];
+  tags?: readonly string[];
 }
 
 export function setCacheScope({ ttl, tags }: CacheScopeOptions): void {

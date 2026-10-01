@@ -281,3 +281,12 @@ export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100, 300, 500]
 
 // Cloudflare takes at most 100 purge operations per zone purge request, on every plan.
 export const ZONE_PURGE_TAGS_PER_REQUEST = 100;
+
+// The internal route a queue or cron publish calls over the `ctx.exports` loopback to run
+// `cache.purge`, which exists only inside a request. See `worker-entrypoint.ts`.
+export const WORKERS_CACHE_PURGE_PATH = "/_worker/cache-purge";
+// The most tags one request to that route carries.
+export const WORKERS_CACHE_PURGE_MAX_TAGS = 1000;
+// Vinext's KV data cache ignores a longer tag (`MAX_TAG_LENGTH` in `@vinext/cloudflare`), so the
+// tag builder, the purge route, and the purge use this one bound. Cloudflare allows 1,024.
+export const CACHE_TAG_MAX_LENGTH = 256;

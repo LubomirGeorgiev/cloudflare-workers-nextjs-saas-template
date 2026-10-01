@@ -3,7 +3,7 @@ import "server-only";
 import { BLOG_POSTS_PER_PAGE, SITE_URL } from "@/constants";
 import type { Locale } from "@/i18n/config";
 import { getTranslator } from "@/i18n/translator";
-import { getBlogCollectionPagePath, getBlogPagePath } from "@/lib/blog-routing";
+import { CMS_TAGS_PAGE_PATH, getBlogCollectionPagePath, getBlogPagePath } from "@/lib/blog-routing";
 import {
   getAuthorDisplayName,
   getAuthorRouteParam,
@@ -23,7 +23,6 @@ import {
 
 const BLOG_PATHNAME = "/blog";
 const BLOG_AUTHORS_PATHNAME = "/blog/authors";
-const BLOG_TAGS_PATHNAME = "/blog/tags";
 
 /** The author fields a graph needs. A CMS `createdByUser` row satisfies it as it stands. */
 interface BlogAuthorInput extends AuthorUrlIdentity {
@@ -53,7 +52,7 @@ function postPathname(slug: string): string {
 }
 
 function tagPathname(slug: string): string {
-  return `${BLOG_TAGS_PATHNAME}/${slug}`;
+  return `${CMS_TAGS_PAGE_PATH}/${slug}`;
 }
 
 function authorPathname(routeParam: string): string {
@@ -416,7 +415,7 @@ export async function buildBlogTagGraph({
     pageTypes: ["CollectionPage"],
     trail: [
       { pathname: BLOG_PATHNAME, name: labels.blog },
-      { pathname: BLOG_TAGS_PATHNAME, name: labels.tags },
+      { pathname: CMS_TAGS_PAGE_PATH, name: labels.tags },
     ],
     // The tag itself is what the page is about; the post list is what it collects.
     about: { "@id": term.id },
@@ -453,7 +452,7 @@ export async function buildBlogTagsGraph({
 
   return buildPageGraph({
     locale,
-    pathname: BLOG_TAGS_PATHNAME,
+    pathname: CMS_TAGS_PAGE_PATH,
     name: t("title"),
     description: t("description"),
     pageTypes: ["CollectionPage"],

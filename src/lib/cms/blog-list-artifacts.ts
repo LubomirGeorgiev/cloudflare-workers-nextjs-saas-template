@@ -8,7 +8,11 @@ import { BLOG_BASE_PATH } from "@/lib/blog-routing";
 import { getBlogFacetPageCounts } from "@/lib/cms/blog-facet-pages";
 import { getCmsCollection, type CmsCollectionListItem } from "@/lib/cms/entry";
 import { getCmsTags } from "@/lib/cms/tags";
-import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
+import {
+  BLOG_COLLECTION_CACHE_TAGS,
+  BLOG_TAG_PAGE_CACHE_TAGS,
+} from "@/lib/cms/cms-section-cache-tags";
+import { setCacheScope } from "@/utils/cache";
 
 type BlogAuthor = NonNullable<CmsCollectionListItem["createdByUser"]>;
 type BlogTag = Awaited<ReturnType<typeof getCmsTags>>[number];
@@ -31,7 +35,7 @@ interface BlogFacetPage<TFacet extends BlogFacet> {
 
 async function loadBlogAuthors(locale: Locale) {
   "use cache: remote";
-  setCacheScope({ tags: [CACHE_TAGS.cmsCollection("blog")], ttl: "8 hours" });
+  setCacheScope({ tags: BLOG_COLLECTION_CACHE_TAGS, ttl: "8 hours" });
   const entries = await getCmsCollection({
     collectionSlug: "blog",
     includeRelations: { createdByUser: true },
@@ -65,9 +69,7 @@ async function loadBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
   "use cache: remote";
   setCacheScope({
     // The tag facet resolves its slug through the tag list, so it also drops when a tag changes.
-    tags: facet.type === "tag"
-      ? [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS]
-      : [CACHE_TAGS.cmsCollection("blog")],
+    tags: facet.type === "tag" ? BLOG_TAG_PAGE_CACHE_TAGS : BLOG_COLLECTION_CACHE_TAGS,
     ttl: "8 hours",
   });
 
@@ -104,7 +106,7 @@ async function loadBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
 async function loadBlogPageCountsByPath(locale: Locale): Promise<Record<string, number>> {
   "use cache: remote";
   // Facet paths carry the tag slug, so a tag change moves them the same way it moves a facet page.
-  setCacheScope({ tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: "8 hours" });
+  setCacheScope({ tags: BLOG_TAG_PAGE_CACHE_TAGS, ttl: "8 hours" });
 
   const entries = await getBlogEntries(locale);
 

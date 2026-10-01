@@ -9,7 +9,6 @@ const {
   getCloudflareContextMock,
   getDBMock,
   invalidateEntryAndCollectionMock,
-  purgeCmsEntryMarkdownPagesMock,
   scheduleJobMock,
   syncCmsEntrySearchMock,
 } = vi.hoisted(() => ({
@@ -17,7 +16,6 @@ const {
   getCloudflareContextMock: vi.fn(),
   getDBMock: vi.fn(),
   invalidateEntryAndCollectionMock: vi.fn(),
-  purgeCmsEntryMarkdownPagesMock: vi.fn(),
   scheduleJobMock: vi.fn(),
   syncCmsEntrySearchMock: vi.fn(),
 }));
@@ -44,11 +42,6 @@ vi.mock("@/lib/cms/cms-cache-invalidation", () => ({
 
 vi.mock("@/lib/cms/cms-search", () => ({
   syncCmsEntrySearch: syncCmsEntrySearchMock,
-}));
-
-// The KV sweep needs a Worker binding; `cms-entry-page-purge.test.ts` covers the paths it derives.
-vi.mock("@/lib/cms/cms-entry-page-purge", () => ({
-  purgeCmsEntryMarkdownPages: purgeCmsEntryMarkdownPagesMock,
 }));
 
 const {
@@ -245,9 +238,6 @@ describe("CMS entry publishing", () => {
       collectionSlug: COLLECTION,
       slug: DRAFT_ENTRY.slug,
       warm: true,
-    });
-    expect(purgeCmsEntryMarkdownPagesMock).toHaveBeenCalledWith({
-      entries: [{ collection: COLLECTION, slug: DRAFT_ENTRY.slug }],
     });
   });
 

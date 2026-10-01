@@ -7,15 +7,16 @@ import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-
 import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { ActionError } from "@/lib/action-error";
 import { getCachePurgeConfig, purgeZoneCacheEverything } from "@/lib/cloudflare-api";
-import { invalidateAllCmsCaches } from "@/lib/cms/cms-cache-invalidation";
+import { invalidateAllCmsCaches, runCmsCacheInvalidation } from "@/lib/cms/cms-cache-invalidation";
 import { DOCS_EDGE_HTML_PATHNAMES } from "@/lib/cms/cms-navigation-page-purge";
 import {
+  getCmsSearchCacheTags,
   getSearchableCollections,
-  invalidateCmsSearchCache,
   isCollectionSearchEnabled,
   rebuildCmsSearchIndex,
 } from "@/lib/cms/cms-search";
 import { purgeEdgeHtmlPages } from "@/lib/edge/edge-html-cache";
+import { isWorkersCachePurgeAvailable } from "@/lib/edge/workers-cache-purge";
 import type { SystemAction } from "@/schemas/system-action.schema";
 
 // One code path behind the admin panel, the internal REST API, and the internal MCP tools.
@@ -156,6 +157,13 @@ export async function purgeEdgeHtmlCache(): Promise<AdminPurgeCountResult> {
 }
 
 export async function purgeWorkersCdnCache(): Promise<AdminSystemActionResult> {
+  if (!isWorkersCachePurgeAvailable()) {
+    throw new ActionError(
+      "PRECONDITION_FAILED",
+      "The Workers CDN purge is not available: the runtime offers no cache.purge here",
+    );
+  }
+
   const result = await workersCache.purge({ purgeEverything: true });
 
   if (!result.success) {
@@ -233,7 +241,7 @@ export async function rebuildSearchIndexes(
   }
 
   await Promise.all(collections.map((entry) => rebuildCmsSearchIndex(entry)));
-  await invalidateCmsSearchCache(collection);
+  await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
 
   return {
     message: collection
@@ -249,7 +257,7 @@ export async function clearSearchCache(
     throw new ActionError("BAD_REQUEST", "Search is not enabled for this collection");
   }
 
-  await invalidateCmsSearchCache(collection);
+  await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
 
   return {
     message: collection

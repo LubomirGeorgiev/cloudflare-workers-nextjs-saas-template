@@ -22,18 +22,17 @@ let pendingPurge: Promise<void> | null = null;
 
 async function runPurge(): Promise<void> {
   try {
-    await Promise.all([
-      purgeMarkdownPageCache({ pathnames: DOCS_ROUTE_PAGE_PATHNAMES }),
-      purgeEdgeHtmlPages({ pathnames: DOCS_EDGE_HTML_PATHNAMES }),
-    ]);
+    // Stored HTML first: a `.md` miss converts the stored page and writes the result back to KV.
+    await purgeEdgeHtmlPages({ pathnames: DOCS_EDGE_HTML_PATHNAMES });
+    await purgeMarkdownPageCache({ pathnames: DOCS_ROUTE_PAGE_PATHNAMES });
   } finally {
     pendingPurge = null;
   }
 }
 
-// The one purge hook for a docs navigation change. Each docs app-route page bakes the CMS sidebar
-// into its converted `.md`, and `revalidatePath` reaches only the App Router copy. Usable from the
-// queue consumer too, which has no App Router request scope. Never throws.
+// The page step of a docs navigation change in `runCmsCacheInvalidation`. Each docs app-route page
+// bakes the CMS sidebar into its converted `.md`, and `revalidatePath` reaches only the App Router
+// copy. Usable from the queue consumer too, which has no App Router request scope. Never throws.
 export async function purgeDocsNavigationMarkdownPages(): Promise<void> {
   pendingPurge ??= runPurge();
 

@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import {
   buildCmsHtmlArtifacts,
   keepRendererBuildIdInCacheKey,
@@ -11,10 +12,9 @@ import {
 import { cmsRendererBuildId } from "@/lib/cms/cms-renderer-build-id";
 import { getCmsEntryBySlug, type GetCmsCollectionResult } from "@/lib/cms/entry";
 import { generateMetaDescription } from "@/lib/cms/extract-text-from-content";
-import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
+import { blogEntryCacheTags } from "@/lib/cms/cms-section-cache-tags";
+import { setCacheScope } from "@/utils/cache";
 import type { Locale } from "@/i18n/config";
-
-const BLOG_COLLECTION_SLUG = "blog" as const;
 
 // The blog post page and its metadata read exactly these fields. The TipTap `content`
 // and `fields` JSON stay out, so the cached HTML entry does not carry the body twice.
@@ -79,9 +79,7 @@ async function loadCachedBlogEntryArtifacts({
   "use cache: remote";
   keepRendererBuildIdInCacheKey(rendererBuildId);
   setCacheScope({
-    tags: [
-      CACHE_TAGS.cmsEntry({ collectionSlug: BLOG_COLLECTION_SLUG, slug }),
-    ],
+    tags: blogEntryCacheTags(slug),
     ttl: "8 hours",
   });
 

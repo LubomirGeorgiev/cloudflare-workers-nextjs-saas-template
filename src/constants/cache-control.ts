@@ -48,7 +48,8 @@ export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
 
 // The API catalog and the OpenAPI document are prebuilt bytes that change only on deploy, and the
 // edge fast path returns them before the metadata policy above can reach them, so each producer
-// stamps this itself. No purge follows a deploy, so the TTL is the drift window: keep it an hour.
+// stamps this itself. Workers Caching partitions by Worker version, so each deploy starts cold and
+// no purge is needed.
 export const STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 

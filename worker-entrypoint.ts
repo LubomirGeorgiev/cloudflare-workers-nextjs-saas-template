@@ -26,6 +26,7 @@ import {
   OAUTH_PROTECTED_RESOURCE_PATH,
   OAUTH_REGISTER_PATH,
   OAUTH_TOKEN_PATH,
+  WORKERS_CACHE_PURGE_PATH,
 } from "./src/constants";
 import {
   EDGE_CACHED_METADATA_ROUTE_TAGS,
@@ -38,6 +39,7 @@ import { stripLocalePrefix } from "./src/i18n/locale-prefix";
 import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
 import { mayBeStoredHtmlPage } from "./src/lib/edge/edge-html-cache-prefilter";
+import { isWorkersCachePurgeLoopback } from "./src/lib/edge/workers-cache-purge-props";
 import { isCmsImageSource } from "./src/utils/cms-image-source";
 import { oauthCoreOptions } from "./src/lib/oauth/provider-config";
 import type { ScheduledQueueMessage } from "./src/lib/scheduler/jobs";
@@ -522,13 +524,23 @@ function stampEdgeHtmlCacheStatus({
 }
 
 async function handleEarlyEdgeRequest({
-  method,
+  request,
+  props,
   url,
 }: {
-  method: string;
+  request: Request;
+  props: unknown;
   url: URL;
 }): Promise<Response | null> {
+  const { method } = request;
   const { origin, pathname } = url;
+
+  // Only the loopback from a queue or cron publish carries the props; a public request falls
+  // through to the app's not-found answer, so nothing shows that the route exists.
+  if (pathname === WORKERS_CACHE_PURGE_PATH && isWorkersCachePurgeLoopback(props)) {
+    return (await import("./src/lib/edge/workers-cache-purge-endpoint"))
+      .handleWorkersCachePurgeRequest({ request });
+  }
 
   const customResponse = handleCustomEdge(pathname) ?? collapseDisabledLocalePrefix(url);
   if (customResponse) {
@@ -700,7 +712,7 @@ async function handleFetch({
   const url = new URL(request.url);
   const { pathname } = url;
 
-  const earlyResponse = await handleEarlyEdgeRequest({ method: request.method, url });
+  const earlyResponse = await handleEarlyEdgeRequest({ request, props: ctx.props, url });
   if (earlyResponse) {
     span.setAttribute(ROUTE_KIND_ATTRIBUTE, ROUTE_KIND.EDGE);
 
@@ -746,8 +758,27 @@ async function handleFetch({
   // validation for `apiHandlers`; everything else falls through to the Next app.
   const response = await fetchAppRequest({ request: forwarded, url, env, ctx });
 
+  return finishAppResponse({ request: forwarded, url, ctx, response, edgeHtmlPage });
+}
+
+// The app answer's post-processing: API refusals, the DCR mirror, discovery links, and the store.
+async function finishAppResponse({
+  request,
+  url,
+  ctx,
+  response,
+  edgeHtmlPage,
+}: {
+  request: Request;
+  url: URL;
+  ctx: ExecutionContext;
+  response: Response;
+  edgeHtmlPage: Exclude<EdgeHtmlPageLookup, { kind: "hit" }>;
+}): Promise<Response> {
+  const { pathname } = url;
+
   if (response.status === 401 && isProviderApiPath(pathname)) {
-    return handleApiRefusal({ origin: url.origin, pathname, request: forwarded, response });
+    return handleApiRefusal({ origin: url.origin, pathname, request, response });
   }
 
   if (request.method === "POST" && response.status === 201 && pathname === OAUTH_REGISTER_PATH) {

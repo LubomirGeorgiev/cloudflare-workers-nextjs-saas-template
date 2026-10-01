@@ -9,7 +9,6 @@ import {
   getKnownCmsCollectionSlug,
   invalidateEntryAndCollection,
 } from "@/lib/cms/cms-cache-invalidation";
-import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import { recordCmsEntryVersion } from "@/lib/cms/entry/version-history";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
@@ -55,11 +54,10 @@ export async function syncCmsPublishSchedule(
 
 /**
  * Everything that must follow a row going to `published` from outside an App Router request scope:
- * reindex it, drop the cached collection and entry reads, and purge the `.md` twin.
+ * reindex it, then let `invalidateEntryAndCollection` drop the cached reads and the `.md` twins.
  *
- * Shared by the timer path and the internal admin API, which has no request scope either —
- * `revalidateCmsEntryPaths` is out of reach for both, and without the KV delete a publish keeps
- * serving the pre-publish Markdown.
+ * Shared by the timer path and the internal admin API, which has no request scope either, so
+ * `revalidateCmsEntryPaths` is out of reach for both.
  */
 export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
   await syncCmsEntrySearch({
@@ -74,10 +72,6 @@ export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
   const collectionSlug = getKnownCmsCollectionSlug(entry.collection);
 
   await invalidateEntryAndCollection({ collectionSlug, slug: entry.slug, warm: true });
-
-  await purgeCmsEntryMarkdownPages({
-    entries: [{ collection: collectionSlug, slug: entry.slug }],
-  });
 }
 
 /**

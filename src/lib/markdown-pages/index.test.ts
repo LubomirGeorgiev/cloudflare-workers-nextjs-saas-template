@@ -5,6 +5,7 @@ import {
   MARKDOWN_PAGE_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_TTL_SECONDS,
 } from "@/constants/cache-control";
+import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
@@ -183,8 +184,9 @@ describe("handleMarkdownRequest", () => {
 
     expect(first?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
     expect(second?.headers.get("cache-control")).toBe(MARKDOWN_PAGE_CACHE_CONTROL);
-    expect(first?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
-    expect(second?.headers.get("cache-tag")).toBe(SOURCE_CACHE_TAG);
+    // A static page holds no CMS data, so it carries no tag, whatever the render sent.
+    expect(first?.headers.get("cache-tag")).toBeNull();
+    expect(second?.headers.get("cache-tag")).toBeNull();
     expect(first?.headers.get("link")).toBe(LLMS_DESCRIBED_BY_LINK);
     expect(second?.headers.get("link")).toBe(LLMS_DESCRIBED_BY_LINK);
     await expect(first?.text()).resolves.toContain(
@@ -193,9 +195,40 @@ describe("handleMarkdownRequest", () => {
     expect(render).toHaveBeenCalledOnce();
     expect(kv.put).toHaveBeenCalledWith(
       `${MARKDOWN_PAGE_CACHE_PREFIX}${MARKDOWN_BUILD_ID}:${PAGE_PATHNAME}`,
-      expect.stringContaining(`"cacheTag":"${SOURCE_CACHE_TAG}"`),
+      expect.not.stringContaining("cacheTag"),
       { expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS },
     );
+  });
+
+  // No page render sets a tag, so the twin derives its tags from the pathname, on a hit as well.
+  test("tags a blog listing twin with the blog collection on a miss and a hit", async () => {
+    const kv = createKvMock();
+    const render = vi.fn(async () => new Response(
+      `<html><head><title>Blog - ${SITE_NAME}</title></head><body><main><h1>Blog</h1><p>Body</p></main></body></html>`,
+      { headers: { "content-type": "text/html; charset=utf-8" } },
+    ));
+    const pending: Array<Promise<unknown>> = [];
+    const params = {
+      request: new Request(
+        `https://example.com${buildMarkdownPagePath({ pathname: BLOG_LISTING_PATHNAME })}`,
+      ),
+      env: { KV_STORE: kv } as unknown as Env,
+      ctx: {
+        waitUntil: (promise: Promise<unknown>) => {
+          pending.push(promise);
+        },
+      } as unknown as ExecutionContext,
+      render,
+    };
+
+    const first = await handleMarkdownRequest(params);
+    await Promise.all(pending);
+    const second = await handleMarkdownRequest(params);
+    const expectedTag = formatCacheTagHeader([CACHE_TAGS.cmsCollection("blog")]);
+
+    expect(first?.headers.get("cache-tag")).toBe(expectedTag);
+    expect(second?.headers.get("cache-tag")).toBe(expectedTag);
+    expect(render).toHaveBeenCalledOnce();
   });
 
   // The page Markdown cache key is pathname-only, so the render must not be able to vary by a
