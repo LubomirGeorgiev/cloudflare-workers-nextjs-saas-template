@@ -54,7 +54,9 @@ export default async function AuthorizePage({
   let consent;
   try {
     consent = await resolveConsentRequest({ authQuery: authQuery.toString(), isAdmin });
-  } catch {
+  } catch (error) {
+    // `warn`: an unknown client or an unregistered redirect URI is the caller's error, not a fault.
+    console.warn("OAuth authorize: consent request rejected", error);
     // Answered on this page, never bounced back to the caller: see `InvalidAuthorizationRequest`
     // below for why, and for why the admin hint stays behind the role check.
     const askedForAdminScopes =

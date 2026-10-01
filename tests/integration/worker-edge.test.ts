@@ -897,4 +897,25 @@ describe("edge HTML page cache", () => {
       expect(edgeCacheStatus(await fetchPage(alternatePath))).toBe(EDGE_HTML_CACHE_STATUS.MISS);
     },
   );
+
+  test("a purge whose deletes all fail logs once, with the failed count", async () => {
+    const pathnames = [PAGE_PATH, "/dashboard"];
+    // The DOM lib types `caches` without the Workers-only `default`, which workerd provides here.
+    const edgeCache = (caches as CacheStorage & { default: Cache }).default;
+    const deleteSpy = vi.spyOn(edgeCache, "delete").mockRejectedValue(new Error("cache down"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      await expect(purgeEdgeHtmlPages({ pathnames })).resolves.toBe(0);
+
+      expect(consoleError).toHaveBeenCalledOnce();
+      expect(consoleError.mock.calls[0]?.[1]).toMatchObject({
+        failed: deleteSpy.mock.calls.length,
+        total: pathnames.length * ENABLED_LOCALES.length,
+      });
+    } finally {
+      deleteSpy.mockRestore();
+      consoleError.mockRestore();
+    }
+  });
 });

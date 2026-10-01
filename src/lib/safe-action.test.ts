@@ -69,6 +69,7 @@ describe("actionClient span", () => {
     enteredSpans.length = 0;
     spanAttributes.clear();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("tags a successful action with its metadata name and an ok outcome", async () => {
@@ -95,6 +96,8 @@ describe("actionClient span", () => {
 
   test("tags an expected ActionError with its stable code, without an exception", async () => {
     const code = "NOT_AUTHORIZED";
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const action = namedClient.action(async () => {
       throw new ActionError(code, "denied");
     });
@@ -104,6 +107,15 @@ describe("actionClient span", () => {
     expect(result.serverError?.code).toBe(code);
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(code);
     expect(fakeSpan.recordException).not.toHaveBeenCalled();
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    expect(consoleWarn.mock.calls[0]?.[1]).toEqual({
+      action: ACTION_EXPORT_NAME,
+      code,
+      reason: "denied",
+    });
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleWarn.mockRestore();
+    consoleError.mockRestore();
   });
 
   test("tags a rate limit as rate_limited, without an exception", async () => {

@@ -259,8 +259,9 @@ function getWorkerZoneIdCache(): KVNamespace | null {
 async function readCachedWorkerZoneId(): Promise<string | null> {
   try {
     return (await getWorkerZoneIdCache()?.get(WORKER_ZONE_ID_CACHE_KEY)) ?? null;
-  } catch {
+  } catch (error) {
     // A cache that cannot be read is a cold cache: the API lookup below still answers.
+    console.error("readCachedWorkerZoneId: KV read failed", error);
     return null;
   }
 }
@@ -270,8 +271,9 @@ async function writeCachedWorkerZoneId(zoneId: string): Promise<void> {
     await getWorkerZoneIdCache()?.put(WORKER_ZONE_ID_CACHE_KEY, zoneId, {
       expirationTtl: WORKER_ZONE_ID_CACHE_TTL_SECONDS,
     });
-  } catch {
+  } catch (error) {
     // Never fail the purge that triggered the lookup; the next isolate retries the API call.
+    console.error("writeCachedWorkerZoneId: KV write failed", error);
   }
 }
 
@@ -330,8 +332,11 @@ export async function getWorkerZoneId(): Promise<string | null> {
 
   try {
     return await getLookedUpWorkerZoneId();
-  } catch {
+  } catch (error) {
     // An unavailable zone is a configuration answer, not a failure: the caller hides the feature.
+    // `warn`, not `error`: a failure is not memoized, so a `workers.dev` deploy logs on every call.
+    // Still logged, so a token missing a permission is not mistaken for an unconfigured feature.
+    console.warn("getWorkerZoneId: zone lookup failed", error);
     return null;
   }
 }

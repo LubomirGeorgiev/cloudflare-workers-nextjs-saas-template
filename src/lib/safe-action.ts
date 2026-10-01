@@ -120,6 +120,15 @@ export const actionClient = baseActionClient.use(({ next, metadata }) =>
 
       if (unexpectedError) {
         recordSpanException({ span, error: unexpectedError });
+      } else if (result.serverError) {
+        // Refusals (wrong password, bad token, rate limit) are answers, not faults: no span exception,
+        // and `warn` so they do not trip error alerts. The span has the code but not the reason.
+        console.warn("Action refused", {
+          action: metadata.actionName,
+          code: result.serverError.code,
+          // A plain-string `ActionError` has no key; its message is developer text, safe to log.
+          reason: result.serverError.reason ?? result.serverError.message,
+        });
       }
 
       if (typeof result.validationErrors !== "undefined") {

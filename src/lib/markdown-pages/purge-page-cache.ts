@@ -31,7 +31,8 @@ async function listPageCacheKeys(prefix: string): Promise<string[]> {
       keys.push(...page.keys.map(({ name }) => name));
       cursor = page.list_complete ? undefined : page.cursor;
     } while (cursor);
-  } catch {
+  } catch (error) {
+    console.error("listPageCacheKeys: KV list failed", error);
     return keys;
   }
 
@@ -51,7 +52,8 @@ function pageCacheKeyPrefixes(pathnames: string[]): string[] {
         );
       }
     }
-  } catch {
+  } catch (error) {
+    console.error("pageCacheKeyPrefixes: building cache keys failed", error);
     return [];
   }
 

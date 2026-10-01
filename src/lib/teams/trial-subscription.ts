@@ -265,7 +265,12 @@ export async function settleStaleTrialReservations({
         id: reservation.id,
         lastError: stripeErrorName(error),
         now,
-      }).catch(() => {});
+      }).catch((stampError: unknown) => {
+        console.error("settleStaleTrialReservations: recovery attempt stamp failed", {
+          reservationId: reservation.id,
+          error: stampError,
+        });
+      });
     }
   }
 
