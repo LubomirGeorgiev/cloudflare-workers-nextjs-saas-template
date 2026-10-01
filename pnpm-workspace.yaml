@@ -1,5 +1,6 @@
 allowBuilds:
   '@parcel/watcher': false
+  core-js-pure: false
   esbuild: true
   sharp: true
   workerd: true
