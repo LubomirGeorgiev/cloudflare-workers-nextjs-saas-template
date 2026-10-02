@@ -10,9 +10,7 @@ import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import type { JSONContent } from "@tiptap/core";
-import type { CollectionsUnion } from "@/../cms.config";
-import { invalidateEntryAndCollection } from "@/lib/cms/cms-cache-invalidation";
-import { purgeCmsEntryMarkdownPages } from "@/lib/cms/cms-entry-page-purge";
+import { type CmsEntryRef, invalidateCmsEntries } from "@/lib/cms/cms-cache-invalidation";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import {
   cmsMediaBucketKeySchema,
@@ -132,29 +130,11 @@ function updateImageNodesInContent(
 
   let hasChanges = false;
 
-  // If this is an image node with matching src
-  if (content.type === "image" && content.attrs?.src) {
-    // Match both full API URLs and bucket keys
-    const srcPath = content.attrs.src as string;
-    const isMatch = srcPath.includes(bucketKey) || srcPath === bucketKey;
+  // Match both full API URLs and bucket keys
+  const srcPath = content.type === "image" ? content.attrs?.src as string | undefined : undefined;
 
-    if (isMatch) {
-      if (updates.alt !== undefined) {
-        content.attrs.alt = updates.alt;
-        content.attrs.title = updates.alt; // Title typically matches alt
-        hasChanges = true;
-      }
-
-      if (updates.width !== undefined) {
-        content.attrs.width = updates.width;
-        hasChanges = true;
-      }
-
-      if (updates.height !== undefined) {
-        content.attrs.height = updates.height;
-        hasChanges = true;
-      }
-    }
+  if (content.attrs && srcPath?.includes(bucketKey)) {
+    hasChanges = applyImageAttributeUpdates({ attrs: content.attrs, updates });
   }
 
   if (Array.isArray(content.content)) {
@@ -166,6 +146,29 @@ function updateImageNodesInContent(
   }
 
   return hasChanges;
+}
+
+function applyImageAttributeUpdates({
+  attrs,
+  updates,
+}: {
+  attrs: Record<string, unknown>;
+  updates: { alt?: string; width?: number; height?: number };
+}): boolean {
+  if (updates.alt !== undefined) {
+    attrs.alt = updates.alt;
+    attrs.title = updates.alt; // Title typically matches alt
+  }
+
+  if (updates.width !== undefined) {
+    attrs.width = updates.width;
+  }
+
+  if (updates.height !== undefined) {
+    attrs.height = updates.height;
+  }
+
+  return updates.alt !== undefined || updates.width !== undefined || updates.height !== undefined;
 }
 
 export const updateCmsMediaAction = actionClient
@@ -207,7 +210,7 @@ export const updateCmsMediaAction = actionClient
         .innerJoin(cmsEntryTable, eq(cmsEntryMediaTable.entryId, cmsEntryTable.id))
         .where(eq(cmsEntryMediaTable.mediaId, mediaId));
 
-      const entriesToInvalidate: Array<{ collectionSlug: CollectionsUnion; slug: string }> = [];
+      const entriesToInvalidate: CmsEntryRef[] = [];
 
       for (const entry of relatedEntries) {
         const content = entry.content;
@@ -237,35 +240,13 @@ export const updateCmsMediaAction = actionClient
         }
 
         entriesToInvalidate.push({
-          collectionSlug: entry.collection,
+          collection: entry.collection,
           slug: entry.slug,
         });
       }
 
-      // Invalidate caches for all affected entries and collections
-      if (entriesToInvalidate.length > 0) {
-        const invalidationPromises: Promise<void>[] = [];
-
-        for (const entry of entriesToInvalidate) {
-          invalidationPromises.push(
-            invalidateEntryAndCollection({
-              collectionSlug: entry.collectionSlug,
-              slug: entry.slug,
-            })
-          );
-        }
-
-        await Promise.all(invalidationPromises);
-
-        // Alt text and image dimensions are part of the converted `.md` body, so one purge per
-        // action (not per entry) drops the stale KV copies of every affected page.
-        await purgeCmsEntryMarkdownPages({
-          entries: entriesToInvalidate.map(({ collectionSlug, slug }) => ({
-            collection: collectionSlug,
-            slug,
-          })),
-        });
-      }
+      // One call for every affected entry, so the action sends one Workers Caching purge.
+      await invalidateCmsEntries({ entries: entriesToInvalidate });
     }
 
     return { success: true, media: updated };

@@ -1,27 +1,18 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { cmsConfig } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 
 const {
   getDBMock,
   invalidateEntryAndCollectionMock,
-  purgeMarkdownPageCacheMock,
   syncCmsEntrySearchMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
   invalidateEntryAndCollectionMock: vi.fn(),
-  purgeMarkdownPageCacheMock: vi.fn(),
   syncCmsEntrySearchMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
-
-// The KV sweep needs a Worker binding, and its locale fan-out is asserted once in
-// `cms-entry-revalidation.test.ts`; here only the reach of the scheduler into it is under test.
-vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
-  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
-}));
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
@@ -48,10 +39,6 @@ vi.mock("@/lib/cms/cms-search", () => ({
 }));
 
 const { publishScheduledCmsEntryIfDue } = await import("@/lib/cms/cms-scheduled-publishing");
-
-const BLOG_ENTRY_PATH = cmsConfig.collections.blog.previewUrl("hello-world");
-/** `/blog` for the template: the listing root every page the publish affects sits under. */
-const BLOG_LISTING_PATH = BLOG_ENTRY_PATH.slice(0, BLOG_ENTRY_PATH.lastIndexOf("/"));
 
 function createUpdateChain(returnedEntries: unknown[]) {
   return {
@@ -81,7 +68,6 @@ describe("CMS scheduled publishing", () => {
 
     expect(syncCmsEntrySearchMock).not.toHaveBeenCalled();
     expect(invalidateEntryAndCollectionMock).not.toHaveBeenCalled();
-    expect(purgeMarkdownPageCacheMock).not.toHaveBeenCalled();
   });
 
   test("syncs search and invalidates caches after publishing a due entry", async () => {
@@ -116,29 +102,6 @@ describe("CMS scheduled publishing", () => {
       collectionSlug: "blog",
       slug: "hello-world",
       warm: true,
-    });
-  });
-
-  test("purges the page Markdown cache of the published pages", async () => {
-    const updateChain = createUpdateChain([{
-      id: "entry-1",
-      collection: "blog",
-      slug: "hello-world",
-      title: "Hello world",
-      seoDescription: "A short description",
-      content: { type: "doc", content: [] },
-    }]);
-    getDBMock.mockReturnValue({
-      update: vi.fn(() => updateChain),
-    });
-
-    await publishScheduledCmsEntryIfDue({
-      entryId: "entry-1",
-      now: new Date("2026-05-29T10:00:00.000Z"),
-    });
-
-    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
-      pathnames: [BLOG_LISTING_PATH],
     });
   });
 });

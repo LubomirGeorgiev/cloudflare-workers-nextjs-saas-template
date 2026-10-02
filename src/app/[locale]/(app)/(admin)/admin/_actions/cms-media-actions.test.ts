@@ -2,24 +2,17 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 const {
   getDBMock,
-  invalidateEntryAndCollectionMock,
-  purgeMarkdownPageCacheMock,
+  invalidateCmsEntriesMock,
   requireAdminMock,
   syncCmsEntrySearchMock,
 } = vi.hoisted(() => ({
   getDBMock: vi.fn(),
-  invalidateEntryAndCollectionMock: vi.fn(),
-  purgeMarkdownPageCacheMock: vi.fn(),
+  invalidateCmsEntriesMock: vi.fn(),
   requireAdminMock: vi.fn(),
   syncCmsEntrySearchMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
-
-// The KV sweep needs a Worker binding and is asserted in `cms-entry-revalidation.test.ts`.
-vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
-  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
-}));
 
 vi.mock("@/db", () => ({
   getDB: getDBMock,
@@ -55,7 +48,7 @@ vi.mock("@/lib/safe-action", () => ({
 }));
 
 vi.mock("@/lib/cms/cms-cache-invalidation", () => ({
-  invalidateEntryAndCollection: invalidateEntryAndCollectionMock,
+  invalidateCmsEntries: invalidateCmsEntriesMock,
 }));
 
 vi.mock("@/lib/cms/cms-search", () => ({
@@ -169,11 +162,10 @@ describe("CMS media actions", () => {
         ],
       },
     });
-    expect(invalidateEntryAndCollectionMock).toHaveBeenCalledWith({
-      collectionSlug: "docs",
-      slug: "intro",
+    // One call per action, not per affected entry, so the action sends one Workers Caching purge.
+    expect(invalidateCmsEntriesMock).toHaveBeenCalledTimes(1);
+    expect(invalidateCmsEntriesMock).toHaveBeenCalledWith({
+      entries: [{ collection: "docs", slug: "intro" }],
     });
-    // One sweep per action, not per affected entry.
-    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledTimes(1);
   });
 });

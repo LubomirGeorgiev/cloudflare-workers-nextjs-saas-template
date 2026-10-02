@@ -9,11 +9,12 @@ import {
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
   SESSION_NO_STORE_CACHE_CONTROL,
 } from "../../src/constants/cache-control";
-import { CACHE_TAGS } from "../../src/constants/cache-tags";
+import { CACHE_TAGS, formatCacheTagHeader } from "../../src/constants/cache-tags";
 import { I18N_ENABLED, LLMS_TXT_PATH } from "../../src/constants";
 import { OG_IMAGE_CACHE_CONTROL, OG_IMAGE_CONTENT_TYPE } from "../../src/constants/og-image";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "../../src/i18n/config";
-import { SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
+import { DOCS_SLUG } from "../../src/lib/cms/docs-config";
+import { SEEDED_BLOG_ENTRY, SEEDED_BLOG_ENTRY_PATH, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
 
 // A crawler or an `<img>` never asks for HTML; a page navigation always does.
 const CRAWLER_HEADERS = { accept: "image/*" } as const;
@@ -90,13 +91,24 @@ async function fetchOgCard(pagePath: string): Promise<{ path: string; response: 
   throw new Error(`OpenGraph card for ${pagePath} kept redirecting.`);
 }
 
+// A card with CMS data carries the tag a publish purges; a card of static copy changes on deploy only.
 test("serves generated OpenGraph cards with the shared card cache policy and no cookie", async () => {
-  for (const pagePath of ["/", "/blog", SEEDED_BLOG_ENTRY_PATH]) {
+  const cards: Array<[string, string | null]> = [
+    ["/", null],
+    ["/blog", null],
+    [
+      SEEDED_BLOG_ENTRY_PATH,
+      formatCacheTagHeader([CACHE_TAGS.cmsEntry({ collectionSlug: "blog", slug: SEEDED_BLOG_ENTRY.slug })]),
+    ],
+  ];
+
+  for (const [pagePath, cacheTag] of cards) {
     const { response } = await fetchOgCard(pagePath);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe(OG_IMAGE_CONTENT_TYPE);
     expectCachePolicy(response, OG_IMAGE_CACHE_CONTROL);
+    expect(response.headers.get("cache-tag")).toBe(cacheTag);
     expect(getSetCookies(response)).toEqual([]);
   }
 }, scaleE2ETimeout(60_000));
@@ -148,6 +160,7 @@ test("serves docs search results with its shared cache policy", async () => {
 
   expect(response.status).toBe(200);
   expectCachePolicy(response, DOCS_SEARCH_CACHE_CONTROL);
+  expect(response.headers.get("cache-tag")).toBe(CACHE_TAGS.cmsSearchCollection(DOCS_SLUG));
 });
 
 test("keeps the session endpoint out of every cache", async () => {

@@ -10,6 +10,7 @@ import {
   OG_META_MAX_LENGTH,
   OG_TITLE_MAX_LENGTH,
 } from "@/constants/og-image"
+import { formatCacheTagHeader } from "@/constants/cache-tags"
 import { renderLogoSvg } from "@/constants/logo"
 import { SITE_DOMAIN, SITE_NAME } from "@/constants"
 
@@ -65,6 +66,8 @@ interface OgImageOptions {
   eyebrow?: string
   // Right-aligned footer detail — a date, an author, a reading time.
   meta?: string
+  // The edge stores the card, so a CMS purge reaches it only through these. None for deploy-only copy.
+  cacheTags?: readonly string[]
 }
 
 // Truncates on a word boundary when one is close enough, so cards never cut mid-word.
@@ -77,6 +80,12 @@ function truncate(value: string, maxLength: number): string {
   const clipped = collapsed.slice(0, maxLength - 1)
   const lastSpace = clipped.lastIndexOf(" ")
   return `${(lastSpace > maxLength * 0.6 ? clipped.slice(0, lastSpace) : clipped).trimEnd()}…`
+}
+
+function buildOgImageHeaders(cacheTags: readonly string[]): Record<string, string> {
+  return cacheTags.length > 0
+    ? { "cache-control": OG_IMAGE_CACHE_CONTROL, "cache-tag": formatCacheTagHeader(cacheTags) }
+    : { "cache-control": OG_IMAGE_CACHE_CONTROL }
 }
 
 function getTitleFontSize(title: string): number {
@@ -121,7 +130,13 @@ function GridBackdrop() {
   )
 }
 
-export function renderOgImage({ title, description, eyebrow, meta }: OgImageOptions): ImageResponse {
+export function renderOgImage({
+  title,
+  description,
+  eyebrow,
+  meta,
+  cacheTags = [],
+}: OgImageOptions): ImageResponse {
   const resolvedTitle = truncate(title || SITE_NAME, OG_TITLE_MAX_LENGTH)
   const resolvedDescription = description
     ? truncate(description, OG_DESCRIPTION_MAX_LENGTH)
@@ -278,7 +293,7 @@ export function renderOgImage({ title, description, eyebrow, meta }: OgImageOpti
     ),
     {
       ...OG_IMAGE_SIZE,
-      headers: { "cache-control": OG_IMAGE_CACHE_CONTROL },
+      headers: buildOgImageHeaders(cacheTags),
     },
   )
 }

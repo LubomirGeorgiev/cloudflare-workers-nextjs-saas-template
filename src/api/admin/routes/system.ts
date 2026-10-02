@@ -166,8 +166,9 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
         "per-path form. It never clears the stored anonymous HTML pages, which live in the Cache " +
         "API and have their own purge operation, and it never deletes a KV key. Every edge " +
         "location refetches those machine responses from the Worker afterwards, so expect a " +
-        "traffic spike on a busy deployment. Answers with a server error naming the reason when " +
-        "Cloudflare refuses the purge. " +
+        "traffic spike on a busy deployment. Refused with `PRECONDITION_FAILED` when the runtime " +
+        "offers no Workers Caching purge, as in local development. Answers with a server error " +
+        "naming the reason when Cloudflare refuses the purge. " +
         CONFIRM_BODY_NOTE,
       scope: "admin:write",
       responses: {

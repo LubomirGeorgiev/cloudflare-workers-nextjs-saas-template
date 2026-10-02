@@ -28,15 +28,15 @@ import {
 } from "@/lib/cms/cms-icon-rules";
 import { requireIconBodies } from "@/lib/cms/cms-icons";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import {
+  getCollectionNavigationAndSearchCacheTags,
+  runCmsCacheInvalidation,
+} from "@/lib/cms/cms-cache-invalidation";
 import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
 import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
-import { invalidateCmsSearchCache, isCollectionSearchEnabled } from "@/lib/cms/cms-search";
-import {
-  clearNavigationMemos,
-  createNavigationMemo,
-} from "@/lib/cms/navigation-memos";
+import { createNavigationMemo } from "@/lib/cms/navigation-memos";
 import { generateSlug } from "@/utils/slugify";
-import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import {
   CMS_NAVIGATION_NODE_TYPES,
@@ -113,23 +113,15 @@ function getNavigationCollectionSlug(navigationKey: CmsNavigationKey) {
   return getCmsNavigationConfig(navigationKey).collectionSlug;
 }
 
+// Before the refill `saveCmsNavigationTree` runs next, so the refill reads the new tree.
 async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
-  // Before the tag revalidation, so the refill `saveCmsNavigationTree` runs next reads the new tree.
-  // Every navigation memo, not just the tree: the docs page and the header memoize derived results,
-  // which a fresh tree alone does not refresh.
-  clearNavigationMemos();
-
-  await Promise.all([
-    revalidateCacheTag(CACHE_TAGS.cmsNavigation(navigationKey)),
-    revalidateCacheTag(CACHE_TAGS.cmsRedirect(navigationKey)),
-    revalidateCacheTag(CACHE_TAGS.SITEMAP),
-  ]);
-
-  await purgeDocsNavigationMarkdownPages();
-
-  if (isCollectionSearchEnabled(getNavigationCollectionSlug(navigationKey))) {
-    await invalidateCmsSearchCache(getNavigationCollectionSlug(navigationKey));
-  }
+  await runCmsCacheInvalidation({
+    tags: [
+      ...getCollectionNavigationAndSearchCacheTags(getNavigationCollectionSlug(navigationKey)),
+      CACHE_TAGS.SITEMAP,
+    ],
+    purgePages: purgeDocsNavigationMarkdownPages,
+  });
 }
 
 function revalidateCmsNavigationPaths(paths: Iterable<string | null | undefined>): void {

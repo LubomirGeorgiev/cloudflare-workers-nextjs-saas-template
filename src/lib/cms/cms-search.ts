@@ -3,7 +3,7 @@ import "server-only";
 import type { JSONContent } from "@tiptap/core";
 import { env as workerEnv } from "cloudflare:workers";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { CACHE_TAGS, revalidateCacheTag, setCacheScope } from "@/utils/cache";
+import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
@@ -124,12 +124,11 @@ function getCmsSearchCollectionConfig(collectionSlug: CollectionsUnion): CmsSear
   };
 }
 
-export async function invalidateCmsSearchCache(collectionSlug?: CollectionsUnion): Promise<void> {
+/** The search cache tags of one collection, or of every searchable one. */
+export function getCmsSearchCacheTags(collectionSlug?: CollectionsUnion): string[] {
   const collectionSlugs = collectionSlug ? [collectionSlug] : getSearchableCollections();
 
-  await Promise.all(
-    collectionSlugs.map((slug) => revalidateCacheTag(CACHE_TAGS.cmsSearchCollection(slug)))
-  );
+  return collectionSlugs.map((slug) => CACHE_TAGS.cmsSearchCollection(slug));
 }
 
 async function getSearchDatabase(): Promise<D1Database> {

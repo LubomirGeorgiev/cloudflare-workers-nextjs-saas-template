@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
+import { CMS_TAGS_PAGE_PATH } from "@/lib/blog-routing";
 
 const {
   createCmsTagMock,
   createCmsTagTranslationMock,
   deleteCmsTagMock,
   getCmsTagsMock,
-  purgeMarkdownPageCacheMock,
   requireAdminMock,
   revalidatePathMock,
   updateCmsTagMock,
@@ -16,19 +16,12 @@ const {
   createCmsTagTranslationMock: vi.fn(),
   deleteCmsTagMock: vi.fn(),
   getCmsTagsMock: vi.fn(),
-  purgeMarkdownPageCacheMock: vi.fn(),
   requireAdminMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   updateCmsTagMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
-
-// The KV sweep needs a Worker binding, and its locale fan-out is asserted once in
-// `cms-entry-revalidation.test.ts`; here only the paths the tag actions hand it are under test.
-vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
-  purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
-}));
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
@@ -80,19 +73,8 @@ describe("CMS tag actions", () => {
 
     for (const locale of ENABLED_LOCALES) {
       const prefix = locale === DEFAULT_LOCALE ? "" : `/${locale}`;
-      expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}/blog/tags`);
-      expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}/blog/tags/release-notes`);
+      expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}${CMS_TAGS_PAGE_PATH}`);
+      expect(revalidatePathMock).toHaveBeenCalledWith(`${prefix}${CMS_TAGS_PAGE_PATH}/release-notes`);
     }
-  });
-
-  test("deleteCmsTagAction purges the page Markdown cache of the tag pages", async () => {
-    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
-    deleteCmsTagMock.mockResolvedValue({ slug: "release-notes" });
-
-    await deleteCmsTagAction({ id: "tag_release_notes" });
-
-    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
-      pathnames: ["/blog/tags", "/blog/tags/release-notes"],
-    });
   });
 });

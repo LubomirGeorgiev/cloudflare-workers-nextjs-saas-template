@@ -108,15 +108,17 @@ cannot drift from the proxy — there is one rule, not a mirror of one.
 **Ordering is the whole correctness argument.** `warmCmsEntryPages` fetches the published page over
 the public internet, so a warm goes through this cache like any visitor. A purge that ran after the
 warm would leave the pre-publish copy stored, and the warm itself would have re-stored it. So the
-entry purge runs **inside** `invalidateEntryAndCollection`, in the same `Promise.all` that drops the
-cache tags, which is awaited before the warm; and `warmPublishedEntry` in
-`src/lib/cms/entry/mutations.ts` awaits its own purge — of every affected slug, so a rename does not
-strand the old one — before it calls the warmer.
+entry purge runs **inside** `invalidateCmsEntries` in `src/lib/cms/cms-cache-invalidation.ts`, as
+the page step of `runCmsCacheInvalidation`, after the cache tags drop and before the warm. It purges
+every affected slug, so a rename does not strand the old one. `invalidateEntryAndCollection` is the
+one-entry form of the same function.
 
 **A docs entry resolves its path from the navigation tree.** The docs collection publishes no
 `previewUrl`, so `cmsEntryPagePath` returns `null` for it. `getCmsNavigationEntryPaths` in
 `src/lib/cms/cms-navigation-entry-paths.ts` reads `cms_navigation_item.resolvedPath` straight from
-D1 for the entry's slug, in any locale, and the purge adds it. Straight from D1 on purpose, for two
+D1 for the entry's slug, in any locale, and the purge adds it. It loads the database module once
+and sends one joined query (navigation item join entry) for each chunk of 90 slugs. Straight from
+D1 on purpose, for two
 reasons: importing `cms-navigation-repository.ts` here closes an import cycle back through
 `entry/index.ts`, and the cached tree is filtered by publish status, so an unpublish would resolve
 no path exactly when the purge matters most.
@@ -150,7 +152,8 @@ stored pages above from `caches.default`: it names every public pathname the sit
 every served locale, and touches nothing else. *Purge Workers CDN Cache* calls `cache.purge` from
 `cloudflare:workers`, which clears only what Workers Caching holds — the routes in "What the edge
 does store" below — and never a stored page or a KV key, because Workers Caching and the Cache API
-are independent stores. *Purge Vinext KV Cache* deletes the KV keys behind the data cache and the
+are independent stores. It refuses with `PRECONDITION_FAILED` when the runtime has no
+`cache.purge`, as in local development. *Purge Vinext KV Cache* deletes the KV keys behind the data cache and the
 Markdown twins, and no edge copy at all.
 
 The fourth is the blunt one. *Purge Cloudflare CDN Cache* (`purgeCloudflareCdnCache`,
@@ -160,6 +163,8 @@ step does. It is the only one that is global: every URL of the zone at every Clo
 the static assets included, and the stored page copies in **every** data center rather than the one
 that ran the call. Use it when the three targeted purges cannot name what is stale; expect a
 traffic spike, because every location refetches from the Worker afterwards.
+It does not clear Workers Caching: Cloudflare states that no zone-level purge affects that cache.
+Use *Purge Workers CDN Cache* for it.
 
 The zone id is not configured. `getWorkerZoneId` in `src/lib/cloudflare-api.ts` reads it from
 `GET /accounts/{account_id}/workers/domains?hostname=<SITE_DOMAIN>`, which needs only the
@@ -175,7 +180,8 @@ card, and the REST operation refuses with `PRECONDITION_FAILED` naming what is m
   invalidates them by tag, so a render after a publish reads fresh rows. This is what a **miss**
   now pays, and it is why the section below still matters.
 - **Markdown twins.** `src/lib/markdown-pages/serve-page.ts` converts a rendered page once and
-  stores the result in KV. A CMS publish purges those entries.
+  stores the result in KV. A CMS publish or tag change purges those entries before its Workers
+  Caching purge.
 - **Machine responses.** The routes in the next section, whose bodies depend on the URL alone.
 
 ### The data cache costs one KV read per tag
@@ -213,8 +219,8 @@ one cached read. Two rules follow, and both were measured on a cold isolate in A
   MCP, and queue handlers — `cache` simply passes the call through.
 
 A publish also warms what it just dropped. `warmCmsEntryPages` in `src/lib/cms/warm-cms-pages.ts`
-runs at the end of `invalidateEntryAndCollection`. The editor save, the internal admin API, and the
-queue timer therefore all warm. It reads the locales the entry has, then fetches the entry page, its
+runs at the end of `invalidateCmsEntries`, after the Workers Caching purge. The editor save, the
+internal admin API, and the queue timer therefore all warm. It reads the locales the entry has, then fetches the entry page, its
 listing page, and the `.md` twin of each, so the first visitor reads a stored entry instead of
 paying the D1 reads and the TipTap render. The fetches go through `runInBackground`, which uses
 `waitUntil` and falls back to a plain promise where there is no request scope, so the publish never
@@ -227,8 +233,8 @@ The cost is a bounded staleness window. A publish writes the `__tag:` keys immed
 isolate that did not run the purge keeps its memorized tag answers, and its memorized entry bodies,
 for up to 60 s, so a published change can take that long to appear. The isolate that does run the
 purge drops its own copies: every memoized reader builds its memo with `createNavigationMemo` in
-`src/lib/cms/navigation-memos.ts`, which registers the memo's clear, and the CMS invalidation path
-calls `clearNavigationMemos()` once beside the tag revalidation. One call is the whole contract, so
+`src/lib/cms/navigation-memos.ts`, which registers the memo's clear, and `runCmsCacheInvalidation`
+calls `clearNavigationMemos()` once, just after the tag revalidation. One call is the whole contract, so
 a new reader needs no invalidation change and no per-reader clear can be forgotten. A memo that also
 sets `dedupePerRequest` keeps one limit: React `cache` holds the promise a request already read, so
 the clear reaches the next request, not the read that is already in flight. Every affected page
@@ -261,6 +267,136 @@ the card through satori and resvg. `src/proxy.ts` writes no cookie at all, so no
 
 The constants live in `src/constants/cache-control.ts`, and `tests/e2e/cache-headers.test.ts`
 asserts each route against the constant it uses, so a route cannot drift from its test.
+
+The OpenAPI document and the API catalog change only on deploy. They need no purge: Workers
+Caching partitions its cache by Worker version, so each deploy starts with a cold cache
+([Cloudflare docs](https://developers.cloudflare.com/workers/cache/purge/)). A zone purge never
+reaches Workers Caching.
+
+### Cache tags on the stored routes
+
+A tag is the only handle a CMS purge has on a stored response. Each route builds its
+`Cache-Tag` header with `formatCacheTagHeader` in `src/constants/cache-tags.ts`, which removes
+duplicates. A route that reads no CMS data sends no tag, because only a deploy changes it.
+
+Each CMS section has one tag list in `src/lib/cms/cms-section-cache-tags.ts`. The cached loader of
+the section passes it to `setCacheScope`, and the OG card and the `.md` twin of the section send
+the same list. So one purge reaches all three.
+
+| Route | Tags |
+| --- | --- |
+| Blog entry card | `blogEntryCacheTags`: `cmsEntry` of the blog slug |
+| Docs card | `DOCS_NAVIGATION_CACHE_TAGS` (`cmsNavigation` and `cmsRedirect` of docs), plus `cmsEntry` of the docs slug when it resolves |
+| Blog tag card | `CMS_TAGS_CACHE_TAGS` |
+| Blog author card | `BLOG_COLLECTION_CACHE_TAGS` |
+| Cards with static copy | None |
+| `/api/docs/search` | `cmsSearchCollection` of docs |
+| `/llms.txt`, `/markdown/*` | The tags of the reads behind the body |
+| `.md` twin of an app page | `markdownPageCacheTags` in `src/lib/cms/cms-section-cache-tags.ts`, from the pathname |
+| `/sitemap.xml` | `SITEMAP`, from `EDGE_CACHED_METADATA_ROUTE_TAGS` |
+
+Each tag stays at or below `CACHE_TAG_MAX_LENGTH` (256 characters). Vinext's KV data cache ignores
+a longer tag (`MAX_TAG_LENGTH` in `@vinext/cloudflare`), so a longer tag would leave the old data
+entry live after a purge. The builder in `src/constants/cache-tags.ts` percent-encodes each part.
+When the full tag is longer than the bound, the builder replaces it with the kind prefix and a short
+stable hash. The header, the KV revalidation, and the purge call the same builder, so they always
+name the same tag. A typical ASCII slug keeps its plain tag. Percent-encoding also keeps out the
+characters that the data cache refuses (control characters, `\`, and `:`) and the comma that
+separates tags in the header.
+
+A fallback card carries the tags of its section too, because a later publish can make the same
+URL resolve. `markdownPageCacheTags` gives a docs route `DOCS_NAVIGATION_CACHE_TAGS`, `/blog/tags`
+and below `BLOG_TAG_PAGE_CACHE_TAGS`, and the other blog routes `BLOG_COLLECTION_CACHE_TAGS`.
+Other pages get no tag.
+
+### The CMS purge of Workers Caching
+
+`revalidateCacheTag` drops only the KV data cache. Vinext's CDN adapter stays unconfigured, so
+nothing in Vinext purges Workers Caching. So every CMS invalidation path calls
+`runCmsCacheInvalidation` in `src/lib/cms/cms-cache-invalidation.ts` with one tag list. The paths
+are an entry write, a navigation save, a tag group change, the full CMS clear, and the admin search
+rebuild and clear.
+
+**Order: KV, then the pages, then the edge purge, then the warm.** Each store refills from the
+store before it, so each step waits for the step before it. `runCmsCacheInvalidation` does these
+steps in this sequence:
+
+1. It drops the KV cache tags of the list, and clears the navigation memos.
+2. It runs the page step of the caller, if there is one. The page step deletes the stored HTML
+   pages first and the KV `.md` twins second, because a `.md` miss converts the stored HTML page.
+3. It sends one Workers Caching purge with the same tag list, through `purgeWorkersCacheAfterWrite`
+   in `src/lib/edge/purge-workers-cache-after-write.ts`, and waits for it.
+
+After that, `invalidateCmsEntries` starts the warm.
+
+The page step of each path:
+
+| Path | Page step |
+| --- | --- |
+| Entry write (`invalidateCmsEntries`) | The stored HTML and then the `.md` twins of each entry and its listing. For a collection with a navigation, also `purgeDocsNavigationMarkdownPages`. |
+| Navigation save (`saveCmsNavigationTree`) | `purgeDocsNavigationMarkdownPages`: the stored HTML of the docs pages, then their `.md` twins. |
+| Tag group change (`invalidateCmsTagGroupCaches`) | The `.md` twins of the tag pages under `CMS_TAGS_PAGE_PATH` and of the listing of each affected entry. |
+| Full CMS clear (`invalidateAllCmsCaches`) | The `.md` twins under the listing of each entry, the tag pages, and the docs pages. |
+| Admin search rebuild and clear | None. |
+
+The tag group purge drops `cmsCollection`, which also covers `/blog.md`, the paginated listings,
+and the author pages.
+
+Each path sends one purge, with at most 100 tags per `cache.purge` call. A write that changes many
+entries, for example a media update, calls `invalidateCmsEntries` once with all of them, so it
+also sends one purge. The purge never throws: a failure leaves the stored copy to its TTL and never
+fails the write. Before a purge, `purgeWorkersCacheTags` drops and logs each tag that is longer than
+`CACHE_TAG_MAX_LENGTH`, because the route schema or Cloudflare refuses the whole chunk for one bad
+tag. The tag builder keeps every CMS tag inside that bound, so this drop is only a guard.
+
+**A short stale window stays.** KV is eventually consistent. A write can take about 60 s to reach
+all data centers, and a KV read can also come from the KV read cache. An isolate also keeps its tag
+answers for 60 s (see "The data cache costs one KV read per tag" above). So a request in a different
+data center, just after the purge, can read old KV data and store it at the edge. In the worst
+case, that copy stays for about 60 s plus the TTL of the route. We do not send a delayed second
+purge.
+
+**`cache.purge` exists only inside a request context.** A queue or cron publish has none. In that
+case `purgeWorkersCacheTags` in `src/lib/edge/workers-cache-purge.ts` sends the tags to
+`/_worker/cache-purge` through the `ctx.exports` loopback. It calls
+`exports.default({ props: WORKERS_CACHE_PURGE_PROPS }).fetch(...)`, one request per 1,000 tags. The
+request does not leave the Worker and does not go through the internet.
+
+The call goes to the default entrypoint on purpose. Workers Caching purges only the cache of the
+entrypoint that calls `cache.purge`, not all cache of the host
+(<https://developers.cloudflare.com/workers/cache/purge/>). A named `WorkerEntrypoint` would purge
+its own cache, which is empty.
+
+**The props are the authorization.** An internet request cannot set `ctx.props`. So
+`worker-entrypoint.ts` sends the path to the purge route only when `ctx.props` holds the marker from
+`src/lib/edge/workers-cache-purge-props.ts`. Without the marker, the request goes to the app, which
+gives its usual not-found answer. Nothing tells a public caller that the route exists. No secret is
+necessary. The route purges in its own request context and never sends the purge on again.
+
+Every answer of the route is `no-store`:
+
+| Status | Meaning |
+| --- | --- |
+| `405` | The method is not `POST`. |
+| `400` | The body is not a valid tag list. |
+| `200` | The purge ran. |
+| `503` | The runtime has no `cache.purge`. |
+| `502` | Cloudflare refused the purge. |
+
+The purge is skipped when the runtime has no `exports.default`. The local runtime has no
+`cache.purge` for any handler, so no local purge reaches an edge, and no local test can prove one.
+
+The span `app.cms.cdn_purge` records `app.cms.tag_count` and `app.cms.outcome`: `ok`, `failed`,
+`delegated`, or `skipped_unavailable`. Only a caller span reports `delegated`: it does so when the
+route sends back an outcome, also with status `502`. The route has its own span, which reports the
+result of the purge, and its type cannot hold `delegated`.
+The caller reports `failed` only when the hand-off failed: a throw, or an answer with no outcome.
+A throw also records a span exception.
+
+**Verify the purge in production.** After a deploy, schedule a publish of a CMS entry. When the
+queue runs it, find the trace. The queue's `app.cms.cdn_purge` span must show `delegated`, and the
+route's span must show `ok`. If the route's span shows `skipped_unavailable`, the loopback request
+has no cache context, and the TTL of each route bounds the staleness.
 
 ## Early Hints
 
@@ -307,8 +443,8 @@ the route's **default export** itself carries a `"use cache"` directive. Ours is
 
 So the edge policy is stamped in `worker-entrypoint.ts` instead, from
 `METADATA_ROUTE_EDGE_CACHE_CONTROL` and `EDGE_CACHED_METADATA_ROUTE_TAGS` in
-`src/constants/cache-control.ts`. The sitemap also carries its `sitemap` cache tag, so a CMS publish
-purges the edge copy through `revalidateCacheTag` and the hour is only a backstop.
+`src/constants/cache-control.ts`. The sitemap also carries its `sitemap` cache tag. A CMS publish
+purges the edge copy through the Workers Caching purge above, so the hour is only a backstop.
 
 Re-check this on a Vinext upgrade, the same as the other pinned-behavior audits.
 
@@ -356,7 +492,8 @@ would drop the copy for that whole data center.
 That is why `MARKDOWN_NEGOTIATION_CACHE_CONTROL` in `src/constants/cache-control.ts` is
 `public, max-age=0, s-maxage=…` and not `no-store`. A stored 303 becomes its own variant beside the
 HTML instead of an invalidation of it. `max-age=0` keeps it out of private browser caches, so a
-client that once asked for Markdown does not keep redirecting itself.
+client that once asked for Markdown does not keep redirecting itself. On 2026-10-01 the live
+site answered the 303 with `cf-cache-status: HIT`, so Cloudflare stores it as intended.
 
 The safety argument is that the cache key partitions more finely than the branch it feeds. The
 variant key is the exact `Accept` string, and `prefersMarkdownRepresentation` reads that same string.
@@ -366,9 +503,8 @@ string never names `text/markdown`, so it never matches that variant.
 
 ### Known gaps, both bounded
 
-- **Purge skew.** A rendered page carries a `cache-tag` (`src/lib/markdown-pages/serve-page.ts`
-  reads one back off a render), and the edge builds the 303 before any render, so the 303 variant
-  carries no tag. A tag purge may leave it behind. The redirect target is a pure function of the
+- **Purge skew.** A `.md` twin carries the tags of `markdownPageCacheTags`, but the edge builds
+  the 303 before any render, so the 303 variant carries no tag. A tag purge may leave it behind. The redirect target is a pure function of the
   pathname, so a CMS publish can never make a stale 303 wrong. Only removing a page from the Markdown
   allowlist could, and then the agent gets a 404 from the `.md` — never wrong content — for at most
   the TTL.
@@ -377,12 +513,5 @@ string never names `text/markdown`, so it never matches that variant.
   today this only tells a downstream cache the truth. The inner layer never fans out on it: its key
   is the pathname, and the gate keeps every `Accept`-dependent answer (Markdown, OpenGraph cards)
   out of that key.
-
-### Still to confirm after the next deploy
-
-Re-run the A/B probe on a `.md` twin and read `cf-cache-status` on the 303. `HIT` is the intended
-result. `EXPIRED` or `REVALIDATED` means `max-age=0` won over `s-maxage` — still stored, so the
-eviction is still fixed; drop `max-age=0` to get the hits. `BYPASS` means Cloudflare declines to
-store a 303: no regression, but the eviction stays.
 
 Re-check this on a Wrangler or Vinext upgrade, the same as the other pinned-behavior audits.

@@ -6,19 +6,39 @@ vi.stubGlobal("__MARKDOWN_BUILD_ID__", "test-build-id");
 // The Cache API purge, exercised through the real key builder: the point of the test is that the
 // admin action hands `purgeEdgeHtmlPages` locale-free pathnames, so no key is prefixed twice.
 
-const { collectPublicPagesMock, getCachePurgeConfigMock, purgeZoneCacheEverythingMock, workerEnv } =
-  vi.hoisted(() => ({
-    collectPublicPagesMock: vi.fn(),
-    getCachePurgeConfigMock: vi.fn(),
-    purgeZoneCacheEverythingMock: vi.fn(),
-    workerEnv: {} as Record<string, unknown>,
-  }));
+const {
+  collectPublicPagesMock,
+  getCachePurgeConfigMock,
+  purgeWorkersCacheAfterWriteMock,
+  purgeZoneCacheEverythingMock,
+  revalidateCacheTagMock,
+  workerEnv,
+  workersCache,
+} = vi.hoisted(() => ({
+  collectPublicPagesMock: vi.fn(),
+  getCachePurgeConfigMock: vi.fn(),
+  purgeWorkersCacheAfterWriteMock: vi.fn(async () => undefined),
+  purgeZoneCacheEverythingMock: vi.fn(),
+  revalidateCacheTagMock: vi.fn(async () => undefined),
+  workerEnv: {} as Record<string, unknown>,
+  // Mutable, because outside a request the runtime proxy answers `undefined` for `purge`.
+  workersCache: {} as { purge?: (options: CachePurgeOptions) => Promise<CachePurgeResult> },
+}));
 
 vi.mock("server-only", () => ({}));
 
 vi.mock("cloudflare:workers", () => ({
-  cache: { purge: vi.fn() },
+  cache: workersCache,
   env: workerEnv,
+}));
+
+vi.mock("@/utils/cache", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/cache")>()),
+  revalidateCacheTag: revalidateCacheTagMock,
+}));
+
+vi.mock("@/lib/edge/purge-workers-cache-after-write", () => ({
+  purgeWorkersCacheAfterWrite: purgeWorkersCacheAfterWriteMock,
 }));
 
 vi.mock("@/db", () => ({
@@ -40,9 +60,15 @@ const { DOCS_EDGE_HTML_PATHNAMES } = await import("@/lib/cms/cms-navigation-page
 const { ENABLED_LOCALES } = await import("@/i18n/config");
 const { localizedPathname } = await import("@/i18n/localized-pathname");
 const { getBuildId } = await import("@/utils/build-id");
-const { getSystemActionAvailability, purgeCloudflareCdnCache, purgeEdgeHtmlCache } = await import(
-  "@/lib/admin/system-actions"
-);
+const { CACHE_TAGS } = await import("@/constants/cache-tags");
+const { getSearchableCollections } = await import("@/lib/cms/cms-search");
+const {
+  clearSearchCache,
+  getSystemActionAvailability,
+  purgeCloudflareCdnCache,
+  purgeEdgeHtmlCache,
+  purgeWorkersCdnCache,
+} = await import("@/lib/admin/system-actions");
 
 const requestedKeys: string[] = [];
 const storedKeys = new Set<string>();
@@ -79,6 +105,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  delete workersCache.purge;
 });
 
 test("it purges every public page in every locale and counts the deletes", async () => {
@@ -164,4 +191,45 @@ test("a refusal from Cloudflare surfaces the reason it gave", async () => {
     code: "INTERNAL_SERVER_ERROR",
     message: expect.stringContaining("10000: Authentication error"),
   });
+});
+
+// The runtime proxy answers `undefined` for `purge` outside a request, as in local development.
+test("the Workers CDN purge refuses with a stable code when the runtime has no purge", async () => {
+  await expect(purgeWorkersCdnCache()).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+});
+
+test("the Workers CDN purge purges everything and reports it", async () => {
+  const purge = vi.fn(async () => ({ success: true, errors: [] }));
+  workersCache.purge = purge;
+
+  const result = await purgeWorkersCdnCache();
+
+  expect(purge).toHaveBeenCalledWith({ purgeEverything: true });
+  expect(result.message).toBeTruthy();
+});
+
+test("a Workers CDN purge refusal surfaces the reason it gave", async () => {
+  workersCache.purge = vi.fn(async () => ({
+    success: false,
+    errors: [{ code: 1, message: "purge rate limited" }],
+  }));
+
+  await expect(purgeWorkersCdnCache()).rejects.toMatchObject({
+    code: "INTERNAL_SERVER_ERROR",
+    message: expect.stringContaining("purge rate limited"),
+  });
+});
+
+test("a search cache clear purges Workers Caching by the search tags, after the KV drop", async () => {
+  const searchTags = getSearchableCollections().map((collection) =>
+    CACHE_TAGS.cmsSearchCollection(collection));
+  purgeWorkersCacheAfterWriteMock.mockImplementationOnce(async () => {
+    for (const tag of searchTags) {
+      expect(revalidateCacheTagMock).toHaveBeenCalledWith(tag);
+    }
+  });
+
+  await clearSearchCache(undefined);
+
+  expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledWith({ tags: searchTags });
 });

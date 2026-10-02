@@ -33,7 +33,7 @@ export function cmsEntryPagePath({
 /**
  * Drops the stored HTML of an entry's own page and of the listing above it, in every served locale.
  *
- * Called only from `invalidateEntryAndCollection`, and only from inside it: that function warms the
+ * Called only from `invalidateCmsEntries`, and only from inside it: that function warms the
  * entry through the edge afterwards, so a second purge later would delete the freshly warmed page.
  * A collection whose URL comes from a navigation tree rather than from `previewUrl` (docs) resolves
  * its path through `getCmsNavigationEntryPaths`. Never throws.
@@ -61,16 +61,16 @@ export async function purgeCmsEntryEdgeHtmlPages({
   await purgeEdgeHtmlPages({ pathnames: Array.from(pathnames) });
 }
 
-// The Markdown half of a CMS entry mutation, and only that half: `revalidatePath` reaches the App
-// Router cache alone, so without this the converted `.md` twins serve the pre-mutation body until
-// their TTL expires. The stored HTML belongs to `invalidateEntryAndCollection`, which purges it
-// before its warm. Usable from the queue consumer, which has no App Router request scope. Never throws.
+// Drops the KV `.md` twins under each entry's listing, plus `alsoPathnames`. Never throws. Only
+// `cms-cache-invalidation.ts` calls it, before its Workers Caching purge and its warm.
 export async function purgeCmsEntryMarkdownPages({
   entries,
+  alsoPathnames = [],
 }: {
   entries: CmsEntryRef[];
+  alsoPathnames?: string[];
 }): Promise<void> {
-  const listingPaths = new Set<string>();
+  const listingPaths = new Set<string>(alsoPathnames);
 
   for (const entry of entries) {
     const pagePath = cmsEntryPagePath(entry);

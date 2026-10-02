@@ -3,10 +3,15 @@ import { getTranslations } from "@/i18n/server";
 
 import { SITE_URL } from "@/constants";
 import { DOCS_SEARCH_CACHE_CONTROL } from "@/constants/cache-control";
+import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
 import { searchDocs } from "@/lib/cms/cms-search";
+import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { docsSearchQuerySchema } from "@/schemas/docs-search.schema";
 import { v } from "@/lib/validation";
 import { RateLimitError, RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+
+// `searchDocs` reads the docs collection only. The route-search half changes on deploy alone.
+const DOCS_SEARCH_CACHE_TAGS = [CACHE_TAGS.cmsSearchCollection(DOCS_SLUG)];
 
 function withAbsoluteResolvedPath<T extends { resolvedPath: string }>(result: T): T {
   return {
@@ -53,6 +58,7 @@ export async function GET(request: Request) {
       {
         headers: {
           "cache-control": DOCS_SEARCH_CACHE_CONTROL,
+          "cache-tag": formatCacheTagHeader(DOCS_SEARCH_CACHE_TAGS),
         },
       }
     );

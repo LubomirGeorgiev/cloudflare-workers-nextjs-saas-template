@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { CACHE_TAGS } from "@/constants/cache-tags";
 import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
@@ -7,15 +8,15 @@ import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 const {
   getCmsCollectionMock,
   getDBMock,
-  invalidateCmsSearchCacheMock,
   purgeMarkdownPageCacheMock,
+  purgeWorkersCacheAfterWriteMock,
   revalidateCacheTagMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   getCmsCollectionMock: vi.fn(),
   getDBMock: vi.fn(),
-  invalidateCmsSearchCacheMock: vi.fn(),
   purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
+  purgeWorkersCacheAfterWriteMock: vi.fn(async (__input: { tags: readonly string[] }) => undefined),
   revalidateCacheTagMock: vi.fn(),
   revalidatePathMock: vi.fn(),
 }));
@@ -41,9 +42,18 @@ vi.mock("@/lib/cms/entry/queries", () => ({
   getCmsCollection: getCmsCollectionMock,
 }));
 
-vi.mock("@/lib/cms/cms-search", () => ({
-  invalidateCmsSearchCache: invalidateCmsSearchCacheMock,
-  isCollectionSearchEnabled: (collectionSlug: string) => collectionSlug === "docs",
+vi.mock("@/lib/cms/cms-search", async () => {
+  const { CACHE_TAGS: tags } = await import("@/constants/cache-tags");
+
+  return {
+    getCmsSearchCacheTags: (collectionSlug: string) => [tags.cmsSearchCollection(collectionSlug)],
+    isCollectionSearchEnabled: (collectionSlug: string) => collectionSlug === "docs",
+  };
+});
+
+// The purge helper's own branches are asserted in `workers-cache-purge.test.ts`.
+vi.mock("@/lib/edge/purge-workers-cache-after-write", () => ({
+  purgeWorkersCacheAfterWrite: purgeWorkersCacheAfterWriteMock,
 }));
 
 // The KV sweep itself needs a Worker binding; its locale matrix is asserted in
@@ -52,12 +62,8 @@ vi.mock("@/lib/markdown-pages/purge-page-cache", () => ({
   purgeMarkdownPageCache: purgeMarkdownPageCacheMock,
 }));
 
-vi.mock("@/utils/cache", () => ({
-  CACHE_TAGS: {
-    SITEMAP: "sitemap",
-    cmsNavigation: (navigationKey: string) => `cms-navigation-${navigationKey}`,
-    cmsRedirect: (navigationKey: string) => `cms-redirect-${navigationKey}`,
-  },
+vi.mock("@/utils/cache", async () => ({
+  CACHE_TAGS: (await import("@/constants/cache-tags")).CACHE_TAGS,
   revalidateCacheTag: revalidateCacheTagMock,
   setCacheScope: vi.fn(),
 }));
@@ -217,6 +223,28 @@ describe("CMS navigation repository", () => {
     expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
       pathnames: INDEXED_DOCS_ROUTES.map(({ pathname }) => pathname),
     });
+  });
+
+  // An edge refetch must read the new tree, so Workers Caching goes after every KV drop.
+  test("saveCmsNavigationTree purges Workers Caching once, after the KV and search tags", async () => {
+    const expectedTags = [
+      CACHE_TAGS.cmsNavigation("docs"),
+      CACHE_TAGS.cmsRedirect("docs"),
+      CACHE_TAGS.cmsSearchCollection("docs"),
+      CACHE_TAGS.SITEMAP,
+    ];
+    purgeWorkersCacheAfterWriteMock.mockImplementationOnce(async () => {
+      for (const tag of expectedTags) {
+        expect(revalidateCacheTagMock).toHaveBeenCalledWith(tag);
+      }
+      expect(purgeMarkdownPageCacheMock).toHaveBeenCalled();
+    });
+    stubIntroRename();
+
+    await saveRenamedIntro();
+
+    expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledTimes(1);
+    expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledWith({ tags: expectedTags });
   });
 });
 

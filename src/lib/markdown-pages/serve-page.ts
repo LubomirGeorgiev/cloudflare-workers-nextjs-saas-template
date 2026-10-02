@@ -2,7 +2,9 @@ import {
   MARKDOWN_PAGE_CACHE_CONTROL,
   MARKDOWN_PAGE_CACHE_TTL_SECONDS,
 } from "@/constants/cache-control";
+import { formatCacheTagHeader } from "@/constants/cache-tags";
 import { DEFAULT_LOCALE } from "@/i18n/config";
+import { markdownPageCacheTags } from "@/lib/cms/cms-section-cache-tags";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "@/utils/request-protocol";
 
 import { convertHtmlToMarkdown } from "./convert-html";
@@ -19,7 +21,6 @@ const PROBLEM_JSON_CONTENT_TYPE = "application/problem+json";
 // key space and only this file's own writes can ever be read back.
 interface CachedMarkdownPage {
   body: string;
-  cacheTag: string | null;
 }
 
 /** Public contract: a caller branches on this code, never on the prose next to it. */
@@ -32,12 +33,10 @@ const MARKDOWN_UNAVAILABLE_CACHE_CONTROL = "no-store";
 
 function markdownResponse({
   body,
-  cacheTag,
   pathname,
   wantsDownload,
 }: {
   body: string;
-  cacheTag: string | null;
   pathname: string;
   wantsDownload: boolean;
 }): Response {
@@ -45,9 +44,12 @@ function markdownResponse({
     "cache-control": MARKDOWN_PAGE_CACHE_CONTROL,
     "content-type": "text/markdown; charset=utf-8",
   };
+  const cacheTags = markdownPageCacheTags(pathname);
 
-  if (cacheTag) {
-    headers["cache-tag"] = cacheTag;
+  // The tag only helps because a CMS write drops the KV copy before it purges this tag (see
+  // `cms-cache-invalidation.ts`); an edge miss after the purge then renders the new body.
+  if (cacheTags.length > 0) {
+    headers["cache-tag"] = formatCacheTagHeader(cacheTags);
   }
 
   // Set here, not before the cache read: the cache key is pathname-only, so a cached hit must get
@@ -128,7 +130,6 @@ export async function servePageMarkdown({
   if (cached) {
     return markdownResponse({
       body: cached.body,
-      cacheTag: cached.cacheTag,
       pathname: target.pathname,
       wantsDownload,
     });
@@ -156,19 +157,14 @@ export async function servePageMarkdown({
     return markdownUnavailableResponse({ sourceUrl });
   }
 
-  // This Worker branch is outside Vinext finalization, so its edge copy must inherit source tags.
-  // The tag only helps when the same operation also purges this KV entry: a publish fires both
-  // without a fixed order, so a request in between re-serves the stale body under the same tag.
-  const cacheTag = rendered.headers.get("cache-tag");
-
   // Off the response path: a cache write must not add latency to, or fail, a page that rendered.
   ctx.waitUntil(
-    env.KV_STORE.put(cacheKey, JSON.stringify({ body: markdown, cacheTag } satisfies CachedMarkdownPage), {
+    env.KV_STORE.put(cacheKey, JSON.stringify({ body: markdown } satisfies CachedMarkdownPage), {
       expirationTtl: MARKDOWN_PAGE_CACHE_TTL_SECONDS,
     }).catch((error: unknown) => {
       console.error("Markdown page cache write failed", error);
     }),
   );
 
-  return markdownResponse({ body: markdown, cacheTag, pathname: target.pathname, wantsDownload });
+  return markdownResponse({ body: markdown, pathname: target.pathname, wantsDownload });
 }

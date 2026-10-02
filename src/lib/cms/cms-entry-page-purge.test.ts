@@ -58,7 +58,7 @@ describe("CMS entry page purge", () => {
     expect(purgeMarkdownPageCacheMock).not.toHaveBeenCalled();
   });
 
-  // The HTML store belongs to `invalidateEntryAndCollection`, which purges it before its warm; a
+  // The HTML store belongs to `invalidateCmsEntries`, which purges it before its warm; a
   // second purge from here would delete the page that warm just stored.
   test.skipIf(!PAGE_COLLECTION)("the Markdown purge never touches the HTML store", async () => {
     await purgeCmsEntryMarkdownPages({ entries: ENTRIES });
@@ -68,5 +68,17 @@ describe("CMS entry page purge", () => {
       pathnames: [cmsEntryListingPath(pagePath)],
     });
     expect(purgeEdgeHtmlPagesMock).not.toHaveBeenCalled();
+  });
+
+  // A tag write names its tag pages as well as the listings of the entries that carry the tag.
+  test.skipIf(!PAGE_COLLECTION)("the Markdown purge adds `alsoPathnames` to the listing paths", async () => {
+    const extraPath = "/extra-page";
+
+    await purgeCmsEntryMarkdownPages({ entries: ENTRIES, alsoPathnames: [extraPath] });
+
+    const pagePath = cmsEntryPagePath(ENTRIES[0]) as string;
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
+      pathnames: [extraPath, cmsEntryListingPath(pagePath)],
+    });
   });
 });
