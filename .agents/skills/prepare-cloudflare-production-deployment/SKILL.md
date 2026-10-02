@@ -116,7 +116,7 @@ Before pushing or deploying through GitHub Actions, explicitly tell the user whi
 1. **GitHub Actions secrets** are available only to the GitHub workflow. For the current deploy workflow, the required secret is `CLOUDFLARE_API_TOKEN`; the user must create/provide it manually and paste it into the secure `gh` prompt.
 2. **GitHub Actions variables** are non-secret values available to the GitHub workflow. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ZONE_ID`, enabled `NEXT_PUBLIC_*` values, and remember the deploy workflow auto-forwards repository `NEXT_PUBLIC_*` variables into the build.
 3. **Worker runtime secrets** are available to the deployed Worker, not to GitHub Actions. Ask the user to supply enabled-feature secrets such as `CLOUDFLARE_API_TOKEN`, `TURNSTILE_SECRET_KEY`, `STRIPE_SECRET_KEY`, and `GOOGLE_CLIENT_SECRET` through secure prompts or supported MCP secret writes.
-4. **Worker runtime variables** are non-secret values available to the deployed Worker. Prefer stable project/account values such as `CLOUDFLARE_ACCOUNT_ID` and `GOOGLE_CLIENT_ID` in `wrangler.jsonc` under `vars`; otherwise use Cloudflare MCP/dashboard/API.
+4. **Worker runtime variables** are non-secret values available to the deployed Worker. Put `CLOUDFLARE_ACCOUNT_ID` in `wrangler.jsonc` under `vars` (see the `CLOUDFLARE_ACCOUNT_ID` section). Prefer `vars` for other stable values such as `GOOGLE_CLIENT_ID`; otherwise use Cloudflare MCP/dashboard/API.
 
 After setting repository configuration, verify without exposing values:
 
@@ -174,7 +174,17 @@ pnpm wrangler secret put CLOUDFLARE_API_TOKEN
 gh variable set CLOUDFLARE_ACCOUNT_ID --body "$ACCOUNT_ID" --repo OWNER/REPO
 ```
 
-2. Also make `CLOUDFLARE_ACCOUNT_ID` available to the deployed Worker runtime for admin Queue preview. Prefer adding it to `wrangler.jsonc` under `vars` when the account id is stable for the project, or set it as a Worker variable through the Cloudflare dashboard/API. Do not treat the account id as a secret, but do verify it matches the account used by `wrangler.jsonc`.
+2. Set `CLOUDFLARE_ACCOUNT_ID` in `wrangler.jsonc` under `vars`, with the same value as the top-level `account_id`. The deployed Worker needs it for these features:
+   - The zone lookup in `getWorkerZoneId` (`src/lib/cloudflare-api.ts`). Without the var, the lookup fails with a `getWorkerZoneId: zone lookup failed` warning. The CMS publish then purges stored HTML only in one data center, and the admin "Purge Cloudflare CDN Cache" action is hidden. Setting `CLOUDFLARE_ZONE_ID` skips this lookup.
+   - The admin scheduled jobs Queue payload preview.
+
+   Do not set it as a Worker secret. The account id is not a secret, and a secret with the same name as a `vars` entry makes `wrangler deploy` fail. If a Worker secret `CLOUDFLARE_ACCOUNT_ID` already exists, delete it before the deploy that adds the var:
+
+```bash
+pnpm wrangler secret delete CLOUDFLARE_ACCOUNT_ID
+```
+
+3. After the deploy, verify the var: open the admin System page and confirm that "Purge Cloudflare CDN Cache" shows a **Run** button. Then confirm that the Worker logs have no `getWorkerZoneId: zone lookup failed` warning after a CMS publish.
 
 `TURNSTILE_SECRET_KEY`:
 
