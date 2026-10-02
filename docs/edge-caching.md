@@ -346,8 +346,8 @@ Each path sends one purge, with at most 100 tags per `cache.purge` call. A write
 entries, for example a media update, calls `invalidateCmsEntries` once with all of them, so it
 also sends one purge. The purge never throws: a failure leaves the stored copy to its TTL and never
 fails the write. Before a purge, `purgeWorkersCacheTags` drops and logs each tag that is longer than
-`CACHE_TAG_MAX_LENGTH`, because the route schema or Cloudflare refuses the whole chunk for one bad
-tag. The tag builder keeps every CMS tag inside that bound, so this drop is only a guard.
+`CACHE_TAG_MAX_LENGTH`, because Cloudflare refuses the whole chunk for one bad tag. The tag
+builder keeps every CMS tag inside that bound, so this drop is only a guard.
 
 **A short stale window stays.** KV is eventually consistent. A write can take about 60 s to reach
 all data centers, and a KV read can also come from the KV read cache. An isolate also keeps its tag
@@ -356,47 +356,26 @@ data center, just after the purge, can read old KV data and store it at the edge
 case, that copy stays for about 60 s plus the TTL of the route. We do not send a delayed second
 purge.
 
-**`cache.purge` exists only inside a request context.** A queue or cron publish has none. In that
-case `purgeWorkersCacheTags` in `src/lib/edge/workers-cache-purge.ts` sends the tags to
-`/_worker/cache-purge` through the `ctx.exports` loopback. It calls
-`exports.default({ props: WORKERS_CACHE_PURGE_PROPS }).fetch(...)`, one request per 1,000 tags. The
-request does not leave the Worker and does not go through the internet.
+**Every handler can purge.** `cache.purge` is on the execution context of every handler, so the
+queue consumer that runs a scheduled publish calls it directly
+(<https://developers.cloudflare.com/workers/cache/purge/>). Workers Caching purges only the cache of
+the entrypoint that calls `cache.purge`. The `fetch` and `queue` handlers are both in the default
+export of `worker-entrypoint.ts`, so a queue purge drops the copies that `fetch` stored. A handler
+in a named `WorkerEntrypoint` would purge its own cache, which is empty.
 
-The call goes to the default entrypoint on purpose. Workers Caching purges only the cache of the
-entrypoint that calls `cache.purge`, not all cache of the host
-(<https://developers.cloudflare.com/workers/cache/purge/>). A named `WorkerEntrypoint` would purge
-its own cache, which is empty.
+The local runtime has no `cache.purge` for any handler. There the purge reports
+`skipped_unavailable`, so no local purge reaches an edge, and no local test can prove one.
 
-**The props are the authorization.** An internet request cannot set `ctx.props`. So
-`worker-entrypoint.ts` sends the path to the purge route only when `ctx.props` holds the marker from
-`src/lib/edge/workers-cache-purge-props.ts`. Without the marker, the request goes to the app, which
-gives its usual not-found answer. Nothing tells a public caller that the route exists. No secret is
-necessary. The route purges in its own request context and never sends the purge on again.
+The span `app.cms.cdn_purge` records `app.cms.tag_count` and `app.cms.outcome`: `ok`, `failed`, or
+`skipped_unavailable`. A throw also records a span exception.
 
-Every answer of the route is `no-store`:
-
-| Status | Meaning |
-| --- | --- |
-| `405` | The method is not `POST`. |
-| `400` | The body is not a valid tag list. |
-| `200` | The purge ran. |
-| `503` | The runtime has no `cache.purge`. |
-| `502` | Cloudflare refused the purge. |
-
-The purge is skipped when the runtime has no `exports.default`. The local runtime has no
-`cache.purge` for any handler, so no local purge reaches an edge, and no local test can prove one.
-
-The span `app.cms.cdn_purge` records `app.cms.tag_count` and `app.cms.outcome`: `ok`, `failed`,
-`delegated`, or `skipped_unavailable`. Only a caller span reports `delegated`: it does so when the
-route sends back an outcome, also with status `502`. The route has its own span, which reports the
-result of the purge, and its type cannot hold `delegated`.
-The caller reports `failed` only when the hand-off failed: a throw, or an answer with no outcome.
-A throw also records a span exception.
-
-**Verify the purge in production.** After a deploy, schedule a publish of a CMS entry. When the
-queue runs it, find the trace. The queue's `app.cms.cdn_purge` span must show `delegated`, and the
-route's span must show `ok`. If the route's span shows `skipped_unavailable`, the loopback request
-has no cache context, and the TTL of each route bounds the staleness.
+**Verify the purge in production.** Publish a CMS entry from the editor, and schedule a publish of
+another one. For each, find the `app.cms.cdn_purge` span. It must show `ok`, with a `tag_count`
+above 0. The scheduled span is in the trace of the `app.queue` span. `skipped_unavailable` on
+production means that the handler had no `cache.purge`, and the TTL of each route bounds the
+staleness. `observability.traces.head_sampling_rate` in `wrangler.jsonc` samples traces, so one
+publish can have no trace. To check, raise the rate in the Worker settings. The next deploy resets
+it.
 
 ## Early Hints
 

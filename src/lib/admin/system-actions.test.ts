@@ -21,7 +21,7 @@ const {
   purgeZoneCacheEverythingMock: vi.fn(),
   revalidateCacheTagMock: vi.fn(async () => undefined),
   workerEnv: {} as Record<string, unknown>,
-  // Mutable, because outside a request the runtime proxy answers `undefined` for `purge`.
+  // Mutable, because local workerd answers `undefined` for `purge`.
   workersCache: {} as { purge?: (options: CachePurgeOptions) => Promise<CachePurgeResult> },
 }));
 
@@ -193,7 +193,7 @@ test("a refusal from Cloudflare surfaces the reason it gave", async () => {
   });
 });
 
-// The runtime proxy answers `undefined` for `purge` outside a request, as in local development.
+// Local workerd answers `undefined` for `purge`.
 test("the Workers CDN purge refuses with a stable code when the runtime has no purge", async () => {
   await expect(purgeWorkersCdnCache()).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });
