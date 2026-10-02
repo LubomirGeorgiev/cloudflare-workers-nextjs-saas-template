@@ -47,9 +47,6 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       // The cheap prefilter that decides whether to `import()` the edge HTML cache at all. Its own
       // module so the real gate calls it too, which is what keeps the prefilter a superset.
       "src/lib/edge/edge-html-cache-prefilter.ts",
-      // The props check that gates the purge route. It has no imports, and the purge itself stays
-      // behind an `import()`.
-      "src/lib/edge/workers-cache-purge-props.ts",
       "src/lib/oauth/provider-config.ts",
       "src/utils/api-key-format.ts",
       "src/utils/cf-context-fields.ts",

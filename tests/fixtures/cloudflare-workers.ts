@@ -17,8 +17,8 @@ export const tracing = {
   getActiveSpan: () => undefined,
 };
 
-// Empty, like the runtime outside a request: no bindings, and no `cache.purge`. A purge after a CMS
-// write then skips instead of throwing in every test that runs the real invalidation path.
+// Empty, like local workerd: no bindings, and no `cache.purge`. A purge after a CMS write then
+// skips instead of throwing in every test that runs the real invalidation path.
 // oxlint-disable-next-line project/no-unused-module-exports -- vitest.unit.config.ts aliases `cloudflare:workers` here.
 export const env = {};
 // oxlint-disable-next-line project/no-unused-module-exports -- vitest.unit.config.ts aliases `cloudflare:workers` here.
