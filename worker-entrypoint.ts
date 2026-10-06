@@ -34,7 +34,7 @@ import {
   METADATA_ROUTE_EDGE_CACHE_CONTROL,
 } from "./src/constants/cache-control";
 import { I18N_ENABLED } from "./src/constants";
-import { stripLocalePrefix } from "./src/i18n/locale-prefix";
+import { isDefaultLocaleCardPathname, stripLocalePrefix } from "./src/i18n/locale-prefix";
 import { shouldLocalizePathname } from "./src/i18n/localized-paths";
 import { ADMIN_SCOPE_NAMES } from "./src/lib/api/admin-scopes";
 import { mayBeStoredHtmlPage } from "./src/lib/edge/edge-html-cache-prefilter";
@@ -48,6 +48,7 @@ import {
   __INTERNAL_TRUSTED_CLIENT_IP_HEADER,
 } from "./src/utils/trusted-client-ip";
 import { __INTERNAL_TRUSTED_REQUEST_PROTOCOL_HEADER } from "./src/utils/request-protocol";
+import { runWithDataCache } from "./src/utils/data-cache-scope";
 import { withSpan } from "./src/utils/trace";
 
 const OPENAPI_SPEC_METHODS: ReadonlySet<string> = new Set(API_OPENAPI_SPEC_METHODS);
@@ -107,7 +108,11 @@ function handleCustomEdge(pathname: string): Response | null {
 // URL alone, so it answers here rather than in `src/proxy.ts`. 307 so indexed and bookmarked
 // prefixes keep working without caching a permanent mapping if i18n is re-enabled.
 function collapseDisabledLocalePrefix(url: URL): Response | null {
-  if (I18N_ENABLED || !shouldLocalizePathname(url.pathname)) {
+  if (
+    I18N_ENABLED ||
+    !shouldLocalizePathname(url.pathname) ||
+    isDefaultLocaleCardPathname(url.pathname)
+  ) {
     return null;
   }
 
@@ -617,24 +622,30 @@ async function fetchAppRequest({ request, url, env, ctx }: {
   return oauthProvider.fetch(request, env, ctx);
 }
 
+// Every handler runs inside `runWithDataCache`: the API, MCP, cron, and queue never reach Vinext's
+// page handler, which is the only place Vinext registers the KV data cache.
 const worker = {
   fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    return withSpan({
-      name: REQUEST_SPAN_NAME,
-      run: async (span) => {
-        span.setAttribute("http.request.method", request.method);
-        const response = await handleFetch({ request, env, ctx, span });
+    return runWithDataCache({
+      env,
+      ctx,
+      run: () => withSpan({
+        name: REQUEST_SPAN_NAME,
+        run: async (span) => {
+          span.setAttribute("http.request.method", request.method);
+          const response = await handleFetch({ request, env, ctx, span });
 
-        // The stamped header is the one record of the cache result, so the span reads it back.
-        if (span.isTraced) {
-          span.setAttributes({
-            "http.response.status_code": response.status,
-            [EDGE_HTML_CACHE_ATTRIBUTE]: response.headers.get(EDGE_HTML_CACHE_HEADER) ?? undefined,
-          });
-        }
+          // The stamped header is the one record of the cache result, so the span reads it back.
+          if (span.isTraced) {
+            span.setAttributes({
+              "http.response.status_code": response.status,
+              [EDGE_HTML_CACHE_ATTRIBUTE]: response.headers.get(EDGE_HTML_CACHE_HEADER) ?? undefined,
+            });
+          }
 
-        return response;
-      },
+          return response;
+        },
+      }),
     });
   },
 
@@ -644,28 +655,36 @@ const worker = {
     const { handleSchedulerCron } = await import("./src/lib/scheduler/worker");
 
     // The span surrounds the `waitUntil` work, so it ends when the jobs end, not when this returns.
-    ctx.waitUntil(withSpan({
-      name: SCHEDULED_SPAN_NAME,
-      run: (span) => {
-        span.setAttribute("faas.cron", controller.cron);
+    ctx.waitUntil(runWithDataCache({
+      env,
+      ctx,
+      run: () => withSpan({
+        name: SCHEDULED_SPAN_NAME,
+        run: (span) => {
+          span.setAttribute("faas.cron", controller.cron);
 
-        return handleSchedulerCron({ env, now: new Date(controller.scheduledTime) });
-      },
+          return handleSchedulerCron({ env, now: new Date(controller.scheduledTime) });
+        },
+      }),
     }));
   },
 
-  queue(batch: MessageBatch<ScheduledQueueMessage>, __env: Env, __ctx: ExecutionContext): Promise<void> {
-    return withSpan({
-      name: QUEUE_SPAN_NAME,
-      run: async (span) => {
-        span.setAttributes({
-          "messaging.destination.name": batch.queue,
-          "messaging.batch.message_count": batch.messages.length,
-        });
-        const { handleSchedulerQueue } = await import("./src/lib/scheduler/worker");
+  queue(batch: MessageBatch<ScheduledQueueMessage>, env: Env, ctx: ExecutionContext): Promise<void> {
+    return runWithDataCache({
+      env,
+      ctx,
+      run: () => withSpan({
+        name: QUEUE_SPAN_NAME,
+        run: async (span) => {
+          span.setAttributes({
+            "messaging.destination.name": batch.queue,
+            "messaging.batch.message_count": batch.messages.length,
+          });
+          const { handleSchedulerQueue } = await import("./src/lib/scheduler/worker");
 
-        await handleSchedulerQueue(batch);
-      },
+          await handleSchedulerQueue(batch);
+        },
+      }),
     });
   },
 } satisfies ExportedHandler<Env, ScheduledQueueMessage>;

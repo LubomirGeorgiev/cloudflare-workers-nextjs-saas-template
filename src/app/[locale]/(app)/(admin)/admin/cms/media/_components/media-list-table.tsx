@@ -14,7 +14,7 @@ import { Eye, FileImage } from "lucide-react";
 import { CMS_IMAGES_API_ROUTE } from "@/constants";
 import Image from "next/image";
 import { MediaTableActions } from "./media-table-actions";
-import { formatRelativeDateTime } from "@/utils/format-date";
+import { ClientRelativeTime } from "@/components/client-relative-time";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 
 interface MediaListTableProps {
@@ -128,7 +128,7 @@ export async function MediaListTable({ page }: MediaListTableProps) {
                   )}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {formatRelativeDateTime(item.createdAt, DEFAULT_LOCALE)}
+                  <ClientRelativeTime value={item.createdAt} locale={DEFAULT_LOCALE} />
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">

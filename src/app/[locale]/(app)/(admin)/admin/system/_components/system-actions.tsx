@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EDGE_HTML_CACHE_TTL_SECONDS } from "@/constants/cache-control";
+import { EDGE_HTML_CACHE_TTL_MINUTES } from "@/constants/cache-control";
 import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import type { AdminSystemActionAvailability } from "@/lib/admin/system-actions";
 import { cn } from "@/lib/utils";
@@ -33,10 +33,6 @@ type ActionKey =
   | "purge-cloudflare-cdn-cache";
 
 type SystemActionInput = NonNullable<Parameters<typeof runSystemAction>[0]>;
-
-// The stored HTML copies this purge cannot reach expire on their own, so the copy states the
-// window rather than a literal, and a fork that retunes the TTL retunes the sentence with it.
-const EDGE_HTML_CACHE_TTL_MINUTES = Math.round(EDGE_HTML_CACHE_TTL_SECONDS / 60);
 
 interface PendingConfirm {
   key: ActionKey;
@@ -123,13 +119,13 @@ const GLOBAL_ACTIONS = [
     icon: FileCode,
     title: "Purge Edge HTML Cache",
     description:
-      `Deletes the stored anonymous HTML pages from the Cache API in this data center. Copies elsewhere expire within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. Never KV, never Workers Caching.`,
+      `Deletes the stored anonymous HTML pages from the Cache API. With the zone purge, every data center; without it, this one, and copies elsewhere expire within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. Never KV, never Workers Caching.`,
     variant: "destructive" as const,
     confirm: {
       input: { type: "purge-edge-html-cache" } satisfies SystemActionInput,
       title: "Purge the stored edge HTML pages?",
       description:
-        `This deletes every stored anonymous page from the Cache API in the data center that runs the purge — with Smart Placement, the one that holds them. A copy in any other location expires within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. It does not touch KV and it does not touch Workers Caching.`,
+        `This deletes every stored anonymous page from the Cache API in the data center that runs the purge — with Smart Placement, the one that holds them. With the zone purge configured, it also deletes every stored page in every other location. Without it, a copy in any other location expires within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes. Use it after you change a var or a secret. It does not touch KV and it does not touch Workers Caching.`,
       destructive: true,
     },
   },
@@ -141,19 +137,39 @@ const GLOBAL_ACTIONS = [
     availabilityKey: "purgeCloudflareCdnCache" as const,
     title: "Purge Cloudflare CDN Cache",
     description:
-      "Purges the whole zone cache at Cloudflare, for every URL: static assets included, and the Cache API page copies in every data center. Global, the same purge the deploy step runs.",
+      "Purges the whole zone cache at Cloudflare: every URL the Worker serves, and the Cache API page copies in every data center. Workers Static Assets (/_next/static/*) keep their own cache and stay cached. Global, the same purge the deploy step runs.",
     variant: "destructive" as const,
     confirm: {
       input: { type: "purge-cloudflare-cdn-cache" } satisfies SystemActionInput,
       title: "Purge the whole Cloudflare zone cache?",
       description:
-        "This purges everything Cloudflare holds for this zone, at every location: every URL the site serves, the static assets, and the stored HTML page copies in every data center. It is the same purge the deploy workflow runs after a release. Every location refetches from the Worker afterwards, so expect a traffic spike and slower first responses. This action is unavailable until CLOUDFLARE_API_TOKEN with the Cache Purge permission, and the account id, are configured.",
+        "This purges the zone cache at every location: every URL the Worker serves, and the stored HTML page copies in every data center. It does not reach the files that Workers Static Assets serves, such as /_next/static/*: those keep their own cache. It is the same purge the deploy workflow runs after a release. Every location refetches from the Worker afterwards, so expect a traffic spike and slower first responses. This action is unavailable until CLOUDFLARE_API_TOKEN with the Cache Purge permission, and the account id, are configured.",
       destructive: true,
     },
   },
 ] as const;
 
 type GlobalAction = (typeof GLOBAL_ACTIONS)[number];
+
+const DEFAULT_SYSTEM_ACTION_RESULT: SystemActionToast = {
+  message: "System maintenance task completed",
+  partial: false,
+};
+
+interface SystemActionToast {
+  message: string;
+  partial: boolean;
+}
+
+// A partial result ran but left part of the work undone, so it must not read as success.
+function showSystemActionToast({ message, partial }: SystemActionToast): void {
+  if (partial) {
+    toast.warning(message);
+    return;
+  }
+
+  toast.success(message);
+}
 
 /** An action the Worker cannot perform is not offered; the rest are always available. */
 function isActionAvailable({
@@ -172,7 +188,7 @@ export function SystemActions({ availability }: { availability: AdminSystemActio
 
   const { execute } = useAction(runSystemAction, {
     onSuccess: ({ data }) => {
-      toast.success(data?.message || "System maintenance task completed");
+      showSystemActionToast(data ?? DEFAULT_SYSTEM_ACTION_RESULT);
       setActiveAction(null);
     },
     onError: ({ error }) => {

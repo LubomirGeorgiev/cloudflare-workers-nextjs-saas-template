@@ -2,7 +2,16 @@ import "server-only";
 
 import { env } from "cloudflare:workers";
 
-import { createScheduledQueueMessage, SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
+import {
+  CMS_REPURGE_ENTRIES_PER_MESSAGE,
+  type CmsRepurgeTarget,
+  createScheduledQueueMessage,
+  SCHEDULED_JOB_TYPES,
+} from "@/lib/scheduler/jobs";
+import { chunk } from "@/utils/chunk";
+
+// A `sendBatch` call takes at most 256 KB. Five full repurge messages stay below it.
+const CMS_REPURGE_MESSAGES_PER_SEND = 5;
 
 // Refreshing member sessions fans out to D1 + KV work per member — far too slow to run
 // inline in a webhook Stripe expects to ack quickly, or in a user-facing action. Offload
@@ -30,4 +39,31 @@ export async function enqueueBillingCancelSubscription({
     payload: { teamId, subscriptionId },
     runAt: new Date(),
   }));
+}
+
+// Fire-once by design: the job handler runs the purge without a warm and without this enqueue, so a
+// delayed purge never schedules another one. The navigations and scopes ride on the first message.
+export async function enqueueCmsRepurge({
+  entries,
+  navigationKeys,
+  scopes,
+  delaySeconds,
+}: CmsRepurgeTarget & { delaySeconds: number }): Promise<void> {
+  const runAt = new Date(Date.now() + delaySeconds * 1000);
+  const entryParts = chunk({ items: entries, size: CMS_REPURGE_ENTRIES_PER_MESSAGE });
+  const payloads = (entryParts.length > 0 ? entryParts : [[]]).map((part, index) => (
+    index === 0 ? { entries: part, navigationKeys, scopes } : { entries: part }
+  ));
+  const messages = payloads.map((payload) => ({
+    body: createScheduledQueueMessage({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload,
+      runAt,
+    }),
+    delaySeconds,
+  }));
+
+  for (const batch of chunk({ items: messages, size: CMS_REPURGE_MESSAGES_PER_SEND })) {
+    await env.SCHEDULER_QUEUE.sendBatch(batch);
+  }
 }

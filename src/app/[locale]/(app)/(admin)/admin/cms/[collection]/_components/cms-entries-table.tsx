@@ -10,7 +10,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { CmsEntryTags } from "@/components/cms-entry-tags";
-import { formatRelativeDateTime } from "@/utils/format-date";
+import { ClientRelativeTime } from "@/components/client-relative-time";
 import {
   Select,
   SelectContent,
@@ -39,6 +39,8 @@ import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import { toast } from "sonner";
 import { ENABLED_LOCALES, DEFAULT_LOCALE } from "@/i18n/config";
 import { LocaleCoverageBadges } from "../../_components/locale-coverage-badges";
+import { warnAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
+import { describeEntryDelete } from "./entry-delete-description";
 
 // Module-level so the default keeps one reference across renders.
 const NO_NAVIGATION_ENTRY_SLUGS: string[] = [];
@@ -74,7 +76,8 @@ export function CmsEntriesTable({
     onError: ({ error }) => {
       toast.error(error.serverError?.message || "Failed to delete entry");
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
+      warnAfterCmsWrite(data);
       listEntries({
         collection,
         status: statusFilter,
@@ -142,7 +145,7 @@ export function CmsEntriesTable({
           <CmsEntryStatusBadge status={row.original.status} />
           {(row.original.publishedAt && row.original.status === "scheduled") && (
             <span className="text-xs text-muted-foreground">
-              {formatRelativeDateTime(row.original.publishedAt, DEFAULT_LOCALE)}
+              <ClientRelativeTime value={row.original.publishedAt} locale={DEFAULT_LOCALE} />
             </span>
           )}
         </div>
@@ -174,9 +177,11 @@ export function CmsEntriesTable({
       header: "Updated",
       cell: ({ row }) => (
         <span>
-          {row.original.updatedAt
-            ? formatRelativeDateTime(row.original.updatedAt, DEFAULT_LOCALE)
-            : "—"}
+          {row.original.updatedAt ? (
+            <ClientRelativeTime value={row.original.updatedAt} locale={DEFAULT_LOCALE} />
+          ) : (
+            "—"
+          )}
         </span>
       ),
     },
@@ -297,9 +302,7 @@ export function CmsEntriesTable({
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone.{" "}
-              {willDeleteTranslationGroup
-                ? `This will permanently delete this entry and all ${translationSiblingCount} of its translation${translationSiblingCount === 1 ? "" : "s"}.`
-                : "This will permanently delete this entry."}
+              {describeEntryDelete(willDeleteTranslationGroup ? translationSiblingCount : 0)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

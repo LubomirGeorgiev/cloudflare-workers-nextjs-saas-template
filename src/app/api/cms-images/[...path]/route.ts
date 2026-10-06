@@ -1,6 +1,8 @@
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { NextResponse } from "next/server";
 import { CMS_IMAGES_BASE_PATH } from "@/constants";
+import { CMS_IMAGE_CACHE_CONTROL } from "@/constants/cache-control";
+import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 // Only serves R2 objects uploaded through the CMS under CMS_IMAGES_BASE_PATH.
@@ -78,7 +80,8 @@ export async function GET(
       return new Response(object.body, {
         headers: {
           "Content-Type": contentType,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Cache-Control": CMS_IMAGE_CACHE_CONTROL,
+          "Cache-Tag": formatCacheTagHeader([CACHE_TAGS.cmsMedia(r2Key)]),
           "ETag": object.httpEtag || "",
           "Last-Modified": object.uploaded.toUTCString(),
           "X-Content-Type-Options": "nosniff",

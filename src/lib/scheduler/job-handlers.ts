@@ -2,11 +2,14 @@ import {
   SCHEDULED_JOB_TYPES,
   billingCancelSubscriptionJobPayloadSchema,
   cmsPublishEntryJobPayloadSchema,
+  cmsRepurgeJobPayloadSchema,
   emailSendJobPayloadSchema,
   teamSessionsRefreshJobPayloadSchema,
   type ScheduledQueueMessage,
 } from "@/lib/scheduler/jobs";
 import { cancelTeamSubscriptionAsAdmin } from "@/lib/admin/team-billing-admin";
+import { getKnownCmsCollectionSlug, repurgeCmsCaches } from "@/lib/cms/cms-cache-invalidation";
+import { hasCmsCachePurgeFailed } from "@/lib/cms/cms-cache-purge-report";
 import { publishScheduledCmsEntryIfDue } from "@/lib/cms/cms-scheduled-publishing";
 import { renderTransactionalEmail, sendTransactionalEmailNow } from "@/utils/email";
 import { refreshTeamMemberSessions } from "@/utils/kv-session";
@@ -34,6 +37,25 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
       await publishScheduledCmsEntryIfDue({
         entryId: payload.entryId,
       });
+      return;
+    }
+    case SCHEDULED_JOB_TYPES.CMS_REPURGE: {
+      const payload = v.parse(cmsRepurgeJobPayloadSchema, message.payload);
+
+      const outcome = await repurgeCmsCaches({
+        entries: payload.entries.map(({ collection, slug }) => ({
+          collection: getKnownCmsCollectionSlug(collection),
+          slug,
+        })),
+        navigationKeys: payload.navigationKeys,
+        scopes: payload.scopes,
+      });
+
+      // A throw makes the consumer retry, up to the queue's `max_retries`. A missing config never
+      // heals on retry, so only a failed purge throws.
+      if (hasCmsCachePurgeFailed(outcome)) {
+        throw new Error(`CMS repurge failed: ${JSON.stringify(outcome)}`);
+      }
       return;
     }
     case SCHEDULED_JOB_TYPES.EMAIL_SEND: {

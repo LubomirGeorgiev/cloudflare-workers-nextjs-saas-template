@@ -14,6 +14,8 @@ import type {
 
 export type GetCmsTagsParams = {
   locale?: Locale;
+  // Count only the published blog posts in `locale`; otherwise count every tagged entry.
+  countPublishedPosts?: boolean;
 };
 
 export type GetCmsEntriesByTagIdParams = {

@@ -14,6 +14,10 @@ const DEFAULT_CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const WORKER_ZONE_ID_CACHE_TTL_SECONDS = 24 * 60 * 60;
 const WORKER_ZONE_ID_CACHE_KEY = `${APP_KV_PREFIXES.workerZone}${SITE_DOMAIN}`;
 
+// Each stored page asks for the zone, and a failed lookup costs an API call. Remember a failure for
+// this long per isolate, so a fixed token or zone still takes effect within the window.
+const WORKER_ZONE_LOOKUP_FAILURE_TTL_MS = 60_000;
+
 interface CloudflareApiClientOptions {
   apiToken: string;
   baseUrl?: string;
@@ -90,6 +94,7 @@ class CloudflareApiError extends Error {
 
 let cachedClient: CloudflareApiClient | null = null;
 let cachedApiToken: string | null = null;
+let workerZoneLookupFailedAt: number | null = null;
 
 function getCloudflareApiErrorMessage({
   errors,
@@ -306,6 +311,7 @@ async function fetchWorkerZoneId(): Promise<string> {
 /**
  * The zone that serves this Worker: this isolate's memo, then KV, then the API. A failed lookup
  * throws, so `lazyValue` never memoizes it and only a real hit is ever written back.
+ * `getWorkerZoneId` remembers the failure for `WORKER_ZONE_LOOKUP_FAILURE_TTL_MS`.
  */
 const getLookedUpWorkerZoneId = lazyValue(async (): Promise<string> => {
   const cached = await readCachedWorkerZoneId();
@@ -330,11 +336,19 @@ export async function getWorkerZoneId(): Promise<string | null> {
     return configuredZoneId;
   }
 
+  if (
+    workerZoneLookupFailedAt !== null &&
+    Date.now() - workerZoneLookupFailedAt < WORKER_ZONE_LOOKUP_FAILURE_TTL_MS
+  ) {
+    return null;
+  }
+
   try {
     return await getLookedUpWorkerZoneId();
   } catch (error) {
+    workerZoneLookupFailedAt = Date.now();
     // An unavailable zone is a configuration answer, not a failure: the caller hides the feature.
-    // `warn`, not `error`: a failure is not memoized, so a `workers.dev` deploy logs on every call.
+    // `warn`, not `error`: a `workers.dev` deploy fails every lookup, once per failure window.
     // Still logged, so a token missing a permission is not mistaken for an unconfigured feature.
     console.warn("getWorkerZoneId: zone lookup failed", error);
     return null;
@@ -352,6 +366,11 @@ export async function getCachePurgeConfig(): Promise<CachePurgeConfig | null> {
   const zoneId = await getWorkerZoneId();
 
   return zoneId ? { apiToken, zoneId } : null;
+}
+
+/** Whether a zone purge can reach every data center. Without it, a purge clears only the local one. */
+export async function isZonePurgeConfigured(): Promise<boolean> {
+  return (await getCachePurgeConfig()) !== null;
 }
 
 /**
@@ -388,13 +407,35 @@ export async function purgeZoneCacheTags({
   tags,
   zoneId,
 }: CachePurgeConfig & { tags: string[] }): Promise<void> {
+  await postZonePurgeChunks({ apiToken, zoneId, kind: "tags", values: tags });
+}
+
+/**
+ * Purge every cached URL that starts with one of `prefixes` (`<host>/<path>`, no scheme). Cloudflare
+ * matches the raw string, so `example.com/blog` also reaches `example.com/blog/tags/x`. Works for a
+ * Cache API custom key, unlike a URL purge. Same chunking and errors as `purgeZoneCacheTags`.
+ */
+export async function purgeZoneCachePrefixes({
+  apiToken,
+  prefixes,
+  zoneId,
+}: CachePurgeConfig & { prefixes: string[] }): Promise<void> {
+  await postZonePurgeChunks({ apiToken, zoneId, kind: "prefixes", values: prefixes });
+}
+
+async function postZonePurgeChunks({
+  apiToken,
+  kind,
+  values,
+  zoneId,
+}: CachePurgeConfig & { kind: "prefixes" | "tags"; values: string[] }): Promise<void> {
   const client = getCloudflareApiClient({ apiToken });
 
-  for (let index = 0; index < tags.length; index += ZONE_PURGE_TAGS_PER_REQUEST) {
-    await client.request<unknown, { tags: string[] }>({
+  for (let index = 0; index < values.length; index += ZONE_PURGE_TAGS_PER_REQUEST) {
+    await client.request<unknown, Partial<Record<typeof kind, string[]>>>({
       method: "POST",
       path: `/zones/${zoneId}/purge_cache`,
-      body: { tags: tags.slice(index, index + ZONE_PURGE_TAGS_PER_REQUEST) },
+      body: { [kind]: values.slice(index, index + ZONE_PURGE_TAGS_PER_REQUEST) },
     });
   }
 }

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
+import { PUBLISH_STATE_CHANGES } from "@/lib/cms/cms-invalidation-scopes";
 
 const {
   getDBMock,
@@ -102,6 +103,7 @@ describe("CMS scheduled publishing", () => {
       collectionSlug: "blog",
       slug: "hello-world",
       warm: true,
+      publishStateChange: PUBLISH_STATE_CHANGES.PUBLISHED,
     });
   });
 });

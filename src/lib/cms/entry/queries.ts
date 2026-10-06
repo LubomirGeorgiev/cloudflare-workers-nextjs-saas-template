@@ -1,14 +1,17 @@
 import "server-only";
 
 import { cache } from "react";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import { and, count, eq, inArray } from "drizzle-orm";
 import type { SelectedFields } from "drizzle-orm/sqlite-core";
 
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { getDB, getReadReplicaDB } from "@/db";
 import { cmsEntryTable } from "@/db/schema";
+import { CMS_ENTRY_STATUS } from "@/app/enums";
 import {
   buildCmsRelationsQuery,
+  buildStatusSqlCondition,
   buildStatusWhereCondition,
   deserializeCmsIncludeRelations,
   serializeCmsIncludeRelations,
@@ -67,12 +70,15 @@ async function selectEntryGroupRows<TColumns extends SelectedFields>({
   slugs,
   columns,
   distinct = false,
+  status,
   db,
 }: {
   collectionSlug: string;
   slugs: string[];
   columns: TColumns;
   distinct?: boolean;
+  // Required: a public read must name PUBLISHED, so a draft translation never becomes an hreflang.
+  status: CmsStatusFilter;
   // Required, never defaulted: only a read behind the KV cache may pass the replica client, so the
   // caller has to say which one it means.
   db: CmsQueryClient;
@@ -92,6 +98,7 @@ async function selectEntryGroupRows<TColumns extends SelectedFields>({
     .where(and(
       eq(cmsEntryTable.collection, collection.slug as CollectionsUnion),
       slugCondition,
+      buildStatusSqlCondition(status),
     ));
 }
 
@@ -160,7 +167,7 @@ async function getCachedCmsCollection(
   "use cache: remote";
   setCacheScope({
     tags: [CACHE_TAGS.cmsCollection(collectionSlug)],
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   return queryCmsCollection({
@@ -241,9 +248,7 @@ async function queryCmsCollectionCount({
     whereConditions.push(eq(cmsEntryTable.locale, locale));
   }
 
-  const statusCondition = status === CMS_STATUS_FILTER_ALL
-    ? undefined
-    : eq(cmsEntryTable.status, status);
+  const statusCondition = buildStatusSqlCondition(status);
   if (statusCondition) {
     whereConditions.push(statusCondition);
   }
@@ -265,7 +270,7 @@ async function getCachedCmsCollectionCount(
   "use cache: remote";
   setCacheScope({
     tags: [CACHE_TAGS.cmsCollectionCount(collectionSlug)],
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   return queryCmsCollectionCount({
@@ -358,7 +363,7 @@ async function getCachedCmsEntryBySlug(
         slug,
       }),
     ],
-    ttl: "7 days",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   const db = getReadReplicaDB();
@@ -418,7 +423,7 @@ async function getCachedEntryLocales(
         slug,
       }),
     ],
-    ttl: "7 days",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   const rows = await selectEntryGroupRows({
@@ -426,6 +431,7 @@ async function getCachedEntryLocales(
     slugs: [slug],
     columns: { locale: cmsEntryTable.locale },
     distinct: true,
+    status: CMS_ENTRY_STATUS.PUBLISHED,
     db: getReadReplicaDB(),
   });
 
@@ -434,7 +440,7 @@ async function getCachedEntryLocales(
 
 const getCachedEntryLocalesOnce = cache(getCachedEntryLocales);
 
-// Used by hreflang generation to render only alternate-language links that exist.
+// Used by hreflang generation to render only alternate-language links that are published.
 export function getEntryLocales(params: GetEntryLocalesParams): Promise<string[]> {
   const validated = v.parse(getEntryLocalesParamsSchema, params);
 
@@ -459,6 +465,7 @@ export async function getEntryLocaleSiblings(
       content: cmsEntryTable.content,
       sourceContentHashes: cmsEntryTable.sourceContentHashes,
     },
+    status: CMS_STATUS_FILTER_ALL,
     db: getDB(),
   });
 
@@ -499,8 +506,8 @@ export async function getEntryLocaleSiblings(
   });
 }
 
-// Powers the admin table's per-row "missing translation" indicator without an
-// extra query per row.
+// Powers the admin table's per-row "missing translation" indicator (status "all") and the sitemap
+// hreflang list (published only) without an extra query per row.
 export async function getEntryLocalesForSlugs(
   params: GetEntryLocalesForSlugsParams
 ): Promise<Map<string, Set<Locale>>> {
@@ -519,6 +526,7 @@ export async function getEntryLocalesForSlugs(
       locale: cmsEntryTable.locale,
     },
     distinct: true,
+    status: validated.status,
     db: getDB(),
   });
 

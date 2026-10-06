@@ -37,6 +37,12 @@ The order of signals is: the URL prefix, then the locale cookie, then `Accept-La
 default locale. The default locale is served at the bare path (`/blog`), and every other locale is
 prefixed (`/es/blog`).
 
+One URL keeps the default prefix: a card (`opengraph-image`). Vinext builds the `og:image` URL from
+the internal `app/[locale]/` path, so a default-locale page names `/en/.../opengraph-image`. A
+redirect there would cost every crawler one hop. `isDefaultLocaleCardPathname` in
+`src/i18n/locale-prefix.ts` holds the rule. `decideLocaleRoute` serves the card in place, and
+`collapseDisabledLocalePrefix` lets it pass.
+
 `resolveRequestLocale` in `src/i18n/resolve-locale.ts` is the one answer to "what locale is this
 request". The edge HTML cache calls the same function as the proxy, so the two cannot drift. See
 "The gate" in [edge-caching.md](edge-caching.md).

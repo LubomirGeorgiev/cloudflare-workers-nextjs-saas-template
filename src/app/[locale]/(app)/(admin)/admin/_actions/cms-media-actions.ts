@@ -11,7 +11,15 @@ import { RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
 import type { JSONContent } from "@tiptap/core";
 import { type CmsEntryRef, invalidateCmsEntries } from "@/lib/cms/cms-cache-invalidation";
+import { purgeWorkersCacheAfterWrite } from "@/lib/edge/purge-workers-cache-after-write";
+import { CACHE_TAGS } from "@/constants/cache-tags";
+import { EDGE_HTML_ZONE_PURGE_OUTCOME } from "@/constants/edge-html-cache";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
+import {
+  reportCmsCachePurge,
+  selectCmsCachePurgeOutcome,
+  withCmsCachePurgeReport,
+} from "@/lib/cms/cms-cache-purge-report";
 import {
   cmsMediaBucketKeySchema,
   cmsMediaIdSchema,
@@ -122,7 +130,7 @@ export const getCmsMediaDetailsAction = actionClient
 function updateImageNodesInContent(
   content: JSONContent,
   bucketKey: string,
-  updates: { alt?: string; title?: string; width?: number; height?: number }
+  updates: { alt?: string | null; title?: string | null; width?: number; height?: number }
 ): boolean {
   if (!content) {
     return false;
@@ -153,7 +161,7 @@ function applyImageAttributeUpdates({
   updates,
 }: {
   attrs: Record<string, unknown>;
-  updates: { alt?: string; width?: number; height?: number };
+  updates: { alt?: string | null; width?: number; height?: number };
 }): boolean {
   if (updates.alt !== undefined) {
     attrs.alt = updates.alt;
@@ -174,11 +182,13 @@ function applyImageAttributeUpdates({
 export const updateCmsMediaAction = actionClient
   .metadata({ actionName: "updateCmsMediaAction" })
   .inputSchema(updateCmsMediaSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
     const db = getDB();
-    const { mediaId, ...updates } = input;
+    const { mediaId, ...fields } = input;
+    // An empty alt clears it, so the media row and its image nodes match media that never had one.
+    const updates = { ...fields, ...(fields.alt !== undefined && { alt: fields.alt || null }) };
 
     const [media] = await db
       .select()
@@ -250,7 +260,7 @@ export const updateCmsMediaAction = actionClient
     }
 
     return { success: true, media: updated };
-  });
+  }));
 
 export const getCmsMediaByBucketKeyAction = actionClient
   .metadata({ actionName: "getCmsMediaByBucketKeyAction" })
@@ -279,7 +289,7 @@ export const deleteCmsMediaAction = actionClient
   .metadata({ actionName: "deleteCmsMediaAction" })
   .inputSchema(cmsMediaIdSchema)
   .action(async ({ parsedInput: input }) => {
-    return withUserRateLimit(async () => {
+    return withUserRateLimit(() => withCmsCachePurgeReport(async () => {
       await requireAdmin();
 
       const db = getDB();
@@ -311,14 +321,25 @@ export const deleteCmsMediaAction = actionClient
         );
       }
 
-      // Delete from R2
-      await env.R2_BUCKET.delete(media.bucketKey);
-
-      // Delete from database
+      // Row first: if the R2 delete then fails, the orphan sweep in `retention.ts` removes the file.
       await db
         .delete(cmsMediaTable)
         .where(eq(cmsMediaTable.id, input.mediaId));
 
+      await env.R2_BUCKET.delete(media.bucketKey);
+
+      // The image route and `/_next/image` tag each copy with the R2 key. Never throws. No KV tag
+      // and no stored page names the file, so it skips `runCmsCacheInvalidation`.
+      const workersCachePurge = await purgeWorkersCacheAfterWrite({
+        tags: [CACHE_TAGS.cmsMedia(media.bucketKey)],
+      });
+
+      // The delete stands either way. `cachePurge` tells the admin that the edge copy can stay.
+      reportCmsCachePurge(selectCmsCachePurgeOutcome({
+        zonePurge: EDGE_HTML_ZONE_PURGE_OUTCOME.NONE,
+        workersCachePurge,
+      }));
+
       return { success: true };
-    }, RATE_LIMITS.SETTINGS);
+    }), RATE_LIMITS.SETTINGS);
   });

@@ -1,15 +1,37 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { AUTH_SESSION_PRESENT_COOKIE_NAME } from "@/constants";
+import {
+  AUTH_SESSION_PRESENT_COOKIE_NAME,
+  SITE_DOMAIN,
+  ZONE_PURGE_TAGS_PER_REQUEST,
+} from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME, type Locale } from "@/i18n/config";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
 import { localizedPathname } from "@/i18n/localized-pathname";
+import {
+  EDGE_HTML_CACHE_CONTROL,
+  EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL,
+} from "@/constants/cache-control";
 
 vi.mock("server-only", () => ({}));
 
 // A fork serves one locale or several, so both are covered whichever one this checkout ships. The
 // served set is narrowed rather than `LOCALE_DETECTION` alone, because production derives it from that set.
 const servedLocales = vi.hoisted(() => ({ single: false }));
+
+const { getCachePurgeConfigMock, purgeZoneCachePrefixesMock, purgeZoneCacheTagsMock } = vi.hoisted(() => ({
+  getCachePurgeConfigMock: vi.fn(async (): Promise<{ apiToken: string; zoneId: string } | null> => null),
+  purgeZoneCachePrefixesMock: vi.fn(async (__input: { prefixes: string[] }) => undefined),
+  purgeZoneCacheTagsMock: vi.fn(async (__input: { tags: string[] }) => undefined),
+}));
+
+// The zone API is the subject here; its request shape is asserted in `cloudflare-api.test.ts`.
+vi.mock("@/lib/cloudflare-api", () => ({
+  getCachePurgeConfig: getCachePurgeConfigMock,
+  isZonePurgeConfigured: async () => (await getCachePurgeConfigMock()) !== null,
+  purgeZoneCachePrefixes: purgeZoneCachePrefixesMock,
+  purgeZoneCacheTags: purgeZoneCacheTagsMock,
+}));
 
 vi.mock("@/i18n/config", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/i18n/config")>();
@@ -31,7 +53,9 @@ vi.mock("@/i18n/config", async (importOriginal) => {
   };
 });
 
-const { resolveEdgeHtmlCacheEntry } = await import("./edge-html-cache");
+const { purgeEdgeHtmlPages, resolveEdgeHtmlCacheEntry, selectEdgeHtmlCacheControl } = await import(
+  "./edge-html-cache"
+);
 
 /** A public page in every fork: the blog listing is the root of a whole public subtree. */
 const CANONICAL_PATH = localizedPathname({ pathname: BLOG_BASE_PATH, locale: DEFAULT_LOCALE });
@@ -154,5 +178,142 @@ describe("resolveEdgeHtmlCacheEntry", () => {
         headers: { cookie: `${LOCALE_COOKIE_NAME}=${STALE_COOKIE_LOCALE}` },
       })).toMatchObject({ locale: DEFAULT_LOCALE });
     });
+  });
+});
+
+// Without a zone purge, other data centers keep each copy for its whole TTL, so it stays short.
+describe("selectEdgeHtmlCacheControl", () => {
+  test("keeps the short TTL without a zone purge", () => {
+    expect(selectEdgeHtmlCacheControl({ zonePurgeConfigured: false })).toBe(EDGE_HTML_CACHE_CONTROL);
+  });
+
+  test("uses the long TTL when a zone purge reaches every data center", () => {
+    expect(selectEdgeHtmlCacheControl({ zonePurgeConfigured: true })).toBe(
+      EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL,
+    );
+  });
+});
+
+describe("purgeEdgeHtmlPages", () => {
+  const PURGE_CONFIG = { apiToken: "token-1", zoneId: "zone-1" };
+  const ENTRY_PATH = `${BLOG_BASE_PATH}/launch-notes`;
+  const deleteMock = vi.fn(async (__key: string) => true);
+
+  function servedPathnames(pathname: string): string[] {
+    return ENABLED_LOCALES.map((locale) => localizedPathname({ pathname, locale }));
+  }
+
+  function keyPrefix(servedPathname: string): string {
+    return `${SITE_DOMAIN}/__edge-html/test-build-id${servedPathname}`;
+  }
+
+  beforeEach(() => {
+    servedLocales.single = false;
+    vi.stubGlobal("caches", { default: { delete: deleteMock } });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  test("deletes the named pages and the subtree roots locally when there is no API token", async () => {
+    const result = await purgeEdgeHtmlPages({
+      pathnames: [ENTRY_PATH],
+      subtreePathnames: [BLOG_BASE_PATH],
+    });
+
+    const expectedKeys = [...servedPathnames(BLOG_BASE_PATH), ...servedPathnames(ENTRY_PATH)]
+      .map((served) => `https://${keyPrefix(served)}`);
+    expect(deleteMock.mock.calls.map(([key]) => key).toSorted()).toEqual(expectedKeys.toSorted());
+    expect(result).toEqual({ deletedCount: expectedKeys.length, zonePurge: "unconfigured" });
+    expect(purgeZoneCacheTagsMock).not.toHaveBeenCalled();
+    expect(purgeZoneCachePrefixesMock).not.toHaveBeenCalled();
+  });
+
+  test("purges each subtree zone-wide by key prefix, and needs no tag for a page inside it", async () => {
+    getCachePurgeConfigMock.mockResolvedValueOnce(PURGE_CONFIG);
+
+    const result = await purgeEdgeHtmlPages({
+      pathnames: [ENTRY_PATH],
+      subtreePathnames: [BLOG_BASE_PATH],
+    });
+
+    expect(result.zonePurge).toBe("ok");
+    expect(purgeZoneCachePrefixesMock).toHaveBeenCalledOnce();
+    expect(purgeZoneCachePrefixesMock).toHaveBeenCalledWith({
+      ...PURGE_CONFIG,
+      prefixes: servedPathnames(BLOG_BASE_PATH).map(keyPrefix),
+    });
+    expect(purgeZoneCacheTagsMock).not.toHaveBeenCalled();
+  });
+
+  test("purges a page outside every subtree by tag", async () => {
+    getCachePurgeConfigMock.mockResolvedValueOnce(PURGE_CONFIG);
+
+    await purgeEdgeHtmlPages({ pathnames: [ENTRY_PATH] });
+
+    expect(purgeZoneCacheTagsMock).toHaveBeenCalledWith({
+      ...PURGE_CONFIG,
+      tags: servedPathnames(ENTRY_PATH).map((served) => `edge-html:test-build-id:${served}`),
+    });
+    expect(purgeZoneCachePrefixesMock).not.toHaveBeenCalled();
+  });
+
+  test("never throws when the zone purge fails", async () => {
+    getCachePurgeConfigMock.mockResolvedValueOnce(PURGE_CONFIG);
+    purgeZoneCachePrefixesMock.mockRejectedValueOnce(new Error("rate limited"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      await expect(purgeEdgeHtmlPages({
+        pathnames: [],
+        subtreePathnames: [BLOG_BASE_PATH],
+      })).resolves.toEqual({
+        deletedCount: servedPathnames(BLOG_BASE_PATH).length,
+        zonePurge: "failed",
+      });
+      expect(consoleError).toHaveBeenCalledOnce();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  // The API client chunks a long list; a sweep above one request must still reach every colo.
+  test("sends a tag list longer than one zone request instead of skipping it", async () => {
+    getCachePurgeConfigMock.mockResolvedValueOnce(PURGE_CONFIG);
+    const pathnames = Array.from(
+      { length: ZONE_PURGE_TAGS_PER_REQUEST + 1 },
+      (__, index) => `/page-${index}`,
+    );
+
+    const result = await purgeEdgeHtmlPages({ pathnames });
+
+    expect(result.zonePurge).toBe("ok");
+    expect(purgeZoneCacheTagsMock).toHaveBeenCalledOnce();
+    expect(purgeZoneCacheTagsMock.mock.calls[0]?.[0].tags.length).toBeGreaterThan(
+      ZONE_PURGE_TAGS_PER_REQUEST,
+    );
+  });
+
+  // The root subtree is the whole key space of this build: one prefix per served locale, no tag.
+  test("purges every stored page by the root prefix", async () => {
+    getCachePurgeConfigMock.mockResolvedValueOnce(PURGE_CONFIG);
+
+    await purgeEdgeHtmlPages({ pathnames: [ENTRY_PATH], subtreePathnames: ["/"] });
+
+    expect(purgeZoneCachePrefixesMock).toHaveBeenCalledWith({
+      ...PURGE_CONFIG,
+      prefixes: servedPathnames("/").map(keyPrefix),
+    });
+    expect(purgeZoneCacheTagsMock).not.toHaveBeenCalled();
+  });
+
+  test("reports no zone purge when nothing is named", async () => {
+    await expect(purgeEdgeHtmlPages({ pathnames: [] })).resolves.toEqual({
+      deletedCount: 0,
+      zonePurge: "none",
+    });
+    expect(getCachePurgeConfigMock).not.toHaveBeenCalled();
   });
 });

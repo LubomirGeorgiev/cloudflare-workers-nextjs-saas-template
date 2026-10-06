@@ -5,6 +5,7 @@ import { actionClient } from "@/lib/safe-action";
 import { buildCustomIconKey, parseUploadedSvgIcon } from "@/lib/cms/cms-icon-rules";
 import { searchIcons } from "@/lib/cms/cms-icons";
 import { saveCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import { withCmsCachePurgeReport } from "@/lib/cms/cms-cache-purge-report";
 import { translateText } from "@/lib/cms/translate-entry";
 import { requireAdmin } from "@/utils/auth";
 import { parseCmsCustomIconSchema, searchCmsIconsSchema } from "@/schemas/cms-icons.schema";
@@ -16,14 +17,14 @@ import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
 export const saveCmsNavigationTreeAction = actionClient
   .metadata({ actionName: "saveCmsNavigationTreeAction" })
   .inputSchema(saveCmsNavigationTreeSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
     return saveCmsNavigationTree({
       navigationKey: input.navigationKey,
       items: input.items,
     });
-  });
+  }));
 
 // AI-translates a single nav title into every enabled non-source locale, returning
 // a { locale: text } map for the admin manager to fill in. Falls back to the source

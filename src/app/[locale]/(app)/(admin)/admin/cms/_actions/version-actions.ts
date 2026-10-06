@@ -8,6 +8,7 @@ import {
   revertCmsEntryToVersion,
   deleteCmsEntryVersion,
 } from "@/lib/cms/entry";
+import { withCmsCachePurgeReport } from "@/lib/cms/cms-cache-purge-report";
 import { revalidateCmsEntryPaths } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-entry-revalidation";
 import { requireAdmin } from "@/utils/auth";
 import { cmsEntryVersionListSchema, cmsEntryVersionRefSchema } from "@/schemas/cms-version.schema";
@@ -35,7 +36,7 @@ export const getCmsEntryVersionCountAction = actionClient
 export const revertCmsEntryVersionAction = actionClient
   .metadata({ actionName: "revertCmsEntryVersionAction" })
   .inputSchema(cmsEntryVersionRefSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
     const previousEntry = await getCmsEntryById({ id: input.entryId });
@@ -52,7 +53,7 @@ export const revertCmsEntryVersionAction = actionClient
     });
 
     return updatedEntry;
-  });
+  }));
 
 export const deleteCmsEntryVersionAction = actionClient
   .metadata({ actionName: "deleteCmsEntryVersionAction" })

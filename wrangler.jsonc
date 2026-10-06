@@ -33,6 +33,9 @@
       "traces": {
         "enabled": true,
         "head_sampling_rate": 0.1,
+      },
+      "issues": {
+        "enabled": true
       }
     },
     "upload_source_maps": true,

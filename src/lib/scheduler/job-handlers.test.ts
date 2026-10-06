@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { cmsNavigationKeys, collectionSlugs } from "@/../cms.config";
+import {
+  CMS_CACHE_PURGE_OK,
+  CMS_PURGE_STATUS,
+  type CmsCachePurgeOutcome,
+} from "@/constants/cache-purge";
+import { CMS_INVALIDATION_SCOPE_VALUES } from "@/lib/cms/cms-invalidation-scopes";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import {
   EMAIL_TEMPLATE_TYPES,
@@ -8,20 +15,30 @@ import {
 
 const {
   publishScheduledCmsEntryIfDueMock,
+  repurgeCmsCachesMock,
   renderTransactionalEmailMock,
   sendTransactionalEmailNowMock,
   refreshTeamMemberSessionsMock,
   cancelTeamSubscriptionAsAdminMock,
 } = vi.hoisted(() => ({
   publishScheduledCmsEntryIfDueMock: vi.fn(),
+  // Both purges went through, unless a test says otherwise.
+  repurgeCmsCachesMock: vi.fn(async (): Promise<CmsCachePurgeOutcome> => ({ zone: "ok", workersCache: "ok" })),
   renderTransactionalEmailMock: vi.fn(),
   sendTransactionalEmailNowMock: vi.fn(),
   refreshTeamMemberSessionsMock: vi.fn(),
   cancelTeamSubscriptionAsAdminMock: vi.fn(),
 }));
 
+vi.mock("server-only", () => ({}));
+
 vi.mock("@/lib/cms/cms-scheduled-publishing", () => ({
   publishScheduledCmsEntryIfDue: publishScheduledCmsEntryIfDueMock,
+}));
+
+vi.mock("@/lib/cms/cms-cache-invalidation", () => ({
+  getKnownCmsCollectionSlug: (collectionSlug: string) => collectionSlug,
+  repurgeCmsCaches: repurgeCmsCachesMock,
 }));
 
 vi.mock("@/utils/email", () => ({
@@ -64,6 +81,81 @@ describe("scheduled job handlers", () => {
     });
 
     expect(publishScheduledCmsEntryIfDueMock).toHaveBeenCalledWith({ entryId: "entry-1" });
+  });
+
+  test("routes a CMS repurge job to the delayed purge, never to the publisher", async () => {
+    const entries = [{ collection: collectionSlugs[0], slug: "launch-notes" }];
+
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { entries },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({ entries, navigationKeys: [], scopes: [] });
+    expect(publishScheduledCmsEntryIfDueMock).not.toHaveBeenCalled();
+  });
+
+  // A tag create, a navigation save, or a full clear names no entry, only fixed scope names.
+  test("routes a CMS repurge job that names only navigations and scopes", async () => {
+    const navigationKeys = [...cmsNavigationKeys];
+    const scopes = [...CMS_INVALIDATION_SCOPE_VALUES];
+
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { navigationKeys, scopes },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({ entries: [], navigationKeys, scopes });
+  });
+
+  // A throw makes the consumer retry the message, up to the queue's `max_retries`.
+  test("rejects a CMS repurge job whose purge failed, so the queue retries it", async () => {
+    repurgeCmsCachesMock.mockResolvedValueOnce({
+      ...CMS_CACHE_PURGE_OK,
+      workersCache: CMS_PURGE_STATUS.FAILED,
+    });
+
+    await expect(runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { entries: [{ collection: collectionSlugs[0], slug: "launch-notes" }] },
+      runAt: "2026-05-29T10:00:00.000Z",
+    })).rejects.toThrow();
+  });
+
+  // A missing zone config never heals, so a retry would only repeat the same purge.
+  test("acks a CMS repurge job whose zone purge is not configured", async () => {
+    repurgeCmsCachesMock.mockResolvedValueOnce({
+      ...CMS_CACHE_PURGE_OK,
+      zone: CMS_PURGE_STATUS.UNCONFIGURED,
+    });
+
+    await expect(runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { entries: [{ collection: collectionSlugs[0], slug: "launch-notes" }] },
+      runAt: "2026-05-29T10:00:00.000Z",
+    })).resolves.toBeUndefined();
+  });
+
+  test("rejects a CMS repurge job with an unknown scope", async () => {
+    await expect(runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { scopes: ["/any/path" as never] },
+      runAt: "2026-05-29T10:00:00.000Z",
+    })).rejects.toThrow();
+
+    expect(repurgeCmsCachesMock).not.toHaveBeenCalled();
+  });
+
+  test("rejects a CMS repurge job that names nothing", async () => {
+    await expect(runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { entries: [] },
+      runAt: "2026-05-29T10:00:00.000Z",
+    })).rejects.toThrow();
+
+    expect(repurgeCmsCachesMock).not.toHaveBeenCalled();
   });
 
   test("renders and sends transactional email jobs", async () => {

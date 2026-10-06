@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { CACHE_TAGS } from "@/constants/cache-tags";
-import { INDEXED_DOCS_ROUTES } from "@/constants/docs-routes";
 import { DEFAULT_LOCALE, ENABLED_LOCALES } from "@/i18n/config";
+import { DOCS_BASE_PATH } from "@/lib/cms/docs-config";
+import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
 
 const {
+  enqueueCmsRepurgeMock,
   getCmsCollectionMock,
   getDBMock,
   purgeMarkdownPageCacheMock,
@@ -13,6 +15,7 @@ const {
   revalidateCacheTagMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
+  enqueueCmsRepurgeMock: vi.fn(async (__input: unknown) => undefined),
   getCmsCollectionMock: vi.fn(),
   getDBMock: vi.fn(),
   purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
@@ -54,6 +57,16 @@ vi.mock("@/lib/cms/cms-search", async () => {
 // The purge helper's own branches are asserted in `workers-cache-purge.test.ts`.
 vi.mock("@/lib/edge/purge-workers-cache-after-write", () => ({
   purgeWorkersCacheAfterWrite: purgeWorkersCacheAfterWriteMock,
+}));
+
+// The span runtime and the queue need Worker bindings; `cms-cache-invalidation.test.ts` covers both.
+vi.mock("@/utils/trace", () => ({
+  withSpan: ({ run }: { run: (span: unknown) => Promise<unknown> }) =>
+    run({ isTraced: false, setAttribute: () => undefined, setAttributes: () => undefined }),
+}));
+
+vi.mock("@/lib/scheduler/enqueue", () => ({
+  enqueueCmsRepurge: enqueueCmsRepurgeMock,
 }));
 
 // The KV sweep itself needs a Worker binding; its locale matrix is asserted in
@@ -199,6 +212,21 @@ describe("CMS navigation repository", () => {
     expect(findMany).toHaveBeenCalledTimes(2);
   });
 
+  // The admin tree reads drafts, and the author purge skips a user whose entries are all drafts.
+  test("the tree reads no author, so no cached tree can keep an old author name", async () => {
+    getDBMock.mockReturnValue({
+      query: { cmsNavigationItemTable: { findMany: vi.fn().mockResolvedValue([]) } },
+    });
+    getCmsCollectionMock.mockResolvedValue([]);
+
+    await getCmsNavigationTree({ navigationKey: "docs", status: CMS_STATUS_FILTER_ALL });
+
+    expect(getCmsCollectionMock).toHaveBeenCalled();
+    for (const [params] of getCmsCollectionMock.mock.calls) {
+      expect(params.includeRelations?.createdByUser).toBeFalsy();
+    }
+  });
+
   test("saveCmsNavigationTree revalidates old and new public docs paths for every served locale", async () => {
     stubIntroRename();
 
@@ -213,16 +241,36 @@ describe("CMS navigation repository", () => {
     }
   });
 
-  test("saveCmsNavigationTree purges the page Markdown cache of the docs app routes", async () => {
+  test("saveCmsNavigationTree purges the page Markdown cache of the whole docs subtree", async () => {
     stubIntroRename();
 
     await saveRenamedIntro();
 
-    // Those pages render the sidebar from this tree, and `revalidatePath` cannot reach their KV copy.
+    // Every docs page renders the sidebar from this tree, and `revalidatePath` cannot reach its KV copy.
     expect(purgeMarkdownPageCacheMock).toHaveBeenCalledTimes(1);
-    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({
-      pathnames: INDEXED_DOCS_ROUTES.map(({ pathname }) => pathname),
-    });
+    expect(purgeMarkdownPageCacheMock).toHaveBeenCalledWith({ pathnames: [DOCS_BASE_PATH] });
+  });
+
+  // A render in another isolate can still read the old tree after the first purge, and store it.
+  test("saveCmsNavigationTree queues a delayed repeat of its purge", async () => {
+    stubIntroRename();
+
+    await saveRenamedIntro();
+
+    expect(enqueueCmsRepurgeMock).toHaveBeenCalledOnce();
+    expect(enqueueCmsRepurgeMock).toHaveBeenCalledWith(expect.objectContaining({
+      entries: [],
+      navigationKeys: ["docs"],
+    }));
+  });
+
+  // The header renders only whether a docs page exists, so a rename of the first page keeps it.
+  test("saveCmsNavigationTree does not purge the site header for a page rename", async () => {
+    stubIntroRename();
+
+    await saveRenamedIntro();
+
+    expect(enqueueCmsRepurgeMock).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
   });
 
   // An edge refetch must read the new tree, so Workers Caching goes after every KV drop.
@@ -244,7 +292,9 @@ describe("CMS navigation repository", () => {
     await saveRenamedIntro();
 
     expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledTimes(1);
-    expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledWith({ tags: expectedTags });
+    expect(purgeWorkersCacheAfterWriteMock.mock.calls[0]?.[0].tags).toEqual(
+      expect.arrayContaining(expectedTags),
+    );
   });
 });
 

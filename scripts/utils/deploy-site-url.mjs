@@ -1,3 +1,5 @@
+import { parseWranglerConfig } from "./parse-wrangler.mjs";
+
 // A copy of LOCAL_HOSTNAMES from src/constants.ts, because this runs in plain Node at deploy
 // time and cannot import TypeScript. deploy-site-url.test.mjs fails when the two drift.
 export const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
@@ -33,4 +35,81 @@ export function findDeploySiteUrlProblem(siteUrl) {
     "relaxes the session cookie sameSite policy, and stops all transactional email.",
     "Unset the variable to use the production fallback, or set it to the public site URL.",
   ].join("\n");
+}
+
+const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
+
+/** The deployed origin: an explicit value, then NEXT_PUBLIC_SITE_URL, then the Worker route. */
+export function resolveDeployedSiteUrl(explicit) {
+  const configured = explicit?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  return siteUrlFromWorkerRoutes(parseWranglerConfig().routes ?? []);
+}
+
+/** The origin of the first Worker route in `wrangler.jsonc`, or undefined when it has none. */
+export function siteUrlFromWorkerRoutes(routes) {
+  const pattern = routes
+    .map((route) => (typeof route === "string" ? route : route?.pattern))
+    .find((candidate) => typeof candidate === "string" && candidate.length > 0);
+
+  if (!pattern) {
+    return undefined;
+  }
+
+  return `https://${pattern.split("/")[0].replace(/^\*\./, "")}`;
+}
+
+/**
+ * The zone the deploy purges: the configured override, else the zone of the site hostname, found
+ * the way `getWorkerZoneId` in src/lib/cloudflare-api.ts finds it. Never throws on a missing zone;
+ * it returns the reason, because a workers.dev-only deploy has no zone to purge.
+ */
+export async function resolveDeployZoneId({
+  accountId,
+  apiToken,
+  configuredZoneId,
+  siteUrl,
+  fetchImpl = fetch,
+}) {
+  const override = configuredZoneId?.trim();
+
+  if (override) {
+    return { zoneId: override };
+  }
+
+  if (!accountId?.trim() || !siteUrl) {
+    return { problem: "CLOUDFLARE_ACCOUNT_ID and a site URL are required to find the zone." };
+  }
+
+  return lookupWorkerZoneId({
+    accountId: accountId.trim(),
+    apiToken,
+    hostname: new URL(siteUrl).hostname,
+    fetchImpl,
+  });
+}
+
+async function lookupWorkerZoneId({ accountId, apiToken, hostname, fetchImpl }) {
+  const response = await fetchImpl(
+    `${CLOUDFLARE_API_BASE_URL}/accounts/${accountId}/workers/domains?hostname=${encodeURIComponent(hostname)}`,
+    { headers: { Authorization: `Bearer ${apiToken}` } },
+  );
+
+  if (!response.ok) {
+    return { problem: `The zone lookup for ${hostname} failed with HTTP ${response.status}.` };
+  }
+
+  const zoneId = zoneIdFromWorkersDomains(await response.json().catch(() => ({})));
+
+  return zoneId ? { zoneId } : { problem: `No Cloudflare zone is attached to ${hostname}.` };
+}
+
+function zoneIdFromWorkersDomains(body) {
+  const domains = Array.isArray(body?.result) ? body.result : [];
+
+  return domains.find((domain) => domain.zone_id)?.zone_id;
 }

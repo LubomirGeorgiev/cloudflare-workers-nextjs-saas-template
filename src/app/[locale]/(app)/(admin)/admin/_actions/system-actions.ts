@@ -30,8 +30,10 @@ export const runSystemAction = actionClient
       revalidatePath("/admin/cms");
     }
 
+    // A partial result is still a 200: the panel shows its message as a warning.
     return {
-      success: true,
+      success: result.partial !== true,
+      partial: result.partial === true,
       message: result.message,
     };
   });

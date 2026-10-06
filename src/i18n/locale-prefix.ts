@@ -1,3 +1,5 @@
+import { isOgImagePathname } from "@/lib/og/og-paths";
+
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, type Locale } from "./config";
 
 interface LocalePrefixMatch {
@@ -45,4 +47,12 @@ export function splitLocalePrefix(pathname: string): LocalePrefixMatch {
 // full catalog, so a de-served prefix is still a prefix to collapse or replace, never a page path.
 export function stripLocalePrefix(pathname: string): string | null {
   return matchPrefix({ pathname, locales: LOCALES })?.pathname ?? null;
+}
+
+/**
+ * A card URL under the exact default-locale prefix. Vinext builds `og:image` from the internal
+ * `app/[locale]/` path, so pages name their card there; serve it in place, not through a redirect.
+ */
+export function isDefaultLocaleCardPathname(pathname: string): boolean {
+  return pathname.startsWith(`/${DEFAULT_LOCALE}/`) && isOgImagePathname(pathname);
 }

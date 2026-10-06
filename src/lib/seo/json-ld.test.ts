@@ -312,3 +312,12 @@ test("reuses fixed site data and emits the same safe bytes on later requests", a
   expect(element.props.dangerouslySetInnerHTML.__html).toBe(serializeJsonLd(first));
   expect((await SiteJsonLd()).props.dangerouslySetInnerHTML.__html).toBe(element.props.dangerouslySetInnerHTML.__html);
 });
+
+test.each([
+  { name: "a relative avatar gets the site origin", avatar: AUTHOR.avatar, expected: `${SITE_URL}${AUTHOR.avatar}` },
+  { name: "an absolute avatar stays unchanged", avatar: "https://avatars.example.com/ada.png", expected: "https://avatars.example.com/ada.png" },
+])("$name", async ({ avatar, expected }) => {
+  const graph = await buildBlogAuthorGraph({ locale: LOCALE, author: { ...AUTHOR, avatar } });
+
+  expect(nodesOfType(graph["@graph"], "Person").map((node) => node.image)).toContain(expected);
+});

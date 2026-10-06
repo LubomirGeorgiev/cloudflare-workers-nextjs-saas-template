@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
@@ -80,7 +81,7 @@ async function loadCachedBlogEntryArtifacts({
   keepRendererBuildIdInCacheKey(rendererBuildId);
   setCacheScope({
     tags: blogEntryCacheTags(slug),
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   const entry = await getCmsEntryBySlug({

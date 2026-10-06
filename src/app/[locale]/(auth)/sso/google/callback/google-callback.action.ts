@@ -24,7 +24,9 @@ import { getIP } from "@/utils/get-IP";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 import { assertNotBanned } from "@/lib/account/ban";
+import { invalidateCmsAuthorAfterUserWrite } from "@/lib/cms/cms-author-cache-invalidation";
 import { getNewAccountLocale } from "@/i18n/new-account-locale";
+import { runInBackground } from "@/utils/run-in-background";
 
 // Written by the `/sso/google` route with `path: "/"`; a delete must name the same path to match.
 const GOOGLE_OAUTH_COOKIE_NAMES = [
@@ -121,6 +123,14 @@ export const googleSSOCallbackAction = actionClient
             })
             .where(eq(userTable.id, existingUserWithEmail.id))
             .returning();
+
+          // The link can give an author their first avatar, which public CMS pages render. The
+          // sign-in does not wait for the purge chain.
+          runInBackground(invalidateCmsAuthorAfterUserWrite({
+            userId: updatedUser.id,
+            before: existingUserWithEmail,
+            after: updatedUser,
+          }));
 
           const { preferredLocale } = await createSessionUnlessBanned({
             userId: updatedUser.id,

@@ -1,7 +1,15 @@
+import { CMS_NAVIGATION_NODE_TYPES } from "@/types/cms-navigation";
+
 interface SortableTreeNode<TNode> {
   id: string;
   parentId: string | null;
   sortOrder: number;
+  children: TNode[];
+}
+
+interface RootPathNode<TNode> {
+  nodeType: string;
+  resolvedPath: string | null;
   children: TNode[];
 }
 
@@ -33,4 +41,37 @@ export function assembleNavigationTree<TNode extends SortableTreeNode<TNode>>(
   sortNavigationSiblings(roots);
 
   return roots;
+}
+
+/** The root path of a navigation: the path of the first page, depth first, whose entry is live. */
+export function selectNavigationRootPath<TNode extends RootPathNode<TNode>>({
+  nodes,
+  isLivePage,
+}: {
+  nodes: TNode[];
+  isLivePage: (node: TNode) => boolean;
+}): string | null {
+  return findNavigationRootPage({ nodes, isLivePage })?.resolvedPath ?? null;
+}
+
+function findNavigationRootPage<TNode extends RootPathNode<TNode>>({
+  nodes,
+  isLivePage,
+}: {
+  nodes: TNode[];
+  isLivePage: (node: TNode) => boolean;
+}): TNode | null {
+  for (const node of nodes) {
+    if (node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE && isLivePage(node)) {
+      return node;
+    }
+
+    const childRoot = findNavigationRootPage({ nodes: node.children, isLivePage });
+
+    if (childRoot) {
+      return childRoot;
+    }
+  }
+
+  return null;
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
@@ -53,7 +54,7 @@ describe("cached docs page data", () => {
       expect(result.previous).not.toHaveProperty("entry");
     }
     expect(setCacheScope).toHaveBeenCalledWith({
-      tags: [CACHE_TAGS.cmsNavigation(DOCS_SLUG), CACHE_TAGS.cmsRedirect(DOCS_SLUG)], ttl: "8 hours",
+      tags: [CACHE_TAGS.cmsNavigation(DOCS_SLUG), CACHE_TAGS.cmsRedirect(DOCS_SLUG)], ttl: CMS_DATA_CACHE_TTL,
     });
   });
 

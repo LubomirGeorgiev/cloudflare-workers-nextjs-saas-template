@@ -48,9 +48,14 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       // module so the real gate calls it too, which is what keeps the prefilter a superset.
       "src/lib/edge/edge-html-cache-prefilter.ts",
       "src/lib/oauth/provider-config.ts",
+      // Import-free: the prefix collapse lets a default-locale card URL pass.
+      "src/lib/og/og-paths.ts",
       "src/utils/api-key-format.ts",
       "src/utils/cf-context-fields.ts",
       "src/utils/cms-image-source.ts",
+      // Every handler registers the KV data cache. It imports only two Vinext shims that the built
+      // startup chunk already holds; the adapter itself stays behind an `import()`.
+      "src/utils/data-cache-scope.ts",
       // The import-free hash that bounds a long CMS cache tag in `cache-tags.ts`.
       "src/utils/hash.ts",
       "src/utils/random-token.ts",
@@ -74,6 +79,8 @@ const STARTUP_ENTRIES: readonly StartupEntry[] = [
       "src/i18n/localized-paths.ts",
       "src/i18n/middleware.ts",
       "src/i18n/resolve-locale.ts",
+      // Import-free: the decision serves a default-locale card URL in place.
+      "src/lib/og/og-paths.ts",
     ],
   },
   // Vinext registers these two as static imports in the entry's route table — the one exception to

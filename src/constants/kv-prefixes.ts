@@ -1,4 +1,4 @@
-/** Key space of the Vinext data cache adapter, configured in `vite.config.ts`. */
+/** Key space of the Vinext data cache adapter, configured in `tools/vinext-cache-config.ts`. */
 export const VINEXT_CACHE_PREFIX = "vinext-cache";
 
 /** Key space of the rendered-page Markdown cache: `md-page:<build id>:<pathname>`. */

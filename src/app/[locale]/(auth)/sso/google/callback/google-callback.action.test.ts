@@ -15,7 +15,9 @@ const {
   findUserMock,
   getNewAccountLocaleMock,
   insertValuesMock,
+  invalidateCmsAuthorMock,
   isGoogleSSOEnabledMock,
+  runInBackgroundMock,
   updateSetMock,
 } = vi.hoisted(() => {
   const jar = new Map<string, string>();
@@ -33,7 +35,9 @@ const {
     findUserMock: vi.fn(),
     getNewAccountLocaleMock: vi.fn(),
     insertValuesMock: vi.fn(() => ({ returning: insertReturning })),
+    invalidateCmsAuthorMock: vi.fn(async () => undefined),
     isGoogleSSOEnabledMock: vi.fn(async () => true),
+    runInBackgroundMock: vi.fn(),
     updateSetMock: vi.fn(() => ({ where: () => ({ returning: updateReturning }) })),
   };
 });
@@ -64,6 +68,10 @@ vi.mock("@/db", () => ({
 }));
 
 vi.mock("@/db/schema", () => ({ userTable: { id: "id" } }));
+vi.mock("@/lib/cms/cms-author-cache-invalidation", () => ({
+  invalidateCmsAuthorAfterUserWrite: invalidateCmsAuthorMock,
+}));
+vi.mock("@/utils/run-in-background", () => ({ runInBackground: runInBackgroundMock }));
 
 vi.mock("@/lib/sso/google-sso", () => ({
   validateGoogleAuthorizationCode: vi.fn(async () => "id-token"),
@@ -170,6 +178,25 @@ describe("googleSSOCallbackAction", () => {
 
     expect(getNewAccountLocaleMock).not.toHaveBeenCalled();
     expect(updateSetMock).toHaveBeenCalledWith(expect.not.objectContaining({ preferredLocale: expect.anything() }));
+  });
+
+  test("runs the CMS author purge of a linked account in the background and does not wait for it", async () => {
+    const existingUser = { id: "existing-user", avatar: null, emailVerified: null };
+    const pendingPurge = new Promise<undefined>(() => {});
+    findUserMock.mockResolvedValueOnce(undefined).mockResolvedValueOnce(existingUser);
+    invalidateCmsAuthorMock.mockReturnValueOnce(pendingPurge);
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).resolves.toEqual({
+      success: true,
+      preferredLocale: entryLocale,
+    });
+
+    expect(invalidateCmsAuthorMock).toHaveBeenCalledWith({
+      userId: "existing-user",
+      before: existingUser,
+      after: { id: "existing-user" },
+    });
+    expect(runInBackgroundMock).toHaveBeenCalledWith(pendingPurge);
   });
 
   test("refuses before it reads a cookie when Google SSO is disabled", async () => {

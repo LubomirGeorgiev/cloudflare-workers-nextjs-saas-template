@@ -70,6 +70,7 @@ export default async function CmsNavigationSitePage({
   const entryLocaleCoverage = await getEntryLocalesForSlugs({
     collectionSlug,
     slugs: entries.map((entry) => entry.slug),
+    status: CMS_STATUS_FILTER_ALL,
   });
   const entryLocalesByEntryId = Object.fromEntries(
     entries.map((entry) => [entry.id, Array.from(entryLocaleCoverage.get(entry.slug) ?? [])])

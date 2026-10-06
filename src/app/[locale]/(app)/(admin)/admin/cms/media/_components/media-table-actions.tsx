@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { CMS_IMAGE_EDGE_TTL_DAYS } from "@/constants/cache-control";
+import { CMS_PURGE_STATUS } from "@/constants/cache-purge";
 
 interface MediaTableActionsProps {
   mediaId: string;
@@ -37,8 +39,12 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
     onError: ({ error }) => {
       toast.error(error.serverError?.message || "Failed to delete media");
     },
-    onSuccess: () => {
-      toast.success("Media deleted successfully");
+    onSuccess: ({ data }) => {
+      if (data?.cachePurge.workersCache === CMS_PURGE_STATUS.FAILED) {
+        toast.warning(EDGE_PURGE_FAILED_TITLE, { description: EDGE_PURGE_FAILED_DESCRIPTION });
+      } else {
+        toast.success("Media deleted successfully");
+      }
       setShowDeleteDialog(false);
       router.refresh();
     },
@@ -113,3 +119,7 @@ export function MediaTableActions({ mediaId, usageCount }: MediaTableActionsProp
     </>
   );
 }
+
+const EDGE_PURGE_FAILED_TITLE = "Media deleted, but the edge cache purge failed";
+const EDGE_PURGE_FAILED_DESCRIPTION =
+  `Cloudflare can keep serving the image for up to ${CMS_IMAGE_EDGE_TTL_DAYS} days.`;

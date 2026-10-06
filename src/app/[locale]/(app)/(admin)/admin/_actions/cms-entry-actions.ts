@@ -1,7 +1,9 @@
 "use server";
 
+import type { CmsEntry } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
+import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { requireAdmin } from "@/utils/auth";
 import {
   cmsEntryIdSchema,
@@ -24,6 +26,7 @@ import {
   markCmsEntryTranslationReviewed,
   type CmsCollectionListItem,
 } from "@/lib/cms/entry";
+import { withCmsCachePurgeReport } from "@/lib/cms/cms-cache-purge-report";
 import { generateSeoDescription } from "@/lib/cms/generate-seo-description";
 import { revalidateCmsEntryPaths } from "@/app/[locale]/(app)/(admin)/admin/_actions/cms-entry-revalidation";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, isKnownLocale, type Locale } from "@/i18n/config";
@@ -70,6 +73,7 @@ export const listCmsEntriesAction = actionClient
     const coverage = await getEntryLocalesForSlugs({
       collectionSlug: input.collection,
       slugs: entries.map((entry) => entry.slug),
+      status: CMS_STATUS_FILTER_ALL,
     });
 
     const entriesWithCoverage: CmsEntryListRow[] = entries.map((entry) => {
@@ -89,12 +93,8 @@ export const listCmsEntriesAction = actionClient
 export const createCmsEntryAction = actionClient
   .metadata({ actionName: "createCmsEntryAction" })
   .inputSchema(createCmsEntrySchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     const session = await requireAdmin();
-
-    if (!session?.userId) {
-      throw new ActionError("FORBIDDEN", "Not authorized");
-    }
 
     const newEntry = await createCmsEntry({
       ...input,
@@ -110,12 +110,12 @@ export const createCmsEntryAction = actionClient
     });
 
     return newEntry;
-  });
+  }));
 
 export const updateCmsEntryAction = actionClient
   .metadata({ actionName: "updateCmsEntryAction" })
   .inputSchema(updateCmsEntrySchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
     const previousEntry = await getCmsEntryById({ id: input.id });
@@ -133,12 +133,12 @@ export const updateCmsEntryAction = actionClient
     });
 
     return updatedEntry;
-  });
+  }));
 
 export const deleteCmsEntryAction = actionClient
   .metadata({ actionName: "deleteCmsEntryAction" })
   .inputSchema(cmsEntryIdSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
     const deletedEntry = await deleteCmsEntry({ id: input.id });
@@ -150,17 +150,13 @@ export const deleteCmsEntryAction = actionClient
     });
 
     return { success: true };
-  });
+  }));
 
 export const createTranslationAction = actionClient
   .metadata({ actionName: "createTranslationAction" })
   .inputSchema(createCmsEntryTranslationActionSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     const session = await requireAdmin();
-
-    if (!session?.userId) {
-      throw new ActionError("FORBIDDEN", "Not authorized");
-    }
 
     const newEntry = await createCmsEntryTranslation({
       collectionSlug: input.collection,
@@ -178,7 +174,7 @@ export const createTranslationAction = actionClient
     });
 
     return newEntry;
-  });
+  }));
 
 // Refreshes a stale translation: re-translates the drifted fields from the source and
 // re-anchors its staleness snapshot. Overwrites AI output in place (translations are
@@ -186,23 +182,11 @@ export const createTranslationAction = actionClient
 export const retranslateTranslationAction = actionClient
   .metadata({ actionName: "retranslateTranslationAction" })
   .inputSchema(requiredCmsEntryIdSchema)
-  .action(async ({ parsedInput: input }) => {
+  .action(({ parsedInput: input }) => withCmsCachePurgeReport(async () => {
     await requireAdmin();
 
-    const updated = await retranslateCmsEntry({ id: input.id });
-
-    if (!updated) {
-      throw new ActionError("NOT_FOUND", "Entry not found");
-    }
-
-    revalidateCmsEntryPaths({
-      collection: updated.collection,
-      entryId: updated.id,
-      slugs: [updated.slug],
-    });
-
-    return updated;
-  });
+    return revalidateUpdatedEntry(await retranslateCmsEntry({ id: input.id }));
+  }));
 
 // Clears the stale flag without changing content — for when an admin has reconciled
 // the translation by hand and only wants the badge to go away.
@@ -212,19 +196,7 @@ export const markTranslationReviewedAction = actionClient
   .action(async ({ parsedInput: input }) => {
     await requireAdmin();
 
-    const updated = await markCmsEntryTranslationReviewed({ id: input.id });
-
-    if (!updated) {
-      throw new ActionError("NOT_FOUND", "Entry not found");
-    }
-
-    revalidateCmsEntryPaths({
-      collection: updated.collection,
-      entryId: updated.id,
-      slugs: [updated.slug],
-    });
-
-    return updated;
+    return revalidateUpdatedEntry(await markCmsEntryTranslationReviewed({ id: input.id }));
   });
 
 export const generateSeoDescriptionAction = actionClient
@@ -252,3 +224,17 @@ export const generateSeoDescriptionAction = actionClient
 
     return { description };
   });
+
+function revalidateUpdatedEntry(updated: CmsEntry | null): CmsEntry {
+  if (!updated) {
+    throw new ActionError("NOT_FOUND", "Entry not found");
+  }
+
+  revalidateCmsEntryPaths({
+    collection: updated.collection,
+    entryId: updated.id,
+    slugs: [updated.slug],
+  });
+
+  return updated;
+}

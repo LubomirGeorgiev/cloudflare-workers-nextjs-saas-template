@@ -3,10 +3,23 @@ import "server-only";
 import { cache as workersCache, env as workerEnv } from "cloudflare:workers";
 
 import type { CollectionsUnion } from "@/../cms.config";
+import {
+  EDGE_HTML_CACHE_TTL_MINUTES,
+  EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES,
+} from "@/constants/cache-control";
+import { CMS_PURGE_STATUS, type CmsCachePurgeOutcome } from "@/constants/cache-purge";
+import {
+  EDGE_HTML_ZONE_PURGE_OUTCOME,
+  type EdgeHtmlZonePurgeOutcome,
+} from "@/constants/edge-html-cache";
 import { MARKDOWN_PAGE_CACHE_PREFIX, VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { BLOG_LISTING_ROUTES, STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import { ActionError } from "@/lib/action-error";
-import { getCachePurgeConfig, purgeZoneCacheEverything } from "@/lib/cloudflare-api";
+import {
+  getCachePurgeConfig,
+  isZonePurgeConfigured,
+  purgeZoneCacheEverything,
+} from "@/lib/cloudflare-api";
 import { invalidateAllCmsCaches, runCmsCacheInvalidation } from "@/lib/cms/cms-cache-invalidation";
 import { DOCS_EDGE_HTML_PATHNAMES } from "@/lib/cms/cms-navigation-page-purge";
 import {
@@ -32,6 +45,19 @@ const CLOUDFLARE_CDN_PURGE_MISSING_CONFIG_MESSAGE =
   "Cache Purge permission and a CLOUDFLARE_ACCOUNT_ID, or set CLOUDFLARE_ZONE_ID to name the zone " +
   "directly.";
 
+// The sentences a CMS invalidation adds when one of its purges failed. A retry of the action can fix
+// both; a missing zone config cannot, and the panel already warns about it.
+const CMS_ZONE_PURGE_FAILED_NOTE =
+  "The zone purge failed: other data centers keep their old pages until they expire, within " +
+  `${EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES} minutes.`;
+const CMS_WORKERS_CACHE_PURGE_FAILED_NOTE =
+  "The Workers Caching purge failed: edge copies of the Markdown pages, the sitemap, and the " +
+  "other machine responses stay until they expire.";
+const CMS_PURGE_RETRY_NOTE = "Run the action again to retry.";
+
+// As a subtree, the root names every stored page of this build.
+const ROOT_PATHNAME = "/";
+
 // The public pages every install serves, locale-free. `purgeEdgeHtmlPages` adds the locale prefix,
 // so a pathname here must never carry one. The CMS pages come from the page collector below.
 const ALWAYS_PUBLIC_EDGE_HTML_PATHNAMES: readonly string[] = [
@@ -44,12 +70,19 @@ const ALWAYS_PUBLIC_EDGE_HTML_PATHNAMES: readonly string[] = [
 export interface AdminSystemActionResult {
   /** Untranslated, machine-facing prose: the same sentence the panel shows and an agent reads. */
   message: string;
+  /** Part of the work failed and `message` names it, so the panel warns instead of reporting success. */
+  partial?: boolean;
 }
 
 /** The two purges that count their work — one KV, one Cache API; the count is required for both. */
 // oxlint-disable-next-line project/no-unused-module-exports -- Part of the service contract every caller types against.
 export interface AdminPurgeCountResult extends AdminSystemActionResult {
   deletedKeyCount: number;
+}
+
+// oxlint-disable-next-line project/no-unused-module-exports -- Part of the service contract every caller types against.
+export interface AdminEdgeHtmlPurgeResult extends AdminPurgeCountResult {
+  zonePurge: EdgeHtmlZonePurgeOutcome;
 }
 
 function getVinextCache(): KVNamespace {
@@ -91,10 +124,49 @@ async function listPublicPagePathnames(): Promise<string[]> {
   return Array.from(pathnames);
 }
 
-function formatDeletedPageMessage(deletedKeyCount: number): string {
+function formatEdgeHtmlPurgeMessage({
+  deletedKeyCount,
+  zonePurge,
+}: {
+  deletedKeyCount: number;
+  zonePurge: EdgeHtmlZonePurgeOutcome;
+}): string {
   const pageLabel = deletedKeyCount === 1 ? "page" : "pages";
+  const deleted = `Deleted ${deletedKeyCount} stored ${pageLabel} from this data center's edge HTML cache`;
 
-  return `Deleted ${deletedKeyCount} stored ${pageLabel} from this data center's edge HTML cache`;
+  switch (zonePurge) {
+    case EDGE_HTML_ZONE_PURGE_OUTCOME.OK:
+      return `${deleted}, and purged the stored pages in every other data center`;
+    // Only a configured zone can fail, so the stored copies carry the zone-purged TTL.
+    case EDGE_HTML_ZONE_PURGE_OUTCOME.FAILED:
+      return `${deleted}, but the zone purge failed: other data centers keep their old copies ` +
+        `until they expire, within ${EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES} minutes`;
+    case EDGE_HTML_ZONE_PURGE_OUTCOME.UNCONFIGURED:
+      return `${deleted}. The zone purge is not configured, so other data centers keep their ` +
+        `copies until they expire, within ${EDGE_HTML_CACHE_TTL_MINUTES} minutes`;
+    case EDGE_HTML_ZONE_PURGE_OUTCOME.NONE:
+      return deleted;
+  }
+}
+
+// A failed purge is a partial result, not an error: the KV tags already dropped.
+function toCmsInvalidationResult({
+  message,
+  outcome,
+}: {
+  message: string;
+  outcome: CmsCachePurgeOutcome;
+}): AdminSystemActionResult {
+  const failureNotes = [
+    ...(outcome.zone === CMS_PURGE_STATUS.FAILED ? [CMS_ZONE_PURGE_FAILED_NOTE] : []),
+    ...(outcome.workersCache === CMS_PURGE_STATUS.FAILED ? [CMS_WORKERS_CACHE_PURGE_FAILED_NOTE] : []),
+  ];
+
+  if (failureNotes.length === 0) {
+    return { message };
+  }
+
+  return { message: [`${message}.`, ...failureNotes, CMS_PURGE_RETRY_NOTE].join(" "), partial: true };
 }
 
 function formatDeletedKeyMessage(deletedKeyCount: number): string {
@@ -143,16 +215,26 @@ export async function purgeKvPageCaches(): Promise<AdminPurgeCountResult> {
 
 /**
  * Deletes the stored anonymous HTML pages from `caches.default` in the data center that runs this
- * call; with Smart Placement that is the one that holds them. Copies elsewhere expire on their own
- * TTL. It touches no KV key and no Workers Caching entry — those are separate operations.
+ * call. With a zone purge, the root prefix also clears every stored page in every data center, the
+ * pages no list names included, so an operator can clear them after a var or secret change.
+ * Without one, copies elsewhere expire on their own TTL. It touches no KV key and no Workers Caching.
+ * A failed or unconfigured zone purge is a partial result, not an error: the local delete already ran.
  */
-export async function purgeEdgeHtmlCache(): Promise<AdminPurgeCountResult> {
+export async function purgeEdgeHtmlCache(): Promise<AdminEdgeHtmlPurgeResult> {
   const pathnames = await listPublicPagePathnames();
-  const deletedKeyCount = await purgeEdgeHtmlPages({ pathnames });
+  const { deletedCount: deletedKeyCount, zonePurge } = await purgeEdgeHtmlPages({
+    pathnames,
+    subtreePathnames: [ROOT_PATHNAME],
+  });
 
   return {
     deletedKeyCount,
-    message: formatDeletedPageMessage(deletedKeyCount),
+    message: formatEdgeHtmlPurgeMessage({ deletedKeyCount, zonePurge }),
+    // Unconfigured warns too: other data centers keep serving their old copies until the TTL.
+    partial:
+      zonePurge === EDGE_HTML_ZONE_PURGE_OUTCOME.FAILED ||
+      zonePurge === EDGE_HTML_ZONE_PURGE_OUTCOME.UNCONFIGURED,
+    zonePurge,
   };
 }
 
@@ -188,14 +270,14 @@ export interface AdminSystemActionAvailability {
  */
 export async function getSystemActionAvailability(): Promise<AdminSystemActionAvailability> {
   return {
-    purgeCloudflareCdnCache: (await getCachePurgeConfig()) !== null,
+    purgeCloudflareCdnCache: await isZonePurgeConfigured(),
   };
 }
 
 /**
  * The runtime twin of the deploy workflow's purge step: `purge_everything` on the whole zone, so
- * every URL at every Cloudflare location is dropped — static assets, the stored HTML page copies,
- * and every machine response alike.
+ * every URL the Worker serves is dropped at every location. Workers Static Assets (`/_next/static/*`)
+ * keep their own cache, which a zone purge does not reach.
  */
 export async function purgeCloudflareCdnCache(): Promise<AdminSystemActionResult> {
   const config = await getCachePurgeConfig();
@@ -241,13 +323,14 @@ export async function rebuildSearchIndexes(
   }
 
   await Promise.all(collections.map((entry) => rebuildCmsSearchIndex(entry)));
-  await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
+  const outcome = await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
 
-  return {
+  return toCmsInvalidationResult({
     message: collection
       ? `Rebuilt search index for ${collection}`
       : "Rebuilt search indexes for all searchable collections",
-  };
+    outcome,
+  });
 }
 
 export async function clearSearchCache(
@@ -257,21 +340,18 @@ export async function clearSearchCache(
     throw new ActionError("BAD_REQUEST", "Search is not enabled for this collection");
   }
 
-  await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
+  const outcome = await runCmsCacheInvalidation({ tags: getCmsSearchCacheTags(collection) });
 
-  return {
+  return toCmsInvalidationResult({
     message: collection
       ? `Cleared search cache for ${collection}`
       : "Cleared search cache for all collections",
-  };
+    outcome,
+  });
 }
 
 export async function clearCmsCache(): Promise<AdminSystemActionResult> {
-  await invalidateAllCmsCaches();
-
-  return {
-    message: "Cleared CMS cache",
-  };
+  return toCmsInvalidationResult({ message: "Cleared CMS cache", outcome: await invalidateAllCmsCaches() });
 }
 
 /** One maintenance action per call; the discriminator is the schema's `type`. */

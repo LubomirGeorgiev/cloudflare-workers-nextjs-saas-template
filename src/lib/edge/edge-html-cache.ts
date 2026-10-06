@@ -4,9 +4,15 @@ import {
   AUTH_SESSION_PRESENT_COOKIE_NAME,
   HTML_CONTENT_TYPE,
   SITE_DOMAIN,
-  ZONE_PURGE_TAGS_PER_REQUEST,
 } from "@/constants";
-import { EDGE_HTML_CACHE_CONTROL } from "@/constants/cache-control";
+import {
+  EDGE_HTML_CACHE_CONTROL,
+  EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL,
+} from "@/constants/cache-control";
+import {
+  EDGE_HTML_ZONE_PURGE_OUTCOME,
+  type EdgeHtmlZonePurgeOutcome,
+} from "@/constants/edge-html-cache";
 import { STATIC_PUBLIC_ROUTES } from "@/constants/public-routes";
 import {
   ENABLED_LOCALES,
@@ -27,7 +33,7 @@ const EDGE_HTML_CACHE_KEY_PREFIX = "/__edge-html";
 
 // Keyed on our own domain, not on the request's: every hostname that reaches this Worker serves the
 // same page, and the purge — which runs without a request — then names the very same key.
-const EDGE_HTML_CACHE_KEY_ORIGIN = `https://${SITE_DOMAIN}`;
+const EDGE_HTML_CACHE_KEY_SCHEME = "https://";
 
 // The visitor's own policy, parked while the stored copy carries the one the Cache API reads. A hit
 // puts it back, so a hit and a miss leave with the same `cache-control`.
@@ -56,9 +62,12 @@ const PURGE_BATCH_SIZE = 10;
 // copy carries a tag per page instead. Commas separate tags in the header, so they are stripped.
 const EDGE_HTML_CACHE_TAG_PREFIX = "edge-html";
 
-// Above one API request the zone purge is skipped: a CMS mutation names a handful of paths, so a
-// longer list is the admin sweep, and that panel offers `purge_everything` as its own action.
-const MAX_ZONE_PURGE_TAGS = ZONE_PURGE_TAGS_PER_REQUEST;
+interface EdgeHtmlPurgeResult {
+  /** How many keys the local Cache API reported as deleted. */
+  deletedCount: number;
+  /** The zone-wide half of the purge. */
+  zonePurge: EdgeHtmlZonePurgeOutcome;
+}
 
 interface EdgeHtmlCacheEntry {
   /** Synthetic key URL of this page in this locale. */
@@ -94,7 +103,12 @@ function isWorkersCacheStorage(
 // The build id is part of the key: the Cache API outlives a deploy, and a stored page names the
 // previous build's hashed chunks. A new build misses by construction; the old copies expire.
 function buildEdgeHtmlCacheKey(servedPathname: string): string {
-  return `${EDGE_HTML_CACHE_KEY_ORIGIN}${EDGE_HTML_CACHE_KEY_PREFIX}/${getBuildId()}${servedPathname}`;
+  return `${EDGE_HTML_CACHE_KEY_SCHEME}${buildEdgeHtmlCachePurgePrefix(servedPathname)}`;
+}
+
+/** The key without its scheme: the form a zone purge by prefix takes. */
+function buildEdgeHtmlCachePurgePrefix(servedPathname: string): string {
+  return `${SITE_DOMAIN}${EDGE_HTML_CACHE_KEY_PREFIX}/${getBuildId()}${servedPathname}`;
 }
 
 /** The purge handle for one stored page. Same input as the key, so the two can never disagree. */
@@ -280,62 +294,101 @@ export function storeEdgeHtmlPage({
     headers.set(PARKED_CACHE_CONTROL_HEADER, visitorCacheControl);
   }
 
-  // The Cache API reads this header and ignores the page's own `no-store`, which is what lets the
-  // visitor keep an uncacheable response while the copy is still stored.
-  headers.set("cache-control", EDGE_HTML_CACHE_CONTROL);
   headers.set("cache-tag", buildEdgeHtmlCacheTag(entry.servedPathname));
   // A stored copy answers every anonymous visitor, so a cookie one render set must never replay.
   headers.delete("set-cookie");
 
-  const copy = new Response(response.clone().body, {
-    headers,
-    status: response.status,
-    statusText: response.statusText,
-  });
+  const body = response.clone().body;
 
-  ctx.waitUntil(cache.put(entry.key, copy).catch((error: unknown) => {
+  // In `waitUntil`, so the zone lookup never delays the visitor.
+  ctx.waitUntil((async () => {
+    // The Cache API reads this header and ignores the page's own `no-store`, which is what lets the
+    // visitor keep an uncacheable response while the copy is still stored.
+    headers.set("cache-control", selectEdgeHtmlCacheControl({
+      zonePurgeConfigured: await isZonePurgeConfiguredForStore(),
+    }));
+    await cache.put(entry.key, new Response(body, {
+      headers,
+      status: response.status,
+      statusText: response.statusText,
+    }));
+  })().catch((error: unknown) => {
     console.error("Edge HTML cache write failed", error);
   }));
 
   return response;
 }
 
+/** The long TTL needs a zone purge: without one, a purge reaches only the data center that ran it. */
+export function selectEdgeHtmlCacheControl({
+  zonePurgeConfigured,
+}: {
+  zonePurgeConfigured: boolean;
+}): string {
+  return zonePurgeConfigured ? EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL : EDGE_HTML_CACHE_CONTROL;
+}
+
+// Lazy, so the read path that shares this module never loads the API client. A fault keeps the short TTL.
+async function isZonePurgeConfiguredForStore(): Promise<boolean> {
+  try {
+    const { isZonePurgeConfigured } = await import("@/lib/cloudflare-api");
+
+    return await isZonePurgeConfigured();
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Drops the stored page of every `pathname`, in every served locale, and returns how many keys the
- * Cache API reported as deleted. Call it before any warm fetch of the same page, or the warm
- * re-reads the copy it was meant to replace. Never throws.
+ * Drops the stored page of every `pathname` and `subtreePathname`, in every served locale. Call it
+ * before any warm fetch of the same page, or the warm re-reads the copy it was meant to replace.
+ * Never throws.
  *
- * The Cache API delete is per data center, so it reaches the colo that ran the purge. When the
- * Worker holds a `CLOUDFLARE_API_TOKEN` with `Cache Purge`, the same keys are also purged through
- * the zone API, which reaches every other colo. `EDGE_HTML_CACHE_TTL_SECONDS` bounds whatever the
- * zone purge could not do.
+ * The Cache API delete is per data center, so it reaches the colo that ran the purge, and only the
+ * named pages and the subtree roots: it cannot match a prefix. So a caller names every page it knows
+ * under a subtree too. When the Worker holds a `CLOUDFLARE_API_TOKEN` with `Cache Purge`, the zone
+ * API also purges the named pages by tag and each subtree by key prefix, in every colo. The subtree
+ * `/` reaches every stored page. `EDGE_HTML_CACHE_TTL_SECONDS` bounds what neither purge reached.
  */
 export async function purgeEdgeHtmlPages({
   pathnames,
+  subtreePathnames = [],
 }: {
   pathnames: string[];
-}): Promise<number> {
+  // Locale-free roots, like `pathnames`. Each root page is deleted too.
+  subtreePathnames?: string[];
+}): Promise<EdgeHtmlPurgeResult> {
   const cache = getEdgeHtmlCache();
 
   if (!cache) {
-    return 0;
+    return { deletedCount: 0, zonePurge: EDGE_HTML_ZONE_PURGE_OUTCOME.NONE };
   }
 
   const keys = new Set<string>();
+  const prefixes = new Set<string>();
+
+  for (const servedPathname of localizeForEveryLocale(subtreePathnames)) {
+    keys.add(buildEdgeHtmlCacheKey(servedPathname));
+    prefixes.add(buildEdgeHtmlCachePurgePrefix(servedPathname));
+  }
+
+  const prefixList = Array.from(prefixes);
   const tags = new Set<string>();
 
-  for (const pathname of pathnames) {
-    for (const locale of ENABLED_LOCALES) {
-      const servedPathname = localizedPathname({ pathname, locale });
+  for (const servedPathname of localizeForEveryLocale(pathnames)) {
+    keys.add(buildEdgeHtmlCacheKey(servedPathname));
 
-      keys.add(buildEdgeHtmlCacheKey(servedPathname));
+    // Cloudflare matches a prefix on the raw string, so a page under a subtree needs no tag.
+    const purgePrefix = buildEdgeHtmlCachePurgePrefix(servedPathname);
+
+    if (!prefixList.some((prefix) => purgePrefix.startsWith(prefix))) {
       tags.add(buildEdgeHtmlCacheTag(servedPathname));
     }
   }
 
   let failedDeletes = 0;
   let lastDeleteError: unknown;
-  const [deleted] = await Promise.all([
+  const [deleted, zonePurge] = await Promise.all([
     mapInBatches({
       items: Array.from(keys),
       batchSize: PURGE_BATCH_SIZE,
@@ -347,7 +400,7 @@ export async function purgeEdgeHtmlPages({
         return false;
       }),
     }),
-    purgeEdgeHtmlPagesAcrossColos(Array.from(tags)),
+    purgeEdgeHtmlPagesAcrossColos({ tags: Array.from(tags), prefixes: prefixList }),
   ]);
 
   if (failedDeletes > 0) {
@@ -358,30 +411,72 @@ export async function purgeEdgeHtmlPages({
     });
   }
 
-  return deleted.filter(Boolean).length;
+  return { deletedCount: deleted.filter(Boolean).length, zonePurge };
+}
+
+function localizeForEveryLocale(pathnames: string[]): Set<string> {
+  const servedPathnames = new Set<string>();
+
+  for (const pathname of pathnames) {
+    for (const locale of ENABLED_LOCALES) {
+      servedPathnames.add(localizedPathname({ pathname, locale }));
+    }
+  }
+
+  return servedPathnames;
 }
 
 /**
- * The same pages, purged zone-wide by tag so every data center drops them. Best effort, logged only:
- * the local delete above already covers the colo that ran the mutation, and an unconfigured token
- * or a rate-limited zone must never fail a publish.
+ * The same pages, purged zone-wide so every data center drops them: the tags and the prefixes each
+ * go in their own requests, which `src/lib/cloudflare-api.ts` chunks at Cloudflare's per-request
+ * ceiling. Never throws: a refused zone purge must never fail a publish. The local delete above
+ * reaches only the named pages of one colo, so the outcome goes back to the caller.
  *
  * Imported lazily, so the read path that shares this module never loads the API client.
  */
-async function purgeEdgeHtmlPagesAcrossColos(tags: string[]): Promise<void> {
-  if (tags.length === 0 || tags.length > MAX_ZONE_PURGE_TAGS) {
-    return;
+async function purgeEdgeHtmlPagesAcrossColos({
+  tags,
+  prefixes,
+}: {
+  tags: string[];
+  prefixes: string[];
+}): Promise<EdgeHtmlZonePurgeOutcome> {
+  if (tags.length === 0 && prefixes.length === 0) {
+    return EDGE_HTML_ZONE_PURGE_OUTCOME.NONE;
   }
 
   try {
-    const { getCachePurgeConfig, purgeZoneCacheTags } = await import("@/lib/cloudflare-api");
+    const { getCachePurgeConfig, purgeZoneCachePrefixes, purgeZoneCacheTags } = await import(
+      "@/lib/cloudflare-api"
+    );
     const config = await getCachePurgeConfig();
 
-    if (config) {
-      await purgeZoneCacheTags({ ...config, tags });
+    if (!config) {
+      return EDGE_HTML_ZONE_PURGE_OUTCOME.UNCONFIGURED;
     }
+
+    // Own `.catch` each, so a refused tag purge does not cancel the prefix purge.
+    const results = await Promise.all([
+      tags.length > 0
+        ? purgeZoneCacheTags({ ...config, tags }).then(() => true, (error: unknown) => {
+            console.error("purgeEdgeHtmlPagesAcrossColos: zone tag purge failed", error);
+            return false;
+          })
+        : true,
+      prefixes.length > 0
+        ? purgeZoneCachePrefixes({ ...config, prefixes }).then(() => true, (error: unknown) => {
+            console.error("purgeEdgeHtmlPagesAcrossColos: zone prefix purge failed", error);
+            return false;
+          })
+        : true,
+    ]);
+
+    return results.every(Boolean)
+      ? EDGE_HTML_ZONE_PURGE_OUTCOME.OK
+      : EDGE_HTML_ZONE_PURGE_OUTCOME.FAILED;
   } catch (error) {
     // The TTL is the backstop.
     console.error("purgeEdgeHtmlPagesAcrossColos: zone cache purge failed", error);
+    return EDGE_HTML_ZONE_PURGE_OUTCOME.FAILED;
   }
 }

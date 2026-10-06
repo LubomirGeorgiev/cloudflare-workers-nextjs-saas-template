@@ -11,6 +11,7 @@ import {
   retranslateTranslationAction,
 } from "../../../_actions/cms-entry-actions";
 import type { TranslatableEntryField } from "@/types/cms";
+import { reloadAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
 
 const FIELD_LABELS: Record<TranslatableEntryField, string> = {
   title: "title",
@@ -48,10 +49,9 @@ export function CmsTranslationStaleBanner({
     try {
       const result = await retranslate({ id: entryId });
       if (result?.data) {
-        // The row's content changed server-side. A soft refresh won't re-seed the
-        // form's defaultValues or the TipTap editor, so hard-reload to show the
-        // fresh translation (the reload clears this loading toast).
-        window.location.reload();
+        // A soft refresh won't re-seed the form's defaultValues or the TipTap editor, so
+        // reload. The reload clears this loading toast; the next page shows the result.
+        reloadAfterCmsWrite({ successMessage: "Translation updated", write: result.data });
         return;
       }
       toast.error(result?.serverError?.message || "Failed to re-translate", { id: toastId });

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { warnAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
 
 interface EditAltTextProps {
   mediaId: string;
@@ -21,8 +22,9 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
   const router = useRouter();
 
   const { execute, isExecuting } = useAction(updateCmsMediaAction, {
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       toast.success("Alt text updated successfully");
+      warnAfterCmsWrite(data);
       setIsEditing(false);
       router.refresh();
     },
@@ -34,7 +36,8 @@ export function EditAltText({ mediaId, currentAlt }: EditAltTextProps) {
   const handleSave = () => {
     execute({
       mediaId,
-      alt: altText.trim() || undefined,
+      // An empty string clears the alt text; `undefined` would leave it unchanged.
+      alt: altText.trim(),
     });
   };
 

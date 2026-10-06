@@ -7,7 +7,44 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({ notFound: vi.fn() }));
 vi.mock("@/i18n/navigation", () => ({ redirect: vi.fn() }));
 
-const { getLocalesWithBlogPage, isBlogPageOutOfRange, sliceBlogPage } = await import("./blog-pagination");
+const {
+  getBlogCollectionMetadataPage,
+  getLocalesWithBlogPage,
+  isBlogPageOutOfRange,
+  resolveBlogCollectionPage,
+  sliceBlogPage,
+} = await import("./blog-pagination");
+
+describe("resolveBlogCollectionPage", () => {
+  test("reads page one from a missing param", () => {
+    expect(resolveBlogCollectionPage({ pageParam: undefined })).toEqual({ type: "page", page: 1 });
+  });
+
+  test("reads a canonical numbered page", () => {
+    expect(resolveBlogCollectionPage({ pageParam: "2" })).toEqual({ type: "page", page: 2 });
+  });
+
+  test("redirects an explicit page one to the bare path", () => {
+    expect(resolveBlogCollectionPage({ pageParam: "1" })).toEqual({ type: "redirect", page: 1 });
+  });
+
+  test("redirects a non-canonical spelling of a page number", () => {
+    expect(resolveBlogCollectionPage({ pageParam: "02" })).toEqual({ type: "redirect", page: 2 });
+  });
+
+  test("rejects a param that names no page", () => {
+    expect(resolveBlogCollectionPage({ pageParam: "abc" })).toEqual({ type: "not-found" });
+    expect(resolveBlogCollectionPage({ pageParam: "0" })).toEqual({ type: "not-found" });
+  });
+});
+
+describe("getBlogCollectionMetadataPage", () => {
+  test("reads the page a redirect points at, and page one for a 404, without a throw", () => {
+    expect(getBlogCollectionMetadataPage({ pageParam: "2" })).toBe(2);
+    expect(getBlogCollectionMetadataPage({ pageParam: "02" })).toBe(2);
+    expect(getBlogCollectionMetadataPage({ pageParam: "abc" })).toBe(1);
+  });
+});
 
 describe("isBlogPageOutOfRange", () => {
   test("renders page one even with no posts", () => {

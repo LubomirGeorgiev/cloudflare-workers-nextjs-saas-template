@@ -5,6 +5,7 @@ import { and, eq, lte } from "drizzle-orm";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, type CmsEntry } from "@/db/schema";
+import { PUBLISH_STATE_CHANGES } from "@/lib/cms/cms-invalidation-scopes";
 import { finalizePublishedEntry } from "@/lib/cms/entry/publishing";
 
 /**
@@ -36,7 +37,8 @@ export async function publishScheduledCmsEntryIfDue({
     return null;
   }
 
-  await finalizePublishedEntry(updatedEntry);
+  // The update matched only a `scheduled` row, so the row went live here.
+  await finalizePublishedEntry({ entry: updatedEntry, publishStateChange: PUBLISH_STATE_CHANGES.PUBLISHED });
 
   return updatedEntry;
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { type CmsNavigationKey } from "@/../cms.config";
@@ -10,32 +11,39 @@ import { getDB, getReadReplicaDB } from "@/db";
 import {
   cmsNavigationItemTable,
   cmsNavigationRedirectTable,
-  type CmsNavigationItem,
   type CmsNavigationRedirect,
 } from "@/db/schema";
 // Straight from `queries`, never the `@/lib/cms/entry` barrel: the barrel also pulls in
 // `mutations`, which reaches the invalidation path that clears this module's memo.
 import { getCmsCollection } from "@/lib/cms/entry/queries";
-import type { CmsCollectionListItem } from "@/lib/cms/entry/types";
 import {
   buildCmsResolvedPath,
   normalizeCmsResolvedPath,
 } from "@/lib/cms/cms-paths";
 import {
-  isSafeIconMarkup,
   parseUploadedSvgIcon,
   resolveNavigationIconBodies,
 } from "@/lib/cms/cms-icon-rules";
 import { requireIconBodies } from "@/lib/cms/cms-icons";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
+import { invalidateCmsNavigationCaches } from "@/lib/cms/cms-cache-invalidation";
+import { selectNavigationPageChange } from "@/lib/cms/cms-invalidation-scopes";
+import { selectNavigationRootPath } from "@/lib/cms/cms-navigation-tree";
 import {
-  getCollectionNavigationAndSearchCacheTags,
-  runCmsCacheInvalidation,
-} from "@/lib/cms/cms-cache-invalidation";
-import { purgeDocsNavigationMarkdownPages } from "@/lib/cms/cms-navigation-page-purge";
-import { assembleNavigationTree } from "@/lib/cms/cms-navigation-tree";
+  flattenCmsNavigationTree,
+  getNavigationCollectionSlug,
+  normalizeSlugSegment,
+  queryCmsNavigationTree,
+  type CmsNavigationTreeNode,
+  type CmsNavigationTreeResult,
+} from "@/lib/cms/cms-navigation-tree-query";
+// Re-exported, so the tree readers keep one import path.
+export {
+  flattenCmsNavigationTree,
+  type CmsNavigationTreeNode,
+  type CmsNavigationTreeResult,
+} from "@/lib/cms/cms-navigation-tree-query";
 import { createNavigationMemo } from "@/lib/cms/navigation-memos";
-import { generateSlug } from "@/utils/slugify";
 import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { CMS_STATUS_FILTER_ALL, type CmsStatusFilter } from "@/types/cms";
 import {
@@ -57,20 +65,6 @@ interface GetCmsNavigationTreeParams {
   // existing callers (admin nav editor, sitemap, llms.txt) resolve the English entry
   // unchanged; the docs render path passes the active locale for the translated row.
   locale?: Locale;
-}
-
-// `iconBody` is deliberately absent: a tree crosses to the client whole, and one copy of the SVG
-// per row is the same payload mistake `CmsCollectionListItem` drops `content` to avoid. The bodies
-// travel beside the tree, deduped by key — see `getCmsNavigationIconBodies`.
-export interface CmsNavigationTreeNode extends Omit<CmsNavigationItem, "iconBody"> {
-  entry: CmsCollectionListItem | null;
-  children: CmsNavigationTreeNode[];
-}
-
-/** What one cached read of a navigation tree holds: the nodes, and the icon markup they name. */
-export interface CmsNavigationTreeResult {
-  nodes: CmsNavigationTreeNode[];
-  iconBodyByKey: CmsIconBodyByKey;
 }
 
 export interface CmsNavigationFlatNode {
@@ -109,21 +103,6 @@ interface PathComputationResult {
   normalizedSlugSegment: string | null;
 }
 
-function getNavigationCollectionSlug(navigationKey: CmsNavigationKey) {
-  return getCmsNavigationConfig(navigationKey).collectionSlug;
-}
-
-// Before the refill `saveCmsNavigationTree` runs next, so the refill reads the new tree.
-async function invalidateCmsNavigationCaches(navigationKey: CmsNavigationKey): Promise<void> {
-  await runCmsCacheInvalidation({
-    tags: [
-      ...getCollectionNavigationAndSearchCacheTags(getNavigationCollectionSlug(navigationKey)),
-      CACHE_TAGS.SITEMAP,
-    ],
-    purgePages: purgeDocsNavigationMarkdownPages,
-  });
-}
-
 function revalidateCmsNavigationPaths(paths: Iterable<string | null | undefined>): void {
   for (const path of new Set(Array.from(paths).filter((value): value is string => Boolean(value)))) {
     for (const locale of ENABLED_LOCALES) {
@@ -154,15 +133,6 @@ function sanitizeTitleTranslations(
   }
 
   return Object.keys(cleaned).length > 0 ? cleaned : null;
-}
-
-function normalizeSlugSegment(slugSegment: string | null | undefined): string | null {
-  if (!slugSegment) {
-    return null;
-  }
-
-  const normalized = generateSlug(slugSegment);
-  return normalized || null;
 }
 
 function computeNodePath({
@@ -206,108 +176,6 @@ function computeNodePath({
   };
 }
 
-// The one depth-first walk over a navigation tree — exported so callers outside this module
-// (sitemap, llms.txt) filter a flat list instead of hand-rolling a second traversal.
-export function flattenCmsNavigationTree(
-  nodes: CmsNavigationTreeNode[],
-): CmsNavigationTreeNode[] {
-  return nodes.flatMap((node) => [node, ...flattenCmsNavigationTree(node.children)]);
-}
-
-function buildTree({
-  items,
-  entryById,
-  localizedEntryByTranslationKey,
-  locale = DEFAULT_LOCALE,
-}: {
-  items: CmsNavigationItem[];
-  entryById: Map<string, CmsCollectionListItem>;
-  // `entryId` is a fixed FK to the default-locale row; translations are
-  // separate rows sharing (collection, slug) with a different `id`. This optional
-  // `${collection}::${slug}`-keyed map supplies the locale row for `node.entry`.
-  localizedEntryByTranslationKey?: Map<string, CmsCollectionListItem>;
-  // Overlays `titleTranslations[locale]` onto GROUP/header titles for non-default
-  // locales. PAGE nodes still borrow the linked entry's translated title via
-  // getNavigationNodeDisplayTitle, so this only fills nodes with no linked entry.
-  locale?: Locale;
-}): CmsNavigationTreeNode[] {
-  const nodeMap = new Map<string, CmsNavigationTreeNode>(
-    items.map((item) => {
-      const anchorEntry = item.entryId ? entryById.get(item.entryId) ?? null : null;
-      const localizedEntry = anchorEntry && localizedEntryByTranslationKey
-        ? localizedEntryByTranslationKey.get(`${anchorEntry.collection}::${anchorEntry.slug}`) ?? null
-        : anchorEntry;
-
-      const localizedTitle = locale !== DEFAULT_LOCALE
-        ? item.titleTranslations?.[locale] ?? item.title
-        : item.title;
-
-      const { iconBody: __iconBody, ...node } = item;
-
-      return [
-        item.id,
-        {
-          ...node,
-          title: localizedTitle,
-          entry: localizedEntry,
-          children: [],
-        },
-      ];
-    })
-  );
-
-  return assembleNavigationTree(nodeMap);
-}
-
-function hydrateMissingResolvedPaths({
-  nodes,
-  navigationKey,
-  ancestorSegments = [],
-}: {
-  nodes: CmsNavigationTreeNode[];
-  navigationKey: CmsNavigationKey;
-  ancestorSegments?: string[];
-}): CmsNavigationTreeNode[] {
-  const navigationConfig = getCmsNavigationConfig(navigationKey);
-
-  return nodes.map((node) => {
-    const normalizedSlugSegment = normalizeSlugSegment(node.slugSegment);
-    const nextSegments = normalizedSlugSegment
-      ? [...ancestorSegments, normalizedSlugSegment]
-      : ancestorSegments;
-    const resolvedPath = node.resolvedPath ?? (
-      normalizedSlugSegment
-        ? buildCmsResolvedPath({
-            basePath: navigationConfig.basePath,
-            segments: nextSegments,
-          })
-        : null
-    );
-
-    return {
-      ...node,
-      resolvedPath,
-      children: hydrateMissingResolvedPaths({
-        nodes: node.children,
-        navigationKey,
-        ancestorSegments: nextSegments,
-      }),
-    };
-  });
-}
-
-function pruneNavigationTree(nodes: CmsNavigationTreeNode[]): CmsNavigationTreeNode[] {
-  return nodes.flatMap((node) => {
-    const children = pruneNavigationTree(node.children);
-
-    if (node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE && !node.entry) {
-      return children;
-    }
-
-    return [{ ...node, children }];
-  });
-}
-
 function getTreeAncestorChain({
   nodeId,
   nodesById,
@@ -326,30 +194,6 @@ function getTreeAncestorChain({
   return chain;
 }
 
-/**
- * One entry per distinct icon key, built from the unpruned rows so every locale's entry holds the
- * same complete map. The sanitizer runs again here, on the way out: the rule that accepted a row at
- * save time may since have tightened, and nothing else revisits a stored document.
- *
- * The `typeof` guard is the same contract one step earlier. This column holds JSON we parsed, not a
- * value the type system checked, so a row written under an older shape reaches here with no
- * `markup` at all. Dropping it costs that node its icon; trusting it would throw inside the gate
- * and take down every page the navigation appears on.
- */
-function collectIconBodies(items: CmsNavigationItem[]): CmsIconBodyByKey {
-  const iconBodyByKey: Record<string, CmsIconBody> = {};
-
-  for (const item of items) {
-    const markup = item.iconBody?.markup;
-
-    if (item.icon && typeof markup === "string" && !iconBodyByKey[item.icon] && isSafeIconMarkup(markup)) {
-      iconBodyByKey[item.icon] = item.iconBody as CmsIconBody;
-    }
-  }
-
-  return iconBodyByKey;
-}
-
 async function getCachedCmsNavigationTree(
   navigationKey: CmsNavigationKey,
   status: CmsStatusFilter,
@@ -360,62 +204,10 @@ async function getCachedCmsNavigationTree(
     tags: [
       CACHE_TAGS.cmsNavigation(navigationKey),
     ],
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
-  // Not the replica client: `saveCmsNavigationTree` invalidates this cache and then refills it in
-  // the same request, so a replica that still lags the save would cache the old tree for 8 hours.
-  const db = getDB();
-  const collectionSlug = getNavigationCollectionSlug(navigationKey);
-  const isNonDefaultLocale = locale !== DEFAULT_LOCALE;
-
-  // `entryId` is a fixed FK to the default-locale anchor row (see `buildTree`), so
-  // the anchor set always maps entryId -> (collection, slug); non-default locales
-  // additionally fetch that locale's rows to resolve the actual translation.
-  const [items, anchorEntries, localizedEntries] = await Promise.all([
-    db.query.cmsNavigationItemTable.findMany({
-      where: { navigationKey: navigationKey },
-      orderBy: { sortOrder: "asc", createdAt: "asc" },
-    }),
-    getCmsCollection({
-      collectionSlug,
-      status,
-      locale: DEFAULT_LOCALE,
-      includeRelations: {
-        createdByUser: true,
-        tags: true,
-      },
-    }),
-    isNonDefaultLocale
-      ? getCmsCollection({
-          collectionSlug,
-          status,
-          locale,
-          includeRelations: {
-            createdByUser: true,
-            tags: true,
-          },
-        })
-      : Promise.resolve<CmsCollectionListItem[]>([]),
-  ]);
-
-  const tree = buildTree({
-    items,
-    entryById: new Map(anchorEntries.map((entry) => [entry.id, entry])),
-    localizedEntryByTranslationKey: isNonDefaultLocale
-      ? new Map(localizedEntries.map((entry) => [`${entry.collection}::${entry.slug}`, entry]))
-      : undefined,
-    locale,
-  });
-  const hydratedTree = hydrateMissingResolvedPaths({
-    nodes: tree,
-    navigationKey,
-  });
-
-  return {
-    nodes: pruneNavigationTree(hydratedTree),
-    iconBodyByKey: collectIconBodies(items),
-  };
+  return queryCmsNavigationTree({ navigationKey, status, locale, readCollection: getCmsCollection });
 }
 
 // The docs tree is the largest of the hot entries, so a warm isolate keeps it in memory. The three
@@ -427,7 +219,6 @@ const cmsNavigationTreeMemo = createNavigationMemo({
   maxEntries: CMS_NAVIGATION_TREE_MEMO_ENTRIES,
   dedupePerRequest: true,
 });
-
 
 export async function getCmsNavigationTree({
   navigationKey,
@@ -470,7 +261,7 @@ async function getCachedCmsNavigationRedirectByPath(
     tags: [
       CACHE_TAGS.cmsRedirect(navigationKey),
     ],
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   const db = getReadReplicaDB();
@@ -495,10 +286,8 @@ const getCachedCmsNavigationRootPath = cache(async (
     status: CMS_ENTRY_STATUS.PUBLISHED,
   });
 
-  const flatNodes = flattenCmsNavigationTree(tree);
-  return (
-    flatNodes.find((node) => node.nodeType === CMS_NAVIGATION_NODE_TYPES.PAGE)?.resolvedPath ?? null
-  );
+  // The tree is pruned to live entries, so every page node in it is live.
+  return selectNavigationRootPath({ nodes: tree, isLivePage: (node) => node.entry !== null });
 });
 
 export function getCmsNavigationRootPath({
@@ -846,7 +635,12 @@ export async function saveCmsNavigationTree({
     }
   }
 
-  await invalidateCmsNavigationCaches(navigationKey);
+  // Before the refill below, so the refill reads the new tree.
+  await invalidateCmsNavigationCaches({
+    navigationKey,
+    knownPagePathnames: Array.from(existingPaths.values()).filter((path) => path !== null),
+    pageChange: selectNavigationPageChange({ itemsBefore: existingItems, itemsAfter: remappedItems }),
+  });
   revalidateCmsNavigationPaths([
     ...existingPaths.values(),
     ...pathById.values(),

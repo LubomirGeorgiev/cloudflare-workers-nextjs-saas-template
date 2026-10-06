@@ -1,8 +1,10 @@
 import "server-only";
 
 import { cache } from "react";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import { and, count, desc, eq } from "drizzle-orm";
 
+import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import {
   cmsEntryTable,
@@ -24,6 +26,7 @@ import {
   CMS_STATUS_FILTER_ALL,
   type CmsStatusFilter,
 } from "@/types/cms";
+import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import { CMS_TAGS_CACHE_TAGS } from "@/lib/cms/cms-section-cache-tags";
 import { setCacheScope } from "@/utils/cache";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
@@ -35,7 +38,7 @@ export async function getCmsTags(params?: GetCmsTagsParams) {
   "use cache: remote";
   setCacheScope({
     tags: CMS_TAGS_CACHE_TAGS,
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   const locale = params?.locale ?? DEFAULT_LOCALE;
@@ -57,10 +60,17 @@ export async function getCmsTags(params?: GetCmsTagsParams) {
       createdAt: cmsTagTable.createdAt,
       updatedAt: cmsTagTable.updatedAt,
       updateCounter: cmsTagTable.updateCounter,
-      entryCount: count(cmsEntryTagTable.id),
+      entryCount: params?.countPublishedPosts ? count(cmsEntryTable.id) : count(cmsEntryTagTable.id),
     })
     .from(cmsTagTable)
     .leftJoin(cmsEntryTagTable, eq(cmsTagTable.id, cmsEntryTagTable.tagId))
+    // The public tag pages list only published blog posts in their locale, so the count matches them.
+    .leftJoin(cmsEntryTable, and(
+      eq(cmsEntryTable.id, cmsEntryTagTable.entryId),
+      eq(cmsEntryTable.status, CMS_ENTRY_STATUS.PUBLISHED),
+      eq(cmsEntryTable.collection, BLOG_COLLECTION_SLUG),
+      eq(cmsEntryTable.locale, locale),
+    ))
     .where(eq(cmsTagTable.locale, DEFAULT_LOCALE))
     .groupBy(cmsTagTable.id)
     .orderBy(desc(cmsTagTable.createdAt));
