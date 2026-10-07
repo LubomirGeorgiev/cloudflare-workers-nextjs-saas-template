@@ -1,16 +1,22 @@
 import { describe, expect, test, vi } from "vitest";
 import { CMS_IMAGES_API_ROUTE, CMS_IMAGES_BASE_PATH, IMAGE_OPTIMIZATION_PATH } from "@/constants";
+import { CMS_IMAGE_CACHE_CONTROL } from "@/constants/cache-control";
+import { CACHE_TAGS } from "@/constants/cache-tags";
 import { CMS_IMAGE_QUALITY, IMAGE_DEVICE_SIZES } from "@/constants/images";
 import { isCmsImageSource } from "@/utils/cms-image-source";
 
 vi.mock("server-only", () => ({}));
 const { optimizeCmsImage } = await import("./optimize-cms-image");
 
-function fixture({ source = `${CMS_IMAGES_API_ROUTE}/${CMS_IMAGES_BASE_PATH}/blog/test.png`, width = IMAGE_DEVICE_SIZES[0], method = "GET" } = {}) {
+const SOURCE_KEY = `${CMS_IMAGES_BASE_PATH}/blog/test.png`;
+
+function fixture({ source = `${CMS_IMAGES_API_ROUTE}/${SOURCE_KEY}`, width = IMAGE_DEVICE_SIZES[0], method = "GET" } = {}) {
   const request = new Request(`https://example.com${IMAGE_OPTIMIZATION_PATH}?${new URLSearchParams({
     url: source, w: String(width), q: String(CMS_IMAGE_QUALITY),
   })}`, { method, headers: { Accept: "image/webp" } });
-  const fetchSource = vi.fn(async (__request: Request) => new Response("source", { headers: { "Content-Type": "image/png" } }));
+  const fetchSource = vi.fn(async (__request: Request) => new Response("source", {
+    headers: { "Content-Type": "image/png", "Cache-Tag": CACHE_TAGS.cmsMedia(SOURCE_KEY) },
+  }));
   const output = vi.fn(async () => ({ response: () => new Response("optimized", { headers: { "Content-Type": "image/webp" } }) }));
   const transform = vi.fn(() => ({ output }));
   const images = { input: vi.fn(() => ({ transform })) } as unknown as ImagesBinding;
@@ -29,6 +35,14 @@ describe("CMS image optimization", () => {
     expect(response.headers.get("Vary")).toBe("Accept");
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("Content-Security-Policy")).toContain("sandbox");
+  });
+
+  // Without the source tag, a media delete could not purge the resized copies at the edge.
+  test("gives a resized copy the source tag and the CMS image cache policy", async () => {
+    const response = await optimizeCmsImage(fixture());
+
+    expect(response.headers.get("Cache-Tag")).toBe(CACHE_TAGS.cmsMedia(SOURCE_KEY));
+    expect(response.headers.get("Cache-Control")).toBe(CMS_IMAGE_CACHE_CONTROL);
   });
 
   test("rejects unsupported widths before reading the source", async () => {

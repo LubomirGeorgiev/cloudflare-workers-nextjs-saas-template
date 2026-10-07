@@ -106,7 +106,7 @@ One declaration becomes a REST operation at `/api/v1`, an entry in `/docs/api`, 
 
 ## Database and Migrations
 
-- D1 has no transactions. For writes that must land together, use one `db.$client.batch([...])`.
+- D1 has no transactions. For writes that must land together, use one D1 batch: Drizzle `db.batch([...])`, or `db.$client.batch([...])` for raw statements.
 - Do not pass `id` on insert or update. Do not write SQL migrations by hand; run `pnpm db:generate [MIGRATION_NAME]`.
 - Add one new migration per commit unless a human permits more. Otherwise delete the incremental files, regenerate one migration, and reset the local dev DB.
 - No database-level defaults (`.default(...)`, SQL `DEFAULT`), also on new tables; `$defaultFn()` is fine. New columns are nullable and unconstrained. Prefer `index()`/`uniqueIndex()` over `.unique()`. Treat `DROP COLUMN` and generated-column changes as destructive.

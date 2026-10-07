@@ -10,6 +10,7 @@ import { CmsTranslationSwitcher } from "../../_components/cms-translation-switch
 import { LOCALE_LABELS, type Locale } from "@/i18n/config";
 import type { CmsEntryLocaleSibling } from "@/lib/cms/entry";
 import type { CollectionsUnion } from "@/../cms.config";
+import { warnAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
 
 // Editor-header switcher: shows every enabled locale for this entry's (collection, slug) group — the one
 // being edited, links to existing siblings, and create-buttons for the missing ones. Lets an admin see
@@ -48,6 +49,7 @@ export function CmsEntryLocaleSwitcher({
           id: toastIdRef.current,
         });
       }
+      warnAfterCmsWrite(data);
       router.push(`/admin/cms/${collection}/${data.id}`);
     },
   });

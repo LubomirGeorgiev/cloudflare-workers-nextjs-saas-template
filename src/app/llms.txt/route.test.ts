@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { CACHE_TAGS } from "@/utils/cache";
@@ -76,7 +77,7 @@ describe("/llms.txt", () => {
     });
     expect(setCacheScopeMock).toHaveBeenCalledWith({
       tags: EXPECTED_CACHE_TAGS,
-      ttl: "8 hours",
+      ttl: CMS_DATA_CACHE_TTL,
     });
   });
 });

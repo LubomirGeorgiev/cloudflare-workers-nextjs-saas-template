@@ -70,12 +70,8 @@ export async function generateMetadata({
   ]);
   const docsNavigation = getCmsNavigationConfig(DOCS_SLUG);
 
-  if (result.type === "redirect") {
-    // CMS-configured redirects (renamed slugs, root path, etc.) must keep the
-    // active locale prefix rather than dropping it (see module-level comment).
-    redirectLocalized({ href: result.path, locale });
-  }
-
+  // A redirect falls through to the fallback below; `DocsPage` throws it. Vinext traces a
+  // redirect thrown from `generateMetadata` as an exception, so production logs it as an error.
   if (result.type === "group") {
     const groupTitle = getNavigationNodeDisplayTitle(result.node);
     const canonicalPath = result.node.resolvedPath ?? docsNavigation.basePath;

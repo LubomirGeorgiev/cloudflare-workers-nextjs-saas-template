@@ -22,6 +22,7 @@ import type {
   UpdateCmsTagParams,
 } from "@/lib/cms/tags/types";
 import { translateTagFields } from "@/lib/cms/translate-entry";
+import { getBlogListPagePaths, getBlogTagPagePath } from "@/lib/blog-routing";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
 
@@ -31,12 +32,19 @@ import { v } from "@/lib/validation";
 async function invalidateCmsTagMutationCaches({
   tagSlug,
   entryRefs,
+  removedTagSlug,
 }: {
   tagSlug?: string;
   entryRefs?: CmsEntryRef[];
+  // A slug the write renamed or deleted. The purge reads tag pages from D1, which no longer has it.
+  removedTagSlug?: string;
 }) {
   const refs = entryRefs ?? (tagSlug ? await getCmsTagGroupEntryRefs({ tagSlug }) : []);
-  await invalidateCmsTagGroupCaches({ entryRefs: refs });
+  const knownPagePathnames = removedTagSlug
+    ? getBlogListPagePaths({ pathname: getBlogTagPagePath(removedTagSlug), postCount: refs.length })
+    : [];
+
+  await invalidateCmsTagGroupCaches({ entryRefs: refs, knownPagePathnames });
 }
 
 async function assertCanonicalTagSlugAvailable(slug: string) {
@@ -305,7 +313,10 @@ export async function updateCmsTag(params: UpdateCmsTagParams) {
 
   // After the cascade the whole group shares the new slug, so resolve affected
   // entries by it (falls back to the unchanged slug when only name/description moved).
-  await invalidateCmsTagMutationCaches({ tagSlug: slug ?? existingTag.slug });
+  await invalidateCmsTagMutationCaches({
+    tagSlug: slug ?? existingTag.slug,
+    removedTagSlug: isSlugChanging ? existingTag.slug : undefined,
+  });
 
   return updatedTag;
 }
@@ -336,7 +347,7 @@ export async function deleteCmsTag(id: DeleteCmsTagParams) {
     await db.delete(cmsTagTable).where(eq(cmsTagTable.id, validated));
   }
 
-  await invalidateCmsTagMutationCaches({ entryRefs });
+  await invalidateCmsTagMutationCaches({ entryRefs, removedTagSlug: existingTag.slug });
 
   return existingTag;
 }

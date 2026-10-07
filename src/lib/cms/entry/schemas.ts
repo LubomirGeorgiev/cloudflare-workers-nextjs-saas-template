@@ -81,6 +81,8 @@ export const getEntryLocalesParamsSchema = v.object({
 export const getEntryLocalesForSlugsParamsSchema = v.object({
   collectionSlug: collectionSlugField,
   slugs: v.pipe(v.array(slugField()), v.maxLength(CMS_MAX_SLUGS_PER_LOOKUP)),
+  // No default: an admin read wants every status, and a public read only the published rows.
+  status: cmsEntryStatusOrAllSchema,
 });
 
 const cmsEntryBaseSchema = v.object({

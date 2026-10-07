@@ -9,6 +9,7 @@ import { createTagTranslationAction } from "../../../_actions/cms-tag-actions";
 import { CmsTranslationSwitcher } from "../../_components/cms-translation-switcher";
 import { LOCALE_LABELS, type Locale } from "@/i18n/config";
 import type { CmsTagLocaleSibling } from "@/lib/cms/tags";
+import { warnAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
 
 // Tag-editor translations panel: shows every enabled locale for this tag's slug group — the one being
 // edited, links to existing sibling translations, and create-buttons for the missing ones (AI-assisted).
@@ -45,6 +46,7 @@ export function TagLocaleSwitcher({
           id: toastIdRef.current,
         });
       }
+      warnAfterCmsWrite(data);
       router.push(`/admin/cms/tags/${data.id}`);
     },
   });

@@ -6,6 +6,7 @@ import type { Metadata } from "next"
 import { getBlogFacetPage, getBlogPageCounts } from "@/lib/cms/blog-list-artifacts"
 import { BlogPaginationServer } from "@/components/blog-pagination-server"
 import {
+  getBlogCollectionMetadataPage,
   getLocalesWithBlogPage,
   isBlogPageOutOfRange,
   requireBlogCollectionPage,
@@ -41,7 +42,7 @@ export async function generateMetadata({
   params,
 }: AuthorPageProps): Promise<Metadata> {
   const { locale, authorId: authorRouteParam, page: pageParam } = await params
-  const page = requireBlogCollectionPage({ pathname: `/blog/authors/${authorRouteParam}`, pageParam, locale });
+  const page = getBlogCollectionMetadataPage({ pageParam });
   const t = await getTranslator({ locale, namespace: "Blog.AuthorDetail.meta" })
   const tDetail = await getTranslator({ locale, namespace: "Blog.AuthorDetail" })
   const parsedAuthorId = parseAuthorIdFromRouteParam(authorRouteParam)

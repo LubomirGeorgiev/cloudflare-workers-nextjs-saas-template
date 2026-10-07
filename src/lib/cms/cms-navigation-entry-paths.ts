@@ -90,3 +90,32 @@ async function loadNavigationPathLookup() {
     return rows.flatMap((row) => (row.resolvedPath ? [row.resolvedPath] : []));
   };
 }
+
+/**
+ * Every resolved path in the given navigation trees, in any publish status. Each page under a tree
+ * bakes its sidebar, so the purge names all of them. Straight from D1 for the reason above, and
+ * never throws.
+ */
+export async function getCmsNavigationPagePaths({
+  navigationKeys,
+}: {
+  navigationKeys: CmsNavigationKey[];
+}): Promise<string[]> {
+  if (navigationKeys.length === 0) {
+    return [];
+  }
+
+  try {
+    const [{ getDB }, { cmsNavigationItemTable }, { inArray }] =
+      await Promise.all([import("@/db"), import("@/db/schema"), import("drizzle-orm")]);
+    const rows = await getDB()
+      .select({ resolvedPath: cmsNavigationItemTable.resolvedPath })
+      .from(cmsNavigationItemTable)
+      .where(inArray(cmsNavigationItemTable.navigationKey, navigationKeys));
+
+    return Array.from(new Set(rows.flatMap((row) => (row.resolvedPath ? [row.resolvedPath] : []))));
+  } catch (error) {
+    console.error("Navigation page path lookup failed", error);
+    return [];
+  }
+}

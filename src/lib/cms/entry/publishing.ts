@@ -9,6 +9,10 @@ import {
   getKnownCmsCollectionSlug,
   invalidateEntryAndCollection,
 } from "@/lib/cms/cms-cache-invalidation";
+import {
+  getPublishStateChange,
+  type PublishStateChange,
+} from "@/lib/cms/cms-invalidation-scopes";
 import { syncCmsEntrySearch } from "@/lib/cms/cms-search";
 import { recordCmsEntryVersion } from "@/lib/cms/entry/version-history";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
@@ -59,7 +63,14 @@ export async function syncCmsPublishSchedule(
  * Shared by the timer path and the internal admin API, which has no request scope either, so
  * `revalidateCmsEntryPaths` is out of reach for both.
  */
-export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
+export async function finalizePublishedEntry({
+  entry,
+  publishStateChange,
+}: {
+  entry: CmsEntry;
+  // `null` when the row was published before: a retry changes no header link.
+  publishStateChange: PublishStateChange | null;
+}): Promise<void> {
   await syncCmsEntrySearch({
     entryId: entry.id,
     collection: entry.collection,
@@ -71,7 +82,12 @@ export async function finalizePublishedEntry(entry: CmsEntry): Promise<void> {
 
   const collectionSlug = getKnownCmsCollectionSlug(entry.collection);
 
-  await invalidateEntryAndCollection({ collectionSlug, slug: entry.slug, warm: true });
+  await invalidateEntryAndCollection({
+    collectionSlug,
+    slug: entry.slug,
+    warm: true,
+    publishStateChange,
+  });
 }
 
 /**
@@ -118,6 +134,7 @@ export async function publishCmsEntryNow({
         slug: existingEntry.slug,
         seoDescription: existingEntry.seoDescription,
         status: CMS_ENTRY_STATUS.PUBLISHED,
+        publishedAt: updatedEntry.publishedAt,
         featuredImageId: existingEntry.featuredImageId,
       },
     });
@@ -125,7 +142,13 @@ export async function publishCmsEntryNow({
 
   // A scheduled entry that is published by hand must not also fire its timer later.
   await deleteCmsPublishSchedule(entryId);
-  await finalizePublishedEntry(updatedEntry);
+  await finalizePublishedEntry({
+    entry: updatedEntry,
+    publishStateChange: getPublishStateChange({
+      statusBefore: existingEntry.status,
+      statusAfter: updatedEntry.status,
+    }),
+  });
 
   return updatedEntry;
 }

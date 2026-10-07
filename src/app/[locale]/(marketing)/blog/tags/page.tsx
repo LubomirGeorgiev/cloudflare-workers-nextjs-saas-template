@@ -51,7 +51,7 @@ export default async function BlogTagsPage({
   const { locale } = await params
   const t = await getTranslator({ locale, namespace: "Blog.Tags" })
   const tCommon = await getTranslator({ locale, namespace: "Blog.Common" })
-  const tags = await getCmsTags({ locale })
+  const tags = await getCmsTags({ locale, countPublishedPosts: true })
 
   // Only show tags that have entries, most-published topics first
   const tagsWithEntries = tags

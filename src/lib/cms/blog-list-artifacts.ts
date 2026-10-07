@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 
 import { BLOG_POSTS_PER_PAGE } from "@/constants";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
@@ -35,7 +36,7 @@ interface BlogFacetPage<TFacet extends BlogFacet> {
 
 async function loadBlogAuthors(locale: Locale) {
   "use cache: remote";
-  setCacheScope({ tags: BLOG_COLLECTION_CACHE_TAGS, ttl: "8 hours" });
+  setCacheScope({ tags: BLOG_COLLECTION_CACHE_TAGS, ttl: CMS_DATA_CACHE_TTL });
   const entries = await getCmsCollection({
     collectionSlug: "blog",
     includeRelations: { createdByUser: true },
@@ -70,7 +71,7 @@ async function loadBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
   setCacheScope({
     // The tag facet resolves its slug through the tag list, so it also drops when a tag changes.
     tags: facet.type === "tag" ? BLOG_TAG_PAGE_CACHE_TAGS : BLOG_COLLECTION_CACHE_TAGS,
-    ttl: "8 hours",
+    ttl: CMS_DATA_CACHE_TTL,
   });
 
   if (facet.type === "tag") {
@@ -106,7 +107,7 @@ async function loadBlogFacetPage<TFacet extends BlogFacet>({ locale, facet }: {
 async function loadBlogPageCountsByPath(locale: Locale): Promise<Record<string, number>> {
   "use cache: remote";
   // Facet paths carry the tag slug, so a tag change moves them the same way it moves a facet page.
-  setCacheScope({ tags: BLOG_TAG_PAGE_CACHE_TAGS, ttl: "8 hours" });
+  setCacheScope({ tags: BLOG_TAG_PAGE_CACHE_TAGS, ttl: CMS_DATA_CACHE_TTL });
 
   const entries = await getBlogEntries(locale);
 

@@ -27,9 +27,10 @@ single `INSERT ... SELECT` copy can blow D1's 30-second query limit.
   `STORED` on a populated table). Treat `DROP COLUMN` and generated-column changes as destructive;
   check dependent indexes, constraints, triggers, and views first.
 - D1 has no transactions, so Drizzle transactions do not work. For writes that must land together,
-  send one batch through the raw client (`db.$client.batch([...])`): D1 rolls back the whole batch
-  when one statement fails. For writes that cannot share a batch, order them so a failure leaves a
-  safe state.
+  send one D1 batch: D1 rolls back the whole batch when one statement fails. Use Drizzle
+  `db.batch([...])` for Drizzle queries; it sends one D1 batch and keeps the typed results. Use the
+  raw client (`db.$client.batch([...])`) for raw prepared statements. For writes that cannot share
+  a batch, order them so a failure leaves a safe state.
 - Keep migrations pure schema: batch large data backfills separately, and no `VACUUM`/`REINDEX`
   (use `PRAGMA optimize` if maintenance is needed).
 - If a production rebuild is genuinely unavoidable, get explicit user approval first, with a

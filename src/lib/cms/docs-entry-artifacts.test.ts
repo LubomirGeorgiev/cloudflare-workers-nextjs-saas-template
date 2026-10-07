@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import type { JSONContent } from "@tiptap/core";
 
 import { LLMS_DESCRIBED_BY_RELATION } from "@/constants";
@@ -146,7 +147,7 @@ describe("docs entry artifacts", () => {
     });
     expect(setCacheScopeMock).toHaveBeenCalledWith({
       tags: ["cms-entry-docs-introduction"],
-      ttl: "8 hours",
+      ttl: CMS_DATA_CACHE_TTL,
     });
     // The `Source:` line follows the entry's own locale, exactly as the Markdown route builds it.
     expect(artifacts?.markdown).toBe(

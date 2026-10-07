@@ -11,14 +11,16 @@ const {
   getCachePurgeConfigMock,
   purgeWorkersCacheAfterWriteMock,
   purgeZoneCacheEverythingMock,
+  purgeZoneCachePrefixesMock,
   revalidateCacheTagMock,
   workerEnv,
   workersCache,
 } = vi.hoisted(() => ({
   collectPublicPagesMock: vi.fn(),
   getCachePurgeConfigMock: vi.fn(),
-  purgeWorkersCacheAfterWriteMock: vi.fn(async () => undefined),
+  purgeWorkersCacheAfterWriteMock: vi.fn(async (): Promise<string | undefined> => "ok"),
   purgeZoneCacheEverythingMock: vi.fn(),
+  purgeZoneCachePrefixesMock: vi.fn(async (__input: { prefixes: string[] }) => undefined),
   revalidateCacheTagMock: vi.fn(async () => undefined),
   workerEnv: {} as Record<string, unknown>,
   // Mutable, because local workerd answers `undefined` for `purge`.
@@ -51,7 +53,10 @@ vi.mock("@/lib/sitemap/public-pages", () => ({
 
 vi.mock("@/lib/cloudflare-api", () => ({
   getCachePurgeConfig: getCachePurgeConfigMock,
+  isZonePurgeConfigured: async () => (await getCachePurgeConfigMock()) !== null,
   purgeZoneCacheEverything: purgeZoneCacheEverythingMock,
+  purgeZoneCachePrefixes: purgeZoneCachePrefixesMock,
+  purgeZoneCacheTags: vi.fn(async () => undefined),
 }));
 
 const { SITE_DOMAIN } = await import("@/constants");
@@ -61,6 +66,12 @@ const { ENABLED_LOCALES } = await import("@/i18n/config");
 const { localizedPathname } = await import("@/i18n/localized-pathname");
 const { getBuildId } = await import("@/utils/build-id");
 const { CACHE_TAGS } = await import("@/constants/cache-tags");
+const {
+  EDGE_HTML_CACHE_TTL_MINUTES,
+  EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES,
+} = await import("@/constants/cache-control");
+const { EDGE_HTML_ZONE_PURGE_OUTCOME } = await import("@/constants/edge-html-cache");
+const { WORKERS_CACHE_PURGE_OUTCOME } = await import("@/constants/cache-purge");
 const { getSearchableCollections } = await import("@/lib/cms/cms-search");
 const {
   clearSearchCache,
@@ -123,6 +134,56 @@ test("it purges every public page in every locale and counts the deletes", async
   expect(result.message).toContain(String(entryKeys.length));
   expect(requestedKeys).toEqual(expect.arrayContaining(entryKeys));
   expect(requestedKeys).toEqual(expect.arrayContaining(edgeHtmlKeysOf("/")));
+});
+
+// A var or secret change makes no CMS write, so the operator needs one purge that names every page.
+test("with a zone purge, it clears every stored page by the root prefix in every locale", async () => {
+  getCachePurgeConfigMock.mockResolvedValue({ apiToken: "token", zoneId: "zone" });
+  collectPublicPagesMock.mockResolvedValue([]);
+
+  await purgeEdgeHtmlCache();
+
+  const rootPrefixes = edgeHtmlKeysOf("/").map((key) => key.replace(/^https:\/\//, ""));
+
+  expect(purgeZoneCachePrefixesMock).toHaveBeenCalledWith(
+    expect.objectContaining({ prefixes: expect.arrayContaining(rootPrefixes) }),
+  );
+});
+
+// The local delete ran, so this is no error. But other data centers still serve old pages, and the
+// operator must not read success.
+test("a failed zone purge is a partial result that names the expiry window", async () => {
+  getCachePurgeConfigMock.mockResolvedValue({ apiToken: "token", zoneId: "zone" });
+  collectPublicPagesMock.mockResolvedValue([]);
+  purgeZoneCachePrefixesMock.mockRejectedValueOnce(new Error("rate limited"));
+
+  const result = await purgeEdgeHtmlCache();
+
+  expect(result.zonePurge).toBe(EDGE_HTML_ZONE_PURGE_OUTCOME.FAILED);
+  expect(result.partial).toBe(true);
+  expect(result.message).toContain(`${EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES} minutes`);
+});
+
+test("a zone purge that went through is a full result", async () => {
+  getCachePurgeConfigMock.mockResolvedValue({ apiToken: "token", zoneId: "zone" });
+  collectPublicPagesMock.mockResolvedValue([]);
+
+  const result = await purgeEdgeHtmlCache();
+
+  expect(result.zonePurge).toBe(EDGE_HTML_ZONE_PURGE_OUTCOME.OK);
+  expect(result.partial).toBe(false);
+});
+
+// Other data centers keep their old copies, so the panel must warn, not report success.
+test("without a zone purge, the result is partial and names the short expiry window", async () => {
+  getCachePurgeConfigMock.mockResolvedValue(null);
+  collectPublicPagesMock.mockResolvedValue([]);
+
+  const result = await purgeEdgeHtmlCache();
+
+  expect(result.zonePurge).toBe(EDGE_HTML_ZONE_PURGE_OUTCOME.UNCONFIGURED);
+  expect(result.partial).toBe(true);
+  expect(result.message).toContain(`${EDGE_HTML_CACHE_TTL_MINUTES} minutes`);
 });
 
 // A fork's `previewUrl` decides the pathname, so nothing stops it returning an absolute, a
@@ -232,4 +293,16 @@ test("a search cache clear purges Workers Caching by the search tags, after the 
   await clearSearchCache(undefined);
 
   expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledWith({ tags: searchTags });
+});
+
+// The KV tags dropped, so the action stands, but the panel must warn that edge copies stay.
+test("a search cache clear whose Workers Caching purge failed is a partial result that says so", async () => {
+  purgeWorkersCacheAfterWriteMock.mockResolvedValueOnce(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
+
+  const failed = await clearSearchCache(undefined);
+  const clean = await clearSearchCache(undefined);
+
+  expect(failed.partial).toBe(true);
+  expect(clean.partial).toBeUndefined();
+  expect(failed.message).not.toBe(clean.message);
 });

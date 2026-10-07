@@ -61,3 +61,6 @@ metrics/*.html
 
 # `pnpm email:preview` output
 .email-preview/
+
+# Claude Code agent worktrees
+.claude/worktrees/

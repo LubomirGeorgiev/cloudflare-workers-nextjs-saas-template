@@ -1,4 +1,5 @@
 import type { Locale } from "./config";
+import { isDefaultLocaleCardPathname } from "./locale-prefix";
 import { localizedPathname } from "./localized-pathname";
 import { resolveRequestLocale } from "./resolve-locale";
 
@@ -86,7 +87,8 @@ export function decideLocaleRoute(request: LocaleRouteRequest): LocaleRouteDecis
 
   // One spelling per page, one hop to it: `/ES/blog`, `/en/blog`, and a bare path that belongs to
   // another locale all redirect. Both sides are decoded and sanitized, so only the prefix can differ.
-  if (normalizeTrailingSlash(pathname) !== canonical) {
+  // A default-locale card is the exception: pages name it at its internal path.
+  if (normalizeTrailingSlash(pathname) !== canonical && !isDefaultLocaleCardPathname(pathname)) {
     return {
       type: "redirect",
       location: canonical + request.search,

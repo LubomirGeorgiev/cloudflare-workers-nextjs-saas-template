@@ -51,6 +51,10 @@ export const CACHE_TAGS = {
   cmsSearchCollection(collectionSlug: string) {
     return cmsTag({ kind: "search", parts: [collectionSlug] });
   },
+  // Keyed by the R2 key, because the image route knows only the path, not the media row.
+  cmsMedia(bucketKey: string) {
+    return cmsTag({ kind: "media", parts: [bucketKey] });
+  },
 } as const;
 
 /** The `Cache-Tag` header value for a response. */

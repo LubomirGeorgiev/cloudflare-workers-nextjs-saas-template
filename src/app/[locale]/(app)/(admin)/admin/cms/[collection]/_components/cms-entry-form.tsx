@@ -9,7 +9,7 @@ import { createCmsEntryAction, updateCmsEntryAction, generateSeoDescriptionActio
 import { listCmsTagsAction, createCmsTagAction } from "../../../_actions/cms-tag-actions";
 import { getCmsEntryVersionCountAction } from "../../_actions/version-actions";
 import { cmsEntryFormSchema, type CmsEntryFormData, type CmsEntryFormInput } from "@/schemas/cms-entry.schema";
-import { formatRelativeDateTime } from "@/utils/format-date";
+import { ClientRelativeTime } from "@/components/client-relative-time";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,13 @@ import { formatDateTime } from "@/utils/format-date";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 import { toEditableTiptapDoc } from "@/lib/tiptap-content";
+import {
+  CMS_WRITE_TOAST_POSITION,
+  warnAfterCmsWrite,
+} from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
+
+// One toast for the whole save: the result replaces the loading toast in place, away from Save.
+const ENTRY_SAVE_TOAST = { id: "cms-entry-save", position: CMS_WRITE_TOAST_POSITION } as const;
 
 // TipTap and ProseMirror are ~744 KiB of client references. Vinext preloads every client
 // reference on a cold isolate, so a static import here costs public pages CPU they never use.
@@ -197,15 +204,14 @@ export function CmsEntryForm({
 
   const { execute: createEntry, isExecuting: isCreating } = useAction(createCmsEntryAction, {
     onError: ({ error }) => {
-      toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to create entry");
+      toast.error(error.serverError?.message || "Failed to create entry", ENTRY_SAVE_TOAST);
     },
     onExecute: () => {
-      toast.loading(mode === "create" ? "Creating entry..." : "Updating entry...");
+      toast.loading(mode === "create" ? "Creating entry..." : "Updating entry...", ENTRY_SAVE_TOAST);
     },
     onSuccess: ({ data, input }) => {
-      toast.dismiss();
-      toast.success("Entry created successfully");
+      toast.success("Entry created successfully", ENTRY_SAVE_TOAST);
+      warnAfterCmsWrite(data);
       form.reset(getSavedFormValues({ savedEntry: data, input }));
       router.replace(`/admin/cms/${collection}/${data.id}`);
       router.refresh();
@@ -214,15 +220,14 @@ export function CmsEntryForm({
 
   const { execute: updateEntry, isExecuting: isUpdating } = useAction(updateCmsEntryAction, {
     onError: ({ error }) => {
-      toast.dismiss();
-      toast.error(error.serverError?.message || "Failed to update entry");
+      toast.error(error.serverError?.message || "Failed to update entry", ENTRY_SAVE_TOAST);
     },
     onExecute: () => {
-      toast.loading("Updating entry...");
+      toast.loading("Updating entry...", ENTRY_SAVE_TOAST);
     },
     onSuccess: ({ data, input }) => {
-      toast.dismiss();
-      toast.success("Entry updated successfully");
+      toast.success("Entry updated successfully", ENTRY_SAVE_TOAST);
+      warnAfterCmsWrite(data);
       form.reset(getSavedFormValues({ savedEntry: data, input }));
       router.refresh();
 
@@ -241,6 +246,7 @@ export function CmsEntryForm({
     onSuccess: ({ data }) => {
       if (data) {
         toast.success(`Tag "${data.name}" created successfully`);
+        warnAfterCmsWrite(data);
         loadTags(); // Refresh tags list
         const currentTagIds = form.getValues("tagIds") || [];
         form.setValue("tagIds", [...currentTagIds, data.id]);
@@ -920,7 +926,7 @@ export function CmsEntryForm({
                   <div>
                     <span className="text-muted-foreground">Created:</span>
                     <p className="font-medium">
-                      {formatRelativeDateTime(entry.createdAt, DEFAULT_LOCALE)}
+                      <ClientRelativeTime value={entry.createdAt} locale={DEFAULT_LOCALE} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatDateTime(entry.createdAt, DEFAULT_LOCALE)}
@@ -929,7 +935,7 @@ export function CmsEntryForm({
                   <div>
                     <span className="text-muted-foreground">Last Updated:</span>
                     <p className="font-medium">
-                      {formatRelativeDateTime(entry.updatedAt, DEFAULT_LOCALE)}
+                      <ClientRelativeTime value={entry.updatedAt} locale={DEFAULT_LOCALE} />
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {formatDateTime(entry.updatedAt, DEFAULT_LOCALE)}
@@ -941,7 +947,7 @@ export function CmsEntryForm({
                         {entry.status === CMS_ENTRY_STATUS.SCHEDULED ? "Scheduled for:" : "Published:"}
                       </span>
                       <p className="font-medium">
-                        {formatRelativeDateTime(entry.publishedAt, DEFAULT_LOCALE)}
+                        <ClientRelativeTime value={entry.publishedAt} locale={DEFAULT_LOCALE} />
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatDateTime(entry.publishedAt, DEFAULT_LOCALE)}

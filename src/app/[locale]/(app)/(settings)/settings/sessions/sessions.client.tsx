@@ -10,7 +10,7 @@ import {
 import { useAction } from "next-safe-action/hooks";
 import { deleteSessionAction } from "./sessions.actions";
 import { Badge } from "@/components/ui/badge";
-import { formatRelativeDateTime } from "@/utils/format-date";
+import { ClientRelativeTime } from "@/components/client-relative-time";
 import { formatDeviceDescription } from "@/utils/format-device-description";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { toast } from "sonner";
@@ -82,7 +82,7 @@ export function SessionsClient({ sessions }: { sessions: SessionWithMeta[] }) {
                     </Badge>
                   )}
                   <div className="text-sm text-muted-foreground whitespace-nowrap">
-                    &nbsp;· &nbsp;{formatRelativeDateTime(session.createdAt, locale)}
+                    &nbsp;· &nbsp;<ClientRelativeTime value={session.createdAt} locale={locale} />
                   </div>
                 </div>
                 <CardDescription className="text-sm">

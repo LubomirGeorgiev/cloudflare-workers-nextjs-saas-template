@@ -56,6 +56,12 @@ vi.mock("@/lib/cms/entry", () => ({
 }));
 
 const { revertCmsEntryVersionAction } = await import("./version-actions");
+const { reportCmsCachePurge } = await import("@/lib/cms/cms-cache-purge-report");
+const { CMS_CACHE_PURGE_OK, CMS_PURGE_STATUS } = await import("@/constants/cache-purge");
+
+const ZONE_PURGE_FAILED = { ...CMS_CACHE_PURGE_OK, zone: CMS_PURGE_STATUS.FAILED };
+
+const REVERTED_ENTRY = { id: "entry_launch_notes", collection: "blog", slug: "launch-notes" };
 
 describe("CMS entry version actions", () => {
   afterEach(() => {
@@ -96,5 +102,38 @@ describe("CMS entry version actions", () => {
         expect(revalidatePathMock).toHaveBeenCalledWith(path);
       }
     }
+  });
+
+  // The editor reloads after a revert, so the field rides the reload stash to the next page.
+  test("revertCmsEntryVersionAction reports a failed zone purge from inside the write", async () => {
+    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
+    getCmsEntryByIdMock.mockResolvedValue(REVERTED_ENTRY);
+    revertCmsEntryToVersionMock.mockImplementation(async () => {
+      reportCmsCachePurge(ZONE_PURGE_FAILED);
+      return { ...REVERTED_ENTRY, scheduleCleared: false };
+    });
+
+    const result = await revertCmsEntryVersionAction({
+      entryId: REVERTED_ENTRY.id,
+      versionId: "version_1",
+    });
+
+    expect(result).toEqual({ ...REVERTED_ENTRY, scheduleCleared: false, cachePurge: ZONE_PURGE_FAILED });
+  });
+
+  test("revertCmsEntryVersionAction reports no failure when the zone purge went through", async () => {
+    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
+    getCmsEntryByIdMock.mockResolvedValue(REVERTED_ENTRY);
+    revertCmsEntryToVersionMock.mockImplementation(async () => {
+      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
+      return { ...REVERTED_ENTRY, scheduleCleared: false };
+    });
+
+    const result = await revertCmsEntryVersionAction({
+      entryId: REVERTED_ENTRY.id,
+      versionId: "version_1",
+    });
+
+    expect(result).toEqual({ ...REVERTED_ENTRY, scheduleCleared: false, cachePurge: CMS_CACHE_PURGE_OK });
   });
 });

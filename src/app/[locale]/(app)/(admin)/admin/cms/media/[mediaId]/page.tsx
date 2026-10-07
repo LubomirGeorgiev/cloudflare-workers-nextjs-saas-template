@@ -11,7 +11,8 @@ import Image from "next/image";
 import { EditAltText } from "./_components/edit-alt-text";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
 import { CmsEntryStatusBadge } from "../../_components/cms-entry-status-badge";
-import { formatDateTime, formatRelativeDateTime } from "@/utils/format-date";
+import { formatDateTime } from "@/utils/format-date";
+import { ClientRelativeTime } from "@/components/client-relative-time";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 
 export const metadata: Metadata = {
@@ -139,7 +140,7 @@ export default async function MediaDetailPage({ params }: MediaDetailPageProps) 
             <div>
               <p className="text-sm font-medium text-muted-foreground">Uploaded</p>
               <p className="mt-1">
-                {formatRelativeDateTime(media.createdAt, DEFAULT_LOCALE)}
+                <ClientRelativeTime value={media.createdAt} locale={DEFAULT_LOCALE} />
               </p>
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(media.createdAt, DEFAULT_LOCALE)}

@@ -1,10 +1,18 @@
 import { maxString, trimmedString, v } from "@/lib/validation";
-import { BAN_REASON_MAX_LENGTH, NAME_MAX_LENGTH } from "@/constants";
+import { cmsNavigationKeys } from "@/../cms.config";
+import { BAN_REASON_MAX_LENGTH, NAME_MAX_LENGTH, SLUG_MAX_LENGTH } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
+import {
+  CMS_ENTRY_CHANGE_VALUES,
+  CMS_ENTRY_CHANGES,
+  CMS_INVALIDATION_SCOPE_VALUES,
+} from "@/lib/cms/cms-invalidation-scopes";
 
 export const SCHEDULED_JOB_TYPES = {
   BILLING_CANCEL_SUBSCRIPTION: "billing.cancel-subscription",
   CMS_PUBLISH_ENTRY: "cms.publish-entry",
+  // The value keeps its first name, so a message queued by the previous deploy still routes here.
+  CMS_REPURGE: "cms.repurge-entries",
   EMAIL_SEND: "email.send",
   TEAM_SESSIONS_REFRESH: "team.sessions-refresh",
 } as const;
@@ -30,6 +38,57 @@ export const cmsPublishEntryJobPayloadSchema = v.object({
   entryId: nonEmptyString,
 });
 type CmsPublishEntryJobPayload = v.InferOutput<typeof cmsPublishEntryJobPayloadSchema>;
+
+// Keeps one message far below the queue's 128 KB message limit, even with long non-ASCII slugs.
+export const CMS_REPURGE_ENTRIES_PER_MESSAGE = 25;
+// With the entries, a full message stays near 70 KB, even as 3-byte UTF-8.
+export const CMS_REPURGE_PATHNAMES_PER_MESSAGE = 10;
+export const CMS_REPURGE_PATHNAME_MAX_LENGTH = 1024;
+
+// The target of one CMS invalidation. Entries go by collection and slug, because a deleted or
+// renamed entry has no row left to load. Pathnames are the pages a write moved or removed.
+export const cmsRepurgeJobPayloadSchema = v.pipe(
+  v.object({
+    entries: v.optional(
+      v.pipe(
+        v.array(v.object({
+          collection: v.pipe(nonEmptyString, v.maxLength(SLUG_MAX_LENGTH)),
+          slug: v.pipe(nonEmptyString, v.maxLength(SLUG_MAX_LENGTH)),
+        })),
+        v.maxLength(CMS_REPURGE_ENTRIES_PER_MESSAGE),
+      ),
+      [],
+    ),
+    // Absent on a message queued before this field existed.
+    entryChange: v.optional(v.picklist(CMS_ENTRY_CHANGE_VALUES), CMS_ENTRY_CHANGES.CONTENT),
+    knownPagePathnames: v.optional(
+      v.pipe(
+        v.array(v.pipe(nonEmptyString, v.maxLength(CMS_REPURGE_PATHNAME_MAX_LENGTH))),
+        v.maxLength(CMS_REPURGE_PATHNAMES_PER_MESSAGE),
+      ),
+      [],
+    ),
+    navigationKeys: v.optional(
+      v.pipe(v.array(v.picklist(cmsNavigationKeys)), v.maxLength(cmsNavigationKeys.length)),
+      [],
+    ),
+    scopes: v.optional(
+      v.pipe(
+        v.array(v.picklist(CMS_INVALIDATION_SCOPE_VALUES)),
+        v.maxLength(CMS_INVALIDATION_SCOPE_VALUES.length),
+      ),
+      [],
+    ),
+  }),
+  v.check(
+    ({ entries, knownPagePathnames, navigationKeys, scopes }) =>
+      entries.length + knownPagePathnames.length + navigationKeys.length + scopes.length > 0,
+    "A CMS repurge names at least one entry, page, navigation, or scope",
+  ),
+);
+// Input form: a later message of a split write carries no navigations or scopes.
+type CmsRepurgeJobPayload = v.InferInput<typeof cmsRepurgeJobPayloadSchema>;
+export type CmsRepurgeTarget = v.InferOutput<typeof cmsRepurgeJobPayloadSchema>;
 
 export const teamSessionsRefreshJobPayloadSchema = v.object({
   teamId: nonEmptyString,
@@ -119,6 +178,7 @@ export type EmailSendJobPayload = v.InferOutput<typeof emailSendJobPayloadSchema
 interface ScheduledJobPayloadByType {
   [SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION]: BillingCancelSubscriptionJobPayload;
   [SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY]: CmsPublishEntryJobPayload;
+  [SCHEDULED_JOB_TYPES.CMS_REPURGE]: CmsRepurgeJobPayload;
   [SCHEDULED_JOB_TYPES.EMAIL_SEND]: EmailSendJobPayload;
   [SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH]: TeamSessionsRefreshJobPayload;
 }

@@ -56,6 +56,7 @@ import {
   type DropTargetState,
   type RootDropPosition,
 } from "./cms-navigation-tree-model";
+import { warnAfterCmsWrite } from "@/app/[locale]/(app)/(admin)/admin/cms/_components/zone-purge-warning";
 
 export interface CmsNavigationManagerProps {
   entries: CmsCollectionListItem[];
@@ -109,6 +110,7 @@ export function CmsNavigationManagerImpl({
       onSuccess: ({ data }) => {
         toast.dismiss();
         toast.success(`${navigationLabel} saved`);
+        warnAfterCmsWrite(data);
 
         if (data) {
           // Reflattened from the saved tree, so every preview shows the markup the public site

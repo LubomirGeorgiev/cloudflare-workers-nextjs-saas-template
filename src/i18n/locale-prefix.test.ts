@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES } from "./config";
-import { matchLocalePrefix, splitLocalePrefix, stripLocalePrefix } from "./locale-prefix";
+import {
+  isDefaultLocaleCardPathname,
+  matchLocalePrefix,
+  splitLocalePrefix,
+  stripLocalePrefix,
+} from "./locale-prefix";
 
 describe("stripLocalePrefix", () => {
   test.each(LOCALES)("strips the %s prefix from the root and a nested path", (locale) => {
@@ -60,4 +65,26 @@ describe("splitLocalePrefix", () => {
   test("reads a bare path as the default locale", () => {
     expect(splitLocalePrefix("/blog")).toEqual({ locale: DEFAULT_LOCALE, pathname: "/blog" });
   });
+});
+
+describe("isDefaultLocaleCardPathname", () => {
+  const CARD = "/docs/opengraph-image-abc123";
+
+  test("matches a card under the exact default-locale prefix", () => {
+    expect(isDefaultLocaleCardPathname(`/${DEFAULT_LOCALE}${CARD}`)).toBe(true);
+    expect(isDefaultLocaleCardPathname(`/${DEFAULT_LOCALE}/opengraph-image`)).toBe(true);
+  });
+
+  test("rejects a bare card, a page, and a mis-cased prefix", () => {
+    expect(isDefaultLocaleCardPathname(CARD)).toBe(false);
+    expect(isDefaultLocaleCardPathname(`/${DEFAULT_LOCALE}/docs`)).toBe(false);
+    expect(isDefaultLocaleCardPathname(`/${DEFAULT_LOCALE.toUpperCase()}${CARD}`)).toBe(false);
+  });
+
+  test.each(LOCALES.filter((locale) => locale !== DEFAULT_LOCALE))(
+    "rejects a card under the %s prefix",
+    (locale) => {
+      expect(isDefaultLocaleCardPathname(`/${locale}${CARD}`)).toBe(false);
+    },
+  );
 });

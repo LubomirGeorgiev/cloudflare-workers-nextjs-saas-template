@@ -46,12 +46,20 @@ export const SESSION_NO_STORE_CACHE_CONTROL =
 export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 
-// The API catalog and the OpenAPI document are prebuilt bytes that change only on deploy, and the
-// edge fast path returns them before the metadata policy above can reach them, so each producer
-// stamps this itself. Workers Caching partitions by Worker version, so each deploy starts cold and
-// no purge is needed.
+// The API catalog and the OpenAPI document change only on deploy. The edge fast path skips the
+// metadata policy above, so each producer stamps this. Workers Caching partitions by Worker
+// version, and a deploy, var, or secret change makes a new version, so a long TTL needs no purge.
 export const STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL =
-  "public, max-age=3600, stale-while-revalidate=86400";
+  "public, max-age=604800, stale-while-revalidate=86400";
+
+// An upload never reuses an R2 key, so the browser may keep a copy for a year. A delete purges the
+// edge copy by `CACHE_TAGS.cmsMedia`; the shorter edge TTL bounds a purge that fails. No purge can
+// reach a browser copy, so a deleted image stays visible to a browser that already loaded it.
+const CMS_IMAGE_EDGE_TTL_SECONDS = 7 * 86_400;
+export const CMS_IMAGE_CACHE_CONTROL =
+  `public, max-age=31536000, s-maxage=${CMS_IMAGE_EDGE_TTL_SECONDS}, immutable`;
+// The media delete warning states the window from this.
+export const CMS_IMAGE_EDGE_TTL_DAYS = Math.round(CMS_IMAGE_EDGE_TTL_SECONDS / 86_400);
 
 // The internal document is answered per credential, so no cache may keep a copy a later request
 // could be served without being authorized again — not a shared one, not the browser's.
@@ -63,14 +71,24 @@ export const EDGE_CACHED_METADATA_ROUTE_TAGS: Readonly<Record<string, string | n
   "/robots.txt": null,
 };
 
-// A stored copy of a rendered public page, kept in the Cache API under a synthetic key. The purge
-// names the pages it can; this TTL is the backstop for the listing, tag, author, and pagination
-// pages no purge can enumerate. See "Two layers" in docs/edge-caching.md.
+// A stored copy of a rendered public page, kept in the Cache API under a synthetic key. Without a
+// zone purge, a purge reaches one data center, so other copies live this long. See "Two layers".
 export const EDGE_HTML_CACHE_TTL_SECONDS = 300;
+
+// With a zone purge, a CMS write reaches every data center. This bounds what no purge reaches: a
+// failed purge, a dashboard var or secret change, and the GitHub star count (1 h data cache).
+const EDGE_HTML_CACHE_ZONE_PURGED_TTL_SECONDS = 3600;
+
+// Admin copy states the window from these, so a fork that retunes a TTL retunes the sentences too.
+export const EDGE_HTML_CACHE_TTL_MINUTES = Math.round(EDGE_HTML_CACHE_TTL_SECONDS / 60);
+export const EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES =
+  Math.round(EDGE_HTML_CACHE_ZONE_PURGED_TTL_SECONDS / 60);
 
 // Only the stored copy ever carries this. The visitor keeps the page's own `no-store` policy, so a
 // signed-in visitor can never evict the copy and Workers Caching still stores no page.
 export const EDGE_HTML_CACHE_CONTROL = `public, s-maxage=${EDGE_HTML_CACHE_TTL_SECONDS}`;
+export const EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL =
+  `public, s-maxage=${EDGE_HTML_CACHE_ZONE_PURGED_TTL_SECONDS}`;
 
 // The debug header and its values live in their own leaf, because `scripts/measure-ttfb.mjs`
 // imports them as plain Node and cannot resolve the `@/` alias this module uses. Re-exported here

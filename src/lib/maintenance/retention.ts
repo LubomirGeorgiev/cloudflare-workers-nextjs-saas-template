@@ -3,6 +3,7 @@ import "server-only";
 import { and, count, gt, inArray, isNull, lt } from "drizzle-orm";
 
 import { CMS_ENTRY_VERSION_HISTORY_LIMIT, CMS_IMAGES_BASE_PATH } from "@/constants";
+import { CACHE_TAGS } from "@/constants/cache-tags";
 import {
   CMS_VERSION_BACKLOG_PAGE_SIZE,
   CMS_VERSION_PRUNE_BATCH_SIZE,
@@ -28,6 +29,7 @@ import {
 import { deleteApiKeysByIds } from "@/lib/api-keys/delete-api-keys";
 import { isDeadApiKey } from "@/lib/api-keys/liveness";
 import { pruneCmsEntryVersions } from "@/lib/cms/entry/version-history";
+import { purgeWorkersCacheAfterWrite } from "@/lib/edge/purge-workers-cache-after-write";
 import { chunk } from "@/utils/chunk";
 import { mapInBatches } from "@/utils/map-in-batches";
 
@@ -227,6 +229,8 @@ async function deleteOrphansWithinBudget({
 
   for (const batch of chunk({ items: keys, size: R2_DELETE_KEYS_PER_CALL })) {
     await bucket.delete(batch);
+    // Per batch, so a later failed delete does not leave an earlier deleted image at the edge.
+    await purgeWorkersCacheAfterWrite({ tags: batch.map((key) => CACHE_TAGS.cmsMedia(key)) });
   }
 
   if (keys.length > 0) {

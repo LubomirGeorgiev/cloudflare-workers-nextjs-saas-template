@@ -1,9 +1,13 @@
 import "server-only";
 
+import { eq } from "drizzle-orm";
+
 import { cmsConfig } from "@/../cms.config";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
+import { cmsEntryTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
+import { CMS_AUTHOR_COLUMNS } from "@/lib/cms/cms-author-fields";
 import { getCmsImagePublicUrl } from "@/lib/cms/cms-images";
 import type { CmsIncludeRelations } from "@/lib/cms/cms-cache-invalidation";
 import {
@@ -21,6 +25,11 @@ export function buildStatusWhereCondition(status: CmsStatusFilter) {
   return {
     status,
   };
+}
+
+// The SQL-builder form of `buildStatusWhereCondition`, for `select().where(and(...))` queries.
+export function buildStatusSqlCondition(status: CmsStatusFilter) {
+  return status === CMS_STATUS_FILTER_ALL ? undefined : eq(cmsEntryTable.status, status);
 }
 
 export function validateEntryFields(
@@ -91,15 +100,7 @@ export function buildCmsRelationsQuery(includeRelations?: CmsIncludeRelations) {
   const relations = {} as Record<string, any>;
 
   if (includeRelations?.createdByUser) {
-    relations.createdByUser = {
-      columns: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        avatar: true,
-      },
-    };
+    relations.createdByUser = { columns: CMS_AUTHOR_COLUMNS };
   }
 
   if (includeRelations?.media) {

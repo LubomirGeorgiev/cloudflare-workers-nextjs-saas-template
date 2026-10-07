@@ -107,23 +107,39 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
       - name: Purge Cloudflare CDN cache
-        if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
         uses: actions/github-script@v9
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         with:
           script: |
-            const zoneId = process.env.CLOUDFLARE_ZONE_ID;
+            const { pathToFileURL } = require("node:url");
             const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-
-            if (!zoneId) {
-              core.setFailed("CLOUDFLARE_ZONE_ID is required");
-              return;
-            }
 
             if (!apiToken) {
               core.setFailed("CLOUDFLARE_API_TOKEN is required");
+              return;
+            }
+
+            const { resolveDeployedSiteUrl, resolveDeployZoneId } = await import(
+              pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/utils/deploy-site-url.mjs`).href
+            );
+            const { zoneId, noZone, problem } = await resolveDeployZoneId({
+              accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+              apiToken,
+              configuredZoneId: process.env.CLOUDFLARE_ZONE_ID,
+              siteUrl: resolveDeployedSiteUrl(),
+            });
+
+            // A custom domain without a purge keeps serving old pages, so fail the deploy.
+            if (problem) {
+              core.setFailed(`${problem} Set CLOUDFLARE_ZONE_ID, or check the custom domain and the Workers Scripts Read permission of the token.`);
+              return;
+            }
+
+            if (!zoneId) {
+              core.warning(`${noZone} Skipping the purge.`);
               return;
             }
 

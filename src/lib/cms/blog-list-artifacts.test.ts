@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 import { BLOG_POSTS_PER_PAGE } from "@/constants";
 import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALES, type Locale } from "@/i18n/config";
 import { BLOG_BASE_PATH } from "@/lib/blog-routing";
@@ -48,7 +49,7 @@ describe("cached blog lists", () => {
     expect(result?.posts).toHaveLength(BLOG_POSTS_PER_PAGE + 1);
     expect(getEntries).toHaveBeenCalledTimes(1);
     expect(getEntries).toHaveBeenCalledWith(expect.objectContaining({ locale: LOCALE }));
-    expect(setCacheScope).toHaveBeenCalledWith({ tags: [CACHE_TAGS.cmsCollection("blog")], ttl: "8 hours" });
+    expect(setCacheScope).toHaveBeenCalledWith({ tags: [CACHE_TAGS.cmsCollection("blog")], ttl: CMS_DATA_CACHE_TTL });
   });
 
   test("returns null for an author with no posts", async () => {
@@ -62,7 +63,7 @@ describe("cached blog lists", () => {
     expect(result?.posts.map((entry) => entry.id)).not.toContain("post--1");
     expect(result?.posts).toHaveLength(BLOG_POSTS_PER_PAGE + 1);
     expect(setCacheScope).toHaveBeenCalledWith({
-      tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: "8 hours",
+      tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: CMS_DATA_CACHE_TTL,
     });
   });
 
@@ -95,7 +96,7 @@ describe("blog page counts", () => {
     });
     expect(getEntries).toHaveBeenCalledTimes(1);
     expect(setCacheScope).toHaveBeenCalledWith({
-      tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: "8 hours",
+      tags: [CACHE_TAGS.cmsCollection("blog"), CACHE_TAGS.CMS_TAGS], ttl: CMS_DATA_CACHE_TTL,
     });
   });
 

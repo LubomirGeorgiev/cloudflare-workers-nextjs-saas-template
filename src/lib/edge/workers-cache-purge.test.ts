@@ -43,7 +43,8 @@ vi.mock("cloudflare:workers", () => ({
 
 const { CACHE_TAG_MAX_LENGTH, ZONE_PURGE_TAGS_PER_REQUEST } = await import("@/constants");
 const { CACHE_TAGS } = await import("@/constants/cache-tags");
-const { purgeWorkersCacheTags, WORKERS_CACHE_PURGE_OUTCOME } = await import("@/lib/edge/workers-cache-purge");
+const { WORKERS_CACHE_PURGE_OUTCOME } = await import("@/constants/cache-purge");
+const { purgeWorkersCacheTags } = await import("@/lib/edge/workers-cache-purge");
 const { purgeWorkersCacheAfterWrite } = await import("@/lib/edge/purge-workers-cache-after-write");
 
 const SPAN_NAME = "app.cms.cdn_purge";
@@ -95,7 +96,9 @@ describe("purgeWorkersCacheTags", () => {
       errors: [{ code: 1, message: "rate limited" }],
     }));
 
-    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBeUndefined();
+    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBe(
+      WORKERS_CACHE_PURGE_OUTCOME.FAILED,
+    );
 
     expect(console.error).toHaveBeenCalled();
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
@@ -107,7 +110,9 @@ describe("purgeWorkersCacheTags", () => {
       throw new Error("purge exploded");
     });
 
-    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBeUndefined();
+    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBe(
+      WORKERS_CACHE_PURGE_OUTCOME.FAILED,
+    );
 
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
     expect(fakeSpan.recordException).toHaveBeenCalledTimes(1);
@@ -119,7 +124,7 @@ describe("purgeWorkersCacheTags", () => {
     purge.mockRejectedValueOnce(new Error("purge exploded"));
     const tags = entryTags(ZONE_PURGE_TAGS_PER_REQUEST + 1);
 
-    await expect(purgeWorkersCacheTags({ tags })).resolves.toBeUndefined();
+    await expect(purgeWorkersCacheTags({ tags })).resolves.toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
 
     expect(purge).toHaveBeenCalledTimes(2);
     expect(purge).toHaveBeenNthCalledWith(2, { tags: tags.slice(ZONE_PURGE_TAGS_PER_REQUEST) });
@@ -132,7 +137,10 @@ describe("purgeWorkersCacheTags", () => {
   test("an over-long tag is dropped with a log, and the other tags are purged", async () => {
     const purge = purgeAccepting();
 
-    await purgeWorkersCacheTags({ tags: ["t".repeat(CACHE_TAG_MAX_LENGTH + 1), CACHE_TAGS.SITEMAP] });
+    // The dropped tag stays cached, so the caller hears `failed`.
+    await expect(
+      purgeWorkersCacheTags({ tags: ["t".repeat(CACHE_TAG_MAX_LENGTH + 1), CACHE_TAGS.SITEMAP] }),
+    ).resolves.toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
 
     expect(purge).toHaveBeenCalledWith({ tags: [CACHE_TAGS.SITEMAP] });
     expect(console.error).toHaveBeenCalled();
@@ -142,7 +150,9 @@ describe("purgeWorkersCacheTags", () => {
   test("only over-long tags opens no span and purges nothing", async () => {
     const purge = purgeAccepting();
 
-    await purgeWorkersCacheTags({ tags: ["t".repeat(CACHE_TAG_MAX_LENGTH + 1)] });
+    await expect(
+      purgeWorkersCacheTags({ tags: ["t".repeat(CACHE_TAG_MAX_LENGTH + 1)] }),
+    ).resolves.toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
 
     expect(purge).not.toHaveBeenCalled();
     expect(enteredSpans).toEqual([]);
@@ -151,7 +161,7 @@ describe("purgeWorkersCacheTags", () => {
   test("no tags opens no span and purges nothing", async () => {
     const purge = purgeAccepting();
 
-    await purgeWorkersCacheTags({ tags: [] });
+    await expect(purgeWorkersCacheTags({ tags: [] })).resolves.toBe(WORKERS_CACHE_PURGE_OUTCOME.OK);
 
     expect(purge).not.toHaveBeenCalled();
     expect(enteredSpans).toEqual([]);
@@ -168,7 +178,9 @@ describe("purgeWorkersCacheTags", () => {
 
 describe("purgeWorkersCacheTags without cache.purge", () => {
   test("it reports unavailable and never throws", async () => {
-    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBeUndefined();
+    await expect(purgeWorkersCacheTags({ tags: [CACHE_TAGS.SITEMAP] })).resolves.toBe(
+      WORKERS_CACHE_PURGE_OUTCOME.SKIPPED_UNAVAILABLE,
+    );
 
     expect(enteredSpans).toEqual([SPAN_NAME]);
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe(
@@ -185,7 +197,7 @@ describe("purgeWorkersCacheAfterWrite", () => {
 
     await expect(
       purgeWorkersCacheAfterWrite({ tags: [CACHE_TAGS.SITEMAP] }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
     expect(workersCache.purge).toHaveBeenCalledWith({ tags: [CACHE_TAGS.SITEMAP] });
   });
 });

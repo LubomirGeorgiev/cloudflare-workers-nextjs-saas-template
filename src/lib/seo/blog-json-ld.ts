@@ -60,8 +60,10 @@ function authorPathname(routeParam: string): string {
 }
 
 /** CMS media paths are site-relative; structured data wants them absolute. */
+// An OAuth avatar is already absolute. A relative path joins SITE_URL as a string, like
+// `absoluteLocalizedUrl`, so a SITE_URL base path survives.
 function absoluteAssetUrl(path: string): string {
-  return `${SITE_URL}${path}`;
+  return URL.canParse(path) ? path : `${SITE_URL}${path}`;
 }
 
 interface BlogTranslators {

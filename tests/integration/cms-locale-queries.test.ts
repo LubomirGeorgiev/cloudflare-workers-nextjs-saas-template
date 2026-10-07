@@ -7,7 +7,8 @@ import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, userTable } from "@/db/schema";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
-import { getCmsEntryBySlug, getEntryLocales } from "@/lib/cms/entry";
+import { getCmsEntryBySlug, getEntryLocales, getEntryLocalesForSlugs } from "@/lib/cms/entry";
+import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 
 // `getCmsEntryBySlug` is wrapped in a `"use cache: remote"` function that calls `cacheTag`/`cacheLife`.
 // Those throw outside of Next's `cacheComponents` runtime, which this Workers-runtime integration
@@ -147,5 +148,50 @@ describe("CMS entry read layer locale filtering", () => {
     });
 
     expect([...locales].sort()).toEqual([DEFAULT_LOCALE, NON_DEFAULT_LOCALE].sort());
+  });
+
+  it("keeps a draft translation out of the public locale reads, but not out of the admin read", async () => {
+    const createdBy = await seedUser();
+
+    await db.insert(cmsEntryTable).values([
+      {
+        collection: COLLECTION_SLUG,
+        title: "Default entry",
+        content: {},
+        slug: SHARED_SLUG,
+        locale: DEFAULT_LOCALE,
+        status: CMS_ENTRY_STATUS.PUBLISHED,
+        createdBy,
+      },
+      {
+        collection: COLLECTION_SLUG,
+        title: "Draft translation",
+        content: {},
+        slug: SHARED_SLUG,
+        locale: NON_DEFAULT_LOCALE,
+        status: CMS_ENTRY_STATUS.DRAFT,
+        createdBy,
+      },
+      // oxlint-disable-next-line typescript/no-explicit-any
+    ] as any);
+
+    const publicLocales = await getEntryLocales({ collectionSlug: COLLECTION_SLUG, slug: SHARED_SLUG });
+    const [publishedCoverage, adminCoverage] = await Promise.all([
+      getEntryLocalesForSlugs({
+        collectionSlug: COLLECTION_SLUG,
+        slugs: [SHARED_SLUG],
+        status: CMS_ENTRY_STATUS.PUBLISHED,
+      }),
+      getEntryLocalesForSlugs({
+        collectionSlug: COLLECTION_SLUG,
+        slugs: [SHARED_SLUG],
+        status: CMS_STATUS_FILTER_ALL,
+      }),
+    ]);
+
+    expect(publicLocales).toEqual([DEFAULT_LOCALE]);
+    expect([...(publishedCoverage.get(SHARED_SLUG) ?? [])]).toEqual([DEFAULT_LOCALE]);
+    expect([...(adminCoverage.get(SHARED_SLUG) ?? [])].sort())
+      .toEqual([DEFAULT_LOCALE, NON_DEFAULT_LOCALE].sort());
   });
 });

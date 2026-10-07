@@ -14,7 +14,7 @@ import { cmsEntryVersionTable, type CmsEntry } from "@/db/schema";
 /** The columns `cms_entry_version` stores. Callers resolve every value before they snapshot. */
 type CmsEntryVersionSnapshot = Pick<
   CmsEntry,
-  "title" | "content" | "fields" | "slug" | "seoDescription" | "status" | "featuredImageId"
+  "title" | "content" | "fields" | "slug" | "seoDescription" | "status" | "publishedAt" | "featuredImageId"
 >;
 
 /** One `cms_entry_version` row, so the column list is written once for both rows a save can add. */
@@ -38,6 +38,8 @@ function versionRow({
     slug: snapshot.slug,
     seoDescription: snapshot.seoDescription,
     status: snapshot.status,
+    // A restore of a scheduled version needs this date, or its publish job runs at once.
+    publishedAt: snapshot.publishedAt,
     featuredImageId: snapshot.featuredImageId,
     createdBy,
   };

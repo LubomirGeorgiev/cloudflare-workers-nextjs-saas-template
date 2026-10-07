@@ -208,6 +208,43 @@ describe("decideLocaleRoute", () => {
     ])("routes $pathname to $expected.type $expected.location", check);
   });
 
+  // Pages name their card at the internal default-locale path, so it is served there, not redirected.
+  describe("a default-locale card URL", () => {
+    const CARD = "/docs/opengraph-image-abc123";
+
+    test.each(["", "?v=1"])("is served in place with search %j", (search) => {
+      check({
+        pathname: `/${D}${CARD}`,
+        search,
+        cookieLocale: ALTERNATE ?? null,
+        acceptLanguage: ALTERNATE ?? null,
+        expected: { type: "next", locale: D },
+      });
+    });
+
+    test("still redirects a mis-cased prefix to the bare path", () => {
+      check({
+        pathname: `/${D.toUpperCase()}${CARD}`,
+        expected: { type: "redirect", location: CARD, locale: D },
+      });
+    });
+
+    test("leaves the bare card path a rewrite to the internal path", () => {
+      check({
+        pathname: CARD,
+        search: "?v=1",
+        acceptLanguage: D,
+        expected: { type: "rewrite", location: `/${D}${CARD}?v=1`, locale: D },
+      });
+    });
+
+    test.runIf(ALTERNATE !== undefined)("leaves a card under another prefix unchanged", () => {
+      const A = ALTERNATE as Locale;
+
+      check({ pathname: `/${A}${CARD}`, expected: { type: "next", locale: A } });
+    });
+  });
+
   // With one served locale nothing can move a request off it.
   test.runIf(!LOCALE_DETECTION)("ignores every signal but the default locale", () => {
     check({

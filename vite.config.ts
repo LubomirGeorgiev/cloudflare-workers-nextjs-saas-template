@@ -3,21 +3,13 @@ import { defineConfig } from "vite";
 
 import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
-import { kvDataAdapter } from "@vinext/cloudflare/cache/kv-data-adapter";
 import { imagesOptimizer } from "@vinext/cloudflare/images/images-optimizer";
-import { DATA_CACHE_MEMORY_TTL_MS } from "./src/constants/data-cache.ts";
-import { VINEXT_CACHE_PREFIX } from "./src/constants/kv-prefixes.ts";
 import { analyzeBundle } from "./tools/vite-bundle-analyzer.ts";
 import { openApiDocument } from "./tools/openapi-document.ts";
+import { VINEXT_CACHE_CONFIG } from "./tools/vinext-cache-config.ts";
 import { getSchedulerQueueName } from "./tools/wrangler-config.ts";
 
 const VINEXT_VITE_CACHE_DIR = "node_modules/.vite-vinext";
-const VINEXT_CACHE_KV_BINDING = "KV_STORE";
-const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
-// Each data-cache read checks one `__tag:` KV key per tag, and a page carries ~8 of them once
-// Vinext adds its implicit route tags. The default 5 s re-reads them all on nearly every request;
-// this holds them in isolate memory, the same window `memoForMs` holds the entry bodies for.
-const VINEXT_TAG_CACHE_TTL_MS = DATA_CACHE_MEMORY_TTL_MS;
 // `no_bundle: true` uploads every chunk as its own Worker module, and the isolate pays to load and
 // install each one. These groups merge the many tiny chunks.
 const STARTUP_CHUNK_PRIORITY = -1;
@@ -129,14 +121,7 @@ export default defineConfig({
   plugins: [
     openApiDocument(),
     vinext({
-      cache: {
-        data: kvDataAdapter({
-          binding: VINEXT_CACHE_KV_BINDING,
-          appPrefix: VINEXT_CACHE_PREFIX,
-          ttlSeconds: VINEXT_CACHE_TTL_SECONDS,
-          tagCacheTtlMs: VINEXT_TAG_CACHE_TTL_MS,
-        }),
-      },
+      cache: VINEXT_CACHE_CONFIG,
       // Backs `/_next/image` with the Cloudflare Images binding (env.IMAGES).
       // Handled inside vinext/server/fetch-handler, which worker-entrypoint.ts wraps.
       images: {

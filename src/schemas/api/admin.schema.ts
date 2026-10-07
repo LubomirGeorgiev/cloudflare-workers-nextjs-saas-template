@@ -5,6 +5,7 @@ import {
   EMAIL_MAX_LENGTH,
   MAX_ADMIN_TABLE_PAGE_SIZE,
 } from "@/constants";
+import { EDGE_HTML_ZONE_PURGE_OUTCOME } from "@/constants/edge-html-cache";
 import { collectionSchema } from "@/../cms.config";
 import { maxString, minMaxString, v } from "@/lib/validation";
 import {
@@ -243,6 +244,12 @@ export const adminSystemActionResultSchema = v.object({
 export const adminPurgeCountResultSchema = v.object({
   message: v.string(),
   deletedKeyCount: v.number(),
+});
+
+// The edge HTML purge also reports its zone-wide half, so a caller can tell a partial purge apart.
+export const adminEdgeHtmlPurgeResultSchema = v.object({
+  ...adminPurgeCountResultSchema.entries,
+  zonePurge: v.picklist(Object.values(EDGE_HTML_ZONE_PURGE_OUTCOME)),
 });
 
 export const adminTeamIdParamSchema = v.object({

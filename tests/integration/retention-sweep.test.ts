@@ -5,7 +5,7 @@
 // accepted — so what matters here is the boundary: dead the instant it is dead, and everything
 // still in use left alone.
 
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { env } from "cloudflare:workers";
 import { and, inArray } from "drizzle-orm";
 
@@ -16,6 +16,7 @@ import {
   CMS_ENTRY_VERSION_HISTORY_LIMIT,
   CMS_IMAGES_BASE_PATH,
 } from "@/constants";
+import { CACHE_TAGS } from "@/constants/cache-tags";
 import {
   R2_ORPHAN_CURSOR_KV_KEY,
   R2_ORPHAN_LOOKUP_CHUNK_SIZE,
@@ -41,6 +42,15 @@ import {
   purgeExpiredTeamInvitations,
   purgeOrphanedR2Objects,
 } from "@/lib/maintenance/retention";
+
+// The local runtime has no `cache.purge`, so the test checks the tags the sweep asks to purge.
+const { purgeWorkersCacheAfterWriteMock } = vi.hoisted(() => ({
+  purgeWorkersCacheAfterWriteMock: vi.fn(async (__params: { tags: readonly string[] }) => undefined),
+}));
+
+vi.mock("@/lib/edge/purge-workers-cache-after-write", () => ({
+  purgeWorkersCacheAfterWrite: purgeWorkersCacheAfterWriteMock,
+}));
 
 const db = getDB();
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -362,6 +372,25 @@ test("an unreferenced R2 object is deleted once it is old enough", async () => {
 
   expect(deletedCount).toBe(1);
   expect(bucket.deleted).toEqual([orphan]);
+});
+
+// Workers Caching keeps an image until its edge TTL, so each deleted key must also leave the edge.
+test("an orphan delete purges the edge copy of each deleted key, and only those", async () => {
+  purgeWorkersCacheAfterWriteMock.mockClear();
+  const orphan = `${CMS_IMAGES_BASE_PATH}/blog/purged-orphan-${Date.now()}.png`;
+  const referenced = `${CMS_IMAGES_BASE_PATH}/blog/purged-referenced-${Date.now()}.png`;
+  await seedMedia([referenced]);
+
+  await sweepOrphans(fakeBucket({
+    objects: [
+      { key: orphan, uploaded: daysBeforeNow(3) },
+      { key: referenced, uploaded: daysBeforeNow(3) },
+    ],
+  }));
+
+  const purgedTags = purgeWorkersCacheAfterWriteMock.mock.calls.flatMap(([params]) => params.tags);
+  expect(purgedTags).toContain(CACHE_TAGS.cmsMedia(orphan));
+  expect(purgedTags).not.toContain(CACHE_TAGS.cmsMedia(referenced));
 });
 
 // The upload writes the object before its row, so a young unreferenced object is very likely an

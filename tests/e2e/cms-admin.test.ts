@@ -1,10 +1,13 @@
 import { beforeAll, test } from "vitest";
+import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import {
   clickAppRole,
   expectAppLabelValue,
   expectAppPathname,
   expectAppRoleText,
   expectAppText,
+  expectAppToast,
+  expectNoAppToast,
   navigateAppFrame,
 } from "./app-frame";
 import {
@@ -12,6 +15,7 @@ import {
   SEEDED_USER_PASSWORD,
   signInWithPassword,
 } from "./auth-helpers";
+import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
 import { SEEDED_BLOG_ENTRY, SEEDED_DOCS_ENTRY } from "./seed-fixtures";
 
 const password = SEEDED_USER_PASSWORD;
@@ -120,6 +124,53 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
     label: "Entry Slug *",
     value: "introduction",
   });
+});
+
+// The Toaster sits top-right, over the Save button, so a save toast there took the next click.
+test("replaces the save toast in place, so the Save button takes a second click", async () => {
+  const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const entryId = `cms_ent_e2e_save_${uniqueId}`;
+
+  // A draft blog row: no public page, no navigation, and the oldest date, so no list shows it first.
+  await queryLocalD1({
+    sql: `
+      insert into cms_entry (
+        id, collection, title, content, fields, slug, seoDescription, status, createdBy,
+        createdAt, updatedAt, updateCounter
+      )
+      values (
+        ${sqlStringLiteral(entryId)},
+        ${sqlStringLiteral(BLOG_COLLECTION_SLUG)},
+        'Save toast fixture',
+        '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Body"}]}]}',
+        '{}',
+        ${sqlStringLiteral(`save-toast-${uniqueId}`)},
+        'Save toast fixture',
+        'draft',
+        (select id from user where email = ${sqlStringLiteral(adminEmail)}),
+        1,
+        1,
+        0
+      );
+    `,
+  });
+
+  try {
+    await signInWithPassword({
+      email: adminEmail,
+      password,
+      redirectPath: `/admin/cms/${BLOG_COLLECTION_SLUG}/${entryId}`,
+    });
+
+    await clickAppRole("button", "Save Changes");
+    await expectAppToast("Entry updated successfully");
+    await expectNoAppToast("Updating entry...");
+
+    await clickAppRole("button", "Save Changes");
+    await expectAppToast("Entry updated successfully");
+  } finally {
+    await queryLocalD1({ sql: `delete from cms_entry where id = ${sqlStringLiteral(entryId)};` });
+  }
 });
 
 test("loads CMS tags, media, and docs navigation admin screens", async () => {

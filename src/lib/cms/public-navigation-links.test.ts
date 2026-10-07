@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { CMS_DATA_CACHE_TTL } from "@/constants/data-cache";
 
 import { CACHE_TAGS } from "@/constants/cache-tags";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
@@ -28,15 +29,22 @@ describe("public navigation links", () => {
   test("answers both header questions from one entry, tagged for either publish", async () => {
     await expect(getPublicNavigationLinks()).resolves.toEqual({
       hasBlogPosts: true,
-      docsRootPath: "/docs/intro",
+      hasDocsPages: true,
     });
     expect(setCacheScope).toHaveBeenCalledWith({
       tags: [CACHE_TAGS.cmsCollectionCount("blog"), CACHE_TAGS.cmsNavigation(DOCS_SLUG)],
-      ttl: "8 hours",
+      ttl: CMS_DATA_CACHE_TTL,
     });
   });
 
   // The point of the memo: a warm isolate serves a public page with no KV get for these links.
+  // The header reads only presence, so a docs tree with no live page hides the link.
+  test("a docs tree with no root path has no docs pages", async () => {
+    rootPath.mockResolvedValue(null);
+
+    await expect(getPublicNavigationLinks()).resolves.toEqual({ hasBlogPosts: true, hasDocsPages: false });
+  });
+
   test("a warm isolate answers from memory, and the clear forces the next read to run", async () => {
     await getPublicNavigationLinks();
     await getPublicNavigationLinks();

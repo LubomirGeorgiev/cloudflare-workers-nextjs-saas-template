@@ -7,7 +7,10 @@ import { adminOperation } from "@/api/admin/operation";
 import { apiValidator } from "@/api/middleware/problem-json";
 import { jsonResponse } from "@/api/openapi";
 import type { ApiEnv } from "@/api/types";
-import { EDGE_HTML_CACHE_TTL_SECONDS } from "@/constants/cache-control";
+import {
+  EDGE_HTML_CACHE_TTL_SECONDS,
+  EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES,
+} from "@/constants/cache-control";
 import {
   clearCmsCache,
   clearSearchCache,
@@ -19,6 +22,7 @@ import {
 } from "@/lib/admin/system-actions";
 import { v } from "@/lib/validation";
 import {
+  adminEdgeHtmlPurgeResultSchema,
   adminPurgeCountResultSchema,
   adminSystemActionResultSchema,
   adminSystemCollectionBodySchema,
@@ -108,7 +112,9 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       description:
         "Invalidates the cache tags behind every CMS entry, collection listing, navigation tree, " +
         "and redirect map, plus the cached search results. The next request for each of those " +
-        "reads the database again. Takes no arguments and returns a sentence naming what ran.",
+        "reads the database again. Takes no arguments and returns a sentence naming what ran. When a " +
+        "CDN purge in it fails, the sentence names the failure and the request still answers 200; " +
+        "repeat it to retry.",
       scope: "admin:write",
       responses: {
         200: jsonResponse({
@@ -194,19 +200,25 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       description:
         "Deletes the stored anonymous copies of the public HTML pages from the Cloudflare Cache " +
         "API. The Cache API is per data center, so this clears the data center that answers this " +
-        "request; with Smart Placement enabled that is the one that stored the pages. A copy in " +
-        "any other location expires on its own within " +
+        "request; with Smart Placement enabled that is the one that stored the pages. When the " +
+        "zone purge is configured, it also purges every stored page in every other location by " +
+        "key prefix. Without it, a copy in any other location expires on its own within " +
         `${EDGE_HTML_CACHE_TTL_SECONDS} seconds. It touches neither the KV page cache nor ` +
         "Workers Caching — both are separate operations. The pages named are the ones the " +
         "sitemap knows: the static public routes, the blog listing and facet pages, the " +
         "published CMS entry pages, and the docs pages, each in every served locale. Returns " +
-        "`deletedKeyCount`, the number of stored pages actually deleted. " +
+        "`deletedKeyCount`, the number of stored pages actually deleted, and `zonePurge`, the " +
+        "result in the other locations: `ok`; `unconfigured` when the zone purge is not " +
+        "configured; `none` when there was nothing to send; or `failed` when Cloudflare refused " +
+        "it. A `failed` purge still answers 200, because the local delete ran, but the other " +
+        "locations keep their old copies until they expire, within " +
+        `${EDGE_HTML_CACHE_ZONE_PURGED_TTL_MINUTES} minutes. Retry the operation later. ` +
         CONFIRM_BODY_NOTE,
       scope: "admin:write",
       responses: {
         200: jsonResponse({
-          description: "How many stored pages were deleted.",
-          schema: adminPurgeCountResultSchema,
+          description: "How many stored pages were deleted, and the zone-wide result.",
+          schema: adminEdgeHtmlPurgeResultSchema,
         }),
       },
     }),
@@ -217,7 +229,8 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       return c.json({
         message: result.message,
         deletedKeyCount: result.deletedKeyCount,
-      } satisfies v.InferOutput<typeof adminPurgeCountResultSchema>);
+        zonePurge: result.zonePurge,
+      } satisfies v.InferOutput<typeof adminEdgeHtmlPurgeResultSchema>);
     },
   )
   .post(
@@ -227,9 +240,10 @@ export const adminSystemRoutes = new Hono<ApiEnv>()
       tags: [ADMIN_API_TAGS.system],
       summary: "Purge the whole Cloudflare CDN cache",
       description:
-        "Purges the whole zone cache at Cloudflare, for every URL this site serves: the static " +
-        "assets, the stored HTML page copies in every data center, and every machine response " +
-        "alike. It is global, not per data center, and it is the same purge the deploy workflow " +
+        "Purges the whole zone cache at Cloudflare, for every URL the Worker serves: the stored " +
+        "HTML page copies in every data center and every machine response alike. It does not " +
+        "reach the files that Workers Static Assets serves, such as `/_next/static/*`: those " +
+        "keep their own cache. It is global, not per data center, and it is the same purge the deploy workflow " +
         "runs after a release. There is no per-path form. Every location refetches from the " +
         "Worker afterwards, so expect a traffic spike and slower first responses on a busy " +
         "deployment. Refused with `PRECONDITION_FAILED` when the Worker has no Cloudflare " +
