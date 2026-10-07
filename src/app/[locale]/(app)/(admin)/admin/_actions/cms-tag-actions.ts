@@ -5,7 +5,7 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { requireAdmin } from "@/utils/auth";
 import {
-  getCmsTags,
+  getFreshCmsTags,
   createCmsTag,
   updateCmsTag,
   deleteCmsTag,
@@ -47,7 +47,7 @@ export const listCmsTagsAction = actionClient
   .metadata({ actionName: "listCmsTagsAction" })
   .action(async () => {
     await requireAdmin();
-    const tags = await getCmsTags();
+    const tags = await getFreshCmsTags();
     return tags;
   });
 

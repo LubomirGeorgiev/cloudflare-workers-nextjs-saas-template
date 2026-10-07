@@ -3,11 +3,8 @@ import { notFound } from "next/navigation";
 
 import { cmsConfig, type CmsNavigationKey } from "@/../cms.config";
 import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
-import {
-  getCmsNavigationIconBodies,
-  getCmsNavigationTree,
-} from "@/lib/cms/cms-navigation-repository";
-import { getCmsCollection, getEntryLocalesForSlugs } from "@/lib/cms/entry";
+import { getFreshCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import { getEntryLocalesForSlugs, getFreshCmsCollection } from "@/lib/cms/entry";
 import { getCmsNavigationConfig } from "@/lib/cms/cms-navigation-config";
 import { requireAdminOrRedirectHome } from "@/utils/auth-redirect";
 import { CmsNavigationManager } from "./_components/cms-navigation-manager";
@@ -48,17 +45,14 @@ export default async function CmsNavigationSitePage({
 
   const collectionConfig = cmsConfig.collections[navigation.collectionSlug as keyof typeof cmsConfig.collections];
   const collectionSlug = getCmsNavigationConfig(navigationKey).collectionSlug;
-  // Both navigation reads share one cached entry, so the icon bodies cost no extra D1 query.
-  const [nodes, iconBodyByKey, entries] = await Promise.all([
-    getCmsNavigationTree({
+  // From D1, not the cache: a save replaces the whole tree, so a stale tree here would revert the
+  // last save.
+  const [{ nodes, iconBodyByKey }, entries] = await Promise.all([
+    getFreshCmsNavigationTree({
       navigationKey,
       status: CMS_STATUS_FILTER_ALL,
     }),
-    getCmsNavigationIconBodies({
-      navigationKey,
-      status: CMS_STATUS_FILTER_ALL,
-    }),
-    getCmsCollection({
+    getFreshCmsCollection({
       collectionSlug,
       status: CMS_STATUS_FILTER_ALL,
     }),

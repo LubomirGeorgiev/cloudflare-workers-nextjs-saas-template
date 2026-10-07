@@ -8,6 +8,7 @@ const {
   createCmsTagTranslationMock,
   deleteCmsTagMock,
   getCmsTagsMock,
+  getFreshCmsTagsMock,
   requireAdminMock,
   revalidatePathMock,
   updateCmsTagMock,
@@ -16,6 +17,7 @@ const {
   createCmsTagTranslationMock: vi.fn(),
   deleteCmsTagMock: vi.fn(),
   getCmsTagsMock: vi.fn(),
+  getFreshCmsTagsMock: vi.fn(),
   requireAdminMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   updateCmsTagMock: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/lib/cms/tags", () => ({
   createCmsTagTranslation: createCmsTagTranslationMock,
   deleteCmsTag: deleteCmsTagMock,
   getCmsTags: getCmsTagsMock,
+  getFreshCmsTags: getFreshCmsTagsMock,
   updateCmsTag: updateCmsTagMock,
 }));
 
@@ -59,6 +62,7 @@ const {
   createCmsTagAction,
   createTagTranslationAction,
   deleteCmsTagAction,
+  listCmsTagsAction,
   updateCmsTagAction,
 } = await import("./cms-tag-actions");
 const { reportCmsCachePurge } = await import("@/lib/cms/cms-cache-purge-report");
@@ -100,6 +104,15 @@ const TAG_WRITES = [
 describe("CMS tag actions", () => {
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  test("listCmsTagsAction reads tags from D1, not the data cache", async () => {
+    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
+    getFreshCmsTagsMock.mockResolvedValue([TAG]);
+
+    await expect(listCmsTagsAction()).resolves.toEqual([TAG]);
+
+    expect(getCmsTagsMock).not.toHaveBeenCalled();
   });
 
   test("deleteCmsTagAction revalidates the deleted tag detail path for every served locale", async () => {

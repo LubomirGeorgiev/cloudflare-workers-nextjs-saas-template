@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { requireAdminOrRedirectHome } from "@/utils/auth-redirect";
 
 import { Link } from "@/i18n/navigation";
-import { getCmsTags, getCmsTagLocaleCoverage } from "@/lib/cms/tags";
+import { getFreshCmsTags, getCmsTagLocaleCoverage } from "@/lib/cms/tags";
 import { buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, Plus, Tag } from "lucide-react";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 export default async function TagsPage() {
   await requireAdminOrRedirectHome();
 
-  const tags = await getCmsTags();
+  const tags = await getFreshCmsTags();
 
   // Only surface translation coverage when the site actually serves >1 locale.
   const showTranslations = ENABLED_LOCALES.length > 1;

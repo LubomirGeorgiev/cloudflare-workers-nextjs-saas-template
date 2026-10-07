@@ -31,6 +31,7 @@ import { selectNavigationPageChange } from "@/lib/cms/cms-invalidation-scopes";
 import { selectNavigationRootPath } from "@/lib/cms/cms-navigation-tree";
 import {
   flattenCmsNavigationTree,
+  getFreshCmsNavigationTree,
   getNavigationCollectionSlug,
   normalizeSlugSegment,
   queryCmsNavigationTree,
@@ -40,6 +41,7 @@ import {
 // Re-exported, so the tree readers keep one import path.
 export {
   flattenCmsNavigationTree,
+  getFreshCmsNavigationTree,
   type CmsNavigationTreeNode,
   type CmsNavigationTreeResult,
 } from "@/lib/cms/cms-navigation-tree-query";
@@ -55,15 +57,15 @@ import {
 import { DEFAULT_LOCALE, ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { createRandomId } from "@/utils/random-token";
 
-// One published tree per navigation key and locale, plus the admin status filters.
+// One published tree per navigation key and locale. Admin screens read `getFreshCmsNavigationTree`.
 const CMS_NAVIGATION_TREE_MEMO_ENTRIES = 16;
 
 interface GetCmsNavigationTreeParams {
   navigationKey: CmsNavigationKey;
   status?: CmsStatusFilter;
-  // Locale whose entry rows populate `node.entry`. Defaults to DEFAULT_LOCALE so
-  // existing callers (admin nav editor, sitemap, llms.txt) resolve the English entry
-  // unchanged; the docs render path passes the active locale for the translated row.
+  // Locale whose entry rows populate `node.entry`. Defaults to DEFAULT_LOCALE so existing callers
+  // (sitemap, llms.txt) resolve the English entry unchanged; the docs render path passes the active
+  // locale for the translated row.
   locale?: Locale;
 }
 
@@ -635,7 +637,6 @@ export async function saveCmsNavigationTree({
     }
   }
 
-  // Before the refill below, so the refill reads the new tree.
   await invalidateCmsNavigationCaches({
     navigationKey,
     knownPagePathnames: Array.from(existingPaths.values()).filter((path) => path !== null),
@@ -646,7 +647,9 @@ export async function saveCmsNavigationTree({
     ...pathById.values(),
   ]);
 
-  return cmsNavigationTreeMemo.read(navigationKey, CMS_STATUS_FILTER_ALL, DEFAULT_LOCALE);
+  // Not the cached tree: its collection read can miss an entry created in the last 2 minutes, so it
+  // prunes that entry's node, and the editor's next save would delete it.
+  return getFreshCmsNavigationTree({ navigationKey, status: CMS_STATUS_FILTER_ALL });
 }
 
 function getNodeDepth({

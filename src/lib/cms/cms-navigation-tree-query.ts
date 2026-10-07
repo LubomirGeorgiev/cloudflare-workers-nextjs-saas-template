@@ -179,11 +179,9 @@ export async function getFreshCmsNavigationLivePageCount({
 }: {
   navigationKey: CmsNavigationKey;
 }): Promise<number> {
-  const { nodes } = await queryCmsNavigationTree({
+  const { nodes } = await getFreshCmsNavigationTree({
     navigationKey,
     status: CMS_ENTRY_STATUS.PUBLISHED,
-    locale: DEFAULT_LOCALE,
-    readCollection: getFreshCmsCollection,
   });
 
   // The tree is pruned to live entries, so every page node in it is live.
@@ -192,7 +190,26 @@ export async function getFreshCmsNavigationLivePageCount({
     .length;
 }
 
-// One build for the cached tree and the fresh page count, so both apply the same live rule.
+/**
+ * A navigation tree straight from D1, for admin screens and the invalidation pipeline. The cached
+ * tree and its collection read can still serve the state before a write for about 2 minutes.
+ */
+export function getFreshCmsNavigationTree({
+  navigationKey,
+  status,
+}: {
+  navigationKey: CmsNavigationKey;
+  status: CmsStatusFilter;
+}): Promise<CmsNavigationTreeResult> {
+  return queryCmsNavigationTree({
+    navigationKey,
+    status,
+    locale: DEFAULT_LOCALE,
+    readCollection: getFreshCmsCollection,
+  });
+}
+
+// One build for the cached tree and the fresh tree, so both apply the same live rule.
 export async function queryCmsNavigationTree({
   navigationKey,
   status,
@@ -204,8 +221,8 @@ export async function queryCmsNavigationTree({
   locale: Locale;
   readCollection: typeof getCmsCollection;
 }): Promise<CmsNavigationTreeResult> {
-  // Not the replica client: `saveCmsNavigationTree` invalidates this cache and then refills it in
-  // the same request, so a replica that still lags the save would cache the old tree for 8 hours.
+  // Not the replica client: the first read after a save refills the cache, and a replica that still
+  // lags the save would cache the old tree.
   const db = getDB();
   const collectionSlug = getNavigationCollectionSlug(navigationKey);
   const isNonDefaultLocale = locale !== DEFAULT_LOCALE;

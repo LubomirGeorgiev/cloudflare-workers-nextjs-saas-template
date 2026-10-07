@@ -10,6 +10,7 @@ const {
   enqueueCmsRepurgeMock,
   getCmsCollectionMock,
   getDBMock,
+  getFreshCmsCollectionMock,
   purgeMarkdownPageCacheMock,
   purgeWorkersCacheAfterWriteMock,
   revalidateCacheTagMock,
@@ -18,6 +19,7 @@ const {
   enqueueCmsRepurgeMock: vi.fn(async (__input: unknown) => undefined),
   getCmsCollectionMock: vi.fn(),
   getDBMock: vi.fn(),
+  getFreshCmsCollectionMock: vi.fn(),
   purgeMarkdownPageCacheMock: vi.fn(async () => undefined),
   purgeWorkersCacheAfterWriteMock: vi.fn(async (__input: { tags: readonly string[] }) => undefined),
   revalidateCacheTagMock: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/lib/cms/entry/queries", () => ({
   getCmsCollection: getCmsCollectionMock,
+  getFreshCmsCollection: getFreshCmsCollectionMock,
 }));
 
 vi.mock("@/lib/cms/cms-search", async () => {
@@ -160,7 +163,7 @@ function stubIntroRename(): void {
   };
 
   getDBMock.mockReturnValue(db);
-  getCmsCollectionMock.mockResolvedValue([
+  getFreshCmsCollectionMock.mockResolvedValue([
     {
       id: "entry_intro",
       collection: "docs",
@@ -170,8 +173,8 @@ function stubIntroRename(): void {
   ]);
 }
 
-async function saveRenamedIntro(): Promise<void> {
-  await saveCmsNavigationTree({
+function saveRenamedIntro() {
+  return saveCmsNavigationTree({
     navigationKey: "docs",
     items: [
       {
@@ -239,6 +242,16 @@ describe("CMS navigation repository", () => {
         );
       }
     }
+  });
+
+  test("saveCmsNavigationTree returns the tree from D1, so a stale cached collection cannot drop a page", async () => {
+    stubIntroRename();
+    getCmsCollectionMock.mockResolvedValue([]);
+
+    const saved = await saveRenamedIntro();
+
+    expect(saved.nodes.map((node) => node.id)).toEqual(["nav_intro"]);
+    expect(getCmsCollectionMock).not.toHaveBeenCalled();
   });
 
   test("saveCmsNavigationTree purges the page Markdown cache of the whole docs subtree", async () => {
@@ -352,7 +365,7 @@ function stubIconSave({
   };
 
   getDBMock.mockReturnValue(db);
-  getCmsCollectionMock.mockResolvedValue([
+  getFreshCmsCollectionMock.mockResolvedValue([
     { id: "entry_intro", collection: "docs", slug: "intro", title: "Intro" },
   ]);
 

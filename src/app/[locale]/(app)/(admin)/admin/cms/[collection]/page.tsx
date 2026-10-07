@@ -8,7 +8,10 @@ import { CmsEntriesTable } from "./_components/cms-entries-table";
 import { buttonVariants } from "@/components/ui/button";
 import { Plus, ArrowLeft, PanelLeft } from "lucide-react";
 import { type CollectionsUnion } from "@/../cms.config";
-import { getCmsNavigationTree } from "@/lib/cms/cms-navigation-repository";
+import {
+  getFreshCmsNavigationTree,
+  type CmsNavigationTreeNode,
+} from "@/lib/cms/cms-navigation-repository";
 import { CMS_STATUS_FILTER_ALL } from "@/types/cms";
 import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 
@@ -16,7 +19,7 @@ import { getCmsCollectionNavigationKey } from "@/lib/cms/cms-navigation-config";
 // the (collection, slug) translation group, so the table can flag every locale sibling
 // of an attached anchor as in-navigation regardless of its own row id.
 function collectNavigationEntrySlugs(
-  nodes: Awaited<ReturnType<typeof getCmsNavigationTree>>
+  nodes: CmsNavigationTreeNode[]
 ): string[] {
   return nodes.flatMap((node) => {
     const childSlugs = collectNavigationEntrySlugs(node.children);
@@ -60,10 +63,10 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
   const navigationKey = getCmsCollectionNavigationKey(collection);
   const navigationEntrySlugs = navigationKey
     ? collectNavigationEntrySlugs(
-        await getCmsNavigationTree({
+        (await getFreshCmsNavigationTree({
           navigationKey,
           status: CMS_STATUS_FILTER_ALL,
-        })
+        })).nodes
       )
     : [];
 

@@ -32,8 +32,8 @@ import { setCacheScope } from "@/utils/cache";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { v } from "@/lib/validation";
 
-// Canonical tag rows own counts and stable junction fields; locale siblings only
-// overlay display fields.
+// For public pages. Admin screens call `getFreshCmsTags`: a dropped cache tag can still serve
+// the old list for about 2 minutes (isolate memory plus the KV read cache).
 export async function getCmsTags(params?: GetCmsTagsParams) {
   "use cache: remote";
   setCacheScope({
@@ -41,9 +41,14 @@ export async function getCmsTags(params?: GetCmsTagsParams) {
     ttl: CMS_DATA_CACHE_TTL,
   });
 
+  return getFreshCmsTags(params);
+}
+
+// Canonical tag rows own counts and stable junction fields; locale siblings only overlay display
+// fields. Not the replica client: a lagging replica would refill the `getCmsTags` cache without a
+// new tag for 8 hours.
+export async function getFreshCmsTags(params?: GetCmsTagsParams) {
   const locale = params?.locale ?? DEFAULT_LOCALE;
-  // Not the replica client: the admin entry form creates a tag and reloads this same list at once,
-  // so a lagging replica would refill the cache without the new tag for 8 hours.
   const db = getDB();
 
   const tags = await db
