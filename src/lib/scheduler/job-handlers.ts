@@ -47,6 +47,8 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
           collection: getKnownCmsCollectionSlug(collection),
           slug,
         })),
+        entryChange: payload.entryChange,
+        knownPagePathnames: payload.knownPagePathnames,
         navigationKeys: payload.navigationKeys,
         scopes: payload.scopes,
       });

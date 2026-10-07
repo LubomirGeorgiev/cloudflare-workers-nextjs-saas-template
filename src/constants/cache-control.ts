@@ -46,10 +46,9 @@ export const SESSION_NO_STORE_CACHE_CONTROL =
 export const METADATA_ROUTE_EDGE_CACHE_CONTROL =
   "public, max-age=3600, stale-while-revalidate=86400";
 
-// The API catalog and the OpenAPI document are prebuilt bytes that change only on deploy, and the
-// edge fast path returns them before the metadata policy above can reach them, so each producer
-// stamps this itself. Workers Caching partitions by Worker version, so each deploy starts cold and
-// no purge is needed. A var or secret change is a new version too, so the TTL can be long.
+// The API catalog and the OpenAPI document change only on deploy. The edge fast path skips the
+// metadata policy above, so each producer stamps this. Workers Caching partitions by Worker
+// version, and a deploy, var, or secret change makes a new version, so a long TTL needs no purge.
 export const STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL =
   "public, max-age=604800, stale-while-revalidate=86400";
 

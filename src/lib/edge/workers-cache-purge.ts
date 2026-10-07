@@ -15,10 +15,9 @@ const OUTCOME_ATTRIBUTE = "app.cms.outcome";
 const TAG_COUNT_ATTRIBUTE = "app.cms.tag_count";
 
 /**
- * Purges the Workers Caching entries that carry any of `tags`, the outer edge layer that
- * `revalidateCacheTag` never reaches. Every handler has `cache.purge`, the queue consumer included.
- * A purge reaches only its own entrypoint's cache (see `docs/edge-caching.md`). Never throws.
- * Returns `failed` when a tag was not purged, so a caller can tell the user that a copy stays.
+ * Purges the Workers Caching entries that carry any of `tags`, which `revalidateCacheTag` never
+ * reaches. A purge reaches only the cache of its own entrypoint (see `docs/edge-caching.md`). Never
+ * throws. Returns `failed` when a tag was not purged, so a caller can tell the user a copy stays.
  */
 export async function purgeWorkersCacheTags({
   tags,

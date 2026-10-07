@@ -38,6 +38,7 @@ export function findDeploySiteUrlProblem(siteUrl) {
 }
 
 const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
+const WORKERS_DEV_HOSTNAME_SUFFIX = ".workers.dev";
 
 /** The deployed origin: an explicit value, then NEXT_PUBLIC_SITE_URL, then the Worker route. */
 export function resolveDeployedSiteUrl(explicit) {
@@ -65,8 +66,8 @@ export function siteUrlFromWorkerRoutes(routes) {
 
 /**
  * The zone the deploy purges: the configured override, else the zone of the site hostname, found
- * the way `getWorkerZoneId` in src/lib/cloudflare-api.ts finds it. Never throws on a missing zone;
- * it returns the reason, because a workers.dev-only deploy has no zone to purge.
+ * the way `getWorkerZoneId` in src/lib/cloudflare-api.ts finds it. Never throws. `noZone` means a
+ * workers.dev-only deploy with nothing to purge; `problem` means a custom domain whose zone is unknown.
  */
 export async function resolveDeployZoneId({
   accountId,
@@ -81,19 +82,26 @@ export async function resolveDeployZoneId({
     return { zoneId: override };
   }
 
-  if (!accountId?.trim() || !siteUrl) {
-    return { problem: "CLOUDFLARE_ACCOUNT_ID and a site URL are required to find the zone." };
+  const hostname = customDomainHostname(siteUrl);
+
+  if (!hostname) {
+    return { noZone: "The deploy has no custom domain, so there is no zone to purge." };
   }
 
-  return lookupWorkerZoneId({
-    accountId: accountId.trim(),
-    apiToken,
-    hostname: new URL(siteUrl).hostname,
-    fetchImpl,
-  });
+  return lookupWorkerZoneId({ accountId: accountId?.trim(), apiToken, hostname, fetchImpl });
+}
+
+function customDomainHostname(siteUrl) {
+  const hostname = siteUrl ? new URL(siteUrl).hostname : undefined;
+
+  return hostname?.endsWith(WORKERS_DEV_HOSTNAME_SUFFIX) ? undefined : hostname;
 }
 
 async function lookupWorkerZoneId({ accountId, apiToken, hostname, fetchImpl }) {
+  if (!accountId) {
+    return { problem: `CLOUDFLARE_ACCOUNT_ID is required to find the zone of ${hostname}.` };
+  }
+
   const response = await fetchImpl(
     `${CLOUDFLARE_API_BASE_URL}/accounts/${accountId}/workers/domains?hostname=${encodeURIComponent(hostname)}`,
     { headers: { Authorization: `Bearer ${apiToken}` } },
@@ -105,7 +113,9 @@ async function lookupWorkerZoneId({ accountId, apiToken, hostname, fetchImpl }) 
 
   const zoneId = zoneIdFromWorkersDomains(await response.json().catch(() => ({})));
 
-  return zoneId ? { zoneId } : { problem: `No Cloudflare zone is attached to ${hostname}.` };
+  return zoneId
+    ? { zoneId }
+    : { problem: `No Workers custom domain in this account matches ${hostname}.` };
 }
 
 function zoneIdFromWorkersDomains(body) {

@@ -80,10 +80,9 @@ interface CmsPagePurgeReads {
 }
 
 /**
- * The reads one CMS invalidation needs: the trees of every navigation it purges, and the blog list
- * post counts when it purges a blog subtree. Pure, so the selector and its reads cannot drift.
- * A root purge reads every tree, the blog counts, and every entry row, so the local delete reaches
- * each known page.
+ * The reads one CMS invalidation needs: the trees of each purged navigation, and the blog list post
+ * counts for a blog subtree. Pure, so the selector and its reads cannot drift. A root purge reads
+ * every tree, the blog counts, and every entry row, so the local delete reaches each known page.
  */
 export function selectCmsPagePurgeReads({
   entries,
@@ -111,20 +110,9 @@ export function selectCmsPagePurgeReads({
 }
 
 /**
- * Which pages one CMS invalidation drops. Pure: the caller does the reads that
- * `selectCmsPagePurgeReads` names.
- *
- * - An entry with a page: the page, and its listing as a subtree and as a `.md` prefix.
- * - A navigation (named, or owned by an entry's collection): its base path as a subtree and as a
- *   `.md` prefix, because every page under it bakes the sidebar.
- * - The tag catalog: `CMS_TAGS_PAGE_PATH` as a subtree and as a `.md` prefix.
- * - The site header or a full CMS clear: the root subtree, so every stored page. The header sits
- *   outside `<main>`, which is all a `.md` twin converts, so the header adds no `.md` prefix.
- *
- * Only the zone purge can match a subtree, and it needs an API token. So the selector also names
- * each page that it knows under a subtree: the blog lists with their numbered pages, every
- * navigation page, the docs app routes, and the page of each published entry on a root purge.
- * These add no zone request: a page under a subtree needs no tag.
+ * Which pages one CMS invalidation drops. Pure: the caller does the reads it needs first.
+ * It also names each known page under a subtree, because the local delete cannot match a prefix.
+ * The rules are in "The purge, and why it runs before the warm" in `docs/edge-caching.md`.
  */
 export function selectCmsPagePurgeTargets({
   allEntries,
@@ -214,11 +202,9 @@ export function selectCmsPagePurgeTargets({
 }
 
 /**
- * The page step of every CMS invalidation in `runCmsCacheInvalidation`: one stored-HTML purge, then
- * one `.md` purge. A `.md` miss renders through the app, not from the stored page, so the order of
- * the two does not matter. One call per pass, so the zone API gets one request per kind. Runs
- * before any warm: the warm reads through the edge and would re-store the old copy. Never throws.
- * Returns the zone outcome of the HTML purge.
+ * The page step of `runCmsCacheInvalidation`: one stored-HTML purge, then one `.md` purge, so the
+ * zone API gets one request per kind. Run it before any warm: the warm reads through the edge and
+ * would store the old copy again. Never throws. Returns the zone outcome of the HTML purge.
  */
 export async function purgeCmsPages({
   entries,

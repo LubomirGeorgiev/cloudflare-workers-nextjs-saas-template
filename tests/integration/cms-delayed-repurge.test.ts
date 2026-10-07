@@ -15,6 +15,7 @@ import {
   invalidateEntryAndCollection,
 } from "@/lib/cms/cms-cache-invalidation";
 import {
+  CMS_ENTRY_CHANGES,
   CMS_INVALIDATION_SCOPES,
   SITE_HEADER_NAVIGATION_KEY,
 } from "@/lib/cms/cms-invalidation-scopes";
@@ -123,7 +124,7 @@ describe("CMS delayed repurge", () => {
     vi.unstubAllGlobals();
   });
 
-  test("an entry write queues one delayed repurge that carries only the entry refs", async () => {
+  test("an entry write queues one delayed repurge that carries only the target of the write", async () => {
     const sendBatch = spyOnQueueBatches();
 
     await invalidateEntryAndCollection({ collectionSlug: DOCS_SLUG, slug: ENTRY_SLUG, warm: true });
@@ -133,6 +134,8 @@ describe("CMS delayed repurge", () => {
     expect(message?.delaySeconds).toBeGreaterThan(0);
     expect(message?.body.payload).toEqual({
       entries: [{ collection: DOCS_SLUG, slug: ENTRY_SLUG }],
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames: [],
       navigationKeys: [],
       scopes: [],
     });
@@ -171,7 +174,13 @@ describe("CMS delayed repurge", () => {
 
     expect(message.ack).toHaveBeenCalledOnce();
     expect(repurgeMessages(sendBatch).map(({ body }) => body.payload)).toEqual([
-      { entries: [{ collection: DOCS_SLUG, slug: ENTRY_SLUG }], navigationKeys: [], scopes: [] },
+      {
+        entries: [{ collection: DOCS_SLUG, slug: ENTRY_SLUG }],
+        entryChange: CMS_ENTRY_CHANGES.CONTENT,
+        knownPagePathnames: [],
+        navigationKeys: [],
+        scopes: [],
+      },
     ]);
   });
 
@@ -198,7 +207,13 @@ describe("CMS delayed repurge", () => {
     await createCmsTag({ name: "Repurge tag", slug: "repurge-tag", createdBy: authorId });
 
     expect(repurgeMessages(sendBatch).map(({ body }) => body.payload)).toEqual([
-      { entries: [], navigationKeys: [], scopes: [CMS_INVALIDATION_SCOPES.TAG_CATALOG] },
+      {
+        entries: [],
+        entryChange: CMS_ENTRY_CHANGES.TAGS,
+        knownPagePathnames: [],
+        navigationKeys: [],
+        scopes: [CMS_INVALIDATION_SCOPES.TAG_CATALOG],
+      },
     ]);
   });
 
@@ -213,8 +228,20 @@ describe("CMS delayed repurge", () => {
     await invalidateAllCmsCaches();
 
     expect(repurgeMessages(sendBatch).map(({ body }) => body.payload)).toEqual([
-      { entries: [], navigationKeys: [DOCS_SLUG], scopes: [] },
-      { entries: [], navigationKeys: [], scopes: [CMS_INVALIDATION_SCOPES.ALL_CMS] },
+      {
+        entries: [],
+        entryChange: CMS_ENTRY_CHANGES.CONTENT,
+        knownPagePathnames: [],
+        navigationKeys: [DOCS_SLUG],
+        scopes: [],
+      },
+      {
+        entries: [],
+        entryChange: CMS_ENTRY_CHANGES.CONTENT,
+        knownPagePathnames: [],
+        navigationKeys: [],
+        scopes: [CMS_INVALIDATION_SCOPES.ALL_CMS],
+      },
     ]);
   });
 

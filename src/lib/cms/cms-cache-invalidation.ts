@@ -23,12 +23,14 @@ import { getFreshPublishedBlogPostCount } from "@/lib/blog-visibility";
 import { type CmsEntryStatusRef, purgeCmsPages } from "@/lib/cms/cms-entry-page-purge";
 import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import {
+  CMS_ENTRY_CHANGES,
   CMS_INVALIDATION_SCOPES,
   isEmptyHeaderItemChange,
   mayHeaderLinkFlip,
   selectEntryWriteItemChange,
   SITE_HEADER_CACHE_TAGS,
   SITE_HEADER_NAVIGATION_KEY,
+  type CmsEntryChange,
   type CmsInvalidationScope,
   type HeaderItemChange,
   type PublishStateChange,
@@ -122,8 +124,7 @@ export async function getAllCmsEntryRefs(): Promise<CmsEntryStatusRef[]> {
 
 /**
  * The one order of every CMS cache invalidation: drop the KV tags, run the page step, then purge
- * Workers Caching by the same tags. Each step goes before the cache that refills from it: an edge
- * miss reads a `.md` twin or KV, and a `.md` miss renders the page through the app, which reads KV.
+ * Workers Caching by the same tags. Each cache refills from the one before it, so order matters.
  * Returns the purge outcome, and reports it to the scope of `withCmsCachePurgeReport`.
  */
 export async function runCmsCacheInvalidation({
@@ -173,14 +174,16 @@ function getNavigationCacheTags(navigationKey: CmsNavigationKey): string[] {
 }
 
 // Every tag one invalidation drops. An entry drops its own tag and the list, count, navigation, and
-// search of its collection; a navigation drops its tree, redirects, and search; a full clear drops
-// those of every collection and navigation. The sitemap always goes.
+// search of its collection, or only the list for a tag write. A navigation drops its tree,
+// redirects, and search; a full clear drops all of them. The sitemap always goes.
 function getCmsInvalidationCacheTags({
   entries,
+  entryChange,
   navigationKeys,
   scopes,
-}: CmsInvalidationTarget): string[] {
+}: Omit<CmsInvalidationTarget, "knownPagePathnames">): string[] {
   const isFullClear = scopes.includes(CMS_INVALIDATION_SCOPES.ALL_CMS);
+  const dropsCollectionData = isFullClear || entryChange === CMS_ENTRY_CHANGES.CONTENT;
   const collections = isFullClear
     ? collectionSlugs
     : Array.from(new Set(entries.map(({ collection }) => collection)));
@@ -193,8 +196,12 @@ function getCmsInvalidationCacheTags({
     ...entries.map(({ collection, slug }) => CACHE_TAGS.cmsEntry({ collectionSlug: collection, slug })),
     ...collections.flatMap((collectionSlug) => [
       CACHE_TAGS.cmsCollection(collectionSlug),
-      CACHE_TAGS.cmsCollectionCount(collectionSlug),
-      ...getCollectionNavigationAndSearchCacheTags(collectionSlug),
+      ...(dropsCollectionData
+        ? [
+          CACHE_TAGS.cmsCollectionCount(collectionSlug),
+          ...getCollectionNavigationAndSearchCacheTags(collectionSlug),
+        ]
+        : []),
     ]),
     ...navigations.flatMap((navigationKey) => [
       ...getNavigationCacheTags(navigationKey),
@@ -249,9 +256,14 @@ export async function invalidateCmsTagGroupCaches({
   knownPagePathnames?: string[];
 }): Promise<CmsCachePurgeOutcome> {
   return runCmsInvalidation({
-    target: { entries: entryRefs, navigationKeys: [], scopes: [CMS_INVALIDATION_SCOPES.TAG_CATALOG] },
+    target: {
+      entries: entryRefs,
+      entryChange: CMS_ENTRY_CHANGES.TAGS,
+      knownPagePathnames,
+      navigationKeys: [],
+      scopes: [CMS_INVALIDATION_SCOPES.TAG_CATALOG],
+    },
     warmEntries: [],
-    knownPagePathnames,
     pass: INVALIDATION_PASS.INITIAL,
   });
 }
@@ -275,11 +287,12 @@ export async function invalidateCmsNavigationCaches({
   return runCmsInvalidation({
     target: {
       entries: [],
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames,
       navigationKeys: [navigationKey],
       scopes: docsLinkMayFlip ? [CMS_INVALIDATION_SCOPES.SITE_HEADER] : [],
     },
     warmEntries: [],
-    knownPagePathnames,
     pass: INVALIDATION_PASS.INITIAL,
   });
 }
@@ -303,11 +316,8 @@ export async function invalidateCmsEntries({
   return invalidateWrittenCmsEntries({ entries, warmEntries, knownPagePathnames, publishStateChange });
 }
 
-/**
- * An entry delete. The delete cascades the navigation item away, so the caller reads the entry's
- * navigation paths first and passes them here, and the local Cache API delete still names the page.
- * Only the first pass gets them: the delayed pass relies on the navigation subtree prefix.
- */
+// An entry delete. The delete cascades the navigation item away, so the caller reads the entry's
+// navigation paths first. Both passes name them, because a local Cache API delete needs the name.
 export async function invalidateDeletedCmsEntry({
   collectionSlug,
   slug,
@@ -345,9 +355,8 @@ async function invalidateWrittenCmsEntries({
     : [];
 
   return runCmsInvalidation({
-    target: { entries, navigationKeys: [], scopes },
+    target: { entries, entryChange: CMS_ENTRY_CHANGES.CONTENT, knownPagePathnames, navigationKeys: [], scopes },
     warmEntries,
-    knownPagePathnames,
     pass: INVALIDATION_PASS.INITIAL,
   });
 }
@@ -404,10 +413,9 @@ async function readLiveDocsPageCount(): Promise<number> {
 }
 
 /**
- * The delayed pass, run by the scheduler queue: the same purge for the same target, after
- * `CMS_REPURGE_DELAY_SECONDS`. It drops what a render stored from old KV data in the meantime,
- * the warm included. It does not warm, so the next visitor renders, and it does not enqueue again.
- * The queue consumer reads the returned outcome to decide on a retry.
+ * The delayed pass from the scheduler queue: the same purge after `CMS_REPURGE_DELAY_SECONDS`, to
+ * drop pages that a render or the warm stored from old KV data. It does not warm or enqueue again,
+ * so it cannot loop. It returns the outcome, so the queue consumer can retry.
  */
 export async function repurgeCmsCaches(
   target: CmsInvalidationTarget,
@@ -418,7 +426,13 @@ export async function repurgeCmsCaches(
 /** One full CMS clear: every tag, every stored page, and every `.md` twin. */
 export async function invalidateAllCmsCaches(): Promise<CmsCachePurgeOutcome> {
   return runCmsInvalidation({
-    target: { entries: [], navigationKeys: [], scopes: [CMS_INVALIDATION_SCOPES.ALL_CMS] },
+    target: {
+      entries: [],
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames: [],
+      navigationKeys: [],
+      scopes: [CMS_INVALIDATION_SCOPES.ALL_CMS],
+    },
     warmEntries: [],
     pass: INVALIDATION_PASS.INITIAL,
   });
@@ -427,19 +441,24 @@ export async function invalidateAllCmsCaches(): Promise<CmsCachePurgeOutcome> {
 async function runCmsInvalidation({
   target,
   warmEntries,
-  knownPagePathnames = [],
   pass,
 }: {
   target: CmsInvalidationTarget;
   warmEntries: CmsEntryRef[];
-  knownPagePathnames?: string[];
   pass: InvalidationPass;
 }): Promise<CmsCachePurgeOutcome> {
+  const { entryChange } = target;
   const entries = uniqueEntryRefs(target.entries);
+  const knownPagePathnames = Array.from(new Set(target.knownPagePathnames));
   const navigationKeys = Array.from(new Set(target.navigationKeys)).toSorted();
   const scopes = Array.from(new Set(target.scopes)).toSorted();
 
-  if (entries.length === 0 && navigationKeys.length === 0 && scopes.length === 0) {
+  if (
+    entries.length === 0
+    && knownPagePathnames.length === 0
+    && navigationKeys.length === 0
+    && scopes.length === 0
+  ) {
     return CMS_CACHE_PURGE_OK;
   }
 
@@ -470,7 +489,7 @@ async function runCmsInvalidation({
       // One call for the whole target, so the zone API gets one request per kind. The pages go
       // inside it, never after it: the warm reads through the edge and would re-store them.
       const outcome = await runCmsCacheInvalidation({
-        tags: getCmsInvalidationCacheTags({ entries: tagEntries, navigationKeys, scopes }),
+        tags: getCmsInvalidationCacheTags({ entries: tagEntries, entryChange, navigationKeys, scopes }),
         purgePages: async () => {
           const zonePurge = await purgeCmsPages({
             entries,
@@ -494,7 +513,7 @@ async function runCmsInvalidation({
       if (pass === INVALIDATION_PASS.INITIAL) {
         span.setAttribute(
           REPURGE_OUTCOME_ATTRIBUTE,
-          await scheduleCmsRepurge({ entries, navigationKeys, scopes }),
+          await scheduleCmsRepurge({ entries, entryChange, knownPagePathnames, navigationKeys, scopes }),
         );
       }
 
@@ -566,9 +585,12 @@ function uniqueEntryRefs(entries: CmsEntryRef[]): CmsEntryRef[] {
   });
 }
 
-/** What one invalidation names: entries, navigations, and fixed scopes. The repurge payload carries it. */
+/** What one invalidation names: entries, pages, navigations, and fixed scopes. The repurge payload carries it. */
 interface CmsInvalidationTarget {
   entries: CmsEntryRef[];
+  entryChange: CmsEntryChange;
+  // Pages the write moved or removed. D1 no longer names them, so both passes name them here.
+  knownPagePathnames: string[];
   navigationKeys: CmsNavigationKey[];
   scopes: CmsInvalidationScope[];
 }

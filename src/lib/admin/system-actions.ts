@@ -214,11 +214,9 @@ export async function purgeKvPageCaches(): Promise<AdminPurgeCountResult> {
 }
 
 /**
- * Deletes the stored anonymous HTML pages from `caches.default` in the data center that runs this
- * call. With a zone purge, the root prefix also clears every stored page in every data center, the
- * pages no list names included, so an operator can clear them after a var or secret change.
- * Without one, copies elsewhere expire on their own TTL. It touches no KV key and no Workers Caching.
- * A failed or unconfigured zone purge is a partial result, not an error: the local delete already ran.
+ * Deletes the stored HTML pages in this data center. With a zone purge, the root prefix also clears
+ * every stored page in every data center, so an operator can run it after a var or secret change.
+ * A failed or unconfigured zone purge is a partial result, not an error: the local delete ran.
  */
 export async function purgeEdgeHtmlCache(): Promise<AdminEdgeHtmlPurgeResult> {
   const pathnames = await listPublicPagePathnames();

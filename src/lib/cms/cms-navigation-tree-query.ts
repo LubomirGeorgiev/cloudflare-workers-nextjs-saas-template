@@ -152,14 +152,9 @@ function pruneNavigationTree(nodes: CmsNavigationTreeNode[]): CmsNavigationTreeN
 }
 
 /**
- * One entry per distinct icon key, built from the unpruned rows so every locale's entry holds the
- * same complete map. The sanitizer runs again here, on the way out: the rule that accepted a row at
- * save time may since have tightened, and nothing else revisits a stored document.
- *
- * The `typeof` guard is the same contract one step earlier. This column holds JSON we parsed, not a
- * value the type system checked, so a row written under an older shape reaches here with no
- * `markup` at all. Dropping it costs that node its icon; trusting it would throw inside the gate
- * and take down every page the navigation appears on.
+ * One entry per icon key, from the unpruned rows, so every locale gets the same full map. Sanitize
+ * again on the way out: the save-time rule may have tightened. The `typeof` guard drops a row of an
+ * older shape with no `markup`; that row loses its icon, but every page of the navigation renders.
  */
 function collectIconBodies(items: CmsNavigationItem[]): CmsIconBodyByKey {
   const iconBodyByKey: Record<string, CmsIconBody> = {};

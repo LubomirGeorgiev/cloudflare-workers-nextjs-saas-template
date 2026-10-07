@@ -6,7 +6,7 @@ import {
   CMS_PURGE_STATUS,
   type CmsCachePurgeOutcome,
 } from "@/constants/cache-purge";
-import { CMS_INVALIDATION_SCOPE_VALUES } from "@/lib/cms/cms-invalidation-scopes";
+import { CMS_ENTRY_CHANGES, CMS_INVALIDATION_SCOPE_VALUES } from "@/lib/cms/cms-invalidation-scopes";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import {
   EMAIL_TEMPLATE_TYPES,
@@ -92,7 +92,13 @@ describe("scheduled job handlers", () => {
       runAt: "2026-05-29T10:00:00.000Z",
     });
 
-    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({ entries, navigationKeys: [], scopes: [] });
+    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({
+      entries,
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames: [],
+      navigationKeys: [],
+      scopes: [],
+    });
     expect(publishScheduledCmsEntryIfDueMock).not.toHaveBeenCalled();
   });
 
@@ -107,7 +113,30 @@ describe("scheduled job handlers", () => {
       runAt: "2026-05-29T10:00:00.000Z",
     });
 
-    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({ entries: [], navigationKeys, scopes });
+    expect(repurgeCmsCachesMock).toHaveBeenCalledWith({
+      entries: [],
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames: [],
+      navigationKeys,
+      scopes,
+    });
+  });
+
+  test("routes the entry change and the pages of a CMS repurge job", async () => {
+    const entries = [{ collection: collectionSlugs[0], slug: "launch-notes" }];
+    const knownPagePathnames = ["/old-page"];
+
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.CMS_REPURGE,
+      payload: { entries, entryChange: CMS_ENTRY_CHANGES.TAGS, knownPagePathnames },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(repurgeCmsCachesMock).toHaveBeenCalledWith(expect.objectContaining({
+      entries,
+      entryChange: CMS_ENTRY_CHANGES.TAGS,
+      knownPagePathnames,
+    }));
   });
 
   // A throw makes the consumer retry the message, up to the queue's `max_retries`.

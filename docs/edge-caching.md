@@ -106,11 +106,13 @@ Every CMS write reaches it through one function, `purgeCmsPages` in
 `src/lib/cms/cms-entry-page-purge.ts`. That function sends one stored-HTML purge, then one `.md`
 purge. The pure selector `selectCmsPagePurgeTargets` in the same file decides the pages:
 
-- An entry with a page: the page, and its listing as a subtree.
+- An entry with a page: the page, and its listing as a subtree and as a `.md` prefix.
 - A navigation, named by a save or owned by the collection of a written entry: its `basePath` as a
-  subtree. Every page under it bakes the sidebar, so one docs entry write changes all of them.
-- The tag catalog scope: `CMS_TAGS_PAGE_PATH` as a subtree.
-- The site header scope and the full CMS clear: the root subtree `/`, so every stored page.
+  subtree and as a `.md` prefix. Every page under it bakes the sidebar, so one docs entry write
+  changes all of them.
+- The tag catalog scope: `CMS_TAGS_PAGE_PATH` as a subtree and as a `.md` prefix.
+- The site header scope and the full CMS clear: the root subtree `/`, so every stored page. The
+  site header scope adds no `.md` prefix (see "The site header" below).
 
 The selector also names each page that it knows under one of those subtrees, because the local
 delete cannot match a prefix (see below):
@@ -131,8 +133,8 @@ delete cannot match a prefix (see below):
   deleted docs entry.
 
 `selectCmsPagePurgeReads` decides which of those reads one write needs, so the reads and the
-selector cannot drift. Only the first pass gets `knownPagePathnames`; the delayed pass relies on
-the subtree prefix.
+selector cannot drift. Both passes get `knownPagePathnames`. Without a zone purge, only a delete by
+name reaches a copy that a render stored between the two passes.
 
 **Ordering is the whole correctness argument.** `warmCmsEntryPages` fetches the published page over
 the public internet, so a warm goes through this cache like any visitor. A purge that ran after the
@@ -216,7 +218,9 @@ It remembers a failed lookup for `WORKER_ZONE_LOOKUP_FAILURE_TTL_MS` (60 s) per 
 stored page does not pay another API call for the TTL check.
 The deploy workflow's purge step does the same lookup for the hostname of
 `resolveDeployedSiteUrl` in `scripts/utils/deploy-site-url.mjs`, so it also runs without
-`CLOUDFLARE_ZONE_ID`. Set `CLOUDFLARE_ZONE_ID` only to override that lookup. The purge itself needs `Zone:Cache
+`CLOUDFLARE_ZONE_ID`. Set `CLOUDFLARE_ZONE_ID` only to override that lookup. A deploy without a
+custom domain (no site URL, or a `workers.dev` host) skips the purge with a warning. For a custom
+domain, a refused lookup or a host with no match fails the step, because readers would keep old pages. The purge itself needs `Zone:Cache
 Purge:Purge` on `CLOUDFLARE_API_TOKEN`; without a usable token and account id the panel hides the
 card, and the REST operation refuses with `PRECONDITION_FAILED` naming what is missing.
 
@@ -413,7 +417,7 @@ The page step of each path:
 | Entry write (`invalidateCmsEntries`) | The stored HTML of each entry and of its listing subtree, then the `.md` twins under each listing. For a collection with a navigation, also the whole navigation subtree (`/docs`), HTML and `.md`. When the write changed a publish state and may flip a header link, also the site header scope. |
 | Entry delete (`invalidateDeletedCmsEntry`) | The same as an entry write. `deleteCmsEntry` reads the navigation path before the delete cascades the navigation row away, so the local Cache API delete still names the page. |
 | Navigation save (`invalidateCmsNavigationCaches`) | The navigation subtree, HTML and `.md`. A docs navigation save that adds or removes pages, and may flip the header docs link, also adds the site header scope. |
-| Tag group change (`invalidateCmsTagGroupCaches`) | The entry step for each affected entry, plus the tag catalog scope: `CMS_TAGS_PAGE_PATH` as a subtree, HTML and `.md`. A new tag with no entry still purges `/blog/tags`. |
+| Tag group change (`invalidateCmsTagGroupCaches`) | The entry step for each affected entry, plus the tag catalog scope: `CMS_TAGS_PAGE_PATH` as a subtree, HTML and `.md`. A new tag with no entry still purges `/blog/tags`. The write sets `entryChange: "tags"`, so the KV drop keeps the collection counts, navigation, redirects, and search of those entries: a tag edit does not change them. |
 | Full CMS clear (`invalidateAllCmsCaches`) | The root subtree: every stored page and every `.md` twin. For the local delete, also the page of each published entry, which adds no zone tag. |
 | Admin search rebuild and clear | None. |
 
@@ -440,7 +444,7 @@ an empty set after the write was full before only if the write removed an item, 
 empty before only if every live item is one that the write added. In all other cases the link did
 not flip. A failed count adds the scope. The selector never misses a flip. It can purge once when
 it was not necessary, when few items are live. The blog count is `getFreshPublishedBlogPostCount`.
-The docs count is `getFreshCmsNavigationLivePageCount` in `src/lib/cms/cms-navigation-repository.ts`,
+The docs count is `getFreshCmsNavigationLivePageCount` in `src/lib/cms/cms-navigation-tree-query.ts`,
 which builds the tree with the same code as the cached tree, so both apply the same live rule.
 
 Each path sends one purge, with at most 100 tags per `cache.purge` call. A write that changes many
@@ -462,9 +466,11 @@ in the table above queues one `cms.repurge-entries` job on `SCHEDULER_QUEUE`, wi
 delay is the KV propagation window (60 s) plus `DATA_CACHE_MEMORY_TTL_MS` (60 s), because an isolate
 can read an old tag answer just before propagation ends and then keep it in memory. The message
 carries the target of the write, and nothing else: the collection and the slug of each entry (at
-most 25 per message), the navigation keys, and the fixed scope names (`all-cms`, `site-header`,
-`tag-catalog`). It carries no path. A deleted or renamed entry has no row to load, so the slug goes
-on the message. The navigations and the scopes go on the first message of a split write. The queue
+most 25 per message) with the `entryChange` of the write, the `knownPagePathnames` (at most 10 per
+message), the navigation keys, and the fixed scope names (`all-cms`, `site-header`, `tag-catalog`).
+A deleted or renamed entry has no row to load, so the slug goes on the message. The navigations and
+the scopes go on the first message of a split write. A path longer than
+`CMS_REPURGE_PATHNAME_MAX_LENGTH` stays off the message; the subtree prefix and the TTL still apply. The queue
 consumer calls `repurgeCmsCaches`, which runs the same `runCmsCacheInvalidation` for the same target:
 the KV tags, the stored HTML, the `.md` twins, and the Workers Caching tags. It does not recompute the
 header decision; the scope on the message repeats it. It does not warm, because a warm is what stored
@@ -472,9 +478,7 @@ the old copy, and the next visitor renders from fresh data. It does not queue an
 cannot loop. A queue fault is logged and never fails the write. When the zone purge or the Workers
 Caching purge of the delayed pass fails, the job throws, so the queue retries it up to the consumer's
 `max_retries` in `wrangler.jsonc`. An `unconfigured` purge does not throw, because a retry cannot fix
-it. The paths that the delete read
-before the delete do not go on the message, so the delayed pass reaches that page by the navigation
-subtree prefix only.
+it.
 
 **Every handler can purge.** `cache.purge` is on the execution context of every handler, so the
 queue consumer that runs a scheduled publish calls it directly

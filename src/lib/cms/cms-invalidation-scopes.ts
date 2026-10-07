@@ -26,6 +26,21 @@ export const CMS_INVALIDATION_SCOPE_VALUES = Object.values(CMS_INVALIDATION_SCOP
   ...CmsInvalidationScope[],
 ];
 
+/** What a write changed in its entries. The repurge payload carries it with the entries. */
+export const CMS_ENTRY_CHANGES = {
+  // The entry itself: its content, slug, status, or place.
+  CONTENT: "content",
+  // Only the tags it renders, so its collection counts, navigation, and search keep their data.
+  TAGS: "tags",
+} as const;
+
+export type CmsEntryChange = typeof CMS_ENTRY_CHANGES[keyof typeof CMS_ENTRY_CHANGES];
+
+export const CMS_ENTRY_CHANGE_VALUES = Object.values(CMS_ENTRY_CHANGES) as [
+  CmsEntryChange,
+  ...CmsEntryChange[],
+];
+
 /** The navigation whose live pages decide if the site header shows the docs link. */
 export const SITE_HEADER_NAVIGATION_KEY: CmsNavigationKey = DOCS_SLUG;
 
@@ -105,13 +120,9 @@ export function isEmptyHeaderItemChange({ addedItems, removedItems }: HeaderItem
 }
 
 /**
- * Whether a write may flip one header link. The header shows the link while at least one item is
- * live: a published blog post, or a live docs page.
- *
- * The write has committed, so only the live count after it is known. Items outside the write keep
- * their state. So a set that is empty after the write was full before only if the write removed an
- * item. A set that is full after the write was empty before only if every live item is one the
- * write added. An unknown count (`null`) says yes: a missed flip is the worse error.
+ * Whether a write may flip one header link, shown while one item is live. Items outside the write
+ * keep their state, so an empty set flipped only if the write removed an item, and a full set only
+ * if the write added every live item. An unknown count (`null`) says yes: a missed flip is worse.
  */
 export function mayHeaderLinkFlip({
   change,

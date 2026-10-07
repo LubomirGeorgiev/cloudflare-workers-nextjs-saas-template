@@ -103,7 +103,25 @@ describe("resolveDeployZoneId", () => {
     expect(init.headers.Authorization).toBe("Bearer token");
   });
 
-  test("reports a reason instead of a zone for a workers.dev-only deploy or a refused lookup", async () => {
+  test("reports no zone, without a lookup, for a deploy without a custom domain", async () => {
+    const fetchImpl = domainsResponse({ result: [] });
+    const noSiteUrl = await resolveDeployZoneId({ accountId: ACCOUNT_ID, apiToken: "token", fetchImpl });
+    const workersDev = await resolveDeployZoneId({
+      accountId: ACCOUNT_ID,
+      apiToken: "token",
+      siteUrl: "https://app.account.workers.dev",
+      fetchImpl,
+    });
+
+    for (const result of [noSiteUrl, workersDev]) {
+      expect(result.zoneId).toBeUndefined();
+      expect(result.problem).toBeUndefined();
+      expect(result.noZone).toBeTruthy();
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test("reports a problem for a custom domain whose zone it cannot find", async () => {
     const noDomain = await resolveDeployZoneId({
       accountId: ACCOUNT_ID,
       apiToken: "token",
@@ -118,11 +136,12 @@ describe("resolveDeployZoneId", () => {
     });
     const noAccount = await resolveDeployZoneId({ apiToken: "token", siteUrl: SITE_URL });
 
-    expect(noDomain.zoneId).toBeUndefined();
+    for (const result of [noDomain, refused, noAccount]) {
+      expect(result.zoneId).toBeUndefined();
+      expect(result.noZone).toBeUndefined();
+    }
     expect(noDomain.problem).toContain("app.example.com");
-    expect(refused.zoneId).toBeUndefined();
     expect(refused.problem).toContain("403");
-    expect(noAccount.zoneId).toBeUndefined();
     expect(noAccount.problem).toContain("CLOUDFLARE_ACCOUNT_ID");
   });
 });

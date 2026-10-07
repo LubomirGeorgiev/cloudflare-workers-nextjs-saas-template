@@ -341,14 +341,8 @@ async function isZonePurgeConfiguredForStore(): Promise<boolean> {
 
 /**
  * Drops the stored page of every `pathname` and `subtreePathname`, in every served locale. Call it
- * before any warm fetch of the same page, or the warm re-reads the copy it was meant to replace.
- * Never throws.
- *
- * The Cache API delete is per data center, so it reaches the colo that ran the purge, and only the
- * named pages and the subtree roots: it cannot match a prefix. So a caller names every page it knows
- * under a subtree too. When the Worker holds a `CLOUDFLARE_API_TOKEN` with `Cache Purge`, the zone
- * API also purges the named pages by tag and each subtree by key prefix, in every colo. The subtree
- * `/` reaches every stored page. `EDGE_HTML_CACHE_TTL_SECONDS` bounds what neither purge reached.
+ * before any warm of the same page, or the warm reads the old copy again. Never throws. The local
+ * delete cannot match a prefix, so name each known page under a subtree (docs/edge-caching.md).
  */
 export async function purgeEdgeHtmlPages({
   pathnames,
@@ -427,12 +421,9 @@ function localizeForEveryLocale(pathnames: string[]): Set<string> {
 }
 
 /**
- * The same pages, purged zone-wide so every data center drops them: the tags and the prefixes each
- * go in their own requests, which `src/lib/cloudflare-api.ts` chunks at Cloudflare's per-request
- * ceiling. Never throws: a refused zone purge must never fail a publish. The local delete above
- * reaches only the named pages of one colo, so the outcome goes back to the caller.
- *
- * Imported lazily, so the read path that shares this module never loads the API client.
+ * The same pages, purged zone-wide so every data center drops them. Never throws: a refused zone
+ * purge must never fail a publish, so the outcome goes back to the caller. Imported lazily, so the
+ * read path that shares this module never loads the API client.
  */
 async function purgeEdgeHtmlPagesAcrossColos({
   tags,

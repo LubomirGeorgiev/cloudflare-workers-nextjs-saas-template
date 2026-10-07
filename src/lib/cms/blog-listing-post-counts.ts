@@ -15,12 +15,9 @@ export interface BlogListingPostCount {
 }
 
 /**
- * The blog list and every tag and author page that lists a published post, with its post count.
- * The count adds up every locale, so it is an upper bound for each locale's page count. The purge
- * uses it to name the numbered pages. Straight from D1, so a cache read cannot hide a page. Never
- * throws.
- *
- * `@/db` is imported lazily for the reason in `src/lib/cms/cms-navigation-entry-paths.ts`.
+ * The blog list and each tag and author page that lists a published post, with its post count. The
+ * count adds up every locale, so it is an upper bound per locale. It reads D1 directly, so a cache
+ * cannot hide a page. Never throws. It imports `@/db` lazily; see `cms-navigation-entry-paths.ts`.
  */
 export async function getBlogListingPostCounts(): Promise<BlogListingPostCount[]> {
   try {

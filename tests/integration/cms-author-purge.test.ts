@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
 import { getDB } from "@/db";
 import { cmsEntryTable, userTable } from "@/db/schema";
-import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
+import { BLOG_COLLECTION_SLUG, getBlogAuthorPagePath } from "@/lib/blog-routing";
 import {
   getCmsEntryRefsRenderingAuthor,
   invalidateCmsAuthorAfterUserWrite,
@@ -132,6 +132,10 @@ describe("CMS author purge after a user write", () => {
       { collection: DOCS_SLUG, slug: "author-docs-page" },
     ]));
     expect((payload as { entries: unknown[] }).entries).toHaveLength(2);
+    // The old author page is gone from D1, so the delayed pass names it from the message.
+    expect((payload as { knownPagePathnames: string[] }).knownPagePathnames).toContain(
+      getBlogAuthorPagePath({ id: AUTHOR_ID, ...author }),
+    );
   });
 
   // Every published post is by this author, so a count check would see the whole blog in the write.

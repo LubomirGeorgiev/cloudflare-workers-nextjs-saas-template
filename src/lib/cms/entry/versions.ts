@@ -214,12 +214,9 @@ export async function revertCmsEntryToVersion(
 }
 
 /**
- * The status and date a restore writes. The publish job runs at `publishedAt`, so a scheduled
- * restore takes the version's own date; a past one goes live through the scheduler's late path.
- *
- * A version saved before history kept dates has none. Any other date could publish at once, so a
- * scheduled restore becomes a draft, and `scheduleCleared` tells the admin to schedule it again.
- * A published row never takes a future date: the page is live now.
+ * The status and date a restore writes. A scheduled restore keeps the version's date; a past date
+ * goes live on the scheduler's late path. With no saved date, it becomes a draft and sets
+ * `scheduleCleared`: any other date could publish at once. A published row gets no future date.
  */
 export function resolveRevertedPublishState({
   status,

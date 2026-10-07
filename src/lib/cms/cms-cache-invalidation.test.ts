@@ -4,6 +4,7 @@ import { cmsNavigationKeys, collectionSlugs } from "@/../cms.config";
 import { CACHE_TAGS } from "@/constants/cache-tags";
 import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import {
+  CMS_ENTRY_CHANGES,
   CMS_INVALIDATION_SCOPES,
   PUBLISH_STATE_CHANGES,
   SITE_HEADER_CACHE_TAGS,
@@ -34,6 +35,8 @@ const {
   enqueueCmsRepurgeMock: vi.fn(
     async (__input: {
       entries: unknown[];
+      entryChange: string;
+      knownPagePathnames: string[];
       navigationKeys: string[];
       scopes: string[];
       delaySeconds: number;
@@ -379,7 +382,13 @@ describe("CMS cache invalidation", () => {
     purgeCmsPagesMock.mockResolvedValueOnce(EDGE_HTML_ZONE_PURGE_OUTCOME.UNCONFIGURED);
     purgeWorkersCacheAfterWriteMock.mockResolvedValueOnce(WORKERS_CACHE_PURGE_OUTCOME.FAILED);
 
-    await expect(repurgeCmsCaches({ entries: [BLOG_ENTRY], navigationKeys: [], scopes: [] }))
+    await expect(repurgeCmsCaches({
+      entries: [BLOG_ENTRY],
+      entryChange: CMS_ENTRY_CHANGES.CONTENT,
+      knownPagePathnames: [],
+      navigationKeys: [],
+      scopes: [],
+    }))
       .resolves.toEqual({ zone: CMS_PURGE_STATUS.UNCONFIGURED, workersCache: CMS_PURGE_STATUS.FAILED });
   });
 
@@ -727,8 +736,8 @@ describe("CMS cache invalidation", () => {
       entries: [{ collection: DOCS_SLUG, slug: "gone" }],
       knownPagePathnames: ["/docs/gone"],
     });
-    // The paths are not a fixed name, so the queue payload never carries them.
-    expect(repurgeInput()).not.toHaveProperty("knownPagePathnames");
+    // Without a zone purge, only a delete by name reaches a copy that a render stored meanwhile.
+    expect(repurgeInput()?.knownPagePathnames).toEqual(["/docs/gone"]);
   });
 
   test("a tag group write drops the entry and tag catalog tags, and queues its delayed repeat", async () => {
@@ -755,10 +764,43 @@ describe("CMS cache invalidation", () => {
     });
     expect(repurgeInput()).toMatchObject({
       entries: entryRefs,
+      entryChange: CMS_ENTRY_CHANGES.TAGS,
       scopes: [CMS_INVALIDATION_SCOPES.TAG_CATALOG],
     });
     // A tag write changes no publish status, so it never asks about the header.
     expect(getFreshPublishedBlogPostCountMock).not.toHaveBeenCalled();
+  });
+
+  // A tag edit moves no entry, so the counts, navigation, redirects, and search keep their data.
+  test("a tag group write drops only the tags that render the tag", async () => {
+    const entryRefs = collectionSlugs.map((collection) => ({ collection, slug: "launch-notes" }));
+
+    await invalidateCmsTagGroupCaches({ entryRefs });
+
+    expect(purgedTags().toSorted()).toEqual([
+      CACHE_TAGS.CMS_TAGS,
+      CACHE_TAGS.SITEMAP,
+      ...entryRefs.flatMap(({ collection, slug }) => [
+        CACHE_TAGS.cmsEntry({ collectionSlug: collection, slug }),
+        CACHE_TAGS.cmsCollection(collection),
+      ]),
+    ].toSorted());
+  });
+
+  test("the delayed pass of a tag rename repeats its tags and names the old tag pages", async () => {
+    const entryRefs = [{ collection: collectionSlugs[0], slug: "launch-notes" }];
+
+    await invalidateCmsTagGroupCaches({ entryRefs, knownPagePathnames: ["/blog/tags/old-name"] });
+    const firstPassTags = purgedTags();
+    const firstPageStep = pageStepInput();
+    const { delaySeconds: __delay, ...target } = repurgeInput() ?? { delaySeconds: 0 };
+    vi.clearAllMocks();
+
+    await repurgeCmsCaches(target as Parameters<typeof repurgeCmsCaches>[0]);
+
+    expect(firstPageStep?.knownPagePathnames).toEqual(["/blog/tags/old-name"]);
+    expect(pageStepInput()).toEqual(firstPageStep);
+    expect(purgedTags()).toEqual(firstPassTags);
   });
 
   // A new tag has no entry yet, but `/blog/tags` lists it.

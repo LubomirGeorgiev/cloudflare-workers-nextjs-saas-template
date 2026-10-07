@@ -125,16 +125,21 @@ jobs:
             const { resolveDeployedSiteUrl, resolveDeployZoneId } = await import(
               pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/utils/deploy-site-url.mjs`).href
             );
-            const { zoneId, problem } = await resolveDeployZoneId({
+            const { zoneId, noZone, problem } = await resolveDeployZoneId({
               accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
               apiToken,
               configuredZoneId: process.env.CLOUDFLARE_ZONE_ID,
               siteUrl: resolveDeployedSiteUrl(),
             });
 
-            // A workers.dev-only deploy has no zone, so there is nothing to purge.
+            // A custom domain without a purge keeps serving old pages, so fail the deploy.
+            if (problem) {
+              core.setFailed(`${problem} Set CLOUDFLARE_ZONE_ID, or check the custom domain and the Workers Scripts Read permission of the token.`);
+              return;
+            }
+
             if (!zoneId) {
-              core.warning(`${problem} Set CLOUDFLARE_ZONE_ID, or attach a custom domain. Skipping the purge.`);
+              core.warning(`${noZone} Skipping the purge.`);
               return;
             }
 
