@@ -282,6 +282,6 @@ export const ADMIN_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50, 100, 300, 500]
 // Cloudflare takes at most 100 purge operations per zone purge request, on every plan.
 export const ZONE_PURGE_TAGS_PER_REQUEST = 100;
 
-// Vinext's KV data cache ignores a longer tag (`MAX_TAG_LENGTH` in `@vinext/cloudflare`), so the
-// tag builder and the purge use this one bound. Cloudflare allows 1,024.
+// Vinext's data cache ignores a longer tag (`MAX_TAG_LENGTH` in `vinext/dist/utils/encode-cache-tag`),
+// so the tag builder and the purge use this one bound. Cloudflare allows 1,024.
 export const CACHE_TAG_MAX_LENGTH = 256;

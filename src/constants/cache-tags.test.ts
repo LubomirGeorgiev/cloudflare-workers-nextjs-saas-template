@@ -9,7 +9,7 @@ const COLLECTION_SLUG = "blog";
 const LONG_UNICODE_SLUG = "文".repeat(SLUG_MAX_LENGTH);
 const LONG_ASCII_SLUG = "a".repeat(SLUG_MAX_LENGTH);
 // The characters Vinext's KV data cache refuses in a tag (`validateTag` in `@vinext/cloudflare`).
-const KV_REFUSED_TAG_CHARACTERS = /[\x00-\x1f\\:]/;
+const KV_REFUSED_TAG_CHARACTERS = /[\x00-\x1f\\]/;
 
 function entryTag(slug: string): string {
   return CACHE_TAGS.cmsEntry({ collectionSlug: COLLECTION_SLUG, slug });

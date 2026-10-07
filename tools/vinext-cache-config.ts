@@ -9,6 +9,8 @@ import { DATA_CACHE_MEMORY_TTL_MS } from "../src/constants/data-cache.ts";
 import { VINEXT_CACHE_PREFIX } from "../src/constants/kv-prefixes.ts";
 
 const VINEXT_CACHE_KV_BINDING = "KV_STORE";
+// Entries only. Since vinext 1.0.0 the `__tag:` markers have no TTL, so a marker outlives every
+// entry it invalidates (cloudflare/vinext#3488). We accept that growth.
 const VINEXT_CACHE_TTL_SECONDS = 7 * 24 * 3600;
 // Each data-cache read checks one `__tag:` KV key per tag, and a page carries ~8 of them once
 // Vinext adds its implicit route tags. The default 5 s re-reads them all on nearly every request;
