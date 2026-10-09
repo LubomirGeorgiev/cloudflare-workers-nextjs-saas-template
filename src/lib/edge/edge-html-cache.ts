@@ -10,6 +10,7 @@ import {
   EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL,
 } from "@/constants/cache-control";
 import {
+  EDGE_HTML_CACHE_AGE_HEADER,
   EDGE_HTML_ZONE_PURGE_OUTCOME,
   type EdgeHtmlZonePurgeOutcome,
 } from "@/constants/edge-html-cache";
@@ -38,6 +39,10 @@ const EDGE_HTML_CACHE_KEY_SCHEME = "https://";
 // The visitor's own policy, parked while the stored copy carries the one the Cache API reads. A hit
 // puts it back, so a hit and a miss leave with the same `cache-control`.
 const PARKED_CACHE_CONTROL_HEADER = "x-edge-html-cache-original";
+
+// When the stored copy was rendered, in epoch milliseconds. Ours, not the Cache API's `age`, which
+// Cloudflare does not document for `cache.match`. A hit turns it into `EDGE_HTML_CACHE_AGE_HEADER`.
+const STORED_AT_HEADER = "x-edge-html-cache-stored-at";
 
 // A client-side navigation asks the same URL for a flight payload rather than a document, and
 // Vinext varies its answer on these. A stored page must never answer one.
@@ -207,12 +212,17 @@ export function resolveEdgeHtmlCacheEntry({
 }
 
 // Undoes what `storeEdgeHtmlPage` changed, so a hit is indistinguishable from a miss apart from the
-// debug header the entry stamps.
+// debug headers: the age set here and the status the entry stamps.
 function restoreVisitorHeaders(stored: Response): Headers {
   const headers = new Headers(stored.headers);
   const parked = headers.get(PARKED_CACHE_CONTROL_HEADER);
+  const ageSeconds = selectEdgeHtmlCacheAgeSeconds({
+    storedAt: headers.get(STORED_AT_HEADER),
+    now: Date.now(),
+  });
 
   headers.delete(PARKED_CACHE_CONTROL_HEADER);
+  headers.delete(STORED_AT_HEADER);
   headers.delete("age");
   headers.delete("cache-tag");
 
@@ -222,7 +232,29 @@ function restoreVisitorHeaders(stored: Response): Headers {
     headers.delete("cache-control");
   }
 
+  if (ageSeconds !== null) {
+    headers.set(EDGE_HTML_CACHE_AGE_HEADER, String(ageSeconds));
+  }
+
   return headers;
+}
+
+/** Whole seconds since the copy was stored, or `null` when the stored timestamp is unreadable. */
+export function selectEdgeHtmlCacheAgeSeconds({
+  storedAt,
+  now,
+}: {
+  storedAt: string | null;
+  now: number;
+}): number | null {
+  const storedAtMs = storedAt === null ? Number.NaN : Number(storedAt);
+
+  if (!Number.isFinite(storedAtMs)) {
+    return null;
+  }
+
+  // The machine that reads the copy may run a clock behind the one that wrote it.
+  return Math.max(0, Math.floor((now - storedAtMs) / 1000));
 }
 
 /** The stored page for this entry, or `null` on a miss. */
@@ -295,6 +327,8 @@ export function storeEdgeHtmlPage({
   }
 
   headers.set("cache-tag", buildEdgeHtmlCacheTag(entry.servedPathname));
+  // Render time, not put time: the put waits on the zone lookup and on the whole streamed body.
+  headers.set(STORED_AT_HEADER, String(Date.now()));
   // A stored copy answers every anonymous visitor, so a cookie one render set must never replay.
   headers.delete("set-cookie");
 

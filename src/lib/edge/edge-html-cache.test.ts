@@ -53,9 +53,12 @@ vi.mock("@/i18n/config", async (importOriginal) => {
   };
 });
 
-const { purgeEdgeHtmlPages, resolveEdgeHtmlCacheEntry, selectEdgeHtmlCacheControl } = await import(
-  "./edge-html-cache"
-);
+const {
+  purgeEdgeHtmlPages,
+  resolveEdgeHtmlCacheEntry,
+  selectEdgeHtmlCacheAgeSeconds,
+  selectEdgeHtmlCacheControl,
+} = await import("./edge-html-cache");
 
 /** A public page in every fork: the blog listing is the root of a whole public subtree. */
 const CANONICAL_PATH = localizedPathname({ pathname: BLOG_BASE_PATH, locale: DEFAULT_LOCALE });
@@ -191,6 +194,24 @@ describe("selectEdgeHtmlCacheControl", () => {
     expect(selectEdgeHtmlCacheControl({ zonePurgeConfigured: true })).toBe(
       EDGE_HTML_CACHE_ZONE_PURGED_CACHE_CONTROL,
     );
+  });
+});
+
+describe("selectEdgeHtmlCacheAgeSeconds", () => {
+  const STORED_AT = 1_700_000_000_000;
+
+  test("reports whole seconds since the copy was stored", () => {
+    expect(selectEdgeHtmlCacheAgeSeconds({ storedAt: String(STORED_AT), now: STORED_AT + 2_999 }))
+      .toBe(2);
+  });
+
+  test("never reports a negative age when the reader's clock runs behind", () => {
+    expect(selectEdgeHtmlCacheAgeSeconds({ storedAt: String(STORED_AT), now: STORED_AT - 5_000 }))
+      .toBe(0);
+  });
+
+  test.each([null, "not-a-number"])("reports no age for the stored timestamp %s", (storedAt) => {
+    expect(selectEdgeHtmlCacheAgeSeconds({ storedAt, now: STORED_AT })).toBeNull();
   });
 });
 

@@ -12,6 +12,9 @@ export const EDGE_HTML_CACHE_STATUS = {
   BYPASS: "bypass",
 } as const;
 
+// Debug header on a hit only: whole seconds since the stored copy was written.
+export const EDGE_HTML_CACHE_AGE_HEADER = "x-edge-html-cache-age";
+
 // What the zone-wide half of an edge HTML purge did. Here, not in `src/lib/edge/edge-html-cache.ts`,
 // because the admin API response schema names these values and must not import a server module.
 export const EDGE_HTML_ZONE_PURGE_OUTCOME = {

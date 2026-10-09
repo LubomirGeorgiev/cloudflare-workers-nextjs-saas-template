@@ -32,6 +32,7 @@ import {
   STATIC_API_DOCUMENT_EDGE_CACHE_CONTROL,
 } from "@/constants/cache-control";
 import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
+import { EDGE_HTML_CACHE_AGE_HEADER } from "@/constants/edge-html-cache";
 import { MARKDOWN_PAGE_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import { I18N_ENABLED } from "@/constants";
 import {
@@ -781,6 +782,38 @@ describe("edge HTML page cache", () => {
     expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
     expect(innerFetchMock).toHaveBeenCalledOnce();
     await expect(hit.text()).resolves.toBe(PAGE_BODY);
+  });
+
+  test("a hit reports the age of the stored copy, and a miss reports none", async () => {
+    const storedAt = Date.now();
+    const elapsedSeconds = 42;
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(storedAt);
+
+    try {
+      const miss = await fetchPage(PAGE_PATH);
+      nowSpy.mockReturnValue(storedAt + elapsedSeconds * 1000);
+      const hit = await fetchPage(PAGE_PATH);
+
+      expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+      expect(hit.headers.get(EDGE_HTML_CACHE_AGE_HEADER)).toBe(String(elapsedSeconds));
+      expect(miss.headers.get(EDGE_HTML_CACHE_AGE_HEADER)).toBeNull();
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  // The stored timestamp is private to the stored copy, like the parked `cache-control`.
+  test("a hit carries no private header of the stored copy", async () => {
+    await fetchPage(PAGE_PATH);
+    const hit = await fetchPage(PAGE_PATH);
+    const leaked = Array.from(hit.headers.keys()).filter(
+      (name) => name.startsWith(EDGE_HTML_CACHE_HEADER) &&
+        name !== EDGE_HTML_CACHE_HEADER &&
+        name !== EDGE_HTML_CACHE_AGE_HEADER,
+    );
+
+    expect(edgeCacheStatus(hit)).toBe(EDGE_HTML_CACHE_STATUS.HIT);
+    expect(leaked).toEqual([]);
   });
 
   // The whole post-processing is inside the stored copy, so an agent or a browser reading a hit

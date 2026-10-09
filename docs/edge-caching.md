@@ -65,6 +65,9 @@ the Worker with the same headers, and
 `tests/e2e/cache-headers.test.ts` still sees an uncacheable page. The header
 `x-edge-html-cache: hit | miss | bypass` is stamped on every HTML response;
 `pnpm metrics:ttfb` prints it beside `cf-cache-status` in its `cache=` field.
+A hit also carries `x-edge-html-cache-age`, the whole seconds since the copy was rendered. The
+stored copy keeps the render time in a private header, and a hit removes it. We do not read the
+Cache API's own `age`, because Cloudflare does not document it for `cache.match`.
 In Workers traces, the `app.request` span copies the header value to `app.edge_html_cache`.
 The cache read runs in a child span, `app.edge_html_cache.lookup`.
 
