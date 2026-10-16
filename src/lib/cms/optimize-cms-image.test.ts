@@ -53,7 +53,8 @@ describe("CMS image optimization", () => {
 
   test("does not fetch an application route after path normalization", async () => {
     const input = fixture({ source: `${CMS_IMAGES_API_ROUTE}/../../api/get-session` });
-    expect((await optimizeCmsImage(input)).status).toBe(404);
+    // Vinext answers every failed source with 400, as Next.js does.
+    expect((await optimizeCmsImage(input)).status).toBe(400);
     expect(input.fetchSource).not.toHaveBeenCalled();
   });
 

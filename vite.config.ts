@@ -54,6 +54,8 @@ function serverCodeSplitting() {
 
 export default defineConfig({
   cacheDir: VINEXT_VITE_CACHE_DIR,
+  // Vinext 1.2.1 dropped its 3000 dev default; SITE_URL, OAuth callbacks, and docs expect 3000.
+  server: { port: 3000 },
   define: {
     __MARKDOWN_BUILD_ID__: JSON.stringify(MARKDOWN_BUILD_ID),
     __SCHEDULER_QUEUE_NAME__: JSON.stringify(getSchedulerQueueName()),
