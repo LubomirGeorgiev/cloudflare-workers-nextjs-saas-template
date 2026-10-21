@@ -1,10 +1,10 @@
 import type { Route } from "next";
 
 import { BLOG_POSTS_PER_PAGE } from "@/constants";
+import { BLOG_BASE_PATH } from "@/lib/blog-base-path";
 import { getAuthorRouteParam, type AuthorUrlIdentity } from "@/utils/blog-author-url";
 
-export const BLOG_COLLECTION_SLUG = "blog" as const
-export const BLOG_BASE_PATH = "/blog"
+export { BLOG_BASE_PATH, BLOG_COLLECTION_SLUG } from "@/lib/blog-base-path";
 export const CMS_TAGS_PAGE_PATH = `${BLOG_BASE_PATH}/tags`
 const BLOG_AUTHORS_PAGE_PATH = `${BLOG_BASE_PATH}/authors`
 

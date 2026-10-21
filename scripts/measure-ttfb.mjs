@@ -3,7 +3,7 @@
 // module below is a leaf imported by relative path. Importing beats parsing source: a fork that
 // renames a route base keeps measuring, and a rename that breaks this script fails loudly.
 import { EDGE_HTML_CACHE_HEADER } from "../src/constants/edge-html-cache.ts";
-import { BLOG_BASE_PATH } from "../src/lib/blog-routing.ts";
+import { BLOG_BASE_PATH } from "../src/lib/blog-base-path.ts";
 import { DOCS_BASE_PATH } from "../src/lib/cms/docs-config.ts";
 import { resolveDeployedSiteUrl } from "./utils/deploy-site-url.mjs";
 

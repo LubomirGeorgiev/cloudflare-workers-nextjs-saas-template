@@ -55,6 +55,9 @@ const DEFAULT_OPTIONS = {
 }
 
 const analysisCache = new Map()
+// oxlint reserves tens of GB of address space before its first `create()` call, and then Linux
+// refuses to fork the lint process (spawn ENOMEM). So start the API child while the plugin loads.
+const typescriptApi = new API()
 
 function normalizePath(filePath) {
   return path.resolve(filePath).replaceAll(path.sep, "/")
@@ -364,8 +367,7 @@ function isHandledNamespaceMemberExpression(node, parent) {
   )
 }
 
-function createModuleResolver(api, compilerOptions, internalFiles) {
-  const moduleResolver = api.createModuleResolver(compilerOptions)
+function createModuleResolver(moduleResolver, internalFiles) {
   // Each lookup is a round trip to the TypeScript server, so repeat lookups come from here.
   const resolutionCache = new Map()
 
@@ -751,16 +753,9 @@ function analyzeProject(rawOptions, currentFileName) {
     return cachedAnalysis.analysis
   }
 
-  const api = new API({ cwd: options.rootDir })
-
-  try {
-    const entry = analyzeProgram(api, options)
-    analysisCache.set(cacheKey, entry)
-    return entry.analysis
-  } finally {
-    // The API runs a child process; an open one keeps the lint run alive.
-    api.close()
-  }
+  const entry = analyzeProgram(typescriptApi, options)
+  analysisCache.set(cacheKey, entry)
+  return entry.analysis
 }
 
 function analyzeProgram(api, options) {
@@ -772,12 +767,28 @@ function analyzeProgram(api, options) {
       .filter((fileName) => fs.existsSync(fileName))
       .filter((fileName) => !shouldIgnoreFile(fileName, options)),
   )
+  const fileMtimes = new Map(
+    [...internalFiles].map((fileName) => [fileName, getFileMtime(fileName)]),
+  )
   const program = api.createProgram([...internalFiles], parsedConfig.options)
-  const resolveModule = createModuleResolver(api, parsedConfig.options, internalFiles)
-  const sourceFiles = program
-    .getSourceFileNames()
-    .filter((fileName) => internalFiles.has(normalizePath(fileName)))
-    .map((fileName) => program.getSourceFile(fileName))
+  const moduleResolver = api.createModuleResolver(parsedConfig.options)
+
+  try {
+    const sourceFiles = program
+      .getSourceFileNames()
+      .filter((fileName) => internalFiles.has(normalizePath(fileName)))
+      .map((fileName) => program.getSourceFile(fileName))
+    const resolveModule = createModuleResolver(moduleResolver, internalFiles)
+
+    return { analysis: collectAnalysis(sourceFiles, resolveModule, options), fileMtimes }
+  } finally {
+    // The API child lives for the whole lint run, so each analysis frees its own program.
+    program.dispose()
+    moduleResolver.dispose()
+  }
+}
+
+function collectAnalysis(sourceFiles, resolveModule, options) {
   const analysis = {
     edges: new Map(),
     exportsByFile: new Map(),
@@ -785,9 +796,6 @@ function analyzeProgram(api, options) {
     unusedExportsByFile: new Map(),
     usedExports: new Map(),
   }
-  const fileMtimes = new Map(
-    [...internalFiles].map((fileName) => [fileName, getFileMtime(fileName)]),
-  )
 
   for (const sourceFile of sourceFiles) {
     collectExports(sourceFile, resolveModule, analysis, options)
@@ -801,7 +809,7 @@ function analyzeProgram(api, options) {
 
   collectUnusedExports(analysis)
 
-  return { analysis, fileMtimes }
+  return analysis
 }
 
 function collectUnusedExports(analysis) {
