@@ -19,7 +19,7 @@ export function useNavigateAfterAuth(): (args?: NavigateAfterAuthArgs) => void {
   const router = useRouter();
   const activeLocale = useLocale();
 
-  return ({ redirectPath, preferredLocale } = {}) => {
+  return ({ redirectPath, preferredLocale }: NavigateAfterAuthArgs = {}) => {
     const { href, switchToLocale, cookieLocale } = resolvePostAuthTarget({
       redirectPath,
       activeLocale,

@@ -3,6 +3,7 @@
     "EditorConfig.EditorConfig",
     "bradlc.vscode-tailwindcss",
     "oxc.oxc-vscode",
+    "TypeScriptTeam.native-preview",
     "yoavbls.pretty-ts-errors",
     "vitest.explorer"
   ]

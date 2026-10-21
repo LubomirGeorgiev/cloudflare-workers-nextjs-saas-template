@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
-// TODO: Switch to `typescript` and drop `@typescript/typescript6` once TS 7.1 ships the programmatic API.
-import ts from "@typescript/typescript6"
+import * as ts from "typescript/ast"
+import { API, formatDiagnostics } from "typescript/sync"
 
 const RECORD_SEPARATOR = "\0"
 const EXPORT_KIND_TYPE = 1
@@ -140,31 +140,15 @@ function isCachedAnalysisStale(cachedAnalysis, currentFileName) {
   return cachedAnalysis.fileMtimes.get(currentFileName) !== getFileMtime(currentFileName)
 }
 
-function readTsConfig(options) {
+function readTsConfig(api, options) {
   const projectPath = normalizePath(path.resolve(options.rootDir, options.project))
-  const configFile = ts.readConfigFile(projectPath, ts.sys.readFile)
+  const parsedConfig = api.parseConfigFile(projectPath)
 
-  if (configFile.error) {
-    throw new Error(formatTypeScriptDiagnostic(configFile.error))
-  }
-
-  const parsedConfig = ts.parseJsonConfigFileContent(
-    configFile.config,
-    ts.sys,
-    path.dirname(projectPath),
-    undefined,
-    projectPath,
-  )
-
-  if (parsedConfig.errors.length > 0) {
-    throw new Error(parsedConfig.errors.map(formatTypeScriptDiagnostic).join("\n"))
+  if (parsedConfig.errors?.length > 0) {
+    throw new Error(formatDiagnostics(parsedConfig.errors, api))
   }
 
   return parsedConfig
-}
-
-function formatTypeScriptDiagnostic(diagnostic) {
-  return ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
 }
 
 function createExportRecord({ fileName, name }) {
@@ -274,15 +258,16 @@ function getDeclarationExportKind(declaration) {
 }
 
 function hasExportModifier(node) {
-  return ts
-    .getModifiers(node)
-    ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+  return node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
 }
 
 function hasDefaultModifier(node) {
-  return ts
-    .getModifiers(node)
-    ?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+  return node.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+}
+
+// `typescript/ast` has no `isStringLiteralLike`.
+function isStringLiteralLike(node) {
+  return ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
 }
 
 function getExportedName(specifier) {
@@ -313,7 +298,7 @@ function isImportLikeCall(node, name) {
   return (
     ts.isCallExpression(node) &&
     node.arguments.length === 1 &&
-    ts.isStringLiteralLike(node.arguments[0]) &&
+    isStringLiteralLike(node.arguments[0]) &&
     ((name === "import" && node.expression.kind === ts.SyntaxKind.ImportKeyword) ||
       (name === "require" &&
         ts.isIdentifier(node.expression) &&
@@ -322,7 +307,7 @@ function isImportLikeCall(node, name) {
 }
 
 function getModuleSpecifierText(node) {
-  return node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)
+  return node.moduleSpecifier && isStringLiteralLike(node.moduleSpecifier)
     ? node.moduleSpecifier.text
     : undefined
 }
@@ -379,24 +364,29 @@ function isHandledNamespaceMemberExpression(node, parent) {
   )
 }
 
-function createModuleResolver(compilerOptions, internalFiles) {
-  const moduleResolutionHost = ts.createCompilerHost(compilerOptions, true)
-  const moduleResolutionCache = ts.createModuleResolutionCache(
-    process.cwd(),
-    normalizePath,
-    compilerOptions,
-  )
+function createModuleResolver(api, compilerOptions, internalFiles) {
+  const moduleResolver = api.createModuleResolver(compilerOptions)
+  // Each lookup is a round trip to the TypeScript server, so repeat lookups come from here.
+  const resolutionCache = new Map()
+
+  function resolveModuleName(specifier, containingDirectory) {
+    const cacheKey = `${containingDirectory}${RECORD_SEPARATOR}${specifier}`
+
+    if (!resolutionCache.has(cacheKey)) {
+      resolutionCache.set(
+        cacheKey,
+        moduleResolver.resolveModuleName(specifier, containingDirectory),
+      )
+    }
+
+    return resolutionCache.get(cacheKey)
+  }
 
   return function resolveModule(specifier, containingFile) {
-    const resolution = ts.resolveModuleName(
+    const resolvedModule = resolveModuleName(
       specifier,
-      containingFile,
-      compilerOptions,
-      moduleResolutionHost,
-      moduleResolutionCache,
-    )
-
-    const resolvedModule = resolution.resolvedModule
+      path.dirname(containingFile),
+    ).resolvedModule
 
     if (!resolvedModule || resolvedModule.isExternalLibraryImport) {
       return undefined
@@ -693,7 +683,7 @@ function collectImportUsage(sourceFile, resolveModule, usage) {
 
       if (namespaceImport) {
         if (
-          ts.isStringLiteralLike(node.argumentExpression) ||
+          isStringLiteralLike(node.argumentExpression) ||
           ts.isNumericLiteral(node.argumentExpression)
         ) {
           usage.markUsed(
@@ -726,12 +716,12 @@ function collectImportUsage(sourceFile, resolveModule, usage) {
     if (
       ts.isImportTypeNode(node) &&
       ts.isLiteralTypeNode(node.argument) &&
-      ts.isStringLiteralLike(node.argument.literal)
+      isStringLiteralLike(node.argument.literal)
     ) {
       const targetFile = resolveModule(node.argument.literal.text, fileName)
 
       if (!targetFile) {
-        ts.forEachChild(node, (child) => visit(child, node))
+        node.forEachChild((child) => visit(child, node))
         return
       }
 
@@ -746,7 +736,7 @@ function collectImportUsage(sourceFile, resolveModule, usage) {
       }
     }
 
-    ts.forEachChild(node, (child) => visit(child, node))
+    node.forEachChild((child) => visit(child, node))
   }
 
   visit(sourceFile)
@@ -761,7 +751,20 @@ function analyzeProject(rawOptions, currentFileName) {
     return cachedAnalysis.analysis
   }
 
-  const parsedConfig = readTsConfig(options)
+  const api = new API({ cwd: options.rootDir })
+
+  try {
+    const entry = analyzeProgram(api, options)
+    analysisCache.set(cacheKey, entry)
+    return entry.analysis
+  } finally {
+    // The API runs a child process; an open one keeps the lint run alive.
+    api.close()
+  }
+}
+
+function analyzeProgram(api, options) {
+  const parsedConfig = readTsConfig(api, options)
   const internalFiles = new Set(
     parsedConfig.fileNames
       .map(normalizePath)
@@ -769,14 +772,12 @@ function analyzeProject(rawOptions, currentFileName) {
       .filter((fileName) => fs.existsSync(fileName))
       .filter((fileName) => !shouldIgnoreFile(fileName, options)),
   )
-  const program = ts.createProgram({
-    rootNames: [...internalFiles],
-    options: parsedConfig.options,
-  })
-  const resolveModule = createModuleResolver(parsedConfig.options, internalFiles)
+  const program = api.createProgram([...internalFiles], parsedConfig.options)
+  const resolveModule = createModuleResolver(api, parsedConfig.options, internalFiles)
   const sourceFiles = program
-    .getSourceFiles()
-    .filter((sourceFile) => internalFiles.has(normalizePath(sourceFile.fileName)))
+    .getSourceFileNames()
+    .filter((fileName) => internalFiles.has(normalizePath(fileName)))
+    .map((fileName) => program.getSourceFile(fileName))
   const analysis = {
     edges: new Map(),
     exportsByFile: new Map(),
@@ -798,23 +799,21 @@ function analyzeProject(rawOptions, currentFileName) {
     collectImportUsage(sourceFile, resolveModule, usage)
   }
 
+  collectUnusedExports(analysis)
+
+  return { analysis, fileMtimes }
+}
+
+function collectUnusedExports(analysis) {
   for (const [fileName, exportNames] of analysis.exportsByFile) {
-    for (const name of exportNames.keys()) {
-      const record = createExportRecord({ fileName, name })
+    const unusedExports = [...exportNames.keys()].filter(
+      (name) => !analysis.usedExports.has(createExportRecord({ fileName, name })),
+    )
 
-      if (analysis.usedExports.has(record)) {
-        continue
-      }
-
-      const unusedExports = analysis.unusedExportsByFile.get(fileName) ?? new Set()
-      unusedExports.add(name)
-      analysis.unusedExportsByFile.set(fileName, unusedExports)
+    if (unusedExports.length > 0) {
+      analysis.unusedExportsByFile.set(fileName, new Set(unusedExports))
     }
   }
-
-  analysisCache.set(cacheKey, { analysis, fileMtimes })
-
-  return analysis
 }
 
 function getExportedNamesFromDeclaration(declaration) {

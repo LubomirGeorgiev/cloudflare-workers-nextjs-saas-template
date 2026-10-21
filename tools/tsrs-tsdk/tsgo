@@ -1,0 +1,5 @@
+#!/bin/sh
+# The TypeScript 7 editor extension starts only an executable named `tsgo` or `tsc` from
+# `js/ts.tsdk.path`, so this one hands off to the project's tsrs.
+root=$(cd -P "$(dirname "$0")/../.." && pwd) || exit 1
+exec "$root/node_modules/.bin/tsrs" "$@"

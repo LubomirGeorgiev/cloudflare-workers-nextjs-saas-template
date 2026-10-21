@@ -2,5 +2,7 @@
   "files.associations": {
     "wrangler.json": "jsonc"
   },
-  "vitest.rootConfig": "vitest.e2e.config.ts"
+  "vitest.rootConfig": "vitest.e2e.config.ts",
+  // The TypeScript 7 extension asks once per workspace before it runs this project's tsrs.
+  "js/ts.tsdk.path": "tools/tsrs-tsdk"
 }

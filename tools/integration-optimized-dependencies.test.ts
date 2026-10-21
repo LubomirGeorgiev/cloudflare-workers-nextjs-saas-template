@@ -2,10 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import ts from "@typescript/typescript6";
 import { describe, expect, test } from "vitest";
 
 import { INTEGRATION_OPTIMIZED_DEPENDENCIES } from "./integration-optimized-dependencies";
+import { withModuleSpecifierReader } from "./module-specifiers";
 
 // An unlisted subpath of a pre-bundled package still passes every test, while the code under test
 // holds two copies of the package. So fail on the import itself, before anything depends on it.
@@ -21,18 +21,18 @@ describe("integration optimized dependencies", () => {
     const optimizedPackages = new Set(INTEGRATION_OPTIMIZED_DEPENDENCIES.map(packageName));
     const unlisted = new Set<string>();
 
-    for (const file of SCANNED_PATHS.flatMap((scanned) => sourceFiles(path.join(ROOT, scanned)))) {
-      const { importedFiles } = ts.preProcessFile(fs.readFileSync(file, "utf8"), true, true);
-
-      for (const { fileName: specifier } of importedFiles) {
-        if (
-          optimizedPackages.has(packageName(specifier))
-          && !INTEGRATION_OPTIMIZED_DEPENDENCIES.includes(specifier)
-        ) {
-          unlisted.add(`${specifier} (${path.relative(ROOT, file)})`);
+    withModuleSpecifierReader((readSpecifiers) => {
+      for (const file of SCANNED_PATHS.flatMap((scanned) => sourceFiles(path.join(ROOT, scanned)))) {
+        for (const specifier of readSpecifiers(file)) {
+          if (
+            optimizedPackages.has(packageName(specifier))
+            && !INTEGRATION_OPTIMIZED_DEPENDENCIES.includes(specifier)
+          ) {
+            unlisted.add(`${specifier} (${path.relative(ROOT, file)})`);
+          }
         }
       }
-    }
+    });
 
     expect([...unlisted]).toEqual([]);
   });

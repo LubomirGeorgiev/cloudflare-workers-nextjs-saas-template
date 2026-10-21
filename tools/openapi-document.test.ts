@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import ts from "@typescript/typescript6";
 import { describe, expect, test } from "vitest";
 
+import { withModuleSpecifierReader } from "./module-specifiers";
 import { isDocumentSource } from "./openapi-document";
 
 // A dependency the watcher misses leaves `pnpm dev` serving a stale openapi.json, docs page, and
@@ -53,19 +53,20 @@ function documentImportGraph(): string[] {
   const seen = new Set<string>();
   const queue = generatorEntryPoints();
 
-  while (queue.length > 0) {
-    const file = queue.pop();
-    if (!file || seen.has(file)) continue;
+  withModuleSpecifierReader((readSpecifiers) => {
+    while (queue.length > 0) {
+      const file = queue.pop();
+      if (!file || seen.has(file)) continue;
 
-    seen.add(file);
-    if (file.endsWith(".json")) continue;
+      seen.add(file);
+      if (file.endsWith(".json")) continue;
 
-    const { importedFiles } = ts.preProcessFile(fs.readFileSync(file, "utf8"), true, true);
-    for (const { fileName } of importedFiles) {
-      const resolved = resolveImport({ specifier: fileName, importer: file });
-      if (resolved) queue.push(resolved);
+      for (const specifier of readSpecifiers(file)) {
+        const resolved = resolveImport({ specifier, importer: file });
+        if (resolved) queue.push(resolved);
+      }
     }
-  }
+  });
 
   return [...seen].map((file) => path.relative(ROOT, file)).sort();
 }
