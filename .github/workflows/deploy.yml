@@ -73,13 +73,27 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-shell-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright system dependencies
-        run: pnpm exec playwright install-deps chromium
-
       # `chromium.launch({ headless: true })` runs the headless shell, so the full browser is not needed.
       - name: Install Playwright Chromium
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: pnpm exec playwright install --only-shell chromium
+
+      # The runner image already has every library the shell links, and a slow apt mirror once stalled
+      # this job for 12 minutes. So apt runs only when a library is missing, and with a time limit.
+      - name: Check Chromium system libraries
+        timeout-minutes: 5
+        run: |
+          shell="$(find ~/.cache/ms-playwright -type f -name chrome-headless-shell | head -n 1)"
+          if [ -z "$shell" ]; then
+            echo "::error::The Chromium headless shell is not in ~/.cache/ms-playwright."
+            exit 1
+          fi
+          if ldd "$shell" | grep -q "not found"; then
+            ldd "$shell" | grep "not found"
+            pnpm exec playwright install-deps chromium
+          else
+            echo "Every library that $shell links is present."
+          fi
 
       - name: End-to-end tests
         run: pnpm run test:e2e
