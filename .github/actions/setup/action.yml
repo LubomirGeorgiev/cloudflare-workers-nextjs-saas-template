@@ -1,16 +1,28 @@
 name: Set up pnpm and dependencies
-description: Install pnpm, Node.js, and the locked dependencies.
+description: Install Node.js, pnpm, and the locked dependencies.
 inputs:
   node-version:
     description: The Node.js major version. The node_modules cache key includes it.
     default: '24'
+  pnpm-version:
+    description: The pnpm version range for npm to install.
+    default: '10'
 runs:
   using: composite
   steps:
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v6
+    # pnpm is not on the path yet, so the version report of this step cannot stall on a pnpm call.
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
       with:
-        version: 10
+        node-version: ${{ inputs.node-version }}
+        package-manager-cache: false
+
+    # One npm download. pnpm/action-setup installed pnpm 11 first and then switched to 10.
+    - name: Install pnpm
+      shell: bash
+      env:
+        PNPM_VERSION: ${{ inputs.pnpm-version }}
+      run: npm install --global --no-audit --no-fund "pnpm@${PNPM_VERSION}"
 
     # A hit skips the store restore, the link, and the build scripts. `worker-configuration.d.ts` is
     # committed, so the skipped `cf-typegen` postinstall changes nothing.
@@ -21,12 +33,20 @@ runs:
         path: node_modules
         key: ${{ runner.os }}-${{ runner.arch }}-node${{ inputs.node-version }}-node-modules-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json') }}
 
-    # The pnpm store cache only feeds `pnpm install`, so a node_modules hit does not restore it.
-    - name: Setup Node.js
-      uses: actions/setup-node@v6
+    - name: Find the pnpm store
+      id: pnpm-store
+      if: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+    # Only `pnpm install` reads the store. The prefix restore keeps most packages after a lockfile change.
+    - name: Cache the pnpm store
+      if: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache@v4
       with:
-        node-version: ${{ inputs.node-version }}
-        cache: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' && 'pnpm' || '' }}
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
 
     - name: Install dependencies
       if: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' }}
