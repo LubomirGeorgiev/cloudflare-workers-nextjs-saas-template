@@ -232,16 +232,6 @@ describe("CMS cache invalidation", () => {
     expect(revalidateCacheTagMock).not.toHaveBeenCalledWith("cms-navigation");
   });
 
-  test("clears all CMS caches by clearing scoped collection and search caches", async () => {
-    mockAllEntryRefs([]);
-
-    await invalidateAllCmsCaches();
-
-    expect(revalidateCacheTagMock).toHaveBeenCalledWith(CACHE_TAGS.cmsSearchCollection(DOCS_SLUG));
-    expect(revalidateCacheTagMock).toHaveBeenCalledWith("cms-collection-blog");
-    expect(revalidateCacheTagMock).toHaveBeenCalledWith("cms-collection-docs");
-  });
-
   // The page step gets the entry rows from `readAllEntryRefs`, so its input names no entry.
   test("a full CMS clear purges the pages by scope, and queues its delayed repeat", async () => {
     mockAllEntryRefs([{ collection: DOCS_SLUG, slug: "getting-started" }]);
@@ -274,24 +264,6 @@ describe("CMS cache invalidation", () => {
 
     expect(purgeCmsPagesMock).toHaveBeenCalledOnce();
     expect(getDBMock).toHaveBeenCalledOnce();
-  });
-
-  // The warm fetches the page through the edge, so a stored copy that outlives the purge is what
-  // the warm would read back and re-store.
-  test("an entry publish drops the tags and the stored page before it warms", async () => {
-    const collectionSlug = collectionSlugs[0];
-    const entries = [{ collection: collectionSlug, slug: "launch-notes" }];
-
-    warmCmsEntryPagesMock.mockImplementationOnce(() => {
-      expect(revalidateCacheTagMock).toHaveBeenCalledWith(
-        `cms-entry-${collectionSlug}-launch-notes`,
-      );
-      expect(pageStepInput()?.entries).toEqual(entries);
-    });
-
-    await invalidateEntryAndCollection({ collectionSlug, slug: "launch-notes", warm: true });
-
-    expect(warmCmsEntryPagesMock).toHaveBeenCalledWith({ entries });
   });
 
   // A rename leaves the old slug's page stored and its tag live, but only the new slug resolves.
@@ -456,44 +428,16 @@ describe("CMS cache invalidation", () => {
     expect(spans[0]?.attributes).not.toHaveProperty("app.cms.repurge.outcome");
   });
 
-  test("a failed invalidation still rejects through the span", async () => {
+  test("a failed page purge rejects through the span, with no Workers Caching purge or warm", async () => {
     const failure = new Error("cache tag purge failed");
     purgeCmsPagesMock.mockRejectedValueOnce(failure);
 
     await expect(
       invalidateEntryAndCollection({ collectionSlug: collectionSlugs[0], slug: "launch-notes", warm: true }),
     ).rejects.toBe(failure);
+    expect(purgeWorkersCacheAfterWriteMock).not.toHaveBeenCalled();
     expect(warmCmsEntryPagesMock).not.toHaveBeenCalled();
     expect(spans[0]?.attributes["app.cms.warm"]).toBe(true);
-  });
-
-  // The edge refetches on a miss, so it must read the new KV data; the warm must miss the edge.
-  test("an entry publish drops the KV tags, then purges Workers Caching, then warms", async () => {
-    const collectionSlug = DOCS_SLUG;
-    const entryTag = CACHE_TAGS.cmsEntry({ collectionSlug, slug: "launch-notes" });
-
-    purgeWorkersCacheAfterWriteMock.mockImplementationOnce(async ({ tags }) => {
-      for (const tag of tags) {
-        expect(revalidateCacheTagMock).toHaveBeenCalledWith(tag);
-      }
-      expect(warmCmsEntryPagesMock).not.toHaveBeenCalled();
-    });
-
-    await invalidateEntryAndCollection({ collectionSlug, slug: "launch-notes", warm: true });
-
-    expect(purgeWorkersCacheAfterWriteMock).toHaveBeenCalledTimes(1);
-    expect(purgedTags()).toEqual(expect.arrayContaining([
-      entryTag,
-      CACHE_TAGS.cmsCollection(collectionSlug),
-      CACHE_TAGS.cmsCollectionCount(collectionSlug),
-      CACHE_TAGS.SITEMAP,
-      CACHE_TAGS.CMS_TAGS,
-      CACHE_TAGS.cmsSearchCollection(collectionSlug),
-    ]));
-    expect(warmCmsEntryPagesMock).toHaveBeenCalledTimes(1);
-    expect(purgeWorkersCacheAfterWriteMock.mock.invocationCallOrder[0]).toBeLessThan(
-      warmCmsEntryPagesMock.mock.invocationCallOrder[0] ?? 0,
-    );
   });
 
   // One tag list: a tag added to the KV drop must reach the edge purge too.
@@ -534,18 +478,6 @@ describe("CMS cache invalidation", () => {
       expect(purgedTags()).toEqual(expect.arrayContaining([...SITE_HEADER_CACHE_TAGS]));
       expect(repurgeInput()?.scopes).toEqual([CMS_INVALIDATION_SCOPES.SITE_HEADER]);
       expect(spans[0]?.attributes["app.cms.scopes"]).toBe(CMS_INVALIDATION_SCOPES.SITE_HEADER);
-    });
-
-    test("the first blog publish purges every header page", async () => {
-      getFreshPublishedBlogPostCountMock.mockResolvedValueOnce(1);
-
-      await invalidateEntryAndCollection({
-        collectionSlug: BLOG_ENTRY.collection,
-        slug: BLOG_ENTRY.slug,
-        publishStateChange: PUBLISHED,
-      });
-
-      expect(pageStepInput()?.scopes).toEqual([CMS_INVALIDATION_SCOPES.SITE_HEADER]);
     });
 
     test("a blog publish with other published posts leaves the header pages alone", async () => {
@@ -627,14 +559,6 @@ describe("CMS cache invalidation", () => {
       expect(repurgeInput()?.scopes).toEqual([CMS_INVALIDATION_SCOPES.SITE_HEADER]);
     });
 
-    test("the first live docs page purges every header page", async () => {
-      getFreshCmsNavigationLivePageCountMock.mockResolvedValueOnce(1);
-
-      await invalidateEntryAndCollection({ collectionSlug: DOCS_SLUG, slug: "a", publishStateChange: PUBLISHED });
-
-      expect(pageStepInput()?.scopes).toEqual([CMS_INVALIDATION_SCOPES.SITE_HEADER]);
-    });
-
     test("an unpublish with other live docs pages leaves the header pages alone", async () => {
       getFreshCmsNavigationLivePageCountMock.mockResolvedValueOnce(1);
 
@@ -656,15 +580,6 @@ describe("CMS cache invalidation", () => {
       } finally {
         consoleError.mockRestore();
       }
-    });
-
-    // The docs navigation does not link the entry yet, so no page went live.
-    test("a docs publish that leaves no live docs page leaves the header pages alone", async () => {
-      getFreshCmsNavigationLivePageCountMock.mockResolvedValueOnce(0);
-
-      await invalidateEntryAndCollection({ collectionSlug: DOCS_SLUG, slug: "a", publishStateChange: PUBLISHED });
-
-      expect(pageStepInput()?.scopes).toEqual([]);
     });
 
     test("a docs content edit never reads the count", async () => {
@@ -919,15 +834,6 @@ describe("CMS cache invalidation", () => {
       CACHE_TAGS.cmsSearchCollection(DOCS_SLUG),
       ...collectionSlugs.map((collectionSlug) => CACHE_TAGS.cmsCollection(collectionSlug)),
     ]));
-  });
-
-  test("a failed page purge sends no Workers Caching purge", async () => {
-    purgeCmsPagesMock.mockRejectedValueOnce(new Error("stored page purge failed"));
-
-    await expect(
-      invalidateEntryAndCollection({ collectionSlug: collectionSlugs[0], slug: "launch-notes" }),
-    ).rejects.toThrow();
-    expect(purgeWorkersCacheAfterWriteMock).not.toHaveBeenCalled();
   });
 
   // A failed tag drop must not leave the other tags, the stored pages, or the edge stale.

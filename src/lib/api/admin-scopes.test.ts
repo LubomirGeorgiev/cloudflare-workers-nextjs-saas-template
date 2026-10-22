@@ -11,7 +11,9 @@ import {
   isAdminScope,
   isGrantedScope,
   toGrantedScopes,
+  type GrantedScope,
 } from "@/lib/api/admin-scopes";
+import { isPublicApiKey, type ApiKeySummary } from "@/lib/api-keys/api-keys";
 import {
   API_SCOPES,
   API_SCOPE_NAMES,
@@ -156,21 +158,29 @@ describe("no team credential can hold an internal scope", () => {
 // from. The exclusion is expressed in the type as well: `listUserApiKeys` returns
 // `PublicApiKeySummary[]`, whose `scopes` is `ApiScope[]`.
 describe("owner-facing key listings exclude internal keys", () => {
-  // Mirrors `isPublicApiKey` in `src/lib/api-keys/api-keys.ts`, which is the filter both owner
-  // listings apply. Asserting the rule here keeps it pinned without a database.
-  function isPublicApiKey(scopes: string[]): boolean {
-    return scopes.every(isApiScope);
-  }
-
   test("a key holding any internal scope is not public", () => {
     for (const scope of ADMIN_SCOPE_NAMES) {
-      expect(isPublicApiKey([scope])).toBe(false);
-      expect(isPublicApiKey(["teams:read", scope])).toBe(false);
+      expect(isPublicApiKey(keySummary([scope]))).toBe(false);
+      expect(isPublicApiKey(keySummary([API_SCOPE_NAMES[0], scope]))).toBe(false);
     }
   });
 
   test("a key holding only public scopes is public", () => {
-    expect(isPublicApiKey(API_SCOPE_NAMES)).toBe(true);
-    expect(isPublicApiKey([])).toBe(true);
+    expect(isPublicApiKey(keySummary(API_SCOPE_NAMES))).toBe(true);
+    expect(isPublicApiKey(keySummary([]))).toBe(true);
   });
 });
+
+function keySummary(scopes: readonly GrantedScope[]): ApiKeySummary {
+  return {
+    id: "key_1",
+    name: "Key",
+    keyPrefix: "prefix",
+    last4: "abcd",
+    scopes: [...scopes],
+    teamId: null,
+    createdAt: new Date(0),
+    lastUsedAt: null,
+    expiresAt: null,
+  };
+}

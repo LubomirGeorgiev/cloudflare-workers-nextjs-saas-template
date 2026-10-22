@@ -328,7 +328,7 @@ export interface PublicApiKeySummary extends Omit<ApiKeySummary, "scopes"> {
 // The one classification the listings and the re-scope guard share, so no key is offered an edit
 // control the guard then refuses. It reads a summary, whose scopes `toGrantedScopes` has already
 // narrowed; a key mixing the two catalogs belongs with the internal ones.
-function isPublicApiKey(key: ApiKeySummary): key is PublicApiKeySummary {
+export function isPublicApiKey(key: ApiKeySummary): key is PublicApiKeySummary {
   return key.scopes.every(isApiScope);
 }
 

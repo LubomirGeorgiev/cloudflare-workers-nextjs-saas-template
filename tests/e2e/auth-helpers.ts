@@ -6,12 +6,26 @@ import {
   loadAppFrame,
 } from "./app-frame";
 import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
+import { NAME_MIN_LENGTH } from "../../src/constants";
+import { DEFAULT_LOCALE, ENABLED_LOCALES } from "../../src/i18n/config";
+import { loadCatalog } from "../../src/i18n/message-catalogs";
+import { getTranslator } from "../../src/i18n/translator";
 
 export const SEEDED_ADMIN_EMAIL = "test@test.com";
 export const SEEDED_MEMBER_EMAIL = "sarah.chen@example.com";
 // Every seeded account shares this password (see `src/db/seed.sql`); one home so a reseed
 // with different credentials is a single edit.
 export const SEEDED_USER_PASSWORD = "password";
+// A page with no locale prefix renders in the default locale, so its copy comes from that catalog.
+export const DEFAULT_MESSAGES = await loadCatalog(DEFAULT_LOCALE);
+export const AUTH_COPY = DEFAULT_MESSAGES.Client.Auth;
+const formatValidationMessage = await getTranslator({
+  locale: DEFAULT_LOCALE,
+  namespace: "Client.Validation",
+});
+export const NAME_MIN_LENGTH_MESSAGE = formatValidationMessage("minLength", { min: NAME_MIN_LENGTH });
+// Derived from the served set, so a fork with other locales, or with i18n off, still passes.
+export const NON_DEFAULT_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
 interface CreateVerifiedUserInLocalD1Params {
   email: string;
@@ -96,11 +110,11 @@ export async function signInWithPassword({
     waitForHydration: true,
   });
 
-  await fillAppPlaceholder("Email address", email);
-  await fillAppPlaceholder("Password", password);
-  await clickAppRole("button", "Sign In with Password");
+  await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, email);
+  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, password);
+  await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);
   await expectAppPathname(expectedPathname);
-  await expectNoAppToast("Signing you in...");
+  await expectNoAppToast(AUTH_COPY.SignIn.toastSigningIn);
 }
 
 export function signInSeededMember(
@@ -113,4 +127,14 @@ export function signInSeededMember(
     redirectPath,
     expectedPathname,
   });
+}
+
+export function passwordMinLengthMessage(min: number) {
+  return formatValidationMessage("passwordMinLength", { min });
+}
+
+// Validation limits are template-configurable, so drive the "too short" inputs off the
+// constant instead of literals that silently stop being too short.
+export function tooShort(min: number) {
+  return "a".repeat(min - 1);
 }

@@ -86,7 +86,7 @@ export function deriveYearlyAmount(monthlyAmount: number): number {
   return Math.round((monthlyAmount * 12 * (100 - (YEARLY_DISCOUNT_PERCENT ?? 0))) / 100);
 }
 
-export function getYearlyAmount(plan: TeamPlan): number {
+function getYearlyAmount(plan: TeamPlan): number {
   if (plan.interval === "year") {
     return plan.amount;
   }

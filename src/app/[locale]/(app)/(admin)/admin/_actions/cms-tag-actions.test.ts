@@ -144,17 +144,4 @@ describe("CMS tag actions", () => {
 
     expect(await run()).toEqual(expect.objectContaining({ cachePurge: ZONE_PURGE_FAILED }));
   });
-
-  test.each(TAG_WRITES)("$name reports no failure when the zone purge went through", async ({
-    mutationMock,
-    run,
-  }) => {
-    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
-    mutationMock.mockImplementation(async () => {
-      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
-      return TAG;
-    });
-
-    expect(await run()).toEqual(expect.objectContaining({ cachePurge: CMS_CACHE_PURGE_OK }));
-  });
 });

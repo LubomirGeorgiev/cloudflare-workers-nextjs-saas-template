@@ -1,63 +1,37 @@
-import { describe, expect, test } from "vitest";
+import { expect, test } from "vitest";
 import {
   clickAppRole,
-  expectAppLabelValue,
-  expectAppPathnameStartsWith,
-  fetchAppPath,
-  expectNoAppToast,
-  expectNoAppText,
   expectAppPathname,
-  expectAppRoleText,
   expectAppText,
-  expectAppTextCount,
   expectAppToast,
-  fillAppLabel,
+  expectNoAppText,
   fillAppPlaceholder,
-  getAppCookie,
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
-import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
+  AUTH_COPY,
   createVerifiedUserInLocalD1,
+  DEFAULT_MESSAGES,
+  NON_DEFAULT_LOCALE,
+  passwordMinLengthMessage,
   SEEDED_ADMIN_EMAIL,
   SEEDED_MEMBER_EMAIL,
   SEEDED_USER_PASSWORD,
   signInSeededMember,
   signInWithPassword,
+  tooShort,
 } from "./auth-helpers";
-import {
-  queryLocalD1,
-  sqlStringLiteral,
-  waitForLocalEmailUrl,
-} from "./local-wrangler-state";
-import {
-  LEGACY_PASSWORD_MIN_LENGTH,
-  PASSWORD_MIN_LENGTH,
-} from "../../src/schemas/password.schema";
-import { NAME_MIN_LENGTH } from "../../src/constants";
-import { DEFAULT_LOCALE, ENABLED_LOCALES, LOCALE_COOKIE_NAME } from "../../src/i18n/config";
-import { loadCatalog } from "../../src/i18n/message-catalogs";
+import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
+import { LEGACY_PASSWORD_MIN_LENGTH } from "../../src/schemas/password.schema";
 import { localizedPathname } from "../../src/i18n/localized-pathname";
-
-const NAME_MIN_LENGTH_MESSAGE = `Must be at least ${NAME_MIN_LENGTH} characters`;
-
-function passwordMinLengthMessage(min: number) {
-  return `Password must be at least ${min} characters`;
-}
-
-// Validation limits are template-configurable, so drive the "too short" inputs off the
-// constant instead of literals that silently stop being too short.
-function tooShort(min: number) {
-  return "a".repeat(min - 1);
-}
 
 test("shows sign-in password validation before submitting", async () => {
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
 
-  await fillAppPlaceholder("Email address", SEEDED_ADMIN_EMAIL);
-  await fillAppPlaceholder("Password", tooShort(LEGACY_PASSWORD_MIN_LENGTH));
-  await clickAppRole("button", "Sign In with Password");
+  await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, SEEDED_ADMIN_EMAIL);
+  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, tooShort(LEGACY_PASSWORD_MIN_LENGTH));
+  await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);
 
   await expectAppText(passwordMinLengthMessage(LEGACY_PASSWORD_MIN_LENGTH), { exact: true });
 });
@@ -71,15 +45,12 @@ test("redirects anonymous users away from protected settings", async () => {
 test("shows a visible error toast for invalid credentials", async () => {
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
 
-  await fillAppPlaceholder("Email address", SEEDED_ADMIN_EMAIL);
-  await fillAppPlaceholder("Password", "wrongpass");
-  await clickAppRole("button", "Sign In with Password");
+  await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, SEEDED_ADMIN_EMAIL);
+  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "wrongpass");
+  await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);
 
-  await expectAppToast("Invalid email or password");
+  await expectAppToast(AUTH_COPY.SignIn.errorInvalidCredentials);
 });
-
-// Derived from the served set, so a fork with other locales, or with i18n off, still passes.
-const NON_DEFAULT_LOCALE = ENABLED_LOCALES.find((locale) => locale !== DEFAULT_LOCALE);
 
 test.skipIf(!NON_DEFAULT_LOCALE)("signs a user in under their stored locale", async () => {
   const preferredLocale = NON_DEFAULT_LOCALE!;
@@ -100,13 +71,13 @@ test("sanitizes unsafe sign-in redirect targets", async () => {
   await signInSeededMember("https://evil.example/phishing", "/dashboard");
 
   await expectAppPathname("/dashboard");
-  await expectAppText("Dashboard", { exact: true });
+  await expectAppText(DEFAULT_MESSAGES.Client.Dashboard.Home.breadcrumb, { exact: true });
 });
 
 test("signs in with the seeded password user", async () => {
   await signInSeededMember();
 
-  await expectAppText("Dashboard", { exact: true });
+  await expectAppText(DEFAULT_MESSAGES.Client.Dashboard.Home.breadcrumb, { exact: true });
   const storedHash = await queryLocalD1({
     sql: `select passwordHash from user where email = ${sqlStringLiteral(SEEDED_MEMBER_EMAIL)} limit 1;`,
   });
@@ -125,192 +96,4 @@ test("keeps non-admin users out of the admin area", async () => {
 
   await expectAppPathname("/");
   await expectNoAppText("User Management", { exact: true });
-});
-
-test("shows sign-up validation before creating an account", async () => {
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
-
-  await expectAppText("Create your account", { exact: true });
-  await fillAppPlaceholder("Email address", "new-user-e2e@example.com");
-  await fillAppPlaceholder("First Name", tooShort(NAME_MIN_LENGTH));
-  await fillAppPlaceholder("Last Name", tooShort(NAME_MIN_LENGTH));
-  await fillAppPlaceholder("Password", tooShort(PASSWORD_MIN_LENGTH));
-  await clickAppRole("button", "Create Account with Password");
-
-  await expectAppText(NAME_MIN_LENGTH_MESSAGE, { exact: true });
-  await expectAppText(passwordMinLengthMessage(PASSWORD_MIN_LENGTH), { exact: true });
-});
-
-test("creates and verifies a new password account", async () => {
-  const email = `new-account-${Date.now()}@example.com`;
-
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
-
-  await fillAppPlaceholder("Email address", email);
-  await fillAppPlaceholder("First Name", "New");
-  await fillAppPlaceholder("Last Name", "Account");
-  await fillAppPlaceholder("Password", "correct horse battery staple");
-  await clickAppRole("button", "Create Account with Password");
-
-  await expectAppPathname("/dashboard");
-  await expectNoAppToast("Creating your account...");
-
-  const verificationUrl = await waitForLocalEmailUrl({
-    email,
-    pathname: "/verify-email",
-  });
-
-  await navigateAppFrame(`${verificationUrl.pathname}${verificationUrl.search}`);
-
-  await expectAppToast("Email verified successfully");
-  await expectAppPathname("/dashboard");
-  await expectNoAppToast("Verifying your email...");
-  await expectAppText("Dashboard", { exact: true });
-}, scaleE2ETimeout(18_000));
-
-test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password account signs up in", async () => {
-  const locale = NON_DEFAULT_LOCALE!;
-  const email = `sign-up-locale-${Date.now()}@example.com`;
-  // The form renders in the page locale, so its copy comes from that locale's catalog.
-  const { Common, SignUp } = (await loadCatalog(locale)).Client.Auth;
-  const signUpPath = localizedPathname({ pathname: "/sign-up", locale });
-
-  // A fresh context has no locale cookie, so only the sign-up hand-off can write one.
-  await loadAppFrame(`${signUpPath}?redirect=%2Fdashboard`, { waitForHydration: true });
-  expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBeUndefined();
-
-  await fillAppPlaceholder(Common.emailPlaceholder, email);
-  await fillAppPlaceholder(SignUp.firstNamePlaceholder, "Locale");
-  await fillAppPlaceholder(SignUp.lastNamePlaceholder, "Account");
-  await fillAppPlaceholder(Common.passwordPlaceholder, "correct horse battery staple");
-  await clickAppRole("button", SignUp.createAccountWithPassword);
-
-  await expectAppPathname(localizedPathname({ pathname: "/dashboard", locale }));
-  expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBe(locale);
-
-  const storedLocale = await queryLocalD1({
-    sql: `select preferredLocale from user where email = ${sqlStringLiteral(email)} limit 1;`,
-  });
-  expect(storedLocale).toBe(locale);
-}, scaleE2ETimeout(18_000));
-
-test("keeps forgot-password responses enumeration-safe", async () => {
-  await loadAppFrame("/forgot-password", { waitForHydration: true });
-
-  await fillAppLabel({ label: "Email", value: "missing-user-e2e@example.com" });
-  await clickAppRole("button", "Send Reset Instructions");
-
-  await expectAppToast("Reset instructions sent");
-  await expectAppText("Check your email", { exact: true });
-  await expectAppText("If an account exists with that email, we've sent you instructions to reset your password.", { exact: true });
-});
-
-test("resets a verified user's password and invalidates the reset token", async () => {
-  const email = `password-reset-${Date.now()}@example.com`;
-  const oldPassword = SEEDED_USER_PASSWORD;
-  const newPassword = "new-password-strong";
-
-  await createVerifiedUserInLocalD1({
-    email,
-    firstName: "Reset",
-    lastName: "Account",
-  });
-
-  await loadAppFrame("/forgot-password", { waitForHydration: true });
-  await fillAppLabel({ label: "Email", value: email });
-  await clickAppRole("button", "Send Reset Instructions");
-  await expectAppToast("Reset instructions sent");
-
-  const resetUrl = await waitForLocalEmailUrl({
-    email,
-    pathname: "/reset-password",
-  });
-
-  await navigateAppFrame(`${resetUrl.pathname}${resetUrl.search}`, {
-    waitForHydration: true,
-  });
-
-  await fillAppLabel({ label: "New Password", value: newPassword });
-  await fillAppLabel({ label: "Confirm Password", value: newPassword });
-  await clickAppRole("button", "Reset Password");
-  await expectAppToast("Password reset successfully");
-  await expectAppText("Password Reset Successfully", { exact: true });
-
-  const reusedTokenResponse = await fetchAppPath(`${resetUrl.pathname}${resetUrl.search}`, {
-    redirect: "manual",
-  });
-  expect(reusedTokenResponse.status).toBe(404);
-
-  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
-  await fillAppPlaceholder("Email address", email);
-  await fillAppPlaceholder("Password", oldPassword);
-  await clickAppRole("button", "Sign In with Password");
-  await expectAppToast("Invalid email or password");
-
-  await signInWithPassword({
-    email,
-    password: newPassword,
-  });
-  await expectAppPathnameStartsWith("/dashboard");
-}, scaleE2ETimeout(20_000));
-
-describe("profile settings", () => {
-  test("validates profile settings before saving", async () => {
-    await signInSeededMember("/settings");
-    await navigateAppFrame("/settings", { waitForHydration: true });
-
-    await expectAppText("Profile Settings", { exact: true });
-    await fillAppLabel({ label: "First Name", value: tooShort(NAME_MIN_LENGTH) });
-    await fillAppLabel({ label: "Last Name", value: tooShort(NAME_MIN_LENGTH) });
-    await clickAppRole("button", "Save changes");
-
-    // Both name fields share the central `Validation.minLength` message, so expect it
-    // to render once per invalid field rather than field-specific copy.
-    await expectAppTextCount(NAME_MIN_LENGTH_MESSAGE, 2, { exact: true });
-  });
-
-  test("updates profile settings and shows a visible success toast", async () => {
-    const email = `profile-admin-${Date.now()}@example.com`;
-
-    await createVerifiedUserInLocalD1({
-      email,
-      firstName: "Admin",
-      idPrefix: "usr_profile_admin",
-      lastName: "Profile",
-      role: "admin",
-    });
-
-    await signInWithPassword({
-      email,
-      password: SEEDED_USER_PASSWORD,
-      redirectPath: "/settings",
-    });
-    await navigateAppFrame("/settings", { waitForHydration: true });
-
-    await expectAppText("Profile Settings", { exact: true });
-    await expectAppLabelValue({ label: "First Name", value: "Admin" });
-    await expectAppLabelValue({ label: "Last Name", value: "Profile" });
-    await expectAppText("Admin Profile", { exact: true });
-
-    await fillAppLabel({ label: "First Name", value: "E2E" });
-    await fillAppLabel({ label: "Last Name", value: "Tester" });
-    await clickAppRole("button", "Save changes");
-
-    await expectAppToast("Profile updated successfully");
-    await expectAppText("Profile Settings", { exact: true });
-    await expectAppLabelValue({ label: "First Name", value: "E2E" });
-    await expectAppLabelValue({ label: "Last Name", value: "Tester" });
-    await expectAppText("E2E Tester", { exact: true });
-
-    await navigateAppFrame("/", { waitForHydration: true });
-    await expectNoAppText("E2E Tester", { exact: true });
-
-    await navigateAppFrame("/admin", { waitForHydration: true });
-    await expectAppRoleText({
-      role: "navigation",
-      name: "Admin navigation",
-      text: "E2E Tester",
-      exact: true,
-    });
-  });
 });

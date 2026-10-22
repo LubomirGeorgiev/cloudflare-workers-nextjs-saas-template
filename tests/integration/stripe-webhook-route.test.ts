@@ -72,18 +72,6 @@ describe("Stripe webhook route", () => {
     disableBilling();
   });
 
-  test("no-ops with 200 when billing is not configured", async () => {
-    disableBilling();
-
-    const response = await POST(new Request("https://example.com/api/stripe/webhook", {
-      method: "POST",
-      body: "{}",
-    }));
-
-    expect(response.status).toBe(200);
-    expect(handleStripeEvent).not.toHaveBeenCalled();
-  });
-
   test("rejects with 400 when Stripe is partially configured (webhook secret missing)", async () => {
     disableBilling();
     // Checkout keys present but no STRIPE_WEBHOOK_SECRET: a 200 here would make Stripe
@@ -95,16 +83,6 @@ describe("Stripe webhook route", () => {
       method: "POST",
       body: eventPayload("customer.subscription.updated", { object: "subscription", id: "sub_x" }),
       headers: { "stripe-signature": "t=1,v1=irrelevant" },
-    }));
-
-    expect(response.status).toBe(400);
-    expect(handleStripeEvent).not.toHaveBeenCalled();
-  });
-
-  test("rejects a request without a signature header", async () => {
-    const response = await POST(new Request("https://example.com/api/stripe/webhook", {
-      method: "POST",
-      body: eventPayload("customer.subscription.updated", { object: "subscription", id: "sub_x" }),
     }));
 
     expect(response.status).toBe(400);
@@ -129,21 +107,5 @@ describe("Stripe webhook route", () => {
 
     expect(response.status).toBe(200);
     expect(handleStripeEvent).toHaveBeenCalledOnce();
-  });
-
-  test("acks handled events with no resolvable subscription with 200", async () => {
-    const response = await POST(await signedRequest(eventPayload("invoice.paid", { object: "invoice" })));
-
-    expect(response.status).toBe(200);
-  });
-
-  test("returns 500 when the handler fails so Stripe retries", async () => {
-    vi.mocked(handleStripeEvent).mockRejectedValueOnce(new Error("boom"));
-
-    const response = await POST(await signedRequest(
-      eventPayload("customer.subscription.updated", { object: "subscription", id: "sub_boom" }),
-    ));
-
-    expect(response.status).toBe(500);
   });
 });

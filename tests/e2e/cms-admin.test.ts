@@ -1,4 +1,5 @@
 import { beforeAll, test } from "vitest";
+import { cmsConfig } from "@/../cms.config";
 import { BLOG_COLLECTION_SLUG } from "@/lib/blog-routing";
 import {
   clickAppRole,
@@ -16,9 +17,18 @@ import {
   signInWithPassword,
 } from "./auth-helpers";
 import { queryLocalD1, sqlStringLiteral } from "./local-wrangler-state";
-import { SEEDED_BLOG_ENTRY, SEEDED_DOCS_ENTRY } from "./seed-fixtures";
+import {
+  SEEDED_AUTH_DOCS_ENTRY,
+  SEEDED_BLOG_ENTRY,
+  SEEDED_BLOG_TAG,
+  SEEDED_DOCS_ENTRY,
+} from "./seed-fixtures";
 
 const password = SEEDED_USER_PASSWORD;
+// Collection and navigation names come from the CMS config, which a fork renames.
+const blogLabels = cmsConfig.collections.blog.labels;
+const docsLabels = cmsConfig.collections.docs.labels;
+const docsNavigationLabel = cmsConfig.navigations.docs.label;
 
 let adminEmail: string;
 
@@ -48,17 +58,17 @@ test("lets admins browse the CMS dashboard and seeded collection lists", async (
 
   await expectAppPathname("/admin/cms");
   await expectAppText("Content Management", { exact: true });
-  await expectAppText("Blogs", { exact: true });
-  await expectAppText("Docs", { exact: true });
-  await expectAppText("Docs Navigation", { exact: true });
+  await expectAppText(blogLabels.plural, { exact: true });
+  await expectAppText(docsLabels.plural, { exact: true });
+  await expectAppText(docsNavigationLabel, { exact: true });
   await expectAppText("Media Library", { exact: true });
   await expectAppText("Tags", { exact: true });
 
   await navigateAppFrame("/admin/cms/blog");
 
   await expectAppPathname("/admin/cms/blog");
-  await expectAppText("Blogs", { exact: true });
-  await expectAppText("Create Blog", { exact: true });
+  await expectAppText(blogLabels.plural, { exact: true });
+  await expectAppText(`Create ${blogLabels.singular}`, { exact: true });
   await expectAppText("Filter by status:", { exact: true });
   await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
   await expectAppText(SEEDED_BLOG_ENTRY.slug, { exact: true });
@@ -67,11 +77,11 @@ test("lets admins browse the CMS dashboard and seeded collection lists", async (
   await navigateAppFrame("/admin/cms/docs");
 
   await expectAppPathname("/admin/cms/docs");
-  await expectAppText("Docs", { exact: true });
-  await expectAppText("Create Doc", { exact: true });
+  await expectAppText(docsLabels.plural, { exact: true });
+  await expectAppText(`Create ${docsLabels.singular}`, { exact: true });
   await expectAppText("Navigation", { exact: true });
-  await expectAppText("Introduction", { exact: true });
-  await expectAppText("Authentication Setup", { exact: true });
+  await expectAppText(SEEDED_DOCS_ENTRY.title, { exact: true });
+  await expectAppText(SEEDED_AUTH_DOCS_ENTRY.title, { exact: true });
 });
 
 test("loads seeded CMS edit forms with existing entry metadata", async () => {
@@ -82,7 +92,7 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   });
 
   await expectAppPathname(`/admin/cms/blog/${SEEDED_BLOG_ENTRY.id}`);
-  await expectAppText("Edit Blog", { exact: true });
+  await expectAppText(`Edit ${blogLabels.singular}`, { exact: true });
   await expectAppText(SEEDED_BLOG_ENTRY.title, { exact: true });
   await expectAppText("Basic Information", { exact: true });
   await expectAppText("Custom Fields", { exact: true });
@@ -108,7 +118,7 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   await navigateAppFrame(`/admin/cms/docs/${SEEDED_DOCS_ENTRY.id}`);
 
   await expectAppPathname(`/admin/cms/docs/${SEEDED_DOCS_ENTRY.id}`);
-  await expectAppText("Edit Doc", { exact: true });
+  await expectAppText(`Edit ${docsLabels.singular}`, { exact: true });
   await expectAppRoleText({
     role: "combobox",
     name: "Status",
@@ -118,11 +128,11 @@ test("loads seeded CMS edit forms with existing entry metadata", async () => {
   await expectAppText("Entry Information", { exact: true });
   await expectAppLabelValue({
     label: "Title *",
-    value: "Introduction",
+    value: SEEDED_DOCS_ENTRY.title,
   });
   await expectAppLabelValue({
     label: "Entry Slug *",
-    value: "introduction",
+    value: SEEDED_DOCS_ENTRY.slug,
   });
 });
 
@@ -183,8 +193,8 @@ test("loads CMS tags, media, and docs navigation admin screens", async () => {
   await expectAppPathname("/admin/cms/tags");
   await expectAppText("Tags", { exact: true });
   await expectAppText("Create Tag", { exact: true });
-  await expectAppText("Next.js", { exact: true });
-  await expectAppText("Cloudflare", { exact: true });
+  await expectAppText(SEEDED_BLOG_ENTRY.tagNames[0], { exact: true });
+  await expectAppText(SEEDED_BLOG_TAG.name, { exact: true });
 
   await navigateAppFrame("/admin/cms/media");
 
@@ -196,12 +206,12 @@ test("loads CMS tags, media, and docs navigation admin screens", async () => {
   await navigateAppFrame("/admin/cms/navigation/docs");
 
   await expectAppPathname("/admin/cms/navigation/docs");
-  await expectAppText("Docs Navigation", { exact: true });
-  await expectAppText("Docs Navigation Tree", { exact: true });
+  await expectAppText(docsNavigationLabel, { exact: true });
+  await expectAppText(`${docsNavigationLabel} Tree`, { exact: true });
   await expectAppText("Add Group", { exact: true });
   await expectAppText("Add Page", { exact: true });
   await expectAppText("Save", { exact: true });
-  await expectAppText("Getting Started", { exact: true });
+  await expectAppText(SEEDED_DOCS_ENTRY.categoryTitle, { exact: true });
   // The editor selects the first node on load, so the detail panel renders its tabs.
   await expectAppText("Style", { exact: true });
 });

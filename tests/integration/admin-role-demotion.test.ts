@@ -41,6 +41,8 @@ vi.mock("@/utils/kv-session", async (importOriginal) => ({
   updateAllSessionsOfUser: async () => undefined,
 }));
 
+import { eq } from "drizzle-orm";
+
 import { ROLES_ENUM } from "@/app/enums";
 import { getDB } from "@/db";
 import { apiKeyTable, userTable } from "@/db/schema";
@@ -199,7 +201,7 @@ test("re-setting a non-admin role cleans up a key that survived a direct databas
   authState.current = sessionFor(userId);
 
   await createAdminApiKey({ name: "Ops agent", scopes: [INTERNAL_SCOPE] });
-  await db.update(userTable).set({ role: ROLES_ENUM.USER });
+  await db.update(userTable).set({ role: ROLES_ENUM.USER }).where(eq(userTable.id, userId));
 
   await setUserRole({ userId, role: ROLES_ENUM.USER });
 

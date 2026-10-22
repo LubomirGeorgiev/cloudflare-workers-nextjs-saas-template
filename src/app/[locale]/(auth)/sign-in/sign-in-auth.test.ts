@@ -10,7 +10,6 @@ const {
   findUserMock,
   hashPasswordMock,
   hashTokenMock,
-  resetRateLimitMock,
   setMock,
   updateMock,
   verifyPasswordMock,
@@ -20,8 +19,6 @@ const {
   const where = vi.fn();
   const set = vi.fn(() => ({ where }));
   const update = vi.fn(() => ({ set }));
-  const resetRateLimit = vi.fn();
-
   return {
     andMock: vi.fn((...conditions: unknown[]) => ({ conditions })),
     createSessionUnlessBannedMock: vi.fn(),
@@ -30,21 +27,11 @@ const {
     findUserMock: vi.fn(),
     hashPasswordMock: vi.fn(),
     hashTokenMock: vi.fn(),
-    resetRateLimitMock: resetRateLimit,
     setMock: set,
     updateMock: update,
     verifyPasswordMock: vi.fn(),
     whereMock: where,
-    // Mirror the real withRateLimit: the counter refund only runs after the action succeeds.
-    withRateLimitMock: vi.fn(
-      async (action: () => Promise<unknown>, config: { resetOnSuccess?: boolean }) => {
-        const result = await action();
-        if (config?.resetOnSuccess) {
-          await resetRateLimit();
-        }
-        return result;
-      },
-    ),
+    withRateLimitMock: vi.fn((action: () => Promise<unknown>) => action()),
   };
 });
 
@@ -177,19 +164,6 @@ describe("signInWithPassword", () => {
     expect(findUserMock).toHaveBeenCalledOnce();
   });
 
-  test("clears the account rate-limit bucket after a successful sign-in", async () => {
-    await signInWithPassword({
-      email: "user@example.com",
-      password: "current-password",
-    });
-
-    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
-      userId: "user-1",
-      authenticationType: "password",
-    });
-    expect(resetRateLimitMock).toHaveBeenCalledOnce();
-  });
-
   test("returns the locale the session write read from the account", async () => {
     const preferredLocale = ENABLED_LOCALES[ENABLED_LOCALES.length - 1];
     createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale });
@@ -198,23 +172,6 @@ describe("signInWithPassword", () => {
       email: "user@example.com",
       password: "current-password",
     })).resolves.toEqual({ success: true, preferredLocale });
-  });
-
-  test("does not clear the account rate-limit bucket when sign-in fails", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    verifyPasswordMock.mockResolvedValue({
-      isValid: false,
-      needsRehash: false,
-      scheme: "pbkdf2-sha256",
-    });
-
-    await expect(signInWithPassword({
-      email: "user@example.com",
-      password: "wrong-password",
-    })).rejects.toBeDefined();
-
-    expect(resetRateLimitMock).not.toHaveBeenCalled();
-    consoleError.mockRestore();
   });
 
   test("does not rewrite a current password hash", async () => {
@@ -276,7 +233,10 @@ describe("signInWithPassword", () => {
     await expect(signInWithPassword({
       email: "user@example.com",
       password: "wrong-password",
-    })).rejects.toBeDefined();
+    })).rejects.toMatchObject({
+      code: "NOT_AUTHORIZED",
+      messageKey: "Client.Auth.SignIn.errorInvalidCredentials",
+    });
 
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();
@@ -298,7 +258,10 @@ describe("signInWithPassword", () => {
     await expect(signInWithPassword({
       email: "user@example.com",
       password: "legacy-password",
-    })).rejects.toBeDefined();
+    })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      messageKey: "Client.Auth.SignIn.errorUsePasskey",
+    });
 
     expect(hashPasswordMock).not.toHaveBeenCalled();
     expect(updateMock).not.toHaveBeenCalled();

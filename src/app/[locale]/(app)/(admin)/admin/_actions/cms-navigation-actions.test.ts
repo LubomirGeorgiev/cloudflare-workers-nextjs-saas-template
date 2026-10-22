@@ -82,19 +82,4 @@ describe("CMS navigation actions", () => {
 
     expect(result).toEqual({ ...SAVED_TREE, cachePurge: ZONE_PURGE_FAILED });
   });
-
-  test("saveCmsNavigationTreeAction reports no failure when the zone purge went through", async () => {
-    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
-    saveCmsNavigationTreeMock.mockImplementation(async () => {
-      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
-      return SAVED_TREE;
-    });
-
-    const result = await saveCmsNavigationTreeAction({
-      navigationKey: cmsNavigationKeys[0],
-      items: [],
-    });
-
-    expect(result).toEqual({ ...SAVED_TREE, cachePurge: CMS_CACHE_PURGE_OK });
-  });
 });

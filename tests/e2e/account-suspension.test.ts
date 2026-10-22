@@ -11,6 +11,7 @@ import {
 } from "./app-frame";
 import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
+  AUTH_COPY,
   createVerifiedUserInLocalD1,
   SEEDED_USER_PASSWORD,
   signInWithPassword,
@@ -68,13 +69,13 @@ beforeAll(async () => {
 test("refuses a sign-up at a blocked domain", async () => {
   await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
 
-  await fillAppPlaceholder("Email address", `newcomer@${blockedDomain}`);
-  await fillAppPlaceholder("First Name", "New");
-  await fillAppPlaceholder("Last Name", "Comer");
-  await fillAppPlaceholder("Password", "correct horse battery staple");
-  await clickAppRole("button", "Create Account with Password");
+  await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, `newcomer@${blockedDomain}`);
+  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "New");
+  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Comer");
+  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "correct horse battery staple");
+  await clickAppRole("button", AUTH_COPY.SignUp.createAccountWithPassword);
 
-  await expectAppToast("This email address cannot be used to register.");
+  await expectAppToast(AUTH_COPY.SignUp.errorEmailNotAllowed);
   await expectAppPathname("/sign-up");
 });
 
@@ -102,10 +103,10 @@ test("an admin bans an account, and that account can no longer sign in", async (
   // A fresh context: the acting admin is still signed in on the current one, and `/sign-in`
   // would redirect them straight back to the dashboard.
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
-  await fillAppPlaceholder("Email address", targetEmail);
-  await fillAppPlaceholder("Password", SEEDED_USER_PASSWORD);
-  await clickAppRole("button", "Sign In with Password");
+  await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, targetEmail);
+  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, SEEDED_USER_PASSWORD);
+  await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);
 
-  await expectAppToast("This account is suspended. Contact support for help.");
+  await expectAppToast(AUTH_COPY.SignIn.errorAccountSuspended);
   await expectAppPathname("/sign-in");
 }, scaleE2ETimeout(30_000));

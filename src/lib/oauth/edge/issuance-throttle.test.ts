@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { OAUTH_REGISTER_PATH, OAUTH_TOKEN_PATH } from "@/constants";
+import { OAUTH_OPEN_DCR_ENABLED, OAUTH_REGISTER_PATH, OAUTH_TOKEN_PATH } from "@/constants";
 
 vi.mock("server-only", () => ({}));
 
@@ -25,13 +25,18 @@ function resolve({ pathname, body = "" }: { pathname: string; body?: string }) {
 }
 
 describe("OAuth issuance throttle policy", () => {
-  test("charges a registration against the DCR bucket by IP", async () => {
+  test.skipIf(!OAUTH_OPEN_DCR_ENABLED)("charges a registration against the DCR bucket by IP", async () => {
     const plan = await resolve({ pathname: OAUTH_REGISTER_PATH });
 
     expect(plan).toEqual({
       endpoint: "dcr",
       policies: [{ rateLimit: "OAUTH_DCR", userIdentifier: CLIENT_IP }],
     });
+  });
+
+  // With open DCR off the provider serves no registration endpoint, so there is nothing to charge.
+  test.skipIf(OAUTH_OPEN_DCR_ENABLED)("leaves the registration path unthrottled when open DCR is off", async () => {
+    expect(await resolve({ pathname: OAUTH_REGISTER_PATH })).toBeNull();
   });
 
   test("leaves every other path unthrottled", async () => {

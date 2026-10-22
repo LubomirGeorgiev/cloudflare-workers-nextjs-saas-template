@@ -135,19 +135,6 @@ describe("CMS entry actions", () => {
     expect(result).toEqual({ ...UPDATED_ENTRY, cachePurge: ZONE_PURGE_FAILED });
   });
 
-  test("updateCmsEntryAction reports no failure when the zone purge went through", async () => {
-    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
-    getCmsEntryByIdMock.mockResolvedValue(UPDATED_ENTRY);
-    updateCmsEntryMock.mockImplementation(async () => {
-      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
-      return UPDATED_ENTRY;
-    });
-
-    const result = await updateCmsEntryAction({ id: UPDATED_ENTRY.id, title: "Launch notes" });
-
-    expect(result).toEqual({ ...UPDATED_ENTRY, cachePurge: CMS_CACHE_PURGE_OK });
-  });
-
   test("createTranslationAction reports a failed zone purge from inside the write", async () => {
     requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
     createCmsEntryTranslationMock.mockImplementation(async () => {

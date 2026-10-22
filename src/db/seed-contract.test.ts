@@ -2,13 +2,25 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
 
-import { SEEDED_BLOG_ENTRY, SEEDED_DOCS_ENTRY } from "../../tests/e2e/seed-fixtures";
+import {
+  SEEDED_AUTH_DOCS_ENTRY,
+  SEEDED_BLOG_AUTHOR,
+  SEEDED_BLOG_ENTRY,
+  SEEDED_BLOG_PAGE_TWO_TITLE,
+  SEEDED_BLOG_TAG,
+  SEEDED_DOCS_ENTRY,
+  SEEDED_DOCS_REDIRECT_FROM_PATH,
+} from "../../tests/e2e/seed-fixtures";
 
 const documentedSeededAdminEmail = "test@test.com";
 const seededMemberEmail = "sarah.chen@example.com";
 
 function readProjectFile(path: string): string {
   return readFileSync(new URL(path, import.meta.url), "utf8");
+}
+
+function countSeedRows({ seedSql, pattern }: { seedSql: string; pattern: RegExp }): number {
+  return seedSql.split("\n").filter((line) => pattern.test(line)).length;
 }
 
 describe("seeded user contract", () => {
@@ -32,16 +44,52 @@ describe("seeded CMS content contract", () => {
     const seedSql = readProjectFile("./seed.sql");
 
     for (const value of [
+      SEEDED_BLOG_AUTHOR.id,
+      SEEDED_BLOG_AUTHOR.firstName,
+      SEEDED_BLOG_AUTHOR.lastName,
+      SEEDED_BLOG_AUTHOR.otherPostTitle,
       SEEDED_BLOG_ENTRY.id,
       SEEDED_BLOG_ENTRY.slug,
       SEEDED_BLOG_ENTRY.title,
-      SEEDED_BLOG_ENTRY.authorName,
+      ...SEEDED_BLOG_ENTRY.tagNames,
+      ...SEEDED_BLOG_ENTRY.contentHeadings,
+      SEEDED_BLOG_PAGE_TWO_TITLE,
+      SEEDED_BLOG_TAG.id,
+      SEEDED_BLOG_TAG.slug,
+      SEEDED_BLOG_TAG.name,
+      ...SEEDED_BLOG_TAG.postTitles,
       SEEDED_DOCS_ENTRY.id,
       SEEDED_DOCS_ENTRY.slug,
       SEEDED_DOCS_ENTRY.title,
       SEEDED_DOCS_ENTRY.categorySlug,
+      SEEDED_DOCS_ENTRY.categoryTitle,
+      SEEDED_DOCS_ENTRY.introText,
+      SEEDED_DOCS_ENTRY.listItemText,
+      SEEDED_AUTH_DOCS_ENTRY.id,
+      SEEDED_AUTH_DOCS_ENTRY.title,
+      SEEDED_DOCS_REDIRECT_FROM_PATH,
     ]) {
       expect(seedSql).toContain(value);
     }
+  });
+
+  // The blog pages render these counts, so a reseed that moves a post must update the fixture.
+  test("keeps the shared blog post counts aligned with the seed rows", () => {
+    const seedSql = readProjectFile("./seed.sql");
+
+    expect(
+      countSeedRows({
+        seedSql,
+        pattern: new RegExp(
+          `^\\s*\\('cms_ent_\\w+', 'blog', .*'published', \\d+, '${SEEDED_BLOG_AUTHOR.id}'`
+        ),
+      })
+    ).toBe(SEEDED_BLOG_AUTHOR.publishedPostCount);
+    expect(
+      countSeedRows({
+        seedSql,
+        pattern: new RegExp(`^\\s*\\('cet_\\w+', 'cms_ent_\\w+', '${SEEDED_BLOG_TAG.id}'`),
+      })
+    ).toBe(SEEDED_BLOG_TAG.postCount);
   });
 });

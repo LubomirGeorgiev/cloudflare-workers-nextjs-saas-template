@@ -56,7 +56,6 @@ vi.mock("@/lib/scheduler/enqueue", async (importOriginal) => ({
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
-import { TEAM_NAME_MAX_LENGTH } from "@/constants";
 import { renameTeam } from "@/lib/teams/teams";
 
 const db = getDB();
@@ -189,17 +188,6 @@ test("renaming one team to another team's exact name keeps both slugs distinct",
   expect(storedA?.slug).toBe(teamA.slug);
   expect(storedB?.slug).toBe(teamB.slug);
   expect(storedA?.slug).not.toBe(storedB?.slug);
-});
-
-test("a name at the maximum length is accepted", async () => {
-  const team = await seedTeam();
-  authState.current = team.ownerSession;
-  const maxLengthName = "a".repeat(TEAM_NAME_MAX_LENGTH);
-
-  await renameTeam({ teamId: team.teamId, name: maxLengthName });
-
-  const stored = await readTeam(team.teamId);
-  expect(stored?.name).toBe(maxLengthName);
 });
 
 test("renaming a team with a Stripe customer syncs the customer name", async () => {

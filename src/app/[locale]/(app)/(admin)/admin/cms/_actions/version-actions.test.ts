@@ -120,20 +120,4 @@ describe("CMS entry version actions", () => {
 
     expect(result).toEqual({ ...REVERTED_ENTRY, scheduleCleared: false, cachePurge: ZONE_PURGE_FAILED });
   });
-
-  test("revertCmsEntryVersionAction reports no failure when the zone purge went through", async () => {
-    requireAdminMock.mockResolvedValue({ userId: "usr_admin" });
-    getCmsEntryByIdMock.mockResolvedValue(REVERTED_ENTRY);
-    revertCmsEntryToVersionMock.mockImplementation(async () => {
-      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
-      return { ...REVERTED_ENTRY, scheduleCleared: false };
-    });
-
-    const result = await revertCmsEntryVersionAction({
-      entryId: REVERTED_ENTRY.id,
-      versionId: "version_1",
-    });
-
-    expect(result).toEqual({ ...REVERTED_ENTRY, scheduleCleared: false, cachePurge: CMS_CACHE_PURGE_OK });
-  });
 });

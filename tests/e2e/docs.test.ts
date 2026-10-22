@@ -24,7 +24,12 @@ import {
 import { DEFAULT_LOCALE } from "../../src/i18n/config";
 import { loadCatalog } from "../../src/i18n/message-catalogs";
 import { parseMarkdownPagePath } from "../../src/lib/markdown-pages/page-paths";
-import { SEEDED_DOCS_ENTRY, SEEDED_DOCS_ENTRY_PATH } from "./seed-fixtures";
+import {
+  SEEDED_AUTH_DOCS_ENTRY,
+  SEEDED_DOCS_ENTRY,
+  SEEDED_DOCS_ENTRY_PATH,
+  SEEDED_DOCS_REDIRECT_FROM_PATH,
+} from "./seed-fixtures";
 import { escapeRegExp } from "../../src/utils/escape-regexp";
 
 const defaultMessages = await loadCatalog(DEFAULT_LOCALE);
@@ -45,9 +50,7 @@ test("renders seeded docs navigation content from fresh D1 state", async () => {
   await loadAppFrame(SEEDED_DOCS_ENTRY_PATH);
 
   await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
-  await expectAppText(
-    "Learn how this template is structured and how to ship your first feature quickly."
-  );
+  await expectAppText(SEEDED_DOCS_ENTRY.introText);
 });
 
 test("redirects the docs root to the first navigable docs page", async () => {
@@ -58,7 +61,7 @@ test("redirects the docs root to the first navigable docs page", async () => {
 });
 
 test("honors seeded docs navigation redirects", async () => {
-  await loadAppFrame("/docs/getting-started/setup");
+  await loadAppFrame(SEEDED_DOCS_REDIRECT_FROM_PATH);
 
   await expectAppPathname(SEEDED_DOCS_ENTRY_PATH);
   await expectAppRole("heading", SEEDED_DOCS_ENTRY.title, { exact: true });
@@ -70,7 +73,7 @@ test("serves a docs page as markdown at its .md URL", async () => {
   expect(response.status).toBe(200);
   expect(response.headers.get("content-type")).toMatch(/^text\/markdown\b/);
   expect(response.headers.get("link")).toContain(`${LLMS_TXT_PATH}>; rel="describedby"`);
-  await expect(response.text()).resolves.toContain("Authentication and team management");
+  await expect(response.text()).resolves.toContain(SEEDED_DOCS_ENTRY.listItemText);
 });
 
 // The Worker stamps every discovery relation on a `text/html` response, and the shell repeats the
@@ -125,7 +128,7 @@ test("does not advertise a Markdown alternate on a missing docs page", async () 
 });
 
 test("redirects an old docs .md path to its current .md URL", async () => {
-  const response = await fetchAppPath("/docs/getting-started/setup.md", { redirect: "manual" });
+  const response = await fetchAppPath(`${SEEDED_DOCS_REDIRECT_FROM_PATH}.md`, { redirect: "manual" });
 
   expect(response.status).toBe(301);
   const location = new URL(response.headers.get("location") ?? "", "http://localhost");
@@ -153,9 +156,12 @@ test("serves llms.txt from the docs navigation tree", async () => {
     /^- \[Documentation search API\]\(https?:\/\/[^)]+\/api\/docs\/search\?q=authentication&limit=8\): /m,
   );
   expect(body).toMatch(
-    new RegExp(`^- \\[Introduction\\]\\(https?://[^)]+${SEEDED_DOCS_ENTRY_PATH}\\.md\\): `, "m"),
+    new RegExp(
+      `^- \\[${escapeRegExp(SEEDED_DOCS_ENTRY.title)}\\]\\(https?://[^)]+${SEEDED_DOCS_ENTRY_PATH}\\.md\\): `,
+      "m",
+    ),
   );
-  expect(body).not.toMatch(/^### \[Introduction\]/m);
+  expect(body).not.toMatch(new RegExp(`^### \\[${escapeRegExp(SEEDED_DOCS_ENTRY.title)}\\]`, "m"));
 });
 
 test("redirects the old docs llms.txt URL to the root file", async () => {
@@ -347,10 +353,10 @@ test("serves docs search results from the public API endpoint", async () => {
 test("searches docs from the command dialog", async () => {
   await loadAppFrame(SEEDED_DOCS_ENTRY_PATH, { waitForHydration: true });
 
-  await clickAppRole("button", "Search docs");
-  await fillAppPlaceholder("Search docs...", "authentication");
+  await clickAppRole("button", defaultMessages.Client.Docs.Navigation.searchButton);
+  await fillAppPlaceholder(defaultMessages.Client.Docs.Search.placeholder, "authentication");
 
-  await expectAppText("Authentication Setup", { exact: true });
+  await expectAppText(SEEDED_AUTH_DOCS_ENTRY.title, { exact: true });
 });
 
 // The reference is rendered on the server from the app's own OpenAPI document — no spec-viewer

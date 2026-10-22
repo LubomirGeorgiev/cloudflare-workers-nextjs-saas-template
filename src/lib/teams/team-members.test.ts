@@ -1,14 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-
-// Real permission/role constants so assertions track the template's own values instead of
-// hard-coding copies (template-safe: downstream projects may rename, these stay derived).
-const TEAM_PERMISSIONS = {
-  ACCESS_DASHBOARD: "access_dashboard",
-  INVITE_MEMBERS: "invite_members",
-  REMOVE_MEMBERS: "remove_members",
-} as const;
-
-const SYSTEM_ROLES_ENUM = { OWNER: "owner", MEMBER: "member", GUEST: "guest" } as const;
+import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
 
 const {
   requireTeamPermissionMock,
@@ -29,8 +20,6 @@ vi.mock("react", () => ({ cache: <T,>(fn: T) => fn }));
 vi.mock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
 
 vi.mock("@/db/schema", () => ({
-  SYSTEM_ROLES_ENUM,
-  TEAM_PERMISSIONS,
   teamMembershipTable: {},
 }));
 

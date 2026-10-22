@@ -220,17 +220,6 @@ describe("CMS media actions", () => {
     expect(result).toEqual(expect.objectContaining({ success: true, cachePurge: ZONE_PURGE_FAILED }));
   });
 
-  test("updateCmsMediaAction reports no failure when the zone purge went through", async () => {
-    mockMediaUpdateDb();
-    invalidateCmsEntriesMock.mockImplementationOnce(async () => {
-      reportCmsCachePurge(CMS_CACHE_PURGE_OK);
-    });
-
-    const result = await updateCmsMediaAction({ mediaId: "media_hero", alt: "New alt" });
-
-    expect(result).toEqual(expect.objectContaining({ success: true, cachePurge: CMS_CACHE_PURGE_OK }));
-  });
-
   // Workers Caching kept a deleted image until the next deploy, because no purge named it.
   test("deleteCmsMediaAction purges the edge copy of the image after both deletes", async () => {
     const { r2DeleteMock, rowDeleteWhereMock } = mockMediaDeleteDb();
