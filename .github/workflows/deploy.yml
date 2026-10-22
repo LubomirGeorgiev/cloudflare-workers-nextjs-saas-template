@@ -112,6 +112,11 @@ jobs:
 
   publish:
     needs: [static-checks, integration-tests, e2e-tests]
+    # One deploy at a time, so two runs never deploy or push metrics commits at once.
+    # A newer waiting run replaces an older waiting one, so the newest commit ships.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: write

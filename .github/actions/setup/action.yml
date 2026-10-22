@@ -1,5 +1,9 @@
 name: Set up pnpm and dependencies
 description: Install pnpm, Node.js, and the locked dependencies.
+inputs:
+  node-version:
+    description: The Node.js major version. The node_modules cache key includes it.
+    default: '24'
 runs:
   using: composite
   steps:
@@ -8,12 +12,23 @@ runs:
       with:
         version: 10
 
+    # A hit skips the store restore, the link, and the build scripts. `worker-configuration.d.ts` is
+    # committed, so the skipped `cf-typegen` postinstall changes nothing.
+    - name: Cache node_modules
+      id: node-modules-cache
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-${{ runner.arch }}-node${{ inputs.node-version }}-node-modules-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json') }}
+
+    # The pnpm store cache only feeds `pnpm install`, so a node_modules hit does not restore it.
     - name: Setup Node.js
       uses: actions/setup-node@v6
       with:
-        node-version: 24
-        cache: 'pnpm'
+        node-version: ${{ inputs.node-version }}
+        cache: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' && 'pnpm' || '' }}
 
     - name: Install dependencies
+      if: ${{ steps.node-modules-cache.outputs.cache-hit != 'true' }}
       shell: bash
       run: pnpm install --frozen-lockfile
