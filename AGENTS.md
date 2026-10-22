@@ -31,7 +31,7 @@ Run the checks that match the change:
 | Any code change | `pnpm run lint`, `pnpm run typecheck`, `pnpm run test:unit` |
 | Routing, RSC or server actions, bindings, middleware, build config, deployment | Also `pnpm run check:vinext` and `pnpm run build` |
 | Stripe webhooks, the scheduler, bindings, SQL conditions | Also `pnpm run test:integration` |
-| User journeys, routing, auth | Also `pnpm run test:e2e` |
+| User journeys, routing, auth | Also `pnpm run test:e2e`; it runs `pnpm build` itself, so skip a separate `pnpm run build` |
 | Finished work, before you hand it back | `pnpx fallow audit` |
 
 - When real D1/KV/Queue behavior matters more than a mock, write the test in `tests/integration/`.

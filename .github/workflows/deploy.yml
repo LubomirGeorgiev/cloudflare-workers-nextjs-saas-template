@@ -3,32 +3,19 @@ on:
     branches:
       - main
 
+# The three check jobs run side by side; the deploy job waits for all of them.
 jobs:
-  publish:
+  static-checks:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      deployments: write
-    name: Deploy to Cloudflare Workers
+      contents: read
+    name: Lint, typecheck, and unit tests
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
 
       # The pinned local oxlint must run: the anti-slop plugin imports @oxlint/plugins at that exact version.
       # TODO: When Oxc ships its own tsrs lint backend (oxc-project/tsrs#378), replace @maschwenk/tsrslint
@@ -42,8 +29,88 @@ jobs:
       - name: Unit tests
         run: pnpm run test:unit
 
+  integration-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    name: Integration tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
+
       - name: Integration tests
         run: pnpm run test:integration
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    name: End-to-end tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
+
+      - name: Expose public GitHub variables
+        env:
+          GITHUB_VARIABLES_JSON: ${{ toJSON(vars) }}
+        run: node scripts/expose-public-github-variables.mjs
+
+      # Keyed on the Playwright version, not the lockfile, so other dependency bumps keep the browser.
+      - name: Read Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm exec playwright --version)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-shell-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright system dependencies
+        run: pnpm exec playwright install-deps chromium
+
+      # `chromium.launch({ headless: true })` runs the headless shell, so the full browser is not needed.
+      - name: Install Playwright Chromium
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: pnpm exec playwright install --only-shell chromium
+
+      - name: End-to-end tests
+        run: pnpm run test:e2e
+
+      # The deploy job ships this build. `.wrangler/deploy/config.json` points Wrangler at `dist/server/`.
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: vinext-build
+          path: |
+            dist/
+            .wrangler/deploy/config.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [static-checks, integration-tests, e2e-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: write
+    name: Deploy to Cloudflare Workers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up dependencies
+        uses: ./.github/actions/setup
 
       - name: Set D1 environment variables
         id: set-d1-vars
@@ -53,46 +120,12 @@ jobs:
       - name: Expose public GitHub variables
         env:
           GITHUB_VARIABLES_JSON: ${{ toJSON(vars) }}
-        run: |
-          node <<'NODE'
-          const fs = require("node:fs");
+        run: node scripts/expose-public-github-variables.mjs
 
-          const variables = JSON.parse(process.env.GITHUB_VARIABLES_JSON || "{}");
-          const publicVariableNames = Object.keys(variables)
-            .filter((name) => /^NEXT_PUBLIC_[A-Z0-9_]+$/.test(name))
-            .sort();
-
-          for (const name of publicVariableNames) {
-            const delimiter = `GITHUB_ENV_${name}_${Date.now()}`;
-            fs.appendFileSync(
-              process.env.GITHUB_ENV,
-              `${name}<<${delimiter}\n${variables[name]}\n${delimiter}\n`
-            );
-          }
-
-          console.log(
-            publicVariableNames.length > 0
-              ? `Exposed public variables: ${publicVariableNames.join(", ")}`
-              : "No NEXT_PUBLIC_* GitHub variables found."
-          );
-          NODE
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
+      - name: Download build
+        uses: actions/download-artifact@v8
         with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install Playwright system dependencies
-        run: pnpm exec playwright install-deps chromium
-
-      - name: Install Playwright Chromium
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: pnpm exec playwright install chromium
-
-      - name: End-to-end tests
-        run: pnpm run test:e2e
+          name: vinext-build
 
       - name: Deploy
         run: |
@@ -177,7 +210,7 @@ jobs:
                 : "Cloudflare CDN cache purge requested"
             );
 
-      # Diagnostics, never a deploy gate: profiling reuses the build the e2e step produced.
+      # Diagnostics, never a deploy gate: profiling reuses the build the e2e job produced.
       - name: Profile Worker startup
         id: startup-profile
         continue-on-error: true
