@@ -31,6 +31,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # The pinned local oxlint must run: the anti-slop plugin imports @oxlint/plugins at that exact version.
+      # TODO: When Oxc ships its own tsrs lint backend (oxc-project/tsrs#378), replace @maschwenk/tsrslint
+      # with it and update OXLINT_TSGOLINT_PATH in the package.json lint scripts.
       - name: Lint
         run: pnpm run lint
 
