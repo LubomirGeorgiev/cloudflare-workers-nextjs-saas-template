@@ -422,18 +422,28 @@ export const cancelSubscriptionAction = actionClient
       const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       try {
+        // The page can show a stale status after a lost webhook. Stripe refuses an update on an
+        // ended subscription, so only sync the row. Cancel now only when no paid access remains.
+        const current = await stripe.subscriptions.retrieve(subscriptionId);
+        const policy = getStripeSubscriptionTransitionPolicy(current.status);
+        if (policy?.subscription === "clear") {
+          await reconcileTeamFromSubscription({ subscription: current });
+          return { success: true, canceledNow: true };
+        }
+        const canceledNow = !atPeriodEnd && !policy?.grantsPaidAccess;
+
         // Immediate cancellation states both flags. With both left at their `false` defaults
         // Stripe deletes pending prorations — the add-on units a team bought mid-period and then
         // cancelled before the cycle closed were never invoiced. The `atPeriodEnd` branch is
         // unaffected: pending prorations stay in place and bill when the period closes.
-        const updated = atPeriodEnd
-          ? await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true })
-          : await stripe.subscriptions.cancel(subscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS);
+        const updated = canceledNow
+          ? await stripe.subscriptions.cancel(subscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS)
+          : await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.
         await reconcileTeamFromSubscription({ subscription: updated });
 
-        return { success: true };
+        return { success: true, canceledNow };
       } catch (error) {
         if (error instanceof ActionError) {
           throw error;
@@ -456,6 +466,13 @@ export const resumePaymentAction = actionClient
       const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
         expand: ["latest_invoice.confirmation_secret"],
       });
+
+      // The team row can be stale after a lost webhook. A paid invoice still returns a
+      // secret, but the Payment Element cannot load it, so stop before the dialog opens.
+      await reconcileTeamFromSubscription({ subscription });
+      if (!getStripeSubscriptionTransitionPolicy(subscription.status)?.needsPaymentAction) {
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorNoOpenPayment" });
+      }
 
       const clientSecret = readClientSecret(subscription);
 

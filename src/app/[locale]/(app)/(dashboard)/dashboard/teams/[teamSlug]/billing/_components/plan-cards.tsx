@@ -38,7 +38,7 @@ import {
   type BillingInterval,
   type TeamPlanId,
 } from "@/constants/plans";
-import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
+import { getStripeSubscriptionTransitionPolicy, mustPayOrCancel } from "@/constants/subscription-lifecycle";
 import { formatPrice } from "@/utils/format-price";
 import { useIntervalWhen } from "@/hooks/use-interval-when";
 import {
@@ -56,6 +56,7 @@ import {
   type PaymentReturnOutcome,
   type TrialReturn,
 } from "@/lib/billing/payment-return";
+import { selectPlanCardAction, type PlanCardAction } from "@/lib/billing/plan-card-action";
 import { usePaymentReturn } from "./use-payment-return";
 import dynamic from "next/dynamic";
 
@@ -88,6 +89,7 @@ interface PaymentDialogState {
   planName: string;
   priceLabel: string;
   trialDays?: number;
+  titleKey: "paymentDialogTitle" | "completePaymentDialogTitle";
 }
 
 export function PlanCards({
@@ -102,7 +104,6 @@ export function PlanCards({
   isTrialEligible,
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
-  const tCommon = useTranslations("Client.Common");
   const tErrors = useTranslations("Client.Errors");
   const locale = useLocale();
   const format = useFormatter();
@@ -142,8 +143,8 @@ export function PlanCards({
   });
 
   const { execute: executeCancel, isExecuting: isCanceling } = useAction(cancelSubscriptionAction, {
-    onSuccess: () => {
-      toast.success(t("cancelScheduled"));
+    onSuccess: ({ data }) => {
+      toast.success(t(data?.canceledNow ? "subscriptionCanceled" : "cancelScheduled"));
       router.refresh();
     },
     onError: ({ error }) => toast.error(error.serverError?.message ?? t("errorPaymentProvider")),
@@ -206,10 +207,12 @@ export function PlanCards({
     planId: TeamPlanId,
     interval: BillingInterval,
     result: { serverError?: { message?: string }; data?: { clientSecret?: string } } | undefined,
-    options?: Pick<PaymentDialogState, "trialDays">
+    options?: Partial<Pick<PaymentDialogState, "trialDays" | "titleKey">>
   ) {
     if (result?.serverError) {
       toast.error(result.serverError.message ?? t("errorPaymentProvider"));
+      // A refusal can save a newer status from Stripe; show it.
+      router.refresh();
       return;
     }
     const clientSecret = result?.data?.clientSecret;
@@ -224,6 +227,7 @@ export function PlanCards({
       currency: plan.currency,
       planName: plan.name,
       priceLabel: `${formatPrice({ amount, currency: plan.currency, locale })}${t(interval === "year" ? "perYear" : "perMonth")}`,
+      titleKey: "paymentDialogTitle",
       ...options,
     });
   }
@@ -246,7 +250,12 @@ export function PlanCards({
   }
 
   async function handleCompletePayment() {
-    openPaymentDialogFromResult(currentPlanId, currentInterval ?? "month", await resumeAsync({ teamId }));
+    openPaymentDialogFromResult(
+      currentPlanId,
+      currentInterval ?? "month",
+      await resumeAsync({ teamId }),
+      { titleKey: "completePaymentDialogTitle" }
+    );
   }
 
   // Shared by the inline confirm and the return from a redirect-based payment method.
@@ -301,17 +310,7 @@ export function PlanCards({
   return (
     <div className="space-y-6">
       {needsPaymentAction && canManage && (
-        <Card className="border-destructive/40">
-          <CardHeader>
-            <CardTitle>{t("completePaymentTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">{t("completePaymentDescription")}</p>
-            <Button onClick={handleCompletePayment} disabled={busy}>
-              {t("completePayment")}
-            </Button>
-          </CardContent>
-        </Card>
+        <CompletePaymentCard status={status} disabled={busy} onCompletePayment={handleCompletePayment} />
       )}
 
       {isActivating && (
@@ -412,65 +411,26 @@ export function PlanCards({
                   ))}
                 </ul>
 
-                {canManage && !isFree && (
-                  <div className="pt-2">
-                    {isCurrent && hasActiveSubscription ? (
-                      cancelAtPeriodEnd ? (
-                        <p className="text-xs text-muted-foreground">{t("cancelScheduled")}</p>
-                      ) : !matchesCurrentInterval ? (
-                        <Button
-                          variant="outline"
-                          className="w-full"
-                          disabled={busy}
-                          onClick={() => executeChange({ teamId, planId, interval: billingInterval })}
-                        >
-                          {t(billingInterval === "year" ? "switchToYearly" : "switchToMonthly")}
-                        </Button>
-                      ) : (
-                        <AlertDialog>
-                          <AlertDialogTrigger
-                            render={
-                              <Button variant="outline" className="w-full" disabled={busy} />
-                            }
-                          >
-                            {t("cancelSubscription")}
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>{t("confirmCancelTitle")}</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {t("confirmCancelDescription")}
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => executeCancel({ teamId, atPeriodEnd: true })}>
-                                {t("confirmCancelAction")}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )
-                    ) : hasActiveSubscription ? (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        disabled={busy}
-                        onClick={() => executeChange({ teamId, planId, interval: billingInterval })}
-                      >
-                        {t("changeToPlan", { plan: plan.name })}
-                      </Button>
-                    ) : (
-                      <Button
-                        className="w-full"
-                        disabled={busy}
-                        onClick={() => offersTrial ? handleStartTrial(planId) : handleSubscribe(planId)}
-                      >
-                        {offersTrial ? t("startFreeTrial", { days: plan.trialDays ?? 0 }) : t("subscribe")}
-                      </Button>
-                    )}
-                  </div>
-                )}
+                <PlanCardActionButton
+                  action={selectPlanCardAction({
+                    canManage,
+                    isFree,
+                    isCurrent,
+                    status,
+                    hasActiveSubscription,
+                    cancelAtPeriodEnd,
+                    matchesCurrentInterval,
+                    offersTrial,
+                  })}
+                  planName={plan.name}
+                  trialDays={plan.trialDays ?? 0}
+                  billingInterval={billingInterval}
+                  disabled={busy}
+                  onChangePlan={() => executeChange({ teamId, planId, interval: billingInterval })}
+                  onCancel={(atPeriodEnd) => executeCancel({ teamId, atPeriodEnd })}
+                  onSubscribe={() => handleSubscribe(planId)}
+                  onStartTrial={() => handleStartTrial(planId)}
+                />
               </CardContent>
             </Card>
           );
@@ -481,7 +441,7 @@ export function PlanCards({
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {paymentDialog ? t("paymentDialogTitle", { plan: paymentDialog.planName }) : ""}
+              {paymentDialog ? t(paymentDialog.titleKey, { plan: paymentDialog.planName }) : ""}
             </DialogTitle>
           </DialogHeader>
           {paymentDialog && (
@@ -498,5 +458,131 @@ export function PlanCards({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CompletePaymentCard({
+  status,
+  disabled,
+  onCompletePayment,
+}: {
+  status: string | null;
+  disabled: boolean;
+  onCompletePayment: () => void;
+}) {
+  const t = useTranslations("Client.Dashboard.Billing");
+
+  return (
+    <Card className="border-destructive/40">
+      <CardHeader>
+        <CardTitle>{t("completePaymentTitle")}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-muted-foreground">
+          {t(mustPayOrCancel(status) ? "pastDuePaymentDescription" : "completePaymentDescription")}
+        </p>
+        <Button onClick={onCompletePayment} disabled={disabled}>
+          {t("completePayment")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PlanCardActionButton({
+  action,
+  planName,
+  trialDays,
+  billingInterval,
+  disabled,
+  onChangePlan,
+  onCancel,
+  onSubscribe,
+  onStartTrial,
+}: {
+  action: PlanCardAction;
+  planName: string;
+  trialDays: number;
+  billingInterval: BillingInterval;
+  disabled: boolean;
+  onChangePlan: () => void;
+  onCancel: (atPeriodEnd: boolean) => void;
+  onSubscribe: () => void;
+  onStartTrial: () => void;
+}) {
+  const t = useTranslations("Client.Dashboard.Billing");
+
+  if (action === "none") {
+    return null;
+  }
+  if (action === "cancelScheduled") {
+    return <p className="pt-2 text-xs text-muted-foreground">{t("cancelScheduled")}</p>;
+  }
+  if (action === "cancelNow" || action === "cancelAtPeriodEnd") {
+    const atPeriodEnd = action === "cancelAtPeriodEnd";
+    return (
+      <div className="pt-2">
+        <CancelSubscriptionButton
+          disabled={disabled}
+          description={t(atPeriodEnd ? "confirmCancelDescription" : "confirmCancelNowDescription")}
+          onConfirm={() => onCancel(atPeriodEnd)}
+        />
+      </div>
+    );
+  }
+
+  const buttons = {
+    switchInterval: {
+      label: t(billingInterval === "year" ? "switchToYearly" : "switchToMonthly"),
+      variant: "outline",
+      onClick: onChangePlan,
+    },
+    changePlan: { label: t("changeToPlan", { plan: planName }), variant: "outline", onClick: onChangePlan },
+    startTrial: { label: t("startFreeTrial", { days: trialDays }), variant: "default", onClick: onStartTrial },
+    subscribe: { label: t("subscribe"), variant: "default", onClick: onSubscribe },
+  } as const;
+  const button = buttons[action];
+
+  return (
+    <div className="pt-2">
+      <Button variant={button.variant} className="w-full" disabled={disabled} onClick={button.onClick}>
+        {button.label}
+      </Button>
+    </div>
+  );
+}
+
+function CancelSubscriptionButton({
+  disabled,
+  description,
+  onConfirm,
+}: {
+  disabled: boolean;
+  description: string;
+  onConfirm: () => void;
+}) {
+  const t = useTranslations("Client.Dashboard.Billing");
+  const tCommon = useTranslations("Client.Common");
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={
+          <Button variant="outline" className="w-full" disabled={disabled} />
+        }
+      >
+        {t("cancelSubscription")}
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("confirmCancelTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{t("confirmCancelAction")}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

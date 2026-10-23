@@ -219,10 +219,13 @@ async function discardLosingTrial({
   userId: string;
   subscription: Stripe.Subscription;
 }): Promise<void> {
-  const cancellation = await stripe.subscriptions.cancel(subscription.id);
+  // The recovery sweep can pass a trial that Stripe already ended; a second cancel fails.
+  const cancellation = hasEnded(subscription)
+    ? subscription
+    : await stripe.subscriptions.cancel(subscription.id);
   await reconcileTeamFromSubscription({ subscription: cancellation });
 
-  if (cancellation.status !== "canceled") {
+  if (!hasEnded(cancellation)) {
     await recordOrphanedSubscription({ teamId, userId, orphanedSubscriptionId: subscription.id });
     throw new Error(`Stripe did not confirm cancellation for trial ${subscription.id}`);
   }
@@ -277,6 +280,10 @@ export async function settleStaleTrialReservations({
   return settledCount;
 }
 
+function hasEnded(subscription: Stripe.Subscription): boolean {
+  return getStripeSubscriptionTransitionPolicy(subscription.status)?.subscription === "clear";
+}
+
 async function retrieveSubscriptionOrNull(
   stripe: TrialSubscriptionStripe,
   subscriptionId: string,
@@ -328,7 +335,7 @@ async function settleReservation({
       await releaseTrialReservation(owner);
       return;
     }
-    await finalizeOrRelease({ owner, subscription });
+    await finalizeOrRelease({ stripe, owner, subscription });
     return;
   }
 
@@ -356,18 +363,28 @@ async function settleReservation({
   }
 
   await recordReservationSubscription({ ...owner, stripeSubscriptionId: subscription.id });
-  await finalizeOrRelease({ owner, subscription });
+  await finalizeOrRelease({ stripe, owner, subscription });
 }
 
 // Stamp the user (the team is stamped by reconcile) and release only when the subscription
 // actually consumed the trial; otherwise release without stamping so the user may retry.
 async function finalizeOrRelease({
+  stripe,
   owner,
   subscription,
 }: {
+  stripe: TrialSubscriptionStripe;
   owner: { teamId: string; userId: string };
   subscription: Stripe.Subscription;
 }): Promise<void> {
+  // A trial that lost the team's slot stays live, and Stripe charges it at trial end.
+  // Cancel it like a race loser, and do not stamp the user: the trial gave no access.
+  const claimedSlot = await claimTeamSubscription({ teamId: owner.teamId, subscriptionId: subscription.id });
+  if (!claimedSlot) {
+    await discardLosingTrial({ stripe, ...owner, subscription });
+    return;
+  }
+
   await reconcileTeamFromSubscription({ subscription });
 
   const policy = getStripeSubscriptionTransitionPolicy(subscription.status);

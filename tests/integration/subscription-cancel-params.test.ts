@@ -27,6 +27,7 @@ vi.mock("@/lib/stripe", () => ({
 
 import { env } from "cloudflare:workers";
 import type Stripe from "stripe";
+import { eq } from "drizzle-orm";
 
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
@@ -112,4 +113,19 @@ test("a status that grants paid access is refused rather than cancelled", async 
   await expect(settleRecordedSubscription({ teamId, recordedSubscriptionId: subscriptionId }))
     .rejects.toThrow();
   expect(stripeState.cancelCalls).toHaveLength(0);
+});
+
+// After a lost webhook the row can say past_due while Stripe says active; the page reads the row.
+test("a refused settle saves the live status that Stripe returned", async () => {
+  retrieveStatus.current = "active";
+  const subscriptionId = uid("sub");
+  const teamId = await seedTeamWithSubscription(subscriptionId);
+  await db.update(teamTable).set({ subscriptionStatus: "past_due" }).where(eq(teamTable.id, teamId));
+
+  await expect(settleRecordedSubscription({ teamId, recordedSubscriptionId: subscriptionId }))
+    .rejects.toThrow();
+
+  const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
+  expect(team?.subscriptionStatus).toBe("active");
+  expect(team?.stripeSubscriptionId).toBe(subscriptionId);
 });

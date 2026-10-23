@@ -8,6 +8,7 @@ import {
   WandSparkles,
 } from "lucide-react";
 
+import { useTranslations } from "@/i18n/client";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -275,6 +276,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
     multiSelectProps,
     ref
   ) => {
+    const t = useTranslations("Client.MultiSelect");
     const {
       options,
       onValueChange,
@@ -1046,7 +1048,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 {/* CommandEmpty hides itself when any CommandItem exists, and the Close item always does. */}
                 {countVisibleOptions(filteredOptions) === 0 && (
                   <div role="status" aria-live="polite" className="py-6 text-center text-sm">
-                    {emptyIndicator || "No results found."}
+                    {emptyIndicator || t("noResults")}
                   </div>
                 )}
                 {!hideSelectAll && !searchValue && (

@@ -82,6 +82,7 @@ export const CLIENT_MESSAGE_SCOPES = {
       "Dashboard.Teams",
       "Errors",
       "Mcp",
+      "MultiSelect",
       "OAuth",
       "RestApi",
       "Settings.ApiKeys",

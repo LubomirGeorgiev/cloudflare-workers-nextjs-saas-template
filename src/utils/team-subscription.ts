@@ -135,6 +135,11 @@ export async function settleRecordedSubscription({
   const policy = getStripeSubscriptionTransitionPolicy(existing.status);
 
   if (!policy || policy.subscribe === "block") {
+    // Save the live status before the refusal: after a lost webhook the team row can still
+    // say past_due for a subscription that is now active, and the page reads only the row.
+    if (policy) {
+      await reconcileTeamFromSubscription({ subscription: existing });
+    }
     throw new ActionError("CONFLICT", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 
