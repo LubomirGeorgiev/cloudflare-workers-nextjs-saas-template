@@ -310,7 +310,12 @@ export function PlanCards({
   return (
     <div className="space-y-6">
       {needsPaymentAction && canManage && (
-        <CompletePaymentCard status={status} disabled={busy} onCompletePayment={handleCompletePayment} />
+        <CompletePaymentCard
+          status={status}
+          disabled={busy}
+          onCompletePayment={handleCompletePayment}
+          onCancelNow={() => executeCancel({ teamId, atPeriodEnd: false })}
+        />
       )}
 
       {isActivating && (
@@ -427,7 +432,7 @@ export function PlanCards({
                   billingInterval={billingInterval}
                   disabled={busy}
                   onChangePlan={() => executeChange({ teamId, planId, interval: billingInterval })}
-                  onCancel={(atPeriodEnd) => executeCancel({ teamId, atPeriodEnd })}
+                  onCancel={() => executeCancel({ teamId, atPeriodEnd: true })}
                   onSubscribe={() => handleSubscribe(planId)}
                   onStartTrial={() => handleStartTrial(planId)}
                 />
@@ -465,10 +470,12 @@ function CompletePaymentCard({
   status,
   disabled,
   onCompletePayment,
+  onCancelNow,
 }: {
   status: string | null;
   disabled: boolean;
   onCompletePayment: () => void;
+  onCancelNow: () => void;
 }) {
   const t = useTranslations("Client.Dashboard.Billing");
 
@@ -481,9 +488,18 @@ function CompletePaymentCard({
         <p className="text-sm text-muted-foreground">
           {t(mustPayOrCancel(status) ? "pastDuePaymentDescription" : "completePaymentDescription")}
         </p>
-        <Button onClick={onCompletePayment} disabled={disabled}>
-          {t("completePayment")}
-        </Button>
+        <div className="grid shrink-0 gap-2 sm:grid-flow-col">
+          <Button onClick={onCompletePayment} disabled={disabled}>
+            {t("completePayment")}
+          </Button>
+          {mustPayOrCancel(status) && (
+            <CancelSubscriptionButton
+              disabled={disabled}
+              description={t("confirmCancelNowDescription")}
+              onConfirm={onCancelNow}
+            />
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -506,7 +522,7 @@ function PlanCardActionButton({
   billingInterval: BillingInterval;
   disabled: boolean;
   onChangePlan: () => void;
-  onCancel: (atPeriodEnd: boolean) => void;
+  onCancel: () => void;
   onSubscribe: () => void;
   onStartTrial: () => void;
 }) {
@@ -518,14 +534,13 @@ function PlanCardActionButton({
   if (action === "cancelScheduled") {
     return <p className="pt-2 text-xs text-muted-foreground">{t("cancelScheduled")}</p>;
   }
-  if (action === "cancelNow" || action === "cancelAtPeriodEnd") {
-    const atPeriodEnd = action === "cancelAtPeriodEnd";
+  if (action === "cancelAtPeriodEnd") {
     return (
       <div className="pt-2">
         <CancelSubscriptionButton
           disabled={disabled}
-          description={t(atPeriodEnd ? "confirmCancelDescription" : "confirmCancelNowDescription")}
-          onConfirm={() => onCancel(atPeriodEnd)}
+          description={t("confirmCancelDescription")}
+          onConfirm={onCancel}
         />
       </div>
     );

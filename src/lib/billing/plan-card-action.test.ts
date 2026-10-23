@@ -24,10 +24,11 @@ describe("selectPlanCardAction", () => {
     expect(PAY_OR_CANCEL_STATUSES).toContain("past_due");
   });
 
-  // The server refuses a checkout for these statuses, so no card may offer one.
-  test.each(PAY_OR_CANCEL_STATUSES)("a %s team can cancel the current plan and cannot subscribe", (status) => {
+  // The server refuses a checkout for these statuses, so no card may offer one. The payment
+  // banner owns the cancel, so a saved plan that left the catalog cannot hide it.
+  test.each(PAY_OR_CANCEL_STATUSES)("a %s team gets no plan card button", (status) => {
     expect(mustPayOrCancel(status)).toBe(true);
-    expect(selectPlanCardAction({ ...BASE, status })).toBe("cancelNow");
+    expect(selectPlanCardAction({ ...BASE, status })).toBe("none");
     expect(selectPlanCardAction({ ...BASE, status, isCurrent: false })).toBe("none");
   });
 

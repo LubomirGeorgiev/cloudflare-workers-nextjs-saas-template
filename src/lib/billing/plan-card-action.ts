@@ -2,7 +2,6 @@ import { mustPayOrCancel } from "@/constants/subscription-lifecycle";
 
 export type PlanCardAction =
   | "none"
-  | "cancelNow"
   | "cancelAtPeriodEnd"
   | "cancelScheduled"
   | "switchInterval"
@@ -26,8 +25,9 @@ export function selectPlanCardAction(params: PlanCardActionParams): PlanCardActi
   if (!params.canManage || params.isFree) {
     return "none";
   }
+  // The payment banner owns this cancel, so it still shows when the saved plan left the catalog.
   if (mustPayOrCancel(params.status)) {
-    return params.isCurrent ? "cancelNow" : "none";
+    return "none";
   }
   if (params.isCurrent && params.hasActiveSubscription) {
     if (params.cancelAtPeriodEnd) {
