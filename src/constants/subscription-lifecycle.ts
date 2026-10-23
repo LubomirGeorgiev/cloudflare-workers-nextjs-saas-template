@@ -134,6 +134,13 @@ export function getStripeSubscriptionTransitionPolicy(status: string | null | un
   ];
 }
 
+// A past_due subscription blocks a new checkout and gives no paid access, so the team can
+// only pay the open invoice or cancel. Waiting for Stripe to end the retries takes weeks.
+export function mustPayOrCancel(status: string | null | undefined): boolean {
+  const policy = getStripeSubscriptionTransitionPolicy(status);
+  return policy?.subscribe === "block" && !policy.grantsPaidAccess;
+}
+
 /**
  * The cancel parameters every revenue-affecting cancellation passes.
  *

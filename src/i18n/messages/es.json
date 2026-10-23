@@ -508,6 +508,9 @@
         "logOut": "Cerrar sesión"
       }
     },
+    "MultiSelect": {
+      "noResults": "No se encontraron resultados."
+    },
     "Dashboard": {
       "Home": {
         "breadcrumb": "Panel",
@@ -717,6 +720,7 @@
         "readOnlyNotice": "Solo los administradores del equipo pueden gestionar la facturación.",
         "billingDisabledNotice": "La facturación no está configurada para este despliegue.",
         "paymentDialogTitle": "Suscribirse a {plan}",
+        "completePaymentDialogTitle": "Pagar {plan}",
         "securePaymentInfo": "Tu pago es seguro y está cifrado. Usamos Stripe, un proveedor de pagos global de confianza, para procesar tu pago.",
         "paymentDetailsInfo": "Por tu seguridad, los datos de tu pago los gestiona directamente Stripe y nunca pasan por nuestros servidores.",
         "processing": "Procesando...",
@@ -728,14 +732,20 @@
         "subscriptionActive": "Tu suscripción está activa.",
         "completePaymentTitle": "Completa tu pago",
         "completePaymentDescription": "Tu último pago necesita confirmación para mantener tu suscripción activa.",
+        "pastDuePaymentDescription": "Tu último pago falló. Paga la factura pendiente para recuperar el acceso o cancela la suscripción.",
         "completePayment": "Completar pago",
         "confirmCancelTitle": "¿Cancelar suscripción?",
         "confirmCancelDescription": "Tu equipo conserva el acceso hasta el final del período de facturación actual y luego pasa al plan Gratis.",
+        "confirmCancelNowDescription": "Tu equipo pierde el acceso de pago ahora y pasa al plan Gratis. Puedes volver a suscribirte en cualquier momento.",
+        "subscriptionCanceled": "Tu suscripción está cancelada.",
         "confirmCancelAction": "Sí, cancelar",
         "errorStartCheckout": "No se pudo iniciar el pago",
         "errorTrialUnavailable": "La prueba gratuita no está disponible para este equipo.",
         "errorTrialPaymentMethodUnsupported": "Este método de pago no se puede usar con este plan. Elige otro método de pago.",
         "trialSetupPending": "Tu banco aún está verificando tu método de pago. Vuelve a cargar esta página más tarde para terminar de iniciar la prueba gratuita.",
+        "bankVerificationPending": "Debes verificar tu cuenta bancaria antes de que se pueda completar el pago. Selecciona \"Verificar cuenta bancaria\" y sigue los pasos. Tu suscripción empieza cuando se complete el pago.",
+        "verifyBankAccount": "Verificar cuenta bancaria",
+        "errorNoOpenPayment": "No hay ningún pago pendiente.",
         "errorPaymentProvider": "Algo salió mal con nuestro proveedor de pagos. Inténtalo de nuevo más tarde.",
         "errorNoClientSecret": "No se pudo iniciar la suscripción. Inténtalo de nuevo.",
         "errorPlanChangeRequiresPaidAccess": "Completa el pago pendiente antes de cambiar de plan.",

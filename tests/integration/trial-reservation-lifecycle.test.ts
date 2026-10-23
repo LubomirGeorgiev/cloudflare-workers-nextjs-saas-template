@@ -582,3 +582,63 @@ test("the sweep does not re-drive a reservation recovered within the retry inter
   expect(calls.created).toEqual([]);
   expect(await findReservation(teamId, userId)).toBeDefined();
 });
+
+// A cancel that throws in discardLosingTrial records nothing, so the sweep must find the loser.
+test("recovery cancels a recorded trial that lost the team slot and does not stamp the user", async () => {
+  const customerId = uid("cus");
+  const winnerId = uid("sub");
+  const { teamId, userId } = await seedTeamAndUser({ customerId, teamSubscriptionId: winnerId });
+  const loserId = uid("sub");
+  await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: loserId });
+
+  const { client, calls } = makeFakeStripe({
+    retrieve: async (id) => makeSubscription({ id, status: "trialing", teamId, customerId }),
+    cancel: async (id) => makeSubscription({ id, status: "canceled", teamId, customerId }),
+  });
+
+  const settled = await settleStaleTrialReservations({ now: new Date(Date.now() + HOUR_MS), stripe: client });
+
+  expect(settled).toBe(1);
+  expect(calls.canceled).toEqual([loserId]);
+  expect(await findReservation(teamId, userId)).toBeUndefined();
+  const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
+  const user = await db.query.userTable.findFirst({ where: { id: userId } });
+  expect(team?.stripeSubscriptionId).toBe(winnerId);
+  expect(user?.trialUsedAt).toBeFalsy();
+});
+
+test("recovery keeps the reservation when the cancel of a lost trial fails", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId, teamSubscriptionId: uid("sub") });
+  const loserId = uid("sub");
+  await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: loserId });
+
+  const { client } = makeFakeStripe({
+    retrieve: async (id) => makeSubscription({ id, status: "trialing", teamId, customerId }),
+    cancel: async () => {
+      throw new Stripe.errors.StripeConnectionError({ message: "network blip" });
+    },
+  });
+
+  const settled = await settleStaleTrialReservations({ now: new Date(Date.now() + HOUR_MS), stripe: client });
+
+  expect(settled).toBe(0);
+  const reservation = await findReservation(teamId, userId);
+  expect(reservation?.lastError).toBeTruthy();
+});
+
+test("recovery releases a lost trial that Stripe already ended without a second cancel", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId, teamSubscriptionId: uid("sub") });
+  await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: uid("sub") });
+
+  const { client, calls } = makeFakeStripe({
+    retrieve: async (id) => makeSubscription({ id, status: "canceled", teamId, customerId }),
+  });
+
+  const settled = await settleStaleTrialReservations({ now: new Date(Date.now() + HOUR_MS), stripe: client });
+
+  expect(settled).toBe(1);
+  expect(calls.canceled).toEqual([]);
+  expect(await findReservation(teamId, userId)).toBeUndefined();
+});

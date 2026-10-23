@@ -508,6 +508,9 @@
         "logOut": "Log out"
       }
     },
+    "MultiSelect": {
+      "noResults": "No results found."
+    },
     "Dashboard": {
       "Home": {
         "breadcrumb": "Dashboard",
@@ -717,6 +720,7 @@
         "readOnlyNotice": "Only team admins can manage billing.",
         "billingDisabledNotice": "Billing is not configured for this deployment.",
         "paymentDialogTitle": "Subscribe to {plan}",
+        "completePaymentDialogTitle": "Pay for {plan}",
         "securePaymentInfo": "Your payment is secure and encrypted. We use Stripe, a trusted global payment provider, to process your payment.",
         "paymentDetailsInfo": "For your security, your payment details are handled directly by Stripe and never touch our servers.",
         "processing": "Processing...",
@@ -728,14 +732,20 @@
         "subscriptionActive": "Your subscription is active.",
         "completePaymentTitle": "Complete your payment",
         "completePaymentDescription": "Your last payment needs confirmation to keep your subscription active.",
+        "pastDuePaymentDescription": "Your last payment failed. Pay the open invoice to get access again, or cancel the subscription.",
         "completePayment": "Complete payment",
         "confirmCancelTitle": "Cancel subscription?",
         "confirmCancelDescription": "Your team keeps access until the end of the current billing period, then reverts to the Free plan.",
+        "confirmCancelNowDescription": "Your team loses paid access now and moves to the Free plan. You can subscribe again at any time.",
+        "subscriptionCanceled": "Your subscription is canceled.",
         "confirmCancelAction": "Yes, cancel",
         "errorStartCheckout": "Failed to start checkout",
         "errorTrialUnavailable": "A free trial is not available for this team.",
         "errorTrialPaymentMethodUnsupported": "This payment method can't be used for this plan. Choose a different payment method.",
         "trialSetupPending": "Your bank is still verifying your payment method. Reload this page later to finish starting your free trial.",
+        "bankVerificationPending": "Your bank account needs verification before the payment can complete. Select \"Verify bank account\" and follow the steps. Your subscription starts when the payment completes.",
+        "verifyBankAccount": "Verify bank account",
+        "errorNoOpenPayment": "There is no payment to complete.",
         "errorPaymentProvider": "Something went wrong with our payment provider. Please try again later.",
         "errorNoClientSecret": "Could not start the subscription. Please try again.",
         "errorPlanChangeRequiresPaidAccess": "Complete the pending payment before changing plans.",

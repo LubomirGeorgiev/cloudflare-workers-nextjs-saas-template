@@ -15,3 +15,11 @@ const PROCEEDING_INTENT_STATUSES: ReadonlySet<SetupIntent.Status | PaymentIntent
 export function classifyConfirmedIntentStatus(status: SetupIntent.Status | PaymentIntent.Status): ConfirmOutcome {
   return PROCEEDING_INTENT_STATUSES.has(status) ? "success" : "cancel";
 }
+
+/**
+ * The page where the customer enters the microdeposit amounts, or null. An ACH account that
+ * skips instant verification resolves with this next action, and the payment waits for days.
+ */
+export function getMicrodepositVerificationUrl(intent: Pick<PaymentIntent, "next_action">): string | null {
+  return intent.next_action?.verify_with_microdeposits?.hosted_verification_url ?? null;
+}

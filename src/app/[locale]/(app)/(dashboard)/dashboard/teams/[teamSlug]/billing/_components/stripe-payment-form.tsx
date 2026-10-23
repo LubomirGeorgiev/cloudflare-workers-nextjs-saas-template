@@ -7,13 +7,13 @@ import {
   useElements,
   Elements,
 } from "@stripe/react-stripe-js";
-import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
+import { loadStripe, type Stripe, type StripeElements, type StripeElementsOptions } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/components/ui/card";
 import { useTranslations } from "@/i18n/client";
-import { classifyConfirmedIntentStatus } from "@/lib/billing/confirm-outcome";
+import { classifyConfirmedIntentStatus, getMicrodepositVerificationUrl } from "@/lib/billing/confirm-outcome";
 import { buildPaymentReturnUrl, type TrialReturn } from "@/lib/billing/payment-return";
 
 interface StripePaymentFormProps {
@@ -57,9 +57,58 @@ function PaymentForm({
   const isSetupMode = isSetupIntentSecret(clientSecret);
   const isTrial = isSetupMode && Boolean(trialDays);
 
+  function notifyBankVerification(verificationUrl: string) {
+    toast.info(t("bankVerificationPending"), {
+      duration: Infinity,
+      action: { label: t("verifyBankAccount"), onClick: () => window.open(verificationUrl, "_blank", "noopener") },
+    });
+    onCancel();
+  }
+
   function failPayment(message: string | undefined) {
     toast.error(message || t("paymentFailed"));
     setIsProcessing(false);
+  }
+
+  // Do NOT flip subscription state from the client — the server verifies the
+  // SetupIntent (setup mode) or the webhook confirms the payment (payment mode).
+  async function confirmSetupMode({ stripe, elements, confirmParams }: ConfirmContext) {
+    // Deferred-intent Elements must validate and collect wallet data before the confirm.
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      failPayment(submitError.message);
+      return;
+    }
+    const result = await stripe.confirmSetup({ elements, clientSecret, confirmParams, redirect: "if_required" });
+    if (result.error) {
+      failPayment(result.error.message);
+      return;
+    }
+    // A closed modal is not a failure: keep the dialog open so the user can pick another method.
+    if (classifyConfirmedIntentStatus(result.setupIntent.status) === "cancel") {
+      setIsProcessing(false);
+      return;
+    }
+    onSuccess({ setupIntentId: result.setupIntent.id });
+  }
+
+  async function confirmPaymentMode({ stripe, elements, confirmParams }: ConfirmContext) {
+    const result = await stripe.confirmPayment({ elements, confirmParams, redirect: "if_required" });
+    if (result.error) {
+      failPayment(result.error.message);
+      return;
+    }
+    // The microdeposits take days and the dialog has nothing more to do: say what comes next.
+    const verificationUrl = getMicrodepositVerificationUrl(result.paymentIntent);
+    if (verificationUrl) {
+      notifyBankVerification(verificationUrl);
+      return;
+    }
+    if (classifyConfirmedIntentStatus(result.paymentIntent.status) === "cancel") {
+      setIsProcessing(false);
+      return;
+    }
+    onSuccess(null);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,41 +123,8 @@ function PaymentForm({
     try {
       // "if_required" keeps cards inline; only a redirect-based method uses return_url. The
       // browser builds it, so Stripe returns to the host that started the checkout.
-      const confirmParams = { return_url: buildPaymentReturnUrl(window.location.href) };
-
-      // Do NOT flip subscription state from the client — the server verifies the
-      // SetupIntent (setup mode) or the webhook confirms the payment (payment mode).
-      if (isSetupMode) {
-        // Deferred-intent Elements must validate and collect wallet data before the confirm.
-        const { error: submitError } = await elements.submit();
-        if (submitError) {
-          failPayment(submitError.message);
-          return;
-        }
-        const result = await stripe.confirmSetup({ elements, clientSecret, confirmParams, redirect: "if_required" });
-        if (result.error) {
-          failPayment(result.error.message);
-          return;
-        }
-        // A closed modal is not a failure: keep the dialog open so the user can pick another method.
-        if (classifyConfirmedIntentStatus(result.setupIntent.status) === "cancel") {
-          setIsProcessing(false);
-          return;
-        }
-        onSuccess({ setupIntentId: result.setupIntent.id });
-        return;
-      }
-
-      const result = await stripe.confirmPayment({ elements, confirmParams, redirect: "if_required" });
-      if (result.error) {
-        failPayment(result.error.message);
-        return;
-      }
-      if (classifyConfirmedIntentStatus(result.paymentIntent.status) === "cancel") {
-        setIsProcessing(false);
-        return;
-      }
-      onSuccess(null);
+      const context = { stripe, elements, confirmParams: { return_url: buildPaymentReturnUrl(window.location.href) } };
+      await (isSetupMode ? confirmSetupMode(context) : confirmPaymentMode(context));
     } catch (error) {
       console.error("Payment error:", error);
       toast.error(error instanceof Error ? error.message : tErrors("unexpected"));
@@ -159,7 +175,6 @@ function PaymentForm({
   );
 }
 
-// fallow-ignore-next-line unused-export -- Reached by dynamic import from plan-cards.tsx.
 export function StripePaymentForm(props: StripePaymentFormProps) {
   const { resolvedTheme: theme } = useTheme();
   const stripePromise = useMemo(
@@ -187,4 +202,10 @@ export function StripePaymentForm(props: StripePaymentFormProps) {
       <PaymentForm clientSecret={clientSecret} {...formProps} />
     </Elements>
   );
+}
+
+interface ConfirmContext {
+  stripe: Stripe;
+  elements: StripeElements;
+  confirmParams: { return_url: string };
 }

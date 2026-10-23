@@ -3,6 +3,10 @@ import Stripe from "stripe";
 
 import { TEAMS_DASHBOARD_PATH } from "@/constants";
 import { AVAILABLE_BILLING_INTERVALS, PAID_PLAN_IDS, TEAM_PLANS } from "@/constants/plans";
+import {
+  REVENUE_PRESERVING_CANCEL_PARAMS,
+  STRIPE_SUBSCRIPTION_TRANSITION_POLICY,
+} from "@/constants/subscription-lifecycle";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { ActionError } from "@/lib/action-error";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
@@ -11,12 +15,21 @@ const TEAM = { id: "team-1", slug: "acme", stripeCustomerId: "cus_123", stripeSu
 const [PLAN_ID] = PAID_PLAN_IDS;
 const TRIAL_PLAN_ID = PAID_PLAN_IDS.find((planId) => (TEAM_PLANS[planId].trialDays ?? 0) > 0);
 const [INTERVAL] = AVAILABLE_BILLING_INTERVALS;
+const SUBSCRIPTION_POLICY_ENTRIES = Object.entries(STRIPE_SUBSCRIPTION_TRANSITION_POLICY);
+const CLEARED_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
+  .filter(([, policy]) => policy.subscription === "clear")
+  .map(([status]) => status);
+const RETAINED_NO_ACCESS_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
+  .filter(([, policy]) => policy.subscription === "retain" && !policy.grantsPaidAccess)
+  .map(([status]) => status);
 const INVOICE_SUBSCRIPTION = {
   id: "sub_123",
+  status: "incomplete",
   latest_invoice: { confirmation_secret: { client_secret: "pi_123_secret_abc" } },
 };
 
 const {
+  cancelSubscriptionMock,
   completeTrialSubscriptionMock,
   createPortalSessionMock,
   createSetupIntentMock,
@@ -26,7 +39,9 @@ const {
   headersMock,
   isBillingEnabledMock,
   retrieveSubscriptionMock,
+  updateSubscriptionMock,
 } = vi.hoisted(() => ({
+  cancelSubscriptionMock: vi.fn(async (id: string) => ({ id, status: "canceled" })),
   completeTrialSubscriptionMock: vi.fn(),
   createPortalSessionMock: vi.fn(async () => ({ url: "https://billing.stripe.test/session" })),
   createSetupIntentMock: vi.fn(async () => ({ client_secret: "seti_123_secret_abc" })),
@@ -36,6 +51,7 @@ const {
   headersMock: vi.fn(async () => new Headers()),
   isBillingEnabledMock: vi.fn(() => true),
   retrieveSubscriptionMock: vi.fn(),
+  updateSubscriptionMock: vi.fn(async (id: string) => ({ id, status: "active", cancel_at_period_end: true })),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -63,7 +79,12 @@ vi.mock("@/lib/stripe", () => ({
   getStripe: async () => ({
     billingPortal: { sessions: { create: createPortalSessionMock } },
     setupIntents: { create: createSetupIntentMock },
-    subscriptions: { create: createSubscriptionMock, retrieve: retrieveSubscriptionMock },
+    subscriptions: {
+      cancel: cancelSubscriptionMock,
+      create: createSubscriptionMock,
+      retrieve: retrieveSubscriptionMock,
+      update: updateSubscriptionMock,
+    },
   }),
 }));
 vi.mock("@/flags", () => ({ isBillingEnabled: isBillingEnabledMock }));
@@ -85,12 +106,14 @@ vi.mock("@/utils/with-rate-limit", () => ({
 }));
 
 const {
+  cancelSubscriptionAction,
   completeTrialAction,
   createBillingPortalSessionAction,
   createSubscriptionAction,
   resumePaymentAction,
   startTrialSetupAction,
 } = await import("./billing.actions");
+const { reconcileTeamFromSubscription } = await import("@/utils/team-subscription");
 
 function expectedReturnUrl({ locale, baseUrl }: { locale: Locale; baseUrl?: string }): string {
   return absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${TEAM.slug}/billing`, locale, baseUrl });
@@ -209,6 +232,72 @@ describe("checkout actions", () => {
       await expect(resumePaymentAction({ teamId: TEAM.id })).rejects.toThrow();
       expect(retrieveSubscriptionMock).not.toHaveBeenCalled();
     });
+
+    // A paid invoice still has a client secret, but the Payment Element cannot load it.
+    test("saves the live status and refuses when nothing is due", async () => {
+      const paid = { ...INVOICE_SUBSCRIPTION, status: "active" };
+      retrieveSubscriptionMock.mockResolvedValue(paid);
+
+      await expect(resumePaymentAction({ teamId: TEAM.id })).rejects.toMatchObject({
+        code: "PRECONDITION_FAILED",
+        messageKey: "Client.Dashboard.Billing.errorNoOpenPayment",
+      });
+      expect(reconcileTeamFromSubscription).toHaveBeenCalledWith({ subscription: paid });
+    });
+  });
+});
+
+describe("cancelSubscriptionAction", () => {
+  beforeEach(() => {
+    findTeamMock.mockResolvedValue(TEAM);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("cancels a past_due subscription now", async () => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status: "past_due" });
+
+    const result = await cancelSubscriptionAction({ teamId: TEAM.id, atPeriodEnd: false });
+
+    expect(result).toEqual({ success: true, canceledNow: true });
+    expect(cancelSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, expect.anything());
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
+  });
+
+  // A lost webhook can leave past_due on the page while Stripe already says active.
+  test("cancels at period end when Stripe says the subscription is active", async () => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status: "active" });
+
+    const result = await cancelSubscriptionAction({ teamId: TEAM.id, atPeriodEnd: false });
+
+    expect(result).toEqual({ success: true, canceledNow: false });
+    expect(cancelSubscriptionMock).not.toHaveBeenCalled();
+    expect(updateSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, { cancel_at_period_end: true });
+  });
+
+  // Stripe refuses an update on an ended subscription, so the action only syncs the stale row.
+  test.each(CLEARED_STATUSES)("syncs the row without a Stripe write when Stripe says %s", async (status) => {
+    const current = { id: TEAM.stripeSubscriptionId, status };
+    retrieveSubscriptionMock.mockResolvedValue(current);
+
+    const result = await cancelSubscriptionAction({ teamId: TEAM.id, atPeriodEnd: false });
+
+    expect(result).toEqual({ success: true, canceledNow: true });
+    expect(cancelSubscriptionMock).not.toHaveBeenCalled();
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
+    expect(reconcileTeamFromSubscription).toHaveBeenCalledWith({ subscription: current });
+  });
+
+  test.each(RETAINED_NO_ACCESS_STATUSES)("cancels now when Stripe says %s", async (status) => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status });
+
+    const result = await cancelSubscriptionAction({ teamId: TEAM.id, atPeriodEnd: false });
+
+    expect(result).toEqual({ success: true, canceledNow: true });
+    expect(cancelSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS);
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
   });
 });
 
