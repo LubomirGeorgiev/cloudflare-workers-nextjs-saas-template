@@ -232,12 +232,8 @@ export function CmsEntryForm({
     },
   });
 
-  const {
-    execute: loadTags,
-    executeAsync: loadTagsAsync,
-    result: tagsResult,
-    isExecuting: isLoadingTags,
-  } = useAction(listCmsTagsAction, {
+  const [createdTags, setCreatedTags] = useState<TagOptionSource[]>([]);
+  const { execute: loadTags, result: tagsResult, isExecuting: isLoadingTags } = useAction(listCmsTagsAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || "Failed to load tags");
     },
@@ -247,11 +243,12 @@ export function CmsEntryForm({
       if (data) {
         toast.success(`Tag "${data.name}" created successfully`);
         warnAfterCmsWrite(data);
-        // Select the new tag only once the refreshed list holds it, so MultiSelect knows its value.
-        void loadTagsAsync().then(() => {
-          const currentTagIds = form.getValues("tagIds") || [];
-          form.setValue("tagIds", [...currentTagIds, data.id], { shouldDirty: true });
-        });
+        // Option and selection land together: a Save before the list reloads still sends the tag,
+        // and MultiSelect never holds a value it has no option for.
+        setCreatedTags((tags) => [...tags, { id: data.id, name: data.name, color: data.color }]);
+        const currentTagIds = form.getValues("tagIds") || [];
+        form.setValue("tagIds", [...currentTagIds, data.id], { shouldDirty: true });
+        loadTags(); // Refresh tags list
         setSearchValue("");
         multiSelectRef.current?.closePopover();
       }
@@ -306,10 +303,12 @@ export function CmsEntryForm({
   }, [loadTags]);
 
   // Until the list loads, the entry's own tags stand in, so its selected values have options.
-  const availableTags = useMemo(
-    () => tagsResult.data ?? entry?.tags?.map(({ tag }) => tag) ?? [],
-    [tagsResult.data, entry?.tags]
-  );
+  const availableTags = useMemo(() => {
+    const listedTags: TagOptionSource[] = tagsResult.data ?? entry?.tags?.map(({ tag }) => tag) ?? [];
+    const listedIds = new Set(listedTags.map((tag) => tag.id));
+
+    return [...listedTags, ...createdTags.filter((tag) => !listedIds.has(tag.id))];
+  }, [tagsResult.data, entry?.tags, createdTags]);
 
   const isDirty = form.formState.isDirty;
 
@@ -353,7 +352,7 @@ export function CmsEntryForm({
 
   const tagOptions: MultiSelectOption[] = useMemo(
     () =>
-      availableTags.map((tag: { id: string; name: string; color: string | null }) => ({
+      availableTags.map((tag) => ({
         label: tag.name,
         value: tag.id,
         style: {
@@ -1021,4 +1020,10 @@ function toFormDate(value: unknown): Date | undefined {
   const date = value instanceof Date ? value : new Date(String(value));
 
   return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+interface TagOptionSource {
+  id: string;
+  name: string;
+  color: string | null;
 }
