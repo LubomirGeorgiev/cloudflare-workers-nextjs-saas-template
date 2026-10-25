@@ -48,6 +48,7 @@ import { ENABLED_LOCALES, LOCALE_LABELS } from "@/i18n/config"
 import { LocaleFlag } from "@/components/locale-flag"
 import { useChangeLocale } from "@/hooks/useChangeLocale"
 import type { SessionValidationResult } from "@/types"
+import { getInitials } from "@/utils/name-initials"
 
 interface NavUserProps {
   session?: SessionValidationResult | null;
@@ -92,6 +93,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
 
   const { user } = session;
   const displayName = user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email;
+  const initials = getInitials(displayName ?? "");
 
   return (
     <SidebarMenu>
@@ -107,7 +109,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
           >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar ?? ''} alt={displayName ?? ''} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 gap-0.5 text-left text-sm leading-tight">
                 <span className="font-semibold overflow-hidden text-ellipsis whitespace-nowrap">{displayName}</span>
@@ -125,7 +127,7 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar ?? ''} alt={displayName ?? ''} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 gap-0.5 text-left text-sm leading-tight">
                   <span className="font-semibold">{displayName}</span>

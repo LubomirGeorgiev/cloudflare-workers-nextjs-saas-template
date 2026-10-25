@@ -55,9 +55,8 @@ export const LOGO_GRADIENT = {
   y2: 3.6,
 } as const
 
-// Fixed, so a page with two marks (nav and footer) holds two elements with this id and every mark
-// paints from the first. Left alone on purpose: the gradients are identical, so nothing changes, and
-// a unique id needs `useId`, which would make `<Logo>` a client component for no visible gain.
+// The id in the standalone files. `<Logo>` adds a per-copy suffix, because a page shows the mark
+// more than once and a hidden first copy would leave the others blank.
 export const LOGO_GRADIENT_ID = "brand-logo-gradient"
 
 /**

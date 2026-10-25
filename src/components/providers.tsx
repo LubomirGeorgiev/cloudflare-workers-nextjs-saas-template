@@ -48,11 +48,17 @@ export function ThemeProvider({
       <Suspense>
         <RouterChecker />
       </Suspense>
-      <NextThemesProvider {...props} attribute="class">
+      <NextThemesProvider {...props} attribute="class" scriptProps={THEME_SCRIPT_PROPS}>
         <SessionClientSync />
         {children}
         <EmailVerificationDialog />
       </NextThemesProvider>
     </>
   )
+}
+
+// React 19 warns when a client render creates a runnable `<script>` (a remount on sign-out does).
+// The server copy already set the theme, so a client copy is marked as data and never runs.
+const THEME_SCRIPT_PROPS = {
+  type: typeof window === "undefined" ? "text/javascript" : "text/plain",
 }

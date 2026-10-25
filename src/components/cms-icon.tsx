@@ -1,3 +1,6 @@
+import { useId } from "react";
+
+import { prefixIconIds } from "@/lib/cms/icon-id-namespace";
 import { cn } from "@/lib/utils";
 import type { CmsIconBody } from "@/types/cms-navigation";
 
@@ -48,12 +51,16 @@ export function CmsIcon({
   className?: string;
   color?: string | null;
 }) {
+  // Two copies of one icon share ids, and a `url(#id)` resolves to the first copy on the page. When
+  // that copy is hidden (the desktop sidebar on a phone), the visible one loses its gradient.
+  const namespace = useId();
+
   return (
     <span
       className={cn("inline-flex shrink-0 [&>svg]:size-full", className)}
       style={color ? { color } : undefined}
       aria-hidden="true"
-      dangerouslySetInnerHTML={{ __html: icon.markup }}
+      dangerouslySetInnerHTML={{ __html: prefixIconIds({ markup: icon.markup, namespace }) }}
     />
   );
 }

@@ -29,7 +29,8 @@ export function PageHeader({ items }: PageHeaderProps) {
         <Breadcrumb>
           <BreadcrumbList>
             {items.map((item, index) => (
-              <React.Fragment key={item.href}>
+              // Two crumbs can share an href (`/admin` is both "Admin" and the users list).
+              <React.Fragment key={`${index}:${item.href}`}>
                 <BreadcrumbItem className="hidden md:block">
                   {/* `render` swaps the default bare `<a>` for the localized `Link`, so a
                       breadcrumb click is a soft navigation instead of a full document load. */}

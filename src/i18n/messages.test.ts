@@ -1,3 +1,4 @@
+import { type AbstractIntlMessages, createTranslator, IntlErrorCode } from "use-intl";
 import { describe, expect, test } from "vitest";
 
 import { DEFAULT_LOCALE, LOCALES } from "./config";
@@ -167,5 +168,27 @@ describe("message catalogs", () => {
       .map(([path]) => path);
 
     expect(emptyKeys).toEqual([]);
+  });
+
+  // A literal brace (such as a JSON example) must be ICU-quoted, or the page renders the raw key.
+  // Missing arguments only raise FORMATTING_ERROR, so INVALID_MESSAGE isolates the parse failures.
+  test.each(LOCALES)("%s.json messages parse as ICU", async (locale) => {
+    const messages = (await loadCatalog(locale)) as AbstractIntlMessages;
+    const invalidKeys: string[] = [];
+    const t = createTranslator({
+      locale,
+      messages,
+      onError: (error) => {
+        if (error.code === IntlErrorCode.INVALID_MESSAGE) {
+          invalidKeys.push(error.message);
+        }
+      },
+    });
+
+    for (const [path] of stringLeaves(messages)) {
+      t(path as Parameters<typeof t>[0]);
+    }
+
+    expect(invalidKeys).toEqual([]);
   });
 });

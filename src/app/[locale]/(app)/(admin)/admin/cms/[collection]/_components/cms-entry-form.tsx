@@ -47,11 +47,11 @@ import { toast } from "sonner";
 import { generateSlug } from "@/utils/slugify";
 import type { GetCmsCollectionResult } from "@/lib/cms/entry";
 import { CMS_ENTRY_STATUS } from "@/app/enums";
-import useBeforeUnload from "@/hooks/use-before-unload";
+import { useLeaveGuard } from "@/hooks/use-leave-guard";
 import { SITE_URL, CMS_SEO_DESCRIPTION_MAX_LENGTH } from "@/constants";
 import { Route } from "next";
 import { cmsConfig, type CollectionsUnion } from "@/../cms.config";
-import { valibotSchemaToFieldConfigs } from "@/lib/cms/valibot-to-field-config";
+import { type FieldConfig, valibotSchemaToFieldConfigs } from "@/lib/cms/valibot-to-field-config";
 import { CmsDynamicField } from "./cms-dynamic-field";
 import { CMS_ENTRY_STATUS_CONFIG, getStatusConfig } from "@/lib/cms/cms-entry-status-config";
 import { FeaturedImageUpload } from "./featured-image-upload";
@@ -68,6 +68,7 @@ import {
 
 // One toast for the whole save: the result replaces the loading toast in place, away from Save.
 const ENTRY_SAVE_TOAST = { id: "cms-entry-save", position: CMS_WRITE_TOAST_POSITION } as const;
+const UNSAVED_CHANGES_MESSAGE = "You have unsaved changes. Are you sure you want to leave?";
 
 // TipTap and ProseMirror are ~744 KiB of client references. Vinext preloads every client
 // reference on a cold isolate, so a static import here costs public pages CPU they never use.
@@ -158,19 +159,10 @@ export function CmsEntryForm({
     return valibotSchemaToFieldConfigs(collectionDefinition.fieldsSchema);
   }, [collectionDefinition]);
 
-  // Initialize default field values
-  const defaultFieldValues = useMemo(() => {
-    const fields: Record<string, unknown> = (entry?.fields as Record<string, unknown>) || {};
-
-    // Set default values for any missing fields
-    for (const field of customFields) {
-      if (!(field.name in fields) && field.defaultValue !== undefined) {
-        fields[field.name] = field.defaultValue;
-      }
-    }
-
-    return fields;
-  }, [customFields, entry?.fields]);
+  const defaultFieldValues = useMemo(
+    () => withCustomFieldKeys({ fields: entry?.fields, customFields }),
+    [customFields, entry?.fields]
+  );
 
   const form = useForm<CmsEntryFormInput, unknown, CmsEntryFormData>({
     resolver: valibotResolver(cmsEntryFormSchema),
@@ -196,10 +188,13 @@ export function CmsEntryForm({
       status: savedEntry.status,
       publishedAt: toFormDate(savedEntry.publishedAt),
       tagIds: input.tagIds || [],
-      fields: (savedEntry.fields as Record<string, unknown> | null) || input.fields || {},
+      fields: withCustomFieldKeys({
+        fields: (savedEntry.fields as Record<string, unknown> | null) || input.fields,
+        customFields,
+      }),
       featuredImageId: savedEntry.featuredImageId || undefined,
     }),
-    []
+    [customFields]
   );
 
   const { execute: createEntry, isExecuting: isCreating } = useAction(createCmsEntryAction, {
@@ -237,6 +232,7 @@ export function CmsEntryForm({
     },
   });
 
+  const [createdTags, setCreatedTags] = useState<TagOptionSource[]>([]);
   const { execute: loadTags, result: tagsResult, isExecuting: isLoadingTags } = useAction(listCmsTagsAction, {
     onError: ({ error }) => {
       toast.error(error.serverError?.message || "Failed to load tags");
@@ -247,9 +243,12 @@ export function CmsEntryForm({
       if (data) {
         toast.success(`Tag "${data.name}" created successfully`);
         warnAfterCmsWrite(data);
-        loadTags(); // Refresh tags list
+        // Option and selection land together: a Save before the list reloads still sends the tag,
+        // and MultiSelect never holds a value it has no option for.
+        setCreatedTags((tags) => [...tags, { id: data.id, name: data.name, color: data.color }]);
         const currentTagIds = form.getValues("tagIds") || [];
-        form.setValue("tagIds", [...currentTagIds, data.id]);
+        form.setValue("tagIds", [...currentTagIds, data.id], { shouldDirty: true });
+        loadTags(); // Refresh tags list
         setSearchValue("");
         multiSelectRef.current?.closePopover();
       }
@@ -264,7 +263,7 @@ export function CmsEntryForm({
     },
     onSuccess: ({ data }) => {
       if (data?.description) {
-        form.setValue("seoDescription", data.description);
+        form.setValue("seoDescription", data.description, { shouldDirty: true });
         toast.success("SEO description generated successfully");
       }
     },
@@ -303,24 +302,27 @@ export function CmsEntryForm({
     loadTags();
   }, [loadTags]);
 
-  const availableTags = tagsResult.data || [];
+  // Until the list loads, the entry's own tags stand in, so its selected values have options.
+  const availableTags = useMemo(() => {
+    const listedTags: TagOptionSource[] = tagsResult.data ?? entry?.tags?.map(({ tag }) => tag) ?? [];
+    const listedIds = new Set(listedTags.map((tag) => tag.id));
+
+    return [...listedTags, ...createdTags.filter((tag) => !listedIds.has(tag.id))];
+  }, [tagsResult.data, entry?.tags, createdTags]);
 
   const isDirty = form.formState.isDirty;
 
-  useBeforeUnload(() => isDirty && !isExecuting);
+  const hasUnsavedChanges = useCallback(() => isDirty && !isExecuting, [isDirty, isExecuting]);
+
+  useLeaveGuard({ enabled: hasUnsavedChanges, message: UNSAVED_CHANGES_MESSAGE });
 
   const handleNavigateBack = useCallback((e: MouseEvent<HTMLButtonElement>) => {
-    if (isDirty && !isExecuting) {
-      const confirmed = window.confirm(
-        "You have unsaved changes. Are you sure you want to leave?"
-      );
-      if (!confirmed) {
-        e?.preventDefault();
-        return;
-      }
+    if (hasUnsavedChanges() && !window.confirm(UNSAVED_CHANGES_MESSAGE)) {
+      e?.preventDefault();
+      return;
     }
     router.push(`/admin/cms/${collection}`);
-  }, [isDirty, isExecuting, router, collection]);
+  }, [hasUnsavedChanges, router, collection]);
 
   const handleTitleChange = (value: string) => {
     form.setValue("title", value);
@@ -350,7 +352,7 @@ export function CmsEntryForm({
 
   const tagOptions: MultiSelectOption[] = useMemo(
     () =>
-      availableTags.map((tag: { id: string; name: string; color: string | null }) => ({
+      availableTags.map((tag) => ({
         label: tag.name,
         value: tag.id,
         style: {
@@ -975,6 +977,26 @@ export function CmsEntryForm({
   );
 }
 
+// Every custom field gets a key, even an empty one. A mounted input reports `undefined` for an
+// empty field, so a reset to an object without the key would leave the form dirty after a save.
+function withCustomFieldKeys({
+  fields,
+  customFields,
+}: {
+  fields: Record<string, unknown> | null | undefined;
+  customFields: FieldConfig[];
+}): Record<string, unknown> {
+  const values = { ...fields };
+
+  for (const field of customFields) {
+    if (!(field.name in values)) {
+      values[field.name] = field.defaultValue;
+    }
+  }
+
+  return values;
+}
+
 function formatDateTimeLocalValue(value: unknown): string {
   if (!value) {
     return "";
@@ -998,4 +1020,10 @@ function toFormDate(value: unknown): Date | undefined {
   const date = value instanceof Date ? value : new Date(String(value));
 
   return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+interface TagOptionSource {
+  id: string;
+  name: string;
+  color: string | null;
 }

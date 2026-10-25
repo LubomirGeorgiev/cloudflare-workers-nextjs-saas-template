@@ -36,6 +36,9 @@ export default function ForgotPasswordClientComponent() {
 
   const form = useForm<ForgotPasswordSchema>({
     resolver: valibotResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: session?.user?.email ?? "",
+    },
   });
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { lazy, Suspense } from "react";
+import { useIsClient } from "usehooks-ts";
 
 const NextTopLoader = lazy(async () => {
   const topLoaderModule = await import("nextjs-toploader");
@@ -13,6 +14,14 @@ const NextTopLoader = lazy(async () => {
 });
 
 export function NavigationTopLoader() {
+  // Server-rendered, the lazy chunk hydrates late: a Base UI popup opened first marks the loader's
+  // `<style>` inert, and React reports a mismatch. It only matters on navigation, so mount it after.
+  const isClient = useIsClient();
+
+  if (!isClient) {
+    return null;
+  }
+
   return (
     <Suspense fallback={null}>
       <NextTopLoader
