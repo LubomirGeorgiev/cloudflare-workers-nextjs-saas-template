@@ -47,7 +47,11 @@ export function SettingsForm() {
 
   const { session, isLoading } = useSessionStore();
   const form = useForm<UserSettingsFormValues>({
-    resolver: valibotResolver(userSettingsSchema)
+    resolver: valibotResolver(userSettingsSchema),
+    defaultValues: {
+      firstName: session?.user.firstName ?? '',
+      lastName: session?.user.lastName ?? '',
+    },
   });
 
   useEffect(() => {

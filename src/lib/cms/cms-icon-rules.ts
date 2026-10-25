@@ -12,6 +12,12 @@ import {
   type CmsIconSetPrefix,
 } from "@/constants/cms-icons";
 import { ActionError } from "@/lib/action-error";
+import {
+  ICON_ID_ATTRIBUTE_PATTERN,
+  prefixIconIds,
+  readQuotedGroups,
+  URL_REFERENCE_PATTERN,
+} from "@/lib/cms/icon-id-namespace";
 import type { CmsIconBody } from "@/types/cms-navigation";
 import { fnv1a } from "@/utils/hash";
 import { generateSlug } from "@/utils/slugify";
@@ -103,15 +109,9 @@ const ICON_ATTRIBUTE_PATTERN =
 // a value loads or runs something. `url(...)` is absent on purpose: it is resolved against the
 // document's own ids instead, by `findReferenceRejection`.
 const FORBIDDEN_ATTRIBUTE_VALUE = /&#|^\s*(?:javascript|data|vbscript)\s*:/i;
-// Written by hand rather than reusing ICON_ATTRIBUTE_PATTERN: this one finds `id` wherever it sits,
-// and `\b` keeps it off the tail of a name like `gradientid`.
-const ICON_ID_ATTRIBUTE_PATTERN = /\bid\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
-const URL_REFERENCE_PATTERN = /url\s*\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
 // Every `url(` that has to resolve. A count that beats the parsed references means one is
 // malformed, which is refused rather than ignored.
 const URL_OPENING_PATTERN = /url\s*\(/gi;
-const HREF_ATTRIBUTE_PATTERN =
-  /\b(xlink:href|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
 // The prolog, the doctype, and anything after the document. Trimmed rather than refused: it sits
 // outside the `<svg>` element, so removing it changes nothing the element draws.
 const SVG_PROLOG_PATTERN = /^[\s\S]*?(?=<svg[\s>])/i;
@@ -136,14 +136,6 @@ const SELF_CLOSING_TAG_PATTERN = /\/\s*>$/;
 /** The names that carry a reference, so their value has to name an id in this same document. */
 function isReferenceAttribute(name: string): boolean {
   return SVG_ELEMENT_NAME.test(name);
-}
-
-function readQuotedGroups(
-  doubleQuoted?: string,
-  singleQuoted?: string,
-  bare?: string,
-): string {
-  return (doubleQuoted ?? singleQuoted ?? bare ?? "").trim();
 }
 
 /** Every `id` the document defines — all a reference inside it is allowed to point at. */
@@ -405,44 +397,11 @@ function minifyIconMarkup(markup: string): string {
  *
  * Two icons on one page routinely define the same id — `id="a"` is ordinary in exported logos — and
  * the browser resolves `url(#a)` against the whole page, so the second icon would silently paint
- * with the first one's gradient. Deriving the prefix from the markup keeps it stable across renders
- * and equal for two copies of the same icon, where a collision changes nothing.
- *
- * A document with no ids comes back untouched, which is most of them.
+ * with the first one's gradient. Deriving the prefix from the markup keeps it stable across renders.
+ * Two copies of the same icon still share it, so `CmsIcon` adds a prefix per rendered copy.
  */
 function namespaceIconIds(markup: string): string {
-  ICON_ID_ATTRIBUTE_PATTERN.lastIndex = 0;
-
-  if (!ICON_ID_ATTRIBUTE_PATTERN.test(markup)) {
-    ICON_ID_ATTRIBUTE_PATTERN.lastIndex = 0;
-    return markup;
-  }
-
-  ICON_ID_ATTRIBUTE_PATTERN.lastIndex = 0;
-  const namespace = `ci${fnv1a(markup)}`;
-
-  return markup
-    .replace(
-      ICON_ID_ATTRIBUTE_PATTERN,
-      (_whole, doubleQuoted?: string, singleQuoted?: string, bare?: string) =>
-        `id="${namespace}-${readQuotedGroups(doubleQuoted, singleQuoted, bare)}"`,
-    )
-    .replace(
-      URL_REFERENCE_PATTERN,
-      (whole, doubleQuoted?: string, singleQuoted?: string, bare?: string) => {
-        const target = readQuotedGroups(doubleQuoted, singleQuoted, bare);
-
-        return target.startsWith("#") ? `url(#${namespace}-${target.slice(1)})` : whole;
-      },
-    )
-    .replace(
-      HREF_ATTRIBUTE_PATTERN,
-      (whole, name: string, doubleQuoted?: string, singleQuoted?: string, bare?: string) => {
-        const target = readQuotedGroups(doubleQuoted, singleQuoted, bare);
-
-        return target.startsWith("#") ? `${name}="#${namespace}-${target.slice(1)}"` : whole;
-      },
-    );
+  return prefixIconIds({ markup, namespace: `ci${fnv1a(markup)}` });
 }
 
 /**

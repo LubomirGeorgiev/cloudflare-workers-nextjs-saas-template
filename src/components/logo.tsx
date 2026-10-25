@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 import {
   LOGO_GRADIENT,
   LOGO_GRADIENT_ID,
@@ -9,6 +11,9 @@ import { SITE_NAME } from "@/constants";
 import { cn } from "@/lib/utils";
 
 export function Logo(props: React.SVGProps<SVGSVGElement>) {
+  // Per copy: `url(#id)` paints from the first match on the page, which may be a hidden copy.
+  const gradientId = `${LOGO_GRADIENT_ID}${useId()}`;
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +25,7 @@ export function Logo(props: React.SVGProps<SVGSVGElement>) {
     >
       <defs>
         <linearGradient
-          id={LOGO_GRADIENT_ID}
+          id={gradientId}
           x1={LOGO_GRADIENT.x1}
           y1={LOGO_GRADIENT.y1}
           x2={LOGO_GRADIENT.x2}
@@ -33,8 +38,8 @@ export function Logo(props: React.SVGProps<SVGSVGElement>) {
       </defs>
 
       <g
-        fill={`url(#${LOGO_GRADIENT_ID})`}
-        stroke={`url(#${LOGO_GRADIENT_ID})`}
+        fill={`url(#${gradientId})`}
+        stroke={`url(#${gradientId})`}
         strokeWidth={LOGO_STROKE_WIDTH}
         strokeLinejoin="round"
       >

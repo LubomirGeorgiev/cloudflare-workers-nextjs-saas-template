@@ -5,7 +5,8 @@ export function getValidPageNumber({
 }: {
   value: unknown
 }): number | null {
-  if (!isNumber({ value })) {
+  // Route params arrive as strings; nuqs `parseAsInteger` already hands over a number.
+  if (typeof value !== "number" && !isNumber({ value })) {
     return null
   }
 

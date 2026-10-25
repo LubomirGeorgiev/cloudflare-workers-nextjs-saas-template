@@ -103,10 +103,21 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
 
   const form = useForm<SignUpSchema>({
     resolver: valibotResolver(signUpSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+      password: "",
+    },
   });
 
   const passkeyForm = useForm<PasskeyEmailSchema>({
     resolver: valibotResolver(passkeyEmailSchema),
+    defaultValues: {
+      email: "",
+      firstName: "",
+      lastName: "",
+    },
   });
 
   const captchaToken = useWatch({ control: form.control, name: 'captchaToken' });
