@@ -135,6 +135,8 @@ export default defineConfig({
         name: "rsc",
         childEnvironments: ["ssr"],
       },
+      // The plugin read this variable itself up to 1.64; offline dev (docs/cursor-cloud-environment.md) needs it.
+      remoteBindings: process.env.CLOUDFLARE_VITE_FORCE_LOCAL !== "true",
     }),
     tailwindcss(),
     ...(process.env.ANALYZE_BUNDLE ? [analyzeBundle()] : []),

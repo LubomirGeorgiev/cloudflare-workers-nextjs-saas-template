@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 
 // The type system forces `.metadata()` on every action, but not that the name is right. A copied
 // action keeps the old name, and its spans then join the wrong action in every trace query.
-const sources = import.meta.glob(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
+const sources = import.meta.glob<string>(["../**/*.{ts,tsx}", "!../**/*.test.{ts,tsx}"], {
   eager: true,
   import: "default",
   query: "?raw",
