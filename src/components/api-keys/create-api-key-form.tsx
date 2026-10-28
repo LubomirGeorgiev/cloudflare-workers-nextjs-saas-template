@@ -72,6 +72,7 @@ export function CreateApiKeyForm({
 
       <Form {...form}>
         <form
+          method="post"
           onSubmit={form.handleSubmit((values) => execute({ ...values, teamId }))}
           className="space-y-5 pt-2"
         >

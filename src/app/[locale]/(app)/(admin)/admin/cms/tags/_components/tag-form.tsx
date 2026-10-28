@@ -126,7 +126,7 @@ export function TagForm({ mode, tag }: TagFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+    <form method="post" onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
       <Card>
         <CardHeader>
           <CardTitle>Tag Details</CardTitle>

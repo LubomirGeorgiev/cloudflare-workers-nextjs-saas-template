@@ -106,7 +106,7 @@ export function BanUserDialog({
         {impactSummary}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((values) => execute(values))} className="space-y-5 pt-2">
+          <form method="post" onSubmit={form.handleSubmit((values) => execute(values))} className="space-y-5 pt-2">
             <BanDecisionFields
               control={form.control}
               sendEmail={sendEmail}
