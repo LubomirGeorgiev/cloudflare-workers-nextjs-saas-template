@@ -21,7 +21,9 @@ export default defineConfig({
     globalSetup: ["./tests/e2e/global-setup.ts"],
     include: ["tests/e2e/**/*.test.ts"],
     hookTimeout: 180_000,
-    testTimeout: scaleE2ETimeout(10_000),
+    // Flows with a sign-in and several navigations take 8-10s even locally, and one
+    // navigation helper alone allows 8s. Keep the limit above the sum of helper waits.
+    testTimeout: scaleE2ETimeout(30_000),
     teardownTimeout: 10_000,
     fileParallelism: true,
     maxWorkers: getE2EMaxWorkers(),

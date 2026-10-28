@@ -108,4 +108,4 @@ test("rejects invitation acceptance for expired tokens and mismatched emails", a
 
   // Neither rejected acceptance created a membership for the signed-in user.
   expect(await countTeamMembershipsByEmail({ teamId, email: matchingEmail })).toBe(0);
-}, scaleE2ETimeout(30_000));
+});

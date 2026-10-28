@@ -10,7 +10,6 @@ import {
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
-import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   AUTH_COPY,
   createVerifiedUserInLocalD1,
@@ -77,4 +76,4 @@ test("resets a verified user's password and invalidates the reset token", async 
     password: newPassword,
   });
   await expectAppPathnameStartsWith("/dashboard");
-}, scaleE2ETimeout(20_000));
+});

@@ -10,7 +10,6 @@ import {
   loadAppFrame,
   navigateAppFrame,
 } from "./app-frame";
-import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   AUTH_COPY,
   DEFAULT_MESSAGES,
@@ -69,7 +68,7 @@ test("creates and verifies a new password account", async () => {
   await expectAppPathname("/dashboard");
   await expectNoAppToast(AUTH_COPY.VerifyEmail.toastVerifying);
   await expectAppText(DEFAULT_MESSAGES.Client.Dashboard.Home.breadcrumb, { exact: true });
-}, scaleE2ETimeout(18_000));
+});
 
 test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password account signs up in", async () => {
   const locale = NON_DEFAULT_LOCALE!;
@@ -95,4 +94,4 @@ test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password accou
     sql: `select preferredLocale from user where email = ${sqlStringLiteral(email)} limit 1;`,
   });
   expect(storedLocale).toBe(locale);
-}, scaleE2ETimeout(18_000));
+});

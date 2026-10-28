@@ -1,5 +1,5 @@
 import { afterAll, afterEach } from "vitest";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
 import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
@@ -9,6 +9,8 @@ const navigationRetryLimit = 5;
 const expectationTimeoutMs = scaleE2ETimeout(5_000);
 const absentExpectationTimeoutMs = scaleE2ETimeout(1_500);
 const pollIntervalMs = 50;
+// A hint only, so not scaled: the value check after each fill is the real guard.
+const idleWaitTimeoutMs = 250;
 
 type AppRole = Parameters<Page["getByRole"]>[0];
 
@@ -130,7 +132,7 @@ export async function clickAppRole(
 }
 
 export async function fillAppPlaceholder(placeholder: string, value: string): Promise<void> {
-  await getAppPage().getByPlaceholder(placeholder).fill(value);
+  await fillHydratedField({ field: getAppPage().getByPlaceholder(placeholder), value });
 }
 
 export async function fillAppLabel({
@@ -140,7 +142,7 @@ export async function fillAppLabel({
   label: string;
   value: string;
 }): Promise<void> {
-  await getAppPage().getByLabel(label, { exact: true }).fill(value);
+  await fillHydratedField({ field: getAppPage().getByLabel(label, { exact: true }), value });
 }
 
 export async function expectAppLabelValue({
@@ -335,3 +337,44 @@ afterAll(async () => {
   await appContext?.close();
   await browser?.close();
 });
+
+// Vinext hydrates each route segment in its own React Activity after the root commits (see
+// `BfcacheActivitySlotBoundary` in vinext/dist/shims/slot.js). Text typed before that is cleared.
+async function fillHydratedField({ field, value }: { field: Locator; value: string }): Promise<void> {
+  const page = getAppPage();
+  const timeoutAt = Date.now() + expectationTimeoutMs;
+
+  while (Date.now() < timeoutAt) {
+    // Reads the node again on each pass, so a node that React replaced is not a dead end.
+    const isHydrated = await field.evaluate(
+      (node) => Object.keys(node).some((key) => key.startsWith("__reactProps$")),
+      undefined,
+      { timeout: expectationTimeoutMs }
+    );
+
+    if (isHydrated) {
+      // React tags the node in the render phase, so an idle main thread usually shows the commit ran.
+      await page.evaluate(
+        (timeout) =>
+          new Promise<void>((resolve) => {
+            requestIdleCallback(() => resolve(), { timeout });
+          }),
+        idleWaitTimeoutMs
+      );
+      await field.fill(value);
+      await page.waitForTimeout(pollIntervalMs);
+
+      // A hydration render that suspended can still commit now and clear the text, so fill again.
+      // Only form controls have a `value` for React to reset. A rich-text editor owns its text,
+      // so its DOM can differ from the typed text, and the check skips it.
+      const keptValue = await field.evaluate((node) => ("value" in node ? String(node.value) : null));
+      if (keptValue === null || keptValue === value) {
+        return;
+      }
+    } else {
+      await page.waitForTimeout(pollIntervalMs);
+    }
+  }
+
+  throw new Error("Expected a form field to keep its value after hydration");
+}

@@ -11,7 +11,6 @@ import {
   getAppCurrentPathname,
   navigateAppFrame,
 } from "./app-frame";
-import { scaleE2ETimeout } from "./e2e-environment.mjs";
 import {
   createVerifiedUserInLocalD1,
   SEEDED_USER_PASSWORD,
@@ -132,7 +131,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   await navigateAppFrame(`/team-invite?token=${encodeURIComponent(acceptanceToken)}`);
   await expectAppPathname(expectedTeamPathname);
   await expectAppText(teamName, { exact: true });
-}, scaleE2ETimeout(30_000));
+});
 
 // Skipped only if a downstream template collapses every plan to a single seat, which would
 // make inviting anyone impossible by design.
@@ -158,4 +157,4 @@ test.skipIf(planWithMostSeats.seats < 2)("invites a member through the modal and
     sql: `select count(*) from team_invitation where teamId = ${sqlStringLiteral(teamId)} and email = ${sqlStringLiteral(inviteeEmail)} and acceptedAt is null;`,
   });
   expect(Number(pendingCount)).toBe(1);
-}, scaleE2ETimeout(30_000));
+});
