@@ -66,7 +66,7 @@ beforeAll(async () => {
 });
 
 test("refuses a sign-up at a blocked domain", async () => {
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, `newcomer@${blockedDomain}`);
   await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "New");
@@ -101,7 +101,7 @@ test("an admin bans an account, and that account can no longer sign in", async (
 
   // A fresh context: the acting admin is still signed in on the current one, and `/sign-in`
   // would redirect them straight back to the dashboard.
-  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForNetworkIdle: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, targetEmail);
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, SEEDED_USER_PASSWORD);
   await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);

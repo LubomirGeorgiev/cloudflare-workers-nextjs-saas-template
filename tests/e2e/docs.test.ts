@@ -351,7 +351,7 @@ test("serves docs search results from the public API endpoint", async () => {
 });
 
 test("searches docs from the command dialog", async () => {
-  await loadAppFrame(SEEDED_DOCS_ENTRY_PATH, { waitForHydration: true });
+  await loadAppFrame(SEEDED_DOCS_ENTRY_PATH, { waitForNetworkIdle: true });
 
   await clickAppRole("button", defaultMessages.Client.Docs.Navigation.searchButton);
   await fillAppPlaceholder(defaultMessages.Client.Docs.Search.placeholder, "authentication");
@@ -422,7 +422,7 @@ test("filters the server-rendered endpoints client-side and reflects the query i
   const operations = await readSpecOperations();
   const [first] = operations;
 
-  await loadAppFrame(API_DOCS_PATH, { waitForHydration: true });
+  await loadAppFrame(API_DOCS_PATH, { waitForNetworkIdle: true });
   await expectAppText(first.summary);
 
   await fillAppPlaceholder(

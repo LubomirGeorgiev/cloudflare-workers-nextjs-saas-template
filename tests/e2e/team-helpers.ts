@@ -111,7 +111,7 @@ export async function createOwnerAndTeam({ label }: { label: string }): Promise<
     redirectPath: "/dashboard/teams/create",
   });
 
-  await navigateAppFrame("/dashboard/teams/create", { waitForHydration: true });
+  await navigateAppFrame("/dashboard/teams/create", { waitForNetworkIdle: true });
   await fillAppPlaceholder(TEAMS_COPY.formNamePlaceholder, teamName);
   await fillAppPlaceholder(TEAMS_COPY.formDescriptionPlaceholder, "E2E team fixture.");
   await clickAppRole("button", TEAMS_COPY.createTeam);

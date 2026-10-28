@@ -107,7 +107,7 @@ export async function signInWithPassword({
   expectedPathname = redirectPath,
 }: SignInWithPasswordParams): Promise<void> {
   await loadAppFrame(`/sign-in?redirect=${encodeURIComponent(redirectPath)}`, {
-    waitForHydration: true,
+    waitForNetworkIdle: true,
   });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, email);

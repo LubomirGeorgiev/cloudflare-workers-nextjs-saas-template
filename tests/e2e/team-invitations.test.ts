@@ -36,14 +36,14 @@ test("lets an unregistered invitee sign up, verify, and accept the invitation", 
   await seedPendingInvitation({ email: inviteeEmail, invitedBy: ownerId, rawToken, teamId });
 
   // A signed-out invitee is handed off to sign-in with the invite return URL preserved.
-  await loadAppFrame(inviteReturnPath, { waitForHydration: true });
+  await loadAppFrame(inviteReturnPath, { waitForNetworkIdle: true });
   await expectAppPathname("/sign-in");
   const redirectParam = new URL(getAppCurrentUrl()).searchParams.get("redirect");
   expect(redirectParam).toContain("/team-invite");
   expect(redirectParam).toContain(rawToken);
 
   // The invitee has no account yet, so they register through the real sign-up UI.
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, inviteeEmail);
   await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "Unregistered");
   await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Invitee");

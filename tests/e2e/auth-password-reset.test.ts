@@ -19,7 +19,7 @@ import {
 import { waitForLocalEmailUrl } from "./local-wrangler-state";
 
 test("keeps forgot-password responses enumeration-safe", async () => {
-  await loadAppFrame("/forgot-password", { waitForHydration: true });
+  await loadAppFrame("/forgot-password", { waitForNetworkIdle: true });
 
   await fillAppLabel({ label: AUTH_COPY.Common.emailLabel, value: "missing-user-e2e@example.com" });
   await clickAppRole("button", AUTH_COPY.ForgotPassword.sendInstructions);
@@ -40,7 +40,7 @@ test("resets a verified user's password and invalidates the reset token", async 
     lastName: "Account",
   });
 
-  await loadAppFrame("/forgot-password", { waitForHydration: true });
+  await loadAppFrame("/forgot-password", { waitForNetworkIdle: true });
   await fillAppLabel({ label: AUTH_COPY.Common.emailLabel, value: email });
   await clickAppRole("button", AUTH_COPY.ForgotPassword.sendInstructions);
   await expectAppToast(AUTH_COPY.ForgotPassword.toastSent);
@@ -51,7 +51,7 @@ test("resets a verified user's password and invalidates the reset token", async 
   });
 
   await navigateAppFrame(`${resetUrl.pathname}${resetUrl.search}`, {
-    waitForHydration: true,
+    waitForNetworkIdle: true,
   });
 
   await fillAppLabel({ label: AUTH_COPY.ResetPassword.newPasswordLabel, value: newPassword });
@@ -65,7 +65,7 @@ test("resets a verified user's password and invalidates the reset token", async 
   });
   expect(reusedTokenResponse.status).toBe(404);
 
-  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForNetworkIdle: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, email);
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, oldPassword);
   await clickAppRole("button", AUTH_COPY.SignIn.signInWithPassword);
