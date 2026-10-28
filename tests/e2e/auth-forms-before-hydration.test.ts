@@ -20,8 +20,12 @@ test("keeps the sign-in password out of every URL when the form submits before h
   await loadAppFrame("/sign-in?redirect=%2Fdashboard", { scriptsDisabled: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, SEEDED_ADMIN_EMAIL);
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, password);
-  await clickAppRoleAndWaitForNavigation("button", AUTH_COPY.SignIn.signInWithPassword);
+  const submitRequest = await clickAppRoleAndWaitForNavigation({
+    role: "button",
+    name: AUTH_COPY.SignIn.signInWithPassword,
+  });
 
+  expect(submitRequest.method()).toBe("POST");
   expectNoUrlContains(password);
 });
 
@@ -33,8 +37,12 @@ test("keeps the sign-up password out of every URL when the form submits before h
   await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "Before");
   await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Hydration");
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, password);
-  await clickAppRoleAndWaitForNavigation("button", AUTH_COPY.SignUp.createAccountWithPassword);
+  const submitRequest = await clickAppRoleAndWaitForNavigation({
+    role: "button",
+    name: AUTH_COPY.SignUp.createAccountWithPassword,
+  });
 
+  expect(submitRequest.method()).toBe("POST");
   expectNoUrlContains(password);
 });
 
@@ -52,8 +60,12 @@ test("keeps the new password out of every URL when the reset form submits before
   await loadAppFrame(`${resetUrl.pathname}${resetUrl.search}`, { scriptsDisabled: true });
   await fillAppLabel({ label: AUTH_COPY.ResetPassword.newPasswordLabel, value: password });
   await fillAppLabel({ label: AUTH_COPY.ResetPassword.confirmPasswordLabel, value: password });
-  await clickAppRoleAndWaitForNavigation("button", AUTH_COPY.ResetPassword.submit);
+  const submitRequest = await clickAppRoleAndWaitForNavigation({
+    role: "button",
+    name: AUTH_COPY.ResetPassword.submit,
+  });
 
+  expect(submitRequest.method()).toBe("POST");
   expectNoUrlContains(password);
 });
 

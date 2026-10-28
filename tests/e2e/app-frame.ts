@@ -1,5 +1,12 @@
 import { afterAll, afterEach } from "vitest";
-import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Request,
+} from "playwright";
 import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
@@ -90,8 +97,11 @@ function isConnectionRefusedError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("ERR_CONNECTION_REFUSED");
 }
 
-interface LoadAppFrameOptions {
+interface NavigateAppFrameOptions {
   waitForHydration?: boolean;
+}
+
+interface LoadAppFrameOptions extends NavigateAppFrameOptions {
   // Keeps the page in its server-rendered state, which is what a user sees before hydration.
   scriptsDisabled?: boolean;
 }
@@ -123,7 +133,7 @@ export async function loadAppFrame(
 
 export async function navigateAppFrame(
   path: string,
-  options: LoadAppFrameOptions = {}
+  options: NavigateAppFrameOptions = {}
 ): Promise<void> {
   await gotoAppPath({ page: getAppPage(), path });
 
@@ -308,17 +318,31 @@ export function getAppRequestUrls(): string[] {
   return [...appRequestUrls];
 }
 
-/** Clicks a button that starts a full page navigation, and waits until the new page loads. */
-export async function clickAppRoleAndWaitForNavigation(role: AppRole, name: string): Promise<void> {
+/** Clicks a button that starts a full page navigation, waits until the new page loads, and returns the request. */
+export async function clickAppRoleAndWaitForNavigation({
+  role,
+  name,
+}: {
+  role: AppRole;
+  name: string;
+}): Promise<Request> {
   const page = getAppPage();
-  const navigation = page.waitForRequest(
-    (request) => request.isNavigationRequest() && request.frame() === page.mainFrame(),
+  const mainFrame = page.mainFrame();
+  const navigationRequest = page.waitForRequest(
+    (request) => request.isNavigationRequest() && request.frame() === mainFrame,
     { timeout: navigationTimeoutMs }
   );
+  // The old page is already loaded, so wait for the new document before the load state.
+  const navigated = page.waitForEvent("framenavigated", {
+    predicate: (frame) => frame === mainFrame,
+    timeout: navigationTimeoutMs,
+  });
 
   await page.getByRole(role, { name, exact: true }).first().click();
-  await navigation;
+  const [request] = await Promise.all([navigationRequest, navigated]);
   await page.waitForLoadState("load", { timeout: navigationTimeoutMs });
+
+  return request;
 }
 
 /** The value of one cookie in the app page's browser context, or `undefined` when it is absent. */

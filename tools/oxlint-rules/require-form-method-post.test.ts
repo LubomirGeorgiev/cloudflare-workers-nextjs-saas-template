@@ -3,18 +3,24 @@ import { requireFormMethodPostRule } from "./require-form-method-post.js";
 
 describe("requireFormMethodPostRule", () => {
   it.each([
-    ["a string literal", literal("post")],
-    ["an upper-case literal", literal("POST")],
-    ["an expression container", { type: "JSXExpressionContainer", expression: literal("post") }],
-  ])("accepts a form with method=\"post\" as %s", (_label, value) => {
-    expect(reportCount(jsxElement({ name: "form", attributes: [methodAttribute(value)] }))).toBe(0);
+    ["a string literal", [attribute({ name: "method", value: literal("post") })]],
+    ["an upper-case literal", [attribute({ name: "method", value: literal("POST") })]],
+    ["an expression container", [attribute({ name: "method", value: expression(literal("post")) })]],
+    ["method=\"dialog\", which sends no request", [attribute({ name: "method", value: literal("dialog") })]],
+    ["a function action and no method", [attribute({ name: "action", value: expression(identifier()) })]],
+    ["a spread before the method", [spread(), attribute({ name: "method", value: literal("post") })]],
+  ])("accepts a form with %s", (_label, attributes) => {
+    expect(reportCount(jsxElement({ name: "form", attributes }))).toBe(0);
   });
 
   it.each([
     ["no method", []],
-    ["method=\"get\"", [methodAttribute(literal("get"))]],
-    ["a dynamic method", [methodAttribute({ type: "JSXExpressionContainer", expression: { type: "Identifier" } })]],
-    ["only a spread", [{ type: "JSXSpreadAttribute" }]],
+    ["method=\"get\"", [attribute({ name: "method", value: literal("get") })]],
+    ["a dynamic method", [attribute({ name: "method", value: expression(identifier()) })]],
+    ["only a spread", [spread()]],
+    ["a spread after the method", [attribute({ name: "method", value: literal("post") }), spread()]],
+    ["a string action and no method", [attribute({ name: "action", value: literal("/search") })]],
+    ["a string action in an expression and no method", [attribute({ name: "action", value: expression(literal("/search")) })]],
   ])("reports a form with %s", (_label, attributes) => {
     expect(reportCount(jsxElement({ name: "form", attributes }))).toBe(1);
   });
@@ -42,8 +48,20 @@ function jsxElement({ name, attributes }: { name: string; attributes: unknown[] 
   return { type: "JSXOpeningElement", name: { type: "JSXIdentifier", name }, attributes };
 }
 
-function methodAttribute(value: unknown) {
-  return { type: "JSXAttribute", name: { type: "JSXIdentifier", name: "method" }, value };
+function attribute({ name, value }: { name: string; value: unknown }) {
+  return { type: "JSXAttribute", name: { type: "JSXIdentifier", name }, value };
+}
+
+function spread() {
+  return { type: "JSXSpreadAttribute", argument: identifier() };
+}
+
+function expression(inner: unknown) {
+  return { type: "JSXExpressionContainer", expression: inner };
+}
+
+function identifier() {
+  return { type: "Identifier", name: "value" };
 }
 
 function literal(value: string) {
