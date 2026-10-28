@@ -7,6 +7,9 @@ const navigationTimeoutMs = scaleE2ETimeout(8_000);
 const navigationRetryDelayMs = 200;
 const navigationRetryLimit = 5;
 const expectationTimeoutMs = scaleE2ETimeout(5_000);
+// Only a navigation changes the URL. A soft navigation after a server action also loads the target
+// route's RSC payload and client chunks, so a URL wait gets the navigation budget.
+const urlChangeTimeoutMs = navigationTimeoutMs;
 const absentExpectationTimeoutMs = scaleE2ETimeout(1_500);
 const pollIntervalMs = 50;
 // A hint only, so not scaled: the value check after each fill is the real guard.
@@ -275,19 +278,19 @@ export async function expectNoAppToast(text: string): Promise<void> {
 
 export async function expectAppPathname(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname === pathname, {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
 export async function expectAppPathnameStartsWith(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname.startsWith(pathname), {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
 export async function expectAppPathnameNot(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname !== pathname, {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
