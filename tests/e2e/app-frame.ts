@@ -135,8 +135,9 @@ export async function clickAppRole(
 ): Promise<void> {
   const target = getAppPage().getByRole(role, { name, exact: options?.exact }).first();
   // A click on server HTML does nothing or starts a native form submit.
-  await waitForReactOwnership({ target, timeoutAt: Date.now() + expectationTimeoutMs });
-  await target.click();
+  const timeoutAt = Date.now() + expectationTimeoutMs;
+  await waitForReactOwnership({ target, timeoutAt });
+  await target.click({ timeout: remainingMs(timeoutAt) });
 }
 
 export async function fillAppPlaceholder(placeholder: string, value: string): Promise<void> {
@@ -353,13 +354,17 @@ async function fillHydratedField({ field, value }: { field: Locator; value: stri
 
   while (Date.now() < timeoutAt) {
     await waitForReactOwnership({ target: field, timeoutAt });
-    await field.fill(value);
+    await field.fill(value, { timeout: remainingMs(timeoutAt) });
     await page.waitForTimeout(pollIntervalMs);
 
     // A hydration render that suspended can still commit now and clear the text, so fill again.
     // Only form controls have a `value` for React to reset. A rich-text editor owns its text,
     // so its DOM can differ from the typed text, and the check skips it.
-    const keptValue = await field.evaluate((node) => ("value" in node ? String(node.value) : null));
+    const keptValue = await field.evaluate(
+      (node) => ("value" in node ? String(node.value) : null),
+      undefined,
+      { timeout: remainingMs(timeoutAt) }
+    );
     if (keptValue === null || keptValue === value) {
       return;
     }
@@ -382,7 +387,7 @@ async function waitForReactOwnership({
   while (Date.now() < timeoutAt) {
     // Reads the node again on each pass, so a node that React replaced is not a dead end.
     const isOwned = await target.evaluate(isOwnedByReact, undefined, {
-      timeout: Math.max(timeoutAt - Date.now(), pollIntervalMs),
+      timeout: remainingMs(timeoutAt),
     });
 
     if (isOwned) {
@@ -404,15 +409,24 @@ async function waitForReactOwnership({
 }
 
 // Runs in the browser. CMS HTML (`dangerouslySetInnerHTML`) and DOM that a library adds never get
-// React keys, so they count as owned once the nearest React element without `children` hydrates.
+// React keys, so they count as owned once the nearest React element that renders no children hydrates.
 function isOwnedByReact(node: Element): boolean {
   for (let element: Element | null = node; element; element = element.parentElement) {
     const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
     if (propsKey) {
       const props = (element as unknown as Record<string, { children?: unknown }>)[propsKey];
-      return element === node || props.children === undefined;
+      // React renders nothing for undefined, null, booleans, and arrays of only those.
+      const rendersNoChildren = [props.children]
+        .flat(Infinity)
+        .every((child) => child === undefined || child === null || typeof child === "boolean");
+      return element === node || rendersNoChildren;
     }
   }
 
   return false;
+}
+
+// One deadline per helper call: each Playwright step gets only the time that is left.
+function remainingMs(timeoutAt: number): number {
+  return Math.max(timeoutAt - Date.now(), pollIntervalMs);
 }
