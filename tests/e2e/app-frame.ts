@@ -1,5 +1,12 @@
 import { afterAll, afterEach } from "vitest";
-import { chromium, type Browser, type BrowserContext, type Locator, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Locator,
+  type Page,
+  type Request,
+} from "playwright";
 import { getE2ERuntimeEnv, scaleE2ETimeout } from "./e2e-environment.mjs";
 
 const e2eBaseUrl = getE2ERuntimeEnv().E2E_BASE_URL;
@@ -18,6 +25,8 @@ let browser: Browser | undefined;
 let appContext: BrowserContext | undefined;
 let appPage: Page | undefined;
 let appConsoleErrors: string[] = [];
+let appRequestUrls: string[] = [];
+let appScriptsDisabled = false;
 
 async function getBrowser(): Promise<Browser> {
   browser ??= await chromium.launch({ headless: true });
@@ -88,8 +97,13 @@ function isConnectionRefusedError(error: unknown): boolean {
   return error instanceof Error && error.message.includes("ERR_CONNECTION_REFUSED");
 }
 
-interface LoadAppFrameOptions {
+interface NavigateAppFrameOptions {
   waitForHydration?: boolean;
+}
+
+interface LoadAppFrameOptions extends NavigateAppFrameOptions {
+  // Keeps the page in its server-rendered state, which is what a user sees before hydration.
+  scriptsDisabled?: boolean;
 }
 
 export async function loadAppFrame(
@@ -99,9 +113,14 @@ export async function loadAppFrame(
   await appContext?.close();
 
   const activeBrowser = await getBrowser();
-  appContext = await activeBrowser.newContext();
+  appScriptsDisabled = options.scriptsDisabled === true;
+  appRequestUrls = [];
+  appContext = await activeBrowser.newContext({ javaScriptEnabled: !appScriptsDisabled });
   appPage = await appContext.newPage();
   trackAppPageErrors(appPage);
+  appPage.on("request", (request) => {
+    appRequestUrls.push(request.url());
+  });
   appPage.setDefaultTimeout(expectationTimeoutMs);
   appPage.setDefaultNavigationTimeout(navigationTimeoutMs);
 
@@ -114,7 +133,7 @@ export async function loadAppFrame(
 
 export async function navigateAppFrame(
   path: string,
-  options: LoadAppFrameOptions = {}
+  options: NavigateAppFrameOptions = {}
 ): Promise<void> {
   await gotoAppPath({ page: getAppPage(), path });
 
@@ -294,6 +313,38 @@ export function getAppCurrentUrl(): string {
   return getAppPage().url();
 }
 
+/** Every URL the app page requested since the last loadAppFrame, redirects included. */
+export function getAppRequestUrls(): string[] {
+  return [...appRequestUrls];
+}
+
+/** Clicks a button that starts a full page navigation, waits until the new page loads, and returns the request. */
+export async function clickAppRoleAndWaitForNavigation({
+  role,
+  name,
+}: {
+  role: AppRole;
+  name: string;
+}): Promise<Request> {
+  const page = getAppPage();
+  const mainFrame = page.mainFrame();
+  const navigationRequest = page.waitForRequest(
+    (request) => request.isNavigationRequest() && request.frame() === mainFrame,
+    { timeout: navigationTimeoutMs }
+  );
+  // The old page is already loaded, so wait for the new document before the load state.
+  const navigated = page.waitForEvent("framenavigated", {
+    predicate: (frame) => frame === mainFrame,
+    timeout: navigationTimeoutMs,
+  });
+
+  await page.getByRole(role, { name, exact: true }).first().click();
+  const [request] = await Promise.all([navigationRequest, navigated]);
+  await page.waitForLoadState("load", { timeout: navigationTimeoutMs });
+
+  return request;
+}
+
 /** The value of one cookie in the app page's browser context, or `undefined` when it is absent. */
 export async function getAppCookie(name: string): Promise<string | undefined> {
   const cookies = await getAppPage().context().cookies();
@@ -323,6 +374,8 @@ afterEach(async () => {
   appContext = undefined;
   appPage = undefined;
   appConsoleErrors = [];
+  appRequestUrls = [];
+  appScriptsDisabled = false;
 
   if (closeError) {
     throw closeError instanceof Error ? closeError : new Error(String(closeError));
@@ -343,6 +396,12 @@ afterAll(async () => {
 async function fillHydratedField({ field, value }: { field: Locator; value: string }): Promise<void> {
   const page = getAppPage();
   const timeoutAt = Date.now() + expectationTimeoutMs;
+
+  // Without scripts React never owns the field, so the server HTML keeps the typed text.
+  if (appScriptsDisabled) {
+    await field.fill(value);
+    return;
+  }
 
   while (Date.now() < timeoutAt) {
     // Reads the node again on each pass, so a node that React replaced is not a dead end.

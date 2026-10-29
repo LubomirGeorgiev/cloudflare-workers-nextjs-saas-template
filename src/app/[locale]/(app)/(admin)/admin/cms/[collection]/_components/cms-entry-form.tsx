@@ -525,7 +525,7 @@ export function CmsEntryForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button

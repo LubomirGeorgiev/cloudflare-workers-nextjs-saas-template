@@ -151,7 +151,7 @@ function PaymentForm({
         </CardContent>
       </Card>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form method="post" onSubmit={handleSubmit} className="space-y-8">
         <PaymentElement />
         <div className="flex justify-end gap-3">
           <Button

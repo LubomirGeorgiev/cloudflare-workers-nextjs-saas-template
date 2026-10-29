@@ -167,7 +167,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
         </SeparatorWithText>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
+          <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="mt-8 space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -283,7 +283,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
             <DialogTitle>{t("passkeyDialogTitle")}</DialogTitle>
           </DialogHeader>
           <Form {...passkeyForm}>
-            <form onSubmit={passkeyForm.handleSubmit(onPasskeySubmit)} className="space-y-6 mt-6">
+            <form method="post" onSubmit={passkeyForm.handleSubmit(onPasskeySubmit)} className="space-y-6 mt-6">
               <FormField
                 control={passkeyForm.control}
                 name="email"

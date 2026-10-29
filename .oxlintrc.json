@@ -40,6 +40,7 @@
     "project/no-object-params-in-react-cache": "error",
     "project/no-next-link-in-translatable-pages": "error",
     "project/client-translations-under-client-namespace": "error",
+    "project/require-form-method-post": "error",
     "oxc/no-accumulating-spread": "error",
     "anti-slop/no-reduce-accumulator-copy": "error",
     "anti-slop/no-chained-type-assertions": "error",
