@@ -30,7 +30,7 @@ import { loadCatalog } from "../../src/i18n/message-catalogs";
 import { localizedPathname } from "../../src/i18n/localized-pathname";
 
 test("shows sign-up validation before creating an account", async () => {
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await expectAppText(AUTH_COPY.SignUp.heading, { exact: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, "new-user-e2e@example.com");
@@ -46,7 +46,7 @@ test("shows sign-up validation before creating an account", async () => {
 test("creates and verifies a new password account", async () => {
   const email = `new-account-${Date.now()}@example.com`;
 
-  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, email);
   await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "New");
@@ -78,7 +78,7 @@ test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password accou
   const signUpPath = localizedPathname({ pathname: "/sign-up", locale });
 
   // A fresh context has no locale cookie, so only the sign-up hand-off can write one.
-  await loadAppFrame(`${signUpPath}?redirect=%2Fdashboard`, { waitForHydration: true });
+  await loadAppFrame(`${signUpPath}?redirect=%2Fdashboard`, { waitForNetworkIdle: true });
   expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBeUndefined();
 
   await fillAppPlaceholder(Common.emailPlaceholder, email);

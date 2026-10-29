@@ -27,7 +27,7 @@ import { LEGACY_PASSWORD_MIN_LENGTH } from "../../src/schemas/password.schema";
 import { localizedPathname } from "../../src/i18n/localized-pathname";
 
 test("shows sign-in password validation before submitting", async () => {
-  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, SEEDED_ADMIN_EMAIL);
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, tooShort(LEGACY_PASSWORD_MIN_LENGTH));
@@ -43,7 +43,7 @@ test("redirects anonymous users away from protected settings", async () => {
 });
 
 test("shows a visible error toast for invalid credentials", async () => {
-  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForHydration: true });
+  await loadAppFrame("/sign-in?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, SEEDED_ADMIN_EMAIL);
   await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "wrongpass");
@@ -86,7 +86,7 @@ test("signs in with the seeded password user", async () => {
 
 test("redirects signed-in users away from auth pages", async () => {
   await signInSeededMember();
-  await navigateAppFrame("/sign-in?redirect=%2Fsettings", { waitForHydration: true });
+  await navigateAppFrame("/sign-in?redirect=%2Fsettings", { waitForNetworkIdle: true });
 
   await expectAppPathname("/settings");
 });

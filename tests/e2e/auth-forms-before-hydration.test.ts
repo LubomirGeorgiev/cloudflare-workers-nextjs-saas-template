@@ -51,7 +51,7 @@ test("keeps the new password out of every URL when the reset form submits before
   const password = uniqueSecret();
 
   await createVerifiedUserInLocalD1({ email });
-  await loadAppFrame("/forgot-password", { waitForHydration: true });
+  await loadAppFrame("/forgot-password", { waitForNetworkIdle: true });
   await fillAppLabel({ label: AUTH_COPY.Common.emailLabel, value: email });
   await clickAppRole("button", AUTH_COPY.ForgotPassword.sendInstructions);
   await expectAppToast(AUTH_COPY.ForgotPassword.toastSent);

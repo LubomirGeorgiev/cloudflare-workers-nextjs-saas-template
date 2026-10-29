@@ -14,6 +14,9 @@ const navigationTimeoutMs = scaleE2ETimeout(8_000);
 const navigationRetryDelayMs = 200;
 const navigationRetryLimit = 5;
 const expectationTimeoutMs = scaleE2ETimeout(5_000);
+// Only a navigation changes the URL. A soft navigation after a server action also loads the target
+// route's RSC payload and client chunks, so a URL wait gets the navigation budget.
+const urlChangeTimeoutMs = navigationTimeoutMs;
 const absentExpectationTimeoutMs = scaleE2ETimeout(1_500);
 const pollIntervalMs = 50;
 // A hint only, so not scaled: the value check after each fill is the real guard.
@@ -98,7 +101,9 @@ function isConnectionRefusedError(error: unknown): boolean {
 }
 
 interface NavigateAppFrameOptions {
-  waitForHydration?: boolean;
+  // Waits for client fetches after load (see `SessionClientSync`). It does not prove hydration:
+  // the click and fill helpers wait for React to own each element.
+  waitForNetworkIdle?: boolean;
 }
 
 interface LoadAppFrameOptions extends NavigateAppFrameOptions {
@@ -126,7 +131,7 @@ export async function loadAppFrame(
 
   await gotoAppPath({ page: appPage, path });
 
-  if (options.waitForHydration) {
+  if (options.waitForNetworkIdle) {
     await appPage.waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
   }
 }
@@ -137,7 +142,7 @@ export async function navigateAppFrame(
 ): Promise<void> {
   await gotoAppPath({ page: getAppPage(), path });
 
-  if (options.waitForHydration) {
+  if (options.waitForNetworkIdle) {
     await getAppPage().waitForLoadState("networkidle", { timeout: navigationTimeoutMs });
   }
 }
@@ -147,7 +152,11 @@ export async function clickAppRole(
   name: string,
   options?: { exact?: boolean }
 ): Promise<void> {
-  await getAppPage().getByRole(role, { name, exact: options?.exact }).first().click();
+  const target = getAppPage().getByRole(role, { name, exact: options?.exact }).first();
+  // A click on server HTML does nothing or starts a native form submit.
+  const timeoutAt = Date.now() + expectationTimeoutMs;
+  await waitForReactOwnership({ target, timeoutAt });
+  await target.click({ timeout: remainingMs(timeoutAt) });
 }
 
 export async function fillAppPlaceholder(placeholder: string, value: string): Promise<void> {
@@ -289,19 +298,19 @@ export async function expectNoAppToast(text: string): Promise<void> {
 
 export async function expectAppPathname(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname === pathname, {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
 export async function expectAppPathnameStartsWith(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname.startsWith(pathname), {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
 export async function expectAppPathnameNot(pathname: string): Promise<void> {
   await getAppPage().waitForURL((url) => url.pathname !== pathname, {
-    timeout: expectationTimeoutMs,
+    timeout: urlChangeTimeoutMs,
   });
 }
 
@@ -391,8 +400,7 @@ afterAll(async () => {
   await browser?.close();
 });
 
-// Vinext hydrates each route segment in its own React Activity after the root commits (see
-// `BfcacheActivitySlotBoundary` in vinext/dist/shims/slot.js). Text typed before that is cleared.
+// Text typed into server HTML is cleared when React hydrates the field.
 async function fillHydratedField({ field, value }: { field: Locator; value: string }): Promise<void> {
   const page = getAppPage();
   const timeoutAt = Date.now() + expectationTimeoutMs;
@@ -404,14 +412,44 @@ async function fillHydratedField({ field, value }: { field: Locator; value: stri
   }
 
   while (Date.now() < timeoutAt) {
-    // Reads the node again on each pass, so a node that React replaced is not a dead end.
-    const isHydrated = await field.evaluate(
-      (node) => Object.keys(node).some((key) => key.startsWith("__reactProps$")),
-      undefined,
-      { timeout: expectationTimeoutMs }
-    );
+    await waitForReactOwnership({ target: field, timeoutAt });
+    await field.fill(value, { timeout: remainingMs(timeoutAt) });
+    await page.waitForTimeout(pollIntervalMs);
 
-    if (isHydrated) {
+    // A hydration render that suspended can still commit now and clear the text, so fill again.
+    // Only form controls have a `value` for React to reset. A rich-text editor owns its text,
+    // so its DOM can differ from the typed text, and the check skips it.
+    const keptValue = await field.evaluate(
+      (node) => ("value" in node ? String(node.value) : null),
+      undefined,
+      { timeout: remainingMs(timeoutAt) }
+    );
+    if (keptValue === null || keptValue === value) {
+      return;
+    }
+  }
+
+  throw new Error("Expected a form field to keep its value after hydration");
+}
+
+// Vinext hydrates each route segment in its own React Activity after the root commits (see
+// `BfcacheActivitySlotBoundary` in vinext/dist/shims/slot.js), so `networkidle` is not enough.
+async function waitForReactOwnership({
+  target,
+  timeoutAt,
+}: {
+  target: Locator;
+  timeoutAt: number;
+}): Promise<void> {
+  const page = getAppPage();
+
+  while (Date.now() < timeoutAt) {
+    // Reads the node again on each pass, so a node that React replaced is not a dead end.
+    const isOwned = await target.evaluate(isOwnedByReact, undefined, {
+      timeout: remainingMs(timeoutAt),
+    });
+
+    if (isOwned) {
       // React tags the node in the render phase, so an idle main thread usually shows the commit ran.
       await page.evaluate(
         (timeout) =>
@@ -420,20 +458,37 @@ async function fillHydratedField({ field, value }: { field: Locator; value: stri
           }),
         idleWaitTimeoutMs
       );
-      await field.fill(value);
-      await page.waitForTimeout(pollIntervalMs);
+      return;
+    }
 
-      // A hydration render that suspended can still commit now and clear the text, so fill again.
-      // Only form controls have a `value` for React to reset. A rich-text editor owns its text,
-      // so its DOM can differ from the typed text, and the check skips it.
-      const keptValue = await field.evaluate((node) => ("value" in node ? String(node.value) : null));
-      if (keptValue === null || keptValue === value) {
-        return;
-      }
-    } else {
-      await page.waitForTimeout(pollIntervalMs);
+    await page.waitForTimeout(pollIntervalMs);
+  }
+
+  throw new Error(`Expected React to hydrate ${String(target)} before the test acts on it`);
+}
+
+// Runs in the browser. CMS HTML (`dangerouslySetInnerHTML`) and DOM that a library adds never get
+// React keys, so they count as owned once the nearest React element that renders no children hydrates.
+function isOwnedByReact(node: Element): boolean {
+  for (let element: Element | null = node; element; element = element.parentElement) {
+    const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+    if (propsKey) {
+      const props = (element as unknown as Record<string, { children?: unknown }>)[propsKey];
+      // React renders nothing for undefined, null, booleans, "", and arrays of only those.
+      const rendersNoChildren = [props.children]
+        .flat(Infinity)
+        .every(
+          (child) =>
+            child === undefined || child === null || child === "" || typeof child === "boolean"
+        );
+      return element === node || rendersNoChildren;
     }
   }
 
-  throw new Error("Expected a form field to keep its value after hydration");
+  return false;
+}
+
+// One deadline per helper call: each Playwright step gets only the time that is left.
+function remainingMs(timeoutAt: number): number {
+  return Math.max(timeoutAt - Date.now(), pollIntervalMs);
 }

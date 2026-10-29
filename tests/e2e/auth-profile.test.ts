@@ -26,7 +26,7 @@ const PROFILE_COPY = DEFAULT_MESSAGES.Client.Settings.Profile;
 describe("profile settings", () => {
   test("validates profile settings before saving", async () => {
     await signInSeededMember("/settings");
-    await navigateAppFrame("/settings", { waitForHydration: true });
+    await navigateAppFrame("/settings", { waitForNetworkIdle: true });
 
     await expectAppText(PROFILE_COPY.cardTitle, { exact: true });
     await fillAppLabel({ label: PROFILE_COPY.firstNameLabel, value: tooShort(NAME_MIN_LENGTH) });
@@ -54,7 +54,7 @@ describe("profile settings", () => {
       password: SEEDED_USER_PASSWORD,
       redirectPath: "/settings",
     });
-    await navigateAppFrame("/settings", { waitForHydration: true });
+    await navigateAppFrame("/settings", { waitForNetworkIdle: true });
 
     await expectAppText(PROFILE_COPY.cardTitle, { exact: true });
     await expectAppLabelValue({ label: PROFILE_COPY.firstNameLabel, value: "Admin" });
@@ -71,10 +71,10 @@ describe("profile settings", () => {
     await expectAppLabelValue({ label: PROFILE_COPY.lastNameLabel, value: "Tester" });
     await expectAppText("E2E Tester", { exact: true });
 
-    await navigateAppFrame("/", { waitForHydration: true });
+    await navigateAppFrame("/", { waitForNetworkIdle: true });
     await expectNoAppText("E2E Tester", { exact: true });
 
-    await navigateAppFrame("/admin", { waitForHydration: true });
+    await navigateAppFrame("/admin", { waitForNetworkIdle: true });
     await expectAppRoleText({
       role: "navigation",
       name: "Admin navigation",

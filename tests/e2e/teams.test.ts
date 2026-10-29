@@ -54,7 +54,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   });
 
   await navigateAppFrame("/dashboard/teams/create", {
-    waitForHydration: true,
+    waitForNetworkIdle: true,
   });
 
   await fillAppPlaceholder(TEAMS_COPY.formNamePlaceholder, teamName);
@@ -84,7 +84,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
     teamId,
   });
 
-  await navigateAppFrame(expectedTeamPathname, { waitForHydration: true });
+  await navigateAppFrame(expectedTeamPathname, { waitForNetworkIdle: true });
   await expectAppText(TEAMS_COPY.pendingInvitationsTitle, { exact: true });
   await expectAppText(inviteeEmail, { exact: true });
   await expectAppText(TEAMS_COPY.columnExpires, { exact: true });
@@ -101,7 +101,7 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   const teamPathname = getAppCurrentPathname();
   expect(teamPathname).toBe(expectedTeamPathname);
 
-  await navigateAppFrame("/dashboard/teams", { waitForHydration: true });
+  await navigateAppFrame("/dashboard/teams", { waitForNetworkIdle: true });
 
   await expectAppText(TEAMS_COPY.title, { exact: true });
   await expectAppText(teamName, { exact: true });
@@ -140,7 +140,7 @@ test.skipIf(planWithMostSeats.seats < 2)("invites a member through the modal and
   const inviteeEmail = `ui-invitee-${uniqueSuffix()}@example.com`;
 
   await grantTeamSeatHeadroom({ teamId, planId: planWithMostSeats.id });
-  await navigateAppFrame(teamPathname, { waitForHydration: true });
+  await navigateAppFrame(teamPathname, { waitForNetworkIdle: true });
 
   await clickAppRole("button", TEAMS_COPY.inviteMembers);
   await fillAppPlaceholder(TEAMS_COPY.inviteEmailPlaceholder, inviteeEmail);
@@ -148,7 +148,7 @@ test.skipIf(planWithMostSeats.seats < 2)("invites a member through the modal and
   await expectAppToast(TEAMS_COPY.toastInviteSuccess);
 
   // The pending list is server-rendered, so reload to assert it deterministically after refresh.
-  await navigateAppFrame(teamPathname, { waitForHydration: true });
+  await navigateAppFrame(teamPathname, { waitForNetworkIdle: true });
   await expectAppText(TEAMS_COPY.pendingInvitationsTitle, { exact: true });
   await expectAppText(inviteeEmail, { exact: true });
   await expectAppText(TEAMS_COPY.statusPending, { exact: true });
