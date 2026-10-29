@@ -107,7 +107,7 @@ export function AddBlockedEmailDialog({ onAdded }: { onAdded: () => void }) {
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((values) => create(values))} className="space-y-5 pt-2">
+          <form method="post" onSubmit={form.handleSubmit((values) => create(values))} className="space-y-5 pt-2">
             <FormField
               control={form.control}
               name="pattern"

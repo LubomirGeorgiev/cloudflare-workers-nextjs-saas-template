@@ -73,7 +73,7 @@ export function RenameTeamModal({ teamId, currentName, trigger }: RenameTeamModa
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit((values) => execute(values))} className="space-y-4 pt-4">
+          <form method="post" onSubmit={form.handleSubmit((values) => execute(values))} className="space-y-4 pt-4">
             <FormField
               control={form.control}
               name="name"
