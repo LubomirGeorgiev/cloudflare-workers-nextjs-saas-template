@@ -474,10 +474,13 @@ function isOwnedByReact(node: Element): boolean {
     const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
     if (propsKey) {
       const props = (element as unknown as Record<string, { children?: unknown }>)[propsKey];
-      // React renders nothing for undefined, null, booleans, and arrays of only those.
+      // React renders nothing for undefined, null, booleans, "", and arrays of only those.
       const rendersNoChildren = [props.children]
         .flat(Infinity)
-        .every((child) => child === undefined || child === null || typeof child === "boolean");
+        .every(
+          (child) =>
+            child === undefined || child === null || child === "" || typeof child === "boolean"
+        );
       return element === node || rendersNoChildren;
     }
   }
