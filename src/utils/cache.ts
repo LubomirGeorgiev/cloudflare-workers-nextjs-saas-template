@@ -28,8 +28,9 @@ export function setCacheScope({ ttl, tags }: CacheScopeOptions): void {
 
 // Awaits the tag write and rejects when it fails, so a caller can order work after the drop.
 export async function revalidateCacheTag(tag: string): Promise<void> {
-  // "max" keeps Vinext's stale-while-revalidate mode and does not mark the action as revalidated.
-  await Promise.all(collectWaitUntil(() => revalidateTag(tag, "max")));
+  // Expire at once: since Vinext 1.3.1 a profile such as "max" serves the old entry until it
+  // expires, and each later CMS purge step refills from this store.
+  await Promise.all(collectWaitUntil(() => revalidateTag(tag, { expire: 0 })));
 }
 
 // Vinext's `revalidateTag` returns nothing and gives its data-cache write to `waitUntil`. This

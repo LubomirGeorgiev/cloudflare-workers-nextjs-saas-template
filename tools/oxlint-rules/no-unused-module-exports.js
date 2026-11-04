@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
-import * as ts from "typescript/ast"
-import { API, formatDiagnostics } from "typescript/sync"
+import * as ts from "tsrs/ast"
+import { API, formatDiagnostics } from "tsrs/sync"
 
 const RECORD_SEPARATOR = "\0"
 const EXPORT_KIND_TYPE = 1

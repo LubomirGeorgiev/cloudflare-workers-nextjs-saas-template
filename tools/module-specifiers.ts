@@ -1,5 +1,5 @@
-import { isNoSubstitutionTemplateLiteral, isStringLiteral } from "typescript/ast";
-import { API } from "typescript/sync";
+import { isNoSubstitutionTemplateLiteral, isStringLiteral } from "tsrs/ast";
+import { API } from "tsrs/sync";
 
 /**
  * Runs `use` with a reader that lists the module specifiers a file imports, re-exports, `import()`s,

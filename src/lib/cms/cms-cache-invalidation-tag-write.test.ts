@@ -32,7 +32,7 @@ describe("CMS cache invalidation with the real tag write", () => {
     const run = runCmsCacheInvalidation({ tags: [TAG], purgePages });
     await flushTasks();
 
-    expect(handler.revalidateTag).toHaveBeenCalledWith(TAG, expect.anything());
+    expect(handler.revalidateTag).toHaveBeenCalledWith(TAG, { expire: 0 });
     expect(purgePages).not.toHaveBeenCalled();
     expect(purgeWorkersCacheAfterWriteMock).not.toHaveBeenCalled();
 
