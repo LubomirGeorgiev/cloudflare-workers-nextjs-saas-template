@@ -10,7 +10,12 @@ import { hashPassword, verifyPassword } from "@/utils/password-hasher";
 import { createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import { hashToken } from "@/utils/random-token";
 import { normalizeEmail } from "@/lib/validation";
+import { userByEmailWhere } from "@/lib/auth/user-email";
+import { assertPasswordHashUnchanged, invalidCredentialsError } from "@/lib/auth/password-recheck";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+
+// Built by the real hasher on first use, so its format and PBKDF2 cost follow password-hasher.ts.
+let dummyPasswordHash: Promise<string> | null = null;
 
 interface SignInWithPasswordParams {
   email: string;
@@ -20,16 +25,9 @@ interface SignInWithPasswordParams {
 type Database = ReturnType<typeof getDB>;
 
 interface PasswordSignInUser {
-  googleAccountId: string | null;
   id: string;
   passwordHash: string | null;
   bannedAt: Date | null;
-}
-
-function invalidCredentialsError(): ActionError {
-  return new ActionError("NOT_AUTHORIZED", {
-    key: "Client.Auth.SignIn.errorInvalidCredentials",
-  });
 }
 
 async function getPasswordSignInUser({
@@ -38,42 +36,44 @@ async function getPasswordSignInUser({
 }: {
   db: Database;
   email: string;
-}): Promise<PasswordSignInUser & { passwordHash: string }> {
-  // `email` is already canonicalized (trimmed + lowercased) at the action boundary. Sign-up
-  // historically persisted the raw input, so legacy rows may hold mixed-case addresses; a plain
-  // equality match on the lowercased value would miss them. Compare case-insensitively via
-  // lower(email) so both legacy mixed-case rows and normalized rows resolve to one account.
-  // Tradeoff: lower() forgoes a plain index on email, but this runs once per sign-in attempt.
+}): Promise<(PasswordSignInUser & { passwordHash: string }) | null> {
   const user = await db.query.userTable.findFirst({
-    where: {
-      RAW: (table, { sql }) => sql`lower(${table.email}) = ${email}`,
-    },
+    where: userByEmailWhere(email),
     columns: {
-      googleAccountId: true,
       id: true,
       passwordHash: true,
       bannedAt: true,
     },
   });
 
-  if (!user) {
-    throw invalidCredentialsError();
-  }
-
-  if (!user.passwordHash && user.googleAccountId) {
-    throw new ActionError("FORBIDDEN", {
-      key: "Client.Auth.SignIn.errorUseGoogle",
-    });
-  }
-
-  if (!user.passwordHash) {
-    throw invalidCredentialsError();
+  // A missing row and a Google-only row must look like a wrong password, also in time.
+  if (!user?.passwordHash) {
+    return null;
   }
 
   return {
     ...user,
     passwordHash: user.passwordHash,
   };
+}
+
+function getDummyPasswordHash(): Promise<string> {
+  dummyPasswordHash ??= hashPassword({ password: crypto.randomUUID() }).catch((error: unknown) => {
+    dummyPasswordHash = null;
+    throw error;
+  });
+
+  return dummyPasswordHash;
+}
+
+async function rejectWithoutPassword({ password }: { password: string }): Promise<never> {
+  // Spend one real verification so this path costs the same as a wrong password; ignore the result.
+  await verifyPassword({
+    storedHash: await getDummyPasswordHash(),
+    passwordAttempt: password,
+  });
+
+  throw invalidCredentialsError();
 }
 
 async function verifySignInPassword({
@@ -116,6 +116,8 @@ async function requirePasswordSignIn({
   }
 }
 
+// Returns the hash the session recheck must find. A lost compare-and-set returns what
+// `currentHashIfPasswordMatches` picks, so a reset still refuses the session.
 async function upgradePasswordHash({
   db,
   password,
@@ -126,20 +128,59 @@ async function upgradePasswordHash({
   password: string;
   storedHash: string;
   userId: string;
-}): Promise<void> {
+}): Promise<string> {
   try {
     const passwordHash = await hashPassword({ password });
-    await db
+    const updated = await db
       .update(userTable)
       .set({ passwordHash })
       .where(and(
         eq(userTable.id, userId),
         eq(userTable.passwordHash, storedHash),
-      ));
+      ))
+      .returning({ id: userTable.id });
+
+    if (updated.length > 0) {
+      return passwordHash;
+    }
+
+    return await currentHashIfPasswordMatches({ db, password, storedHash, userId });
   } catch (error) {
     // A hashing-policy migration should not lock out a user with valid credentials.
     console.error("Failed to upgrade password hash after sign-in", error);
+
+    return storedHash;
   }
+}
+
+// A parallel sign-in can win the upgrade with a new hash of the same password. A reset's hash does
+// not verify this password, so the old hash comes back and the session recheck refuses it.
+async function currentHashIfPasswordMatches({
+  db,
+  password,
+  storedHash,
+  userId,
+}: {
+  db: Database;
+  password: string;
+  storedHash: string;
+  userId: string;
+}): Promise<string> {
+  const current = await db.query.userTable.findFirst({
+    where: { id: userId },
+    columns: { passwordHash: true },
+  });
+
+  if (!current?.passwordHash) {
+    return storedHash;
+  }
+
+  const verification = await verifyPassword({
+    storedHash: current.passwordHash,
+    passwordAttempt: password,
+  });
+
+  return verification.isValid ? current.passwordHash : storedHash;
 }
 
 async function authenticateWithPassword({
@@ -148,6 +189,10 @@ async function authenticateWithPassword({
 }: SignInWithPasswordParams): Promise<SignInSuccess> {
   const db = getDB();
   const user = await getPasswordSignInUser({ db, email });
+  if (!user) {
+    return rejectWithoutPassword({ password });
+  }
+
   const { needsRehash } = await verifySignInPassword({
     password,
     storedHash: user.passwordHash,
@@ -159,20 +204,21 @@ async function authenticateWithPassword({
 
   await requirePasswordSignIn({ db, userId: user.id });
 
-  if (needsRehash) {
-    await upgradePasswordHash({
+  const verifiedHash = needsRehash
+    ? await upgradePasswordHash({
       db,
       password,
       storedHash: user.passwordHash,
       userId: user.id,
-    });
-  }
+    })
+    : user.passwordHash;
 
-  // Re-checks the ban after it writes the session, so a ban landing since the check above cannot
-  // leave a live session behind.
+  // Re-checks the ban and the hash after it writes the session, so a ban, reset, or reclaim
+  // landing since the checks above cannot leave a live session behind.
   const { preferredLocale } = await createSessionUnlessBanned({
     userId: user.id,
     authenticationType: "password",
+    recheck: (state) => assertPasswordHashUnchanged({ state, verifiedHash }),
   });
 
   return { success: true, preferredLocale };

@@ -17,7 +17,10 @@ import {
 } from "@/lib/sso/google-sso";
 import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
-import { userTable } from "@/db/schema";
+import { passKeyCredentialTable, userTable } from "@/db/schema";
+import { userByEmailWhere } from "@/lib/auth/user-email";
+import { normalizeEmail } from "@/lib/validation";
+import { deleteAllSessionsOfUser } from "@/utils/kv-session";
 import { createAndStoreSession, createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import { isGoogleSSOEnabled } from "@/flags";
 import { getIP } from "@/utils/get-IP";
@@ -84,7 +87,7 @@ export const googleSSOCallbackAction = actionClient
 
       const googleAccountId = claims.sub;
       const avatarUrl = claims.picture;
-      const email = claims.email;
+      const email = normalizeEmail(claims.email);
 
       const db = getDB();
 
@@ -105,24 +108,27 @@ export const googleSSOCallbackAction = actionClient
           return { success: true, preferredLocale };
         }
 
-        // Then check if user exists with this email
         const existingUserWithEmail = await db.query.userTable.findFirst({
-          where: { email },
+          where: userByEmailWhere(email),
         });
 
         if (existingUserWithEmail?.id) {
           assertNotBanned(existingUserWithEmail);
 
-          // User exists but hasn't linked Google - let's link their account
-          const [updatedUser] = await db
-            .update(userTable)
-            .set({
+          // Only a mailbox Google verified may claim an existing account by email.
+          if (claims.email_verified !== true) {
+            throw new ActionError("NOT_AUTHORIZED", { key: "Client.Auth.GoogleCallback.errorEmailNotVerified" });
+          }
+
+          const userId = existingUserWithEmail.id;
+          const updatedUser = existingUserWithEmail.emailVerified
+            ? await linkGoogleToVerifiedUser({
+              userId,
               googleAccountId,
-              avatar: existingUserWithEmail.avatar || avatarUrl,
-              emailVerified: existingUserWithEmail.emailVerified || (claims?.email_verified ? new Date() : null),
+              avatarUrl,
+              existingAvatar: existingUserWithEmail.avatar,
             })
-            .where(eq(userTable.id, existingUserWithEmail.id))
-            .returning();
+            : await reclaimUnverifiedUser({ userId, googleAccountId, avatarUrl });
 
           // The link can give an author their first avatar, which public CMS pages render. The
           // sign-in does not wait for the purge chain.
@@ -179,6 +185,58 @@ export const googleSSOCallbackAction = actionClient
       }
     }, RATE_LIMITS.GOOGLE_SSO_CALLBACK);
   });
+
+// The row and Google both proved the same mailbox, so its existing credentials stay.
+async function linkGoogleToVerifiedUser({
+  userId,
+  googleAccountId,
+  avatarUrl,
+  existingAvatar,
+}: {
+  userId: string;
+  googleAccountId: string;
+  avatarUrl: string | undefined;
+  existingAvatar: string | null;
+}) {
+  const [updatedUser] = await getDB()
+    .update(userTable)
+    .set({ googleAccountId, avatar: existingAvatar || avatarUrl })
+    .where(eq(userTable.id, userId))
+    .returning();
+
+  return updatedUser;
+}
+
+// Nobody proved the mailbox of an unverified row, so its password, passkeys, and sessions may
+// belong to someone who pre-registered the address.
+async function reclaimUnverifiedUser({
+  userId,
+  googleAccountId,
+  avatarUrl,
+}: {
+  userId: string;
+  googleAccountId: string;
+  avatarUrl: string | undefined;
+}) {
+  // A claimed row never comes back to this path, so a retry cannot repeat a failed revoke. This
+  // first revoke limits what a failed second one leaves to sessions written during this call.
+  await deleteAllSessionsOfUser(userId);
+
+  const db = getDB();
+  const [[updatedUser]] = await db.batch([
+    db.update(userTable)
+      .set({ googleAccountId, avatar: avatarUrl ?? null, passwordHash: null, emailVerified: new Date() })
+      .where(eq(userTable.id, userId))
+      .returning(),
+    db.delete(passKeyCredentialTable).where(eq(passKeyCredentialTable.userId, userId)),
+  ]);
+
+  // After the batch: this catches a session written before it. A sign-in or sign-up that writes its
+  // session after this sees the claimed row on its recheck (`createSessionUnlessBanned`) and rolls back.
+  await deleteAllSessionsOfUser(userId);
+
+  return updatedUser;
+}
 
 function deleteGoogleOAuthCookies(cookieStore: Awaited<ReturnType<typeof cookies>>) {
   for (const name of GOOGLE_OAUTH_COOKIE_NAMES) {

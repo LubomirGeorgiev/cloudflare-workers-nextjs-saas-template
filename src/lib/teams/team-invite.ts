@@ -21,6 +21,7 @@ import { createRandomId } from "@/utils/random-token";
 import {
   buildInvitationInsert,
   didInsert,
+  isInvitationPending,
   isUniqueConstraintError,
   toUnixSeconds,
   withinSeatCap,
@@ -135,10 +136,7 @@ export async function inviteUserToTeam({
   });
 
   if (existingInvitation) {
-    const isPending = existingInvitation.expiresAt
-      && new Date(existingInvitation.expiresAt) > now;
-
-    if (isPending) {
+    if (isInvitationPending({ invitation: existingInvitation, now })) {
       // Resend: this invitation already occupies a seat, so no capacity check is needed.
       await db.update(teamInvitationTable)
         .set({

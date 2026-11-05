@@ -17,9 +17,10 @@ const {
 
 vi.mock("server-only", () => ({}));
 vi.mock("react", () => ({ cache: <T,>(fn: T) => fn }));
-vi.mock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
+vi.mock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn(), isNull: vi.fn(), sql: vi.fn() }));
 
 vi.mock("@/db/schema", () => ({
+  teamInvitationTable: {},
   teamMembershipTable: {},
 }));
 

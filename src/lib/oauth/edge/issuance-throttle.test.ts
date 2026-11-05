@@ -104,11 +104,30 @@ describe("OAuth issuance throttle policy", () => {
       expect(plan?.policies).toEqual([{ rateLimit: "OAUTH_TOKEN_IP", userIdentifier: CLIENT_IP }]);
     });
 
-    // RFC 7009 revocation must stay available even while issuance is being throttled.
-    test("exempts a revocation request entirely", async () => {
-      const plan = await resolve({ pathname: OAUTH_TOKEN_PATH, body: "token=some-token" });
+    test("charges a refresh against the IP bucket and the identity bucket", async () => {
+      const plan = await resolve({
+        pathname: OAUTH_TOKEN_PATH,
+        body: "grant_type=refresh_token&refresh_token=user1%3Agrant1%3Asecret",
+      });
 
-      expect(plan).toBeNull();
+      expect(plan?.policies).toEqual([
+        { rateLimit: "OAUTH_TOKEN_IP", userIdentifier: CLIENT_IP },
+        { rateLimit: "OAUTH_TOKEN_IDENTITY", userIdentifier: expect.any(String) },
+      ]);
+    });
+
+    // A URL client_id makes the provider fetch client metadata, so revocation cannot go unthrottled.
+    // It must not share the issuance buckets, so a throttled client can still revoke.
+    test("charges a revocation against the revoke bucket alone", async () => {
+      const plan = await resolve({
+        pathname: OAUTH_TOKEN_PATH,
+        body: `token=x&client_id=${encodeURIComponent("https://cimd.example/client.json")}`,
+      });
+
+      expect(plan).toEqual({
+        endpoint: "token",
+        policies: [{ rateLimit: "OAUTH_REVOKE_IP", userIdentifier: CLIENT_IP }],
+      });
     });
 
     // Classification is a soft control: if it throws, auth must keep working unthrottled.

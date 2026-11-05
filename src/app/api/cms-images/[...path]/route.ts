@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { CMS_IMAGES_BASE_PATH } from "@/constants";
 import { CMS_IMAGE_CACHE_CONTROL } from "@/constants/cache-control";
 import { CACHE_TAGS, formatCacheTagHeader } from "@/constants/cache-tags";
+import { UPLOADED_MEDIA_CONTENT_SECURITY_POLICY } from "@/constants/images";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 // Only serves R2 objects uploaded through the CMS under CMS_IMAGES_BASE_PATH.
@@ -85,6 +86,8 @@ export async function GET(
           "ETag": object.httpEtag || "",
           "Last-Modified": object.uploaded.toUTCString(),
           "X-Content-Type-Options": "nosniff",
+          // Every image type, not only SVG: one rule, and a raster image draws the same under it.
+          "Content-Security-Policy": UPLOADED_MEDIA_CONTENT_SECURITY_POLICY,
         },
       });
     } catch (error) {

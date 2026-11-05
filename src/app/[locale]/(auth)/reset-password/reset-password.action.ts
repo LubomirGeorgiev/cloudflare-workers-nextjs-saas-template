@@ -7,9 +7,12 @@ import { userTable } from "@/db/schema";
 import { resetPasswordSchema } from "@/schemas/reset-password.schema";
 import { hashPassword } from "@/utils/password-hasher";
 import { eq } from "drizzle-orm";
-import { getResetTokenKey } from "@/utils/auth-utils";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
+import {
+  getValidPasswordResetToken,
+  revokePasswordResetTokensOfUser,
+} from "@/utils/password-reset-token";
+import { deleteAllSessionsOfUser } from "@/utils/kv-session";
 import { assertNotBanned } from "@/lib/account/ban";
 
 export const resetPasswordAction = actionClient
@@ -21,18 +24,7 @@ export const resetPasswordAction = actionClient
         const db = getDB();
 
         try {
-          const resetToken = await getValidExpiringToken({
-            token: input.token,
-            key: getResetTokenKey,
-            notFoundError: {
-              code: "NOT_FOUND",
-              message: { key: "Client.Auth.ResetPassword.errorInvalidToken" },
-            },
-            expiredError: {
-              code: "PRECONDITION_FAILED",
-              message: { key: "Client.Auth.ResetPassword.errorTokenExpired" },
-            },
-          });
+          const resetToken = await getValidPasswordResetToken(input.token);
 
           // Find user
           const user = await db.query.userTable.findFirst({
@@ -48,15 +40,17 @@ export const resetPasswordAction = actionClient
           assertNotBanned(user);
 
           const passwordHash = await hashPassword({ password: input.password });
+
+          // Write before the revoke: a sign-in that writes its session after the revoke then sees
+          // the new hash on its recheck (`sign-in-auth.ts`) and rolls the session back.
           await db.update(userTable)
             .set({ passwordHash })
             .where(eq(userTable.id, resetToken.userId));
 
-          // Delete the used token
-          await deleteExpiringToken({
-            token: input.token,
-            key: getResetTokenKey,
-          });
+          // Sessions before the link revoke, which also kills this link: a failed session revoke
+          // then leaves this link valid, so a retry runs the revoke again.
+          await deleteAllSessionsOfUser(resetToken.userId);
+          await revokePasswordResetTokensOfUser(resetToken.userId);
 
           return { success: true };
         } catch (error) {

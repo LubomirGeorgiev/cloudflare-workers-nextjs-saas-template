@@ -192,6 +192,13 @@ export const RATE_LIMITS = {
     limit: 30,
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
   },
+  // Revocations are rare (one per sign-out or disconnect), so a real client never reaches this
+  // limit and a leaked token can still always be revoked. Not OAUTH_TOKEN_IP: that one is shared.
+  OAUTH_REVOKE_IP: {
+    identifier: "oauth-revoke-ip",
+    limit: 60,
+    windowInSeconds: Math.floor(ms("1 minute") / 1000),
+  },
 } as const;
 
 // Docs copy interpolates a bucket's budget, and `t()` values must be scalars — so the published

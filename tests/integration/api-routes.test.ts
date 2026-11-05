@@ -15,6 +15,7 @@ import { expect, test } from "vitest";
 
 import { apiApp } from "@/api";
 import {
+  API_JSON_BODY_MAX_BYTES,
   API_V1_BASE_PATH,
   MAX_TEAMS_CREATED_PER_USER,
   NAME_MIN_LENGTH,
@@ -331,6 +332,64 @@ test.each([
   expect(response.status).toBe(PROBLEM_BY_CODE.INPUT_PARSE_ERROR.status);
   expect(response.headers.get("content-type")).toBe(PROBLEM_JSON_CONTENT_TYPE);
   expect(body.code).toBe("INPUT_PARSE_ERROR");
+});
+
+// Whitespace is valid JSON, so padding a valid body proves the cap is on bytes, not on the schema.
+function paddedProfileBody(totalBytes: number): string {
+  return JSON.stringify({ firstName: "Ada", lastName: "Lovelace" }).padEnd(totalBytes, " ");
+}
+
+test("a JSON body at the size limit is accepted", async () => {
+  const user = await seedUser();
+  const secret = await seedKey({ userId: user.id, scopes: ["profile:write"] });
+
+  const { response } = await call("/me", {
+    method: "PATCH",
+    secret,
+    rawBody: paddedProfileBody(API_JSON_BODY_MAX_BYTES),
+  });
+
+  expect(response.status).toBe(200);
+});
+
+test("a JSON body over the size limit answers 413 problem+json", async () => {
+  const user = await seedUser();
+  const secret = await seedKey({ userId: user.id, scopes: ["profile:write"] });
+
+  const { response, body } = await call("/me", {
+    method: "PATCH",
+    secret,
+    rawBody: paddedProfileBody(API_JSON_BODY_MAX_BYTES + 1),
+  });
+
+  expect(response.status).toBe(PROBLEM_BY_CODE.PAYLOAD_TOO_LARGE.status);
+  expect(response.headers.get("content-type")).toBe(PROBLEM_JSON_CONTENT_TYPE);
+  expect(body.code).toBe("PAYLOAD_TOO_LARGE");
+});
+
+// A streamed body has no content-length, so only the bounded read itself can refuse it.
+test("a streamed JSON body over the size limit answers 413 without a content-length", async () => {
+  const user = await seedUser();
+  const secret = await seedKey({ userId: user.id, scopes: ["profile:write"] });
+  const bytes = new TextEncoder().encode(paddedProfileBody(API_JSON_BODY_MAX_BYTES + 1));
+  const request = new Request(`${ORIGIN}${API_V1_BASE_PATH}/me`, {
+    method: "PATCH",
+    headers: { authorization: `Bearer ${secret}`, "content-type": "application/json" },
+    body: new ReadableStream({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  });
+
+  expect(request.headers.get("content-length")).toBeNull();
+
+  const response = await apiApp.fetch(request, env, createExecutionContext());
+  const body = await response.json() as Record<string, unknown>;
+
+  expect(response.status).toBe(PROBLEM_BY_CODE.PAYLOAD_TOO_LARGE.status);
+  expect(body.code).toBe("PAYLOAD_TOO_LARGE");
 });
 
 // The response has to come from the committed row, not from the pre-write principal snapshot with

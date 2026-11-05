@@ -24,7 +24,12 @@ import { getBearerPrincipal, principalToSession } from "@/lib/api/principal";
 import { touchUserLastActiveAt } from "@/utils/user-activity";
 import { getInitials } from "./name-initials";
 import { ROLES_ENUM } from "@/app/enums";
-import { getUserBannedAt, getUserFromDB, getUserTeamsWithPermissions } from "@/utils/session-user";
+import {
+  getSessionRecheckState,
+  getUserFromDB,
+  getUserTeamsWithPermissions,
+  type SessionRecheckState,
+} from "@/utils/session-user";
 import { createBase64UrlToken, hashToken } from "@/utils/random-token";
 import { shouldUseSecureCookies } from "./cookie-security";
 import { isEnabledLocale, type Locale } from "@/i18n/config";
@@ -142,6 +147,11 @@ interface CreateSessionUnlessBannedParams {
   userId: string;
   authenticationType?: CreateKVSessionParams["authenticationType"];
   passkeyCredentialId?: CreateKVSessionParams["passkeyCredentialId"];
+  /**
+   * The caller's own condition, tested on the row re-read after the session write. It throws its
+   * refusal. Then only this new session is rolled back: the user's other sessions stay.
+   */
+  recheck?: (state: SessionRecheckState | null) => void;
 }
 
 /**
@@ -150,11 +160,14 @@ interface CreateSessionUnlessBannedParams {
  * A ban landing between that check and this write would leave a current-version session that the
  * ban's key listing had already passed: nothing rebuilds it from D1, so it would authenticate
  * until it expired. Re-read the flag, roll the session back, and refuse with the same error.
+ * A credential revoke (password reset, Google reclaim) has the same race. So the same one re-read
+ * also refuses a passkey session whose credential is gone, and runs the caller's `recheck`.
  */
 export async function createSessionUnlessBanned({
   userId,
   authenticationType,
   passkeyCredentialId,
+  recheck,
 }: CreateSessionUnlessBannedParams): Promise<SignInResult> {
   const sessionToken = generateSessionToken();
   const session = await createSession({
@@ -164,14 +177,20 @@ export async function createSessionUnlessBanned({
     passkeyCredentialId,
   });
 
-  const bannedAt = await getUserBannedAt(userId);
+  // Each refusal throws before any cookie exists to clean up. A failed read also rolls back.
+  try {
+    const state = await getSessionRecheckState({ userId, passkeyCredentialId });
+    assertNotBanned({ bannedAt: state?.bannedAt ?? null });
 
-  if (isBanned({ bannedAt })) {
+    if (passkeyCredentialId && !state?.passkeyLive) {
+      throw new Error("Session refused: the passkey was removed");
+    }
+
+    recheck?.(state);
+  } catch (error) {
     await deleteKVSession(session.id, userId);
+    throw error;
   }
-
-  // Throws the refusal the chokepoint's own check throws, before any cookie exists to clean up.
-  assertNotBanned({ bannedAt });
 
   await setSessionTokenCookie({
     token: sessionToken,

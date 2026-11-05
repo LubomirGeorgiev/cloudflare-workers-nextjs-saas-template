@@ -16,7 +16,7 @@ const createKVSessionMock = vi.fn();
 const deleteKVSessionMock = vi.fn();
 const getKVSessionMock = vi.fn();
 const updateKVSessionMock = vi.fn();
-const getUserBannedAtMock = vi.fn();
+const getSessionRecheckStateMock = vi.fn();
 const getUserFromDBMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
@@ -31,7 +31,7 @@ vi.mock("react", () => ({
 }));
 
 vi.mock("@/utils/session-user", () => ({
-  getUserBannedAt: getUserBannedAtMock,
+  getSessionRecheckState: getSessionRecheckStateMock,
   getUserFromDB: getUserFromDBMock,
   getUserTeamsWithPermissions: vi.fn(async () => []),
 }));
@@ -70,12 +70,14 @@ function buildStoredSession({ bannedAt = null, version = CURRENT_SESSION_VERSION
   };
 }
 
+const LIVE_STATE = { bannedAt: null, passwordHash: "hash", passkeyLive: true };
+
 describe("createSessionUnlessBanned", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getUserFromDBMock.mockResolvedValue({ id: "user-1", bannedAt: null });
     createKVSessionMock.mockImplementation(async () => buildStoredSession());
-    getUserBannedAtMock.mockResolvedValue(null);
+    getSessionRecheckStateMock.mockResolvedValue(LIVE_STATE);
   });
 
   test("stores the session and sets the cookie when the account is not banned", async () => {
@@ -108,7 +110,7 @@ describe("createSessionUnlessBanned", () => {
   // The race this helper exists for: the chokepoint's own check read D1 before the ban landed, so
   // only the read after the write can see it.
   test("deletes the session and refuses when the ban lands between the two reads", async () => {
-    getUserBannedAtMock.mockResolvedValue(new Date("2026-01-01T00:00:00.000Z"));
+    getSessionRecheckStateMock.mockResolvedValue({ ...LIVE_STATE, bannedAt: new Date("2026-01-01T00:00:00.000Z") });
 
     await expect(createSessionUnlessBanned({
       userId: "user-1",
@@ -120,6 +122,41 @@ describe("createSessionUnlessBanned", () => {
 
     expect(deleteKVSessionMock).toHaveBeenCalledWith("kv-session-1", "user-1");
     expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
+  // A Google reclaim deletes the passkeys. A passkey sign-in that read its credential before
+  // that, and writes its session after the reclaim revoked sessions, must not keep the session.
+  test("deletes the session and refuses when its passkey is gone", async () => {
+    getSessionRecheckStateMock.mockResolvedValue({ ...LIVE_STATE, passkeyLive: false });
+
+    await expect(createSessionUnlessBanned({
+      userId: "user-1",
+      authenticationType: "passkey",
+      passkeyCredentialId: "credential-1",
+    })).rejects.toThrow();
+
+    expect(getSessionRecheckStateMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      passkeyCredentialId: "credential-1",
+    });
+    expect(deleteKVSessionMock).toHaveBeenCalledWith("kv-session-1", "user-1");
+    expect(cookieStore.set).not.toHaveBeenCalled();
+  });
+
+  test("passes the re-read row to the caller's recheck and rolls back when it throws", async () => {
+    const recheck = vi.fn(() => {
+      throw new Error("hash changed");
+    });
+
+    await expect(createSessionUnlessBanned({
+      userId: "user-1",
+      authenticationType: "password",
+      recheck,
+    })).rejects.toThrow("hash changed");
+
+    expect(recheck).toHaveBeenCalledWith(LIVE_STATE);
+    expect(getSessionRecheckStateMock).toHaveBeenCalledOnce();
+    expect(deleteKVSessionMock).toHaveBeenCalledWith("kv-session-1", "user-1");
   });
 });
 

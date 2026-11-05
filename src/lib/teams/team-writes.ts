@@ -32,8 +32,25 @@ const UNCONDITIONAL: CapacityGuard = { predicate: "1", binds: [] };
 // membership COUNT here filters by this fragment; its single trailing `?` binds now (unix seconds).
 const ACTIVE_MEMBERSHIP_PREDICATE = `"isActive" = 1 AND ("expiresAt" IS NULL OR "expiresAt" > ?)`;
 
+// An invitation holds a seat and can be accepted only while this holds. `isInvitationPending`
+// below is its JS form. Its single trailing `?` binds now (unix seconds).
+const PENDING_INVITATION_PREDICATE = `"acceptedAt" IS NULL AND "expiresAt" > ?`;
+
 // D1 stores `integer({ mode: "timestamp" })` columns as Unix seconds. Raw SQL bypasses drizzle's
 // encoder, so convert Dates explicitly when binding them.
+// JS form of PENDING_INVITATION_PREDICATE. A null expiry fails, as `NULL > ?` does in SQL.
+export function isInvitationPending({
+  invitation,
+  now,
+}: {
+  invitation: { acceptedAt: Date | null; expiresAt: Date | null };
+  now: Date;
+}): boolean {
+  return invitation.acceptedAt === null
+    && invitation.expiresAt !== null
+    && toUnixSeconds(invitation.expiresAt) > toUnixSeconds(now);
+}
+
 export function toUnixSeconds(date: Date): number {
   return Math.floor(date.getTime() / 1000);
 }
@@ -85,8 +102,7 @@ export function withinSeatCap({
   return {
     predicate:
       `((SELECT COUNT(*) FROM team_membership WHERE "teamId" = ? AND ${ACTIVE_MEMBERSHIP_PREDICATE})` +
-      ` + (SELECT COUNT(*) FROM team_invitation` +
-      ` WHERE "teamId" = ? AND "acceptedAt" IS NULL AND "expiresAt" > ?)) < ?`,
+      ` + (SELECT COUNT(*) FROM team_invitation WHERE "teamId" = ? AND ${PENDING_INVITATION_PREDICATE})) < ?`,
     binds: [teamId, nowSec, teamId, nowSec, seats],
   };
 }
@@ -113,6 +129,23 @@ export function withinOwnedTeamCap({
   return {
     predicate: `(SELECT COUNT(*) FROM team_membership WHERE "userId" = ? AND "roleId" = ? AND "isSystemRole" = 1 AND ${ACTIVE_MEMBERSHIP_PREDICATE}) < ?`,
     binds: [userId, SYSTEM_ROLES_ENUM.OWNER, nowSec, max],
+  };
+}
+
+// Guard: the invitation is still pending (not accepted, not expired) and belongs to the team.
+// Accept writes carry it, so a removal or revoke that deletes the row mid-accept refuses the join.
+export function whenInvitationPending({
+  invitationId,
+  teamId,
+  nowSec,
+}: {
+  invitationId: string;
+  teamId: string;
+  nowSec: number;
+}): CapacityGuard {
+  return {
+    predicate: `EXISTS (SELECT 1 FROM team_invitation WHERE "id" = ? AND "teamId" = ? AND ${PENDING_INVITATION_PREDICATE})`,
+    binds: [invitationId, teamId, nowSec],
   };
 }
 
@@ -206,6 +239,12 @@ export function buildMembershipReactivation(
   row: MembershipReactivation,
   guard: CapacityGuard,
 ): D1PreparedStatement {
+  const pending = whenInvitationPending({
+    invitationId: row.invitationId,
+    teamId: row.teamId,
+    nowSec: row.nowSec,
+  });
+
   return d1
     .prepare(
       `UPDATE team_membership
@@ -213,11 +252,7 @@ export function buildMembershipReactivation(
              "updatedAt" = ?, "updateCounter" = "updateCounter" + 1
        WHERE "teamId" = ? AND "userId" = ?
          AND ("isActive" != 1 OR ("expiresAt" IS NOT NULL AND "expiresAt" <= ?))
-         AND EXISTS (
-           SELECT 1 FROM team_invitation
-           WHERE "id" = ? AND "teamId" = ? AND "acceptedAt" IS NULL
-             AND ("expiresAt" IS NULL OR "expiresAt" > ?)
-         )
+         AND ${pending.predicate}
          AND ${guard.predicate}`,
     )
     .bind(
@@ -227,9 +262,7 @@ export function buildMembershipReactivation(
       row.teamId,
       row.userId,
       row.nowSec,
-      row.invitationId,
-      row.teamId,
-      row.nowSec,
+      ...pending.binds,
       ...guard.binds,
     );
 }

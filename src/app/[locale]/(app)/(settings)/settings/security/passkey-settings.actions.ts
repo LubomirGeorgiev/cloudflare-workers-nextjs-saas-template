@@ -7,6 +7,7 @@ import {
   verifyPasskeyAuthentication
 } from "@/utils/webauthn";
 import { getDB } from "@/db";
+import { userByEmailWhere } from "@/lib/auth/user-email";
 import { passKeyCredentialTable } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { ActionError } from "@/lib/action-error";
@@ -44,7 +45,7 @@ export const generateRegistrationOptionsAction = actionClient
 
       const db = getDB();
       const user = await db.query.userTable.findFirst({
-        where: { email: input.email },
+        where: userByEmailWhere(input.email),
       });
 
       if (!user) {
@@ -95,7 +96,7 @@ export const verifyRegistrationAction = actionClient
 
       const db = getDB();
       const user = await db.query.userTable.findFirst({
-        where: { email: input.email },
+        where: userByEmailWhere(input.email),
       });
 
       if (!user) {

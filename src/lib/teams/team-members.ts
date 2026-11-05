@@ -2,14 +2,15 @@ import "server-only";
 import { cache } from "react";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
-import { teamMembershipTable } from "@/db/schema";
+import { teamInvitationTable, teamMembershipTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { getActiveTeamMembership } from "@/utils/team-membership";
 import { requireNormalizedSessionEmail } from "@/utils/session-user";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
+import { normalizeEmail } from "@/lib/validation";
 
 export const getTeamMemberManagementData = cache(async (teamId: string) => {
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
@@ -138,6 +139,9 @@ export async function deleteTeamMembership({
       teamId,
       userId,
     },
+    with: {
+      user: { columns: { email: true } },
+    },
   });
 
   if (!membership) {
@@ -149,13 +153,26 @@ export async function deleteTeamMembership({
     throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorCannotRemoveOwner" });
   }
 
-  await db.delete(teamMembershipTable)
+  const deleteMembership = db.delete(teamMembershipTable)
     .where(
       and(
         eq(teamMembershipTable.teamId, teamId),
         eq(teamMembershipTable.userId, userId)
       )
     );
+  const memberEmail = membership.user.email;
+
+  // A pending invitation to the member's own address would let them accept their way back in.
+  // One batch, so a failure cannot leave the member removed while that invitation still works.
+  if (memberEmail) {
+    await db.batch([
+      deleteMembership,
+      db.delete(teamInvitationTable)
+        .where(pendingInvitationsForEmail({ teamId, email: memberEmail })),
+    ]);
+  } else {
+    await deleteMembership;
+  }
 
   await updateAllSessionsOfUser(userId);
 
@@ -222,4 +239,13 @@ export async function getPendingInvitationsForCurrentUser() {
       avatar: invitation.invitedByUser.avatar,
     }
   }));
+}
+
+// Legacy invitation rows can hold mixed case or spaces, so compare the normalized column.
+function pendingInvitationsForEmail({ teamId, email }: { teamId: string; email: string }) {
+  return and(
+    eq(teamInvitationTable.teamId, teamId),
+    isNull(teamInvitationTable.acceptedAt),
+    sql`lower(trim(${teamInvitationTable.email})) = ${normalizeEmail(email)}`,
+  );
 }

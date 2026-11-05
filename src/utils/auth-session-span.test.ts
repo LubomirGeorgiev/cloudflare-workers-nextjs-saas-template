@@ -47,7 +47,7 @@ vi.mock("@/utils/trace", () => ({
 }));
 
 vi.mock("@/utils/session-user", () => ({
-  getUserBannedAt: vi.fn(),
+  getSessionRecheckState: vi.fn(),
   getUserFromDB: vi.fn(),
   getUserTeamsWithPermissions: vi.fn(async () => []),
 }));

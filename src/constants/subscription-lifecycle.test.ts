@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import type Stripe from "stripe";
 
 import {
+  cancelParamsForStatus,
   getStripeSubscriptionTransitionPolicy,
-  REVENUE_PRESERVING_CANCEL_PARAMS,
   STRIPE_SUBSCRIPTION_TRANSITION_POLICY,
 } from "./subscription-lifecycle";
 
@@ -48,31 +48,37 @@ describe("Stripe subscription lifecycle policy", () => {
     expect(getStripeSubscriptionTransitionPolicy("unknown")).toBeNull();
   });
 
-  // A status that cancels but does not invoice discards money we are already owed. Pinned per
-  // status so a new status cannot default silently into the wrong half.
+  // A status that ran but does not invoice discards money we are already owed; a status that never
+  // ran but invoices bills for nothing. Pinned per status so a new status cannot default silently.
   test.each([
+    ["active", true],
+    ["trialing", true],
+    ["past_due", true],
     ["incomplete", false],
+    ["incomplete_expired", false],
+    ["canceled", false],
     ["unpaid", true],
     ["paused", true],
   ] as const)("%s invoices on cancel: %s", (status, invoiceOnCancel) => {
-    expect(getStripeSubscriptionTransitionPolicy(status)).toMatchObject({
-      subscribe: "cancel",
-      invoiceOnCancel,
-    });
-  });
-
-  test("only the cancelling statuses can ever reach the invoice decision", () => {
-    for (const policy of Object.values(STRIPE_SUBSCRIPTION_TRANSITION_POLICY)) {
-      if (policy.subscribe !== "cancel") {
-        expect(policy.invoiceOnCancel).toBe(false);
-      }
-    }
+    expect(getStripeSubscriptionTransitionPolicy(status)?.invoiceOnCancel).toBe(invoiceOnCancel);
   });
 
   // `prorate: true` would credit a cancelling customer for unused time, which is a pricing policy
-  // change rather than a bug fix. `invoice_now: true` bills what is already owed. Both are stated
-  // because both Stripe defaults are wrong for this path.
-  test("the shared cancel parameters bill what is owed and credit nothing", () => {
-    expect(REVENUE_PRESERVING_CANCEL_PARAMS).toEqual({ invoice_now: true, prorate: false });
-  });
+  // change rather than a bug fix. Every cancel path takes `invoice_now` from the policy table.
+  test.each(Object.entries(STRIPE_SUBSCRIPTION_TRANSITION_POLICY))(
+    "the cancel parameters for %s follow the policy and credit nothing",
+    (status, policy) => {
+      expect(cancelParamsForStatus(status)).toEqual({
+        invoice_now: policy.invoiceOnCancel,
+        prorate: false,
+      });
+    },
+  );
+
+  test.each([null, undefined, "unknown"])(
+    "an unrecognized status %s bills what is owed and credits nothing",
+    (status) => {
+      expect(cancelParamsForStatus(status)).toEqual({ invoice_now: true, prorate: false });
+    },
+  );
 });

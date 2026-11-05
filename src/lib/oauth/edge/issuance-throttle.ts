@@ -6,7 +6,7 @@ import { oauthCoreOptions } from "@/lib/oauth/provider-config";
 // Registration and token issuance are charged *before* the provider handles the request: a
 // response-side check would still let an attacker allocate provider KV records before receiving the
 // 429. Token forms are inspected only to derive a stable digest; raw credentials never enter
-// limiter keys or logs, and RFC 7009 revocation requests bypass issuance throttling entirely.
+// limiter keys or logs. RFC 7009 revocations skip the issuance buckets and use OAUTH_REVOKE_IP.
 
 type IssuanceEndpoint = "dcr" | "token";
 
@@ -64,8 +64,14 @@ export async function resolveIssuanceThrottlePlan({
   }
 
   const inspection = await inspectTokenIdentity(request);
-  if (!inspection || inspection.isRevocationRequest) {
+  if (!inspection) {
     return null;
+  }
+
+  // The provider fetches a URL `client_id` as client metadata (CIMD), so an unthrottled
+  // revocation would make the Worker a fetch relay.
+  if (inspection.isRevocationRequest) {
+    return { endpoint, policies: [{ rateLimit: "OAUTH_REVOKE_IP", userIdentifier: clientIp }] };
   }
 
   return {

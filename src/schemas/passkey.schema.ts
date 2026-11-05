@@ -1,14 +1,14 @@
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 
 import { NAME_MAX_LENGTH, NAME_MIN_LENGTH } from "@/constants";
-import { emailString, trimmedString, v, validationKey } from "@/lib/validation";
+import { canonicalEmailString, trimmedString, v, validationKey } from "@/lib/validation";
 import { idField } from "@/schemas/fields";
 import { captchaSchema } from "./captcha.schema";
 
 export const passkeyEmailSchema = v.object({
   // Custom messages here matched the central keyed defaults' meaning exactly; dropped
   // so they fall back to `Validation.invalidEmail` / `Validation.minLength`.
-  email: emailString(),
+  email: canonicalEmailString(),
   firstName: trimmedString({ min: NAME_MIN_LENGTH, max: NAME_MAX_LENGTH }),
   lastName: trimmedString({ min: NAME_MIN_LENGTH, max: NAME_MAX_LENGTH }),
   captchaToken: captchaSchema,
@@ -30,11 +30,11 @@ function webAuthnResponseSchema<T extends AuthenticationResponseJSON | Registrat
 }
 
 export const generateRegistrationOptionsSchema = v.object({
-  email: emailString(),
+  email: canonicalEmailString(),
 });
 
 export const verifyRegistrationSchema = v.object({
-  email: emailString(),
+  email: canonicalEmailString(),
   response: webAuthnResponseSchema<RegistrationResponseJSON>(
     validationKey("invalidRegistrationResponse"),
   ),

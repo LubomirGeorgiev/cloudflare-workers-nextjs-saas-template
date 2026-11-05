@@ -29,13 +29,15 @@ const { stripeState, connectedAppsState, sessionState, enqueueRetryMock, queueSe
   queueSendMock: vi.fn(),
 }));
 
-function canceledSubscription(id: string) {
+// The cancel parameters depend on the status Stripe reports before the cancel, so the fake reports
+// a live one there and a terminal one after.
+function subscriptionSnapshot({ id, status }: { id: string; status: "active" | "canceled" }) {
   const teamId = stripeState.teamBySubscription.get(id);
 
   return {
     id,
     object: "subscription",
-    status: "canceled",
+    status,
     customer: teamId ? `cus_${teamId}` : null,
     metadata: teamId ? { teamId } : {},
     items: { data: [] },
@@ -53,9 +55,9 @@ vi.mock("@/lib/stripe", () => ({
           throw new Error(`Stripe is unreachable for ${id}`);
         }
 
-        return canceledSubscription(id);
+        return subscriptionSnapshot({ id, status: "canceled" });
       },
-      retrieve: async (id: string) => canceledSubscription(id),
+      retrieve: async (id: string) => subscriptionSnapshot({ id, status: "active" }),
     },
     invoices: { list: async () => ({ data: [] }) },
   }),

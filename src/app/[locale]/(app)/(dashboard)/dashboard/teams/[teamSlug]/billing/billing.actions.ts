@@ -34,8 +34,8 @@ import {
 } from "@/schemas/billing.schema";
 import { getLocale } from "@/i18n/server";
 import {
+  cancelParamsForStatus,
   getStripeSubscriptionTransitionPolicy,
-  REVENUE_PRESERVING_CANCEL_PARAMS,
 } from "@/constants/subscription-lifecycle";
 import { TEAMS_DASHBOARD_PATH } from "@/constants";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
@@ -432,12 +432,9 @@ export const cancelSubscriptionAction = actionClient
         }
         const canceledNow = !atPeriodEnd && !policy?.grantsPaidAccess;
 
-        // Immediate cancellation states both flags. With both left at their `false` defaults
-        // Stripe deletes pending prorations — the add-on units a team bought mid-period and then
-        // cancelled before the cycle closed were never invoiced. The `atPeriodEnd` branch is
-        // unaffected: pending prorations stay in place and bill when the period closes.
+        // The `atPeriodEnd` branch keeps pending prorations; they bill when the period closes.
         const updated = canceledNow
-          ? await stripe.subscriptions.cancel(subscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS)
+          ? await stripe.subscriptions.cancel(subscriptionId, cancelParamsForStatus(current.status))
           : await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.

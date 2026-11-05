@@ -4,6 +4,7 @@ import { ActionError, type ActionErrorMessage } from "@/lib/action-error";
 import {
   deleteHashedRecord,
   type HashedRecordPayload,
+  type HashedRecordResult,
   putHashedRecord,
   readHashedRecord,
 } from "@/utils/kv-record";
@@ -11,7 +12,7 @@ import { createBase64UrlToken } from "@/utils/random-token";
 
 const EXPIRING_TOKEN_BYTES = 32;
 
-interface ExpiringTokenPayload extends HashedRecordPayload {
+export interface ExpiringTokenPayload extends HashedRecordPayload {
   userId: string;
 }
 
@@ -21,27 +22,20 @@ interface TokenActionError {
   message: ActionErrorMessage;
 }
 
-interface CreateExpiringTokenParams {
+interface CreateExpiringTokenParams<P extends ExpiringTokenPayload> {
   key: (token: string) => string;
   expiresInSeconds: number;
-  payload: Omit<ExpiringTokenPayload, "expiresAt">;
+  payload: Omit<P, "expiresAt">;
 }
 
-interface GetValidExpiringTokenParams {
+interface ExpiringTokenParams {
   token: string;
   key: (token: string) => string;
+}
+
+interface GetValidExpiringTokenParams extends ExpiringTokenParams {
   notFoundError: TokenActionError;
   expiredError?: TokenActionError;
-}
-
-interface DeleteExpiringTokenParams {
-  token: string;
-  key: (token: string) => string;
-}
-
-interface HasValidExpiringTokenParams {
-  token: string;
-  key: (token: string) => string;
 }
 
 function toActionError(error: TokenActionError): ActionError {
@@ -52,14 +46,14 @@ function hasUserId(payload: ExpiringTokenPayload): boolean {
   return Boolean(payload.userId);
 }
 
-export async function createExpiringToken({
+export async function createExpiringToken<P extends ExpiringTokenPayload = ExpiringTokenPayload>({
   key,
   expiresInSeconds,
   payload,
-}: CreateExpiringTokenParams): Promise<string> {
+}: CreateExpiringTokenParams<P>): Promise<string> {
   const token = createBase64UrlToken(EXPIRING_TOKEN_BYTES);
 
-  await putHashedRecord<ExpiringTokenPayload>({
+  await putHashedRecord<P>({
     secret: token,
     deriveKey: key,
     payload,
@@ -69,17 +63,22 @@ export async function createExpiringToken({
   return token;
 }
 
-export async function getValidExpiringToken({
+// Not single-use: the reset flow reads on page view and consumes later, so a
+// valid entry is left in place; only invalid/expired entries are cleaned up.
+export function readExpiringToken<P extends ExpiringTokenPayload = ExpiringTokenPayload>({
+  token,
+  key,
+}: ExpiringTokenParams): Promise<HashedRecordResult<P>> {
+  return readHashedRecord<P>({ secret: token, deriveKey: key, validate: hasUserId });
+}
+
+export async function getValidExpiringToken<P extends ExpiringTokenPayload = ExpiringTokenPayload>({
   token,
   key,
   notFoundError,
   expiredError = notFoundError,
-}: GetValidExpiringTokenParams): Promise<ExpiringTokenPayload> {
-  const result = await readHashedRecord<ExpiringTokenPayload>({
-    secret: token,
-    deriveKey: key,
-    validate: hasUserId,
-  });
+}: GetValidExpiringTokenParams): Promise<P> {
+  const result = await readExpiringToken<P>({ token, key });
 
   if (result.status === "valid") {
     return result.payload;
@@ -93,21 +92,6 @@ export async function getValidExpiringToken({
 export async function deleteExpiringToken({
   token,
   key,
-}: DeleteExpiringTokenParams): Promise<void> {
+}: ExpiringTokenParams): Promise<void> {
   await deleteHashedRecord({ secret: token, deriveKey: key });
-}
-
-// Not single-use: the reset flow reads on page view and consumes later, so a
-// valid entry is left in place; only invalid/expired entries are cleaned up.
-export async function hasValidExpiringToken({
-  token,
-  key,
-}: HasValidExpiringTokenParams): Promise<boolean> {
-  const result = await readHashedRecord<ExpiringTokenPayload>({
-    secret: token,
-    deriveKey: key,
-    validate: hasUserId,
-  });
-
-  return result.status === "valid";
 }

@@ -32,6 +32,8 @@ import { eq } from "drizzle-orm";
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { DEFAULT_PLAN_ID } from "@/constants/plans";
+import { cancelParamsForStatus } from "@/constants/subscription-lifecycle";
+import { cancelTeamSubscriptionAsAdmin } from "@/lib/admin/team-billing-admin";
 import { settleRecordedSubscription } from "@/utils/team-subscription";
 
 const db = getDB();
@@ -129,3 +131,23 @@ test("a refused settle saves the live status that Stripe returned", async () => 
   expect(team?.subscriptionStatus).toBe("active");
   expect(team?.stripeSubscriptionId).toBe(subscriptionId);
 });
+
+// The staff and ban paths can cancel a subscription in any status. They take `invoice_now` from the
+// status Stripe reports, so an incomplete one is not billed and a running one keeps what is owed.
+test.each(["incomplete", "active", "past_due"] as const)(
+  "staff cancellation of a %s subscription passes the policy parameters",
+  async (status) => {
+    retrieveStatus.current = status;
+    const subscriptionId = uid("sub");
+    const teamId = await seedTeamWithSubscription(subscriptionId);
+
+    await expect(cancelTeamSubscriptionAsAdmin({ teamId, subscriptionId, reason: "test" }))
+      .resolves.toEqual({ cancelled: true });
+
+    expect(stripeState.cancelCalls).toHaveLength(1);
+    expect(stripeState.cancelCalls[0]?.params).toEqual({
+      ...cancelParamsForStatus(status),
+      cancellation_details: { comment: "test" },
+    });
+  },
+);

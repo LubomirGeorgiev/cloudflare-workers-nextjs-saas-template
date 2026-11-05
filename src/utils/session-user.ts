@@ -1,6 +1,8 @@
 import "server-only";
 
+import { and, eq, exists, sql } from "drizzle-orm";
 import { getDB } from "@/db";
+import { passKeyCredentialTable, userTable } from "@/db/schema";
 import { ActionError } from "@/lib/action-error";
 import { normalizeEmail } from "@/lib/validation";
 import {
@@ -42,16 +44,35 @@ export async function getUserFromDB(userId: string) {
   });
 }
 
-// Deliberately uncached and column-narrow: `createSessionUnlessBanned` calls this to see a ban
-// that a snapshot, or a row read earlier in the same request, is too old to carry.
-export async function getUserBannedAt(userId: string): Promise<Date | null> {
+// Deliberately uncached and one query: `createSessionUnlessBanned` calls this after its session
+// write, to see a ban, a hash change, or a passkey removal that an earlier read is too old to carry.
+export async function getSessionRecheckState({
+  userId,
+  passkeyCredentialId,
+}: {
+  userId: string;
+  passkeyCredentialId?: string;
+}): Promise<SessionRecheckState | null> {
   const db = getDB();
-  const user = await db.query.userTable.findFirst({
-    where: { id: userId },
-    columns: { bannedAt: true },
-  });
+  const passkeyLive = passkeyCredentialId
+    ? exists(db.select({ id: passKeyCredentialTable.id })
+      .from(passKeyCredentialTable)
+      .where(and(
+        eq(passKeyCredentialTable.credentialId, passkeyCredentialId),
+        eq(passKeyCredentialTable.userId, userId),
+      )))
+    : sql`0`;
+  const [row] = await db
+    .select({
+      bannedAt: userTable.bannedAt,
+      passwordHash: userTable.passwordHash,
+      passkeyLive: sql<number>`${passkeyLive}`,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .limit(1);
 
-  return user?.bannedAt ?? null;
+  return row ? { ...row, passkeyLive: Boolean(row.passkeyLive) } : null;
 }
 
 export async function getUserTeamsWithPermissions(userId: string) {
@@ -115,4 +136,11 @@ export async function getUserTeamsWithPermissions(userId: string) {
       subscriptionStatus: membership.team.subscriptionStatus ?? null,
     };
   });
+}
+
+export interface SessionRecheckState {
+  bannedAt: Date | null;
+  passwordHash: string | null;
+  /** False when the session names a passkey that is gone, or names none. */
+  passkeyLive: boolean;
 }

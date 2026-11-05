@@ -11,7 +11,7 @@ export interface HashedRecordPayload {
   expiresAt: string;
 }
 
-type HashedRecordResult<P extends HashedRecordPayload> =
+export type HashedRecordResult<P extends HashedRecordPayload> =
   | { status: "valid"; payload: P }
   | { status: "expired" | "invalid" | "missing" };
 
@@ -33,7 +33,8 @@ interface DeleteHashedRecordParams {
   deriveKey: (hash: string) => string;
 }
 
-async function getAuthKV() {
+// Exported for the reset-link stamp in `password-reset-token.ts`, which shares this KV handle.
+export async function getAuthKV() {
   const { env } = await getCloudflareContext();
 
   if (!env?.KV_STORE) {

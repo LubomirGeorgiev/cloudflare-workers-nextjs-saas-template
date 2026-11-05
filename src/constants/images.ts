@@ -6,6 +6,11 @@ export const CMS_IMAGE_QUALITY = 80;
 // A client that ignores `srcset` would otherwise download the 3840px render of every CMS image.
 export const CMS_IMAGE_FALLBACK_WIDTH = 1200;
 
+// An uploaded SVG opened directly would run its scripts on the app origin. `sandbox` gives it an
+// opaque origin and blocks scripts; inline styles and `data:` images still draw, also in `<img>`.
+export const UPLOADED_MEDIA_CONTENT_SECURITY_POLICY =
+  "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:";
+
 // Vinext types the negotiated output format as a plain string, but only ever emits these three.
 export const CMS_IMAGE_FORMATS = ["image/avif", "image/webp", "image/jpeg"] as const;
 export type CmsImageFormat = (typeof CMS_IMAGE_FORMATS)[number];

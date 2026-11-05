@@ -82,7 +82,6 @@
         "toastSigningIn": "Signing you in...",
         "toastSignInSuccess": "Signed in successfully",
         "errorInvalidCredentials": "Invalid email or password",
-        "errorUseGoogle": "Please sign in with your Google account instead.",
         "errorUsePasskey": "Please sign in with your passkey instead.",
         "errorAccountSuspended": "This account is suspended. Contact support for help."
       },
@@ -234,7 +233,8 @@
         "errorMissingCookies": "Missing required cookies",
         "errorInvalidState": "Invalid state parameter",
         "errorInvalidCode": "Invalid authorization code",
-        "errorInvalidIdToken": "Invalid Google sign in token"
+        "errorInvalidIdToken": "Invalid Google sign in token",
+        "errorEmailNotVerified": "Your Google account email is not verified, so it cannot sign in to an existing account"
       }
     },
     "Docs": {
@@ -323,6 +323,7 @@
           "NOT_FOUND": "The addressed resource does not exist, or is not visible to this credential.",
           "CONFLICT": "The request conflicts with the current state of the resource.",
           "PRECONDITION_FAILED": "A rule of the operation was not met — a plan limit, or an invitation that was already used, for example.",
+          "PAYLOAD_TOO_LARGE": "The request body is larger than the API accepts. The detail names the limit in bytes. Send a smaller body.",
           "RATE_LIMITED": "Too many requests for this credential or IP address. Authenticated credentials allow {limit} requests per {windowInSeconds} seconds; failed authentication attempts use a separate per-IP limit. Wait the number of seconds given in retry-after.",
           "INTERNAL_SERVER_ERROR": "Something failed on the server. Details are deliberately omitted; retry, and quote requestId if it keeps happening."
         },

@@ -1,21 +1,24 @@
 import "server-only";
 
-import type { Context, ErrorHandler, NotFoundHandler } from "hono";
+import type { Context, ErrorHandler, MiddlewareHandler, NotFoundHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono-openapi";
 
 import type { ApiEnv } from "@/api/types";
+import { API_JSON_BODY_MAX_BYTES } from "@/constants";
 import { ActionError } from "@/lib/action-error";
 import { actionErrorToProblem, PROBLEM_BY_CODE, toProblemResponse } from "@/lib/api/errors";
 import { toFieldError, type ValidationIssue } from "@/lib/api/field-errors";
 import { applyRateLimitHeaders } from "@/lib/api/rate-limit-headers";
 import { teamIdParamSchema } from "@/schemas/api/common.schema";
+import { readBoundedRequestBody } from "@/utils/bounded-request-body";
 
 // Machine clients get stable codes, never localized prose, so the copy here is deliberately
 // untranslated: `code` is the contract, `detail` is a hint for a human reading a log.
 // Deliberately more specific than the generic NOT_FOUND prose: a bad path is not a missing record.
 const UNKNOWN_ENDPOINT_DETAIL = "Unknown API endpoint.";
 const MALFORMED_BODY_DETAIL = "The request body is not valid JSON.";
+const OVERSIZED_BODY_DETAIL = `The request body must be at most ${API_JSON_BODY_MAX_BYTES} bytes.`;
 
 /**
  * Hono throws `HTTPException` from `validator()` when a body declared as JSON cannot be parsed
@@ -91,9 +94,39 @@ export function apiValidator<Target extends ValidatorTarget, Schema extends Vali
   target: Target,
   schema: Schema,
 ) {
-  return validator(target, schema, (result, c: Context<ApiEnv>) =>
+  const middleware = validator(target, schema, (result, c: Context<ApiEnv>) =>
     validationHook({ result, target, c }),
   );
+
+  return target === "json" ? withBoundedJsonBody(middleware) : middleware;
+}
+
+/**
+ * Hono's JSON validator buffers the whole body before it parses. This reads a clone first and stops
+ * at the cap, so an oversized body never reaches that unbounded read. The validator then reads the
+ * original, which the clone already proved to be within the cap.
+ */
+function withBoundedJsonBody<Handler extends MiddlewareHandler>(validatorMiddleware: Handler): Handler {
+  const bounded: MiddlewareHandler<ApiEnv> = async (c, next) => {
+    const { exceededLimit, text } = await readBoundedRequestBody({
+      request: c.req.raw,
+      maxBytes: API_JSON_BODY_MAX_BYTES,
+    });
+    if (exceededLimit) {
+      throw new ActionError("PAYLOAD_TOO_LARGE", OVERSIZED_BODY_DETAIL);
+    }
+    if (text === null) {
+      throw new ActionError("INPUT_PARSE_ERROR", MALFORMED_BODY_DETAIL);
+    }
+
+    return validatorMiddleware(c, next);
+  };
+
+  // The OpenAPI generator reads hono-openapi's metadata symbol off the handler, and the route
+  // policy audit finds validators by name, so the wrapper must carry both.
+  Object.defineProperty(bounded, "name", { value: validatorMiddleware.name, configurable: true });
+
+  return Object.assign(bounded, validatorMiddleware);
 }
 
 /** `/teams/:teamId` is on most routes; this is that one validator, stated once. */
