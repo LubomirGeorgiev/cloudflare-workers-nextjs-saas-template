@@ -101,6 +101,8 @@ const { signInWithPassword } = await import("./sign-in-auth");
 const LEGACY_HASH =
   "00112233445566778899aabbccddeeff:74910295e41874e5826df4cff58a5284ec96d7fa21a38bc368f0be9b638ee303";
 const CURRENT_HASH = "pbkdf2-sha256$100000$salt$current";
+const RESET_HASH = "pbkdf2-sha256$100000$salt$reset";
+const WINNER_HASH = "pbkdf2-sha256$100000$winner-salt$winner";
 
 describe("signInWithPassword", () => {
   beforeEach(() => {
@@ -405,15 +407,44 @@ describe("signInWithPassword", () => {
     });
 
     // The compare-and-set lost to a reset, so the row holds a hash this sign-in never verified.
-    test("expects the verified hash when the rehash loses its compare-and-set", async () => {
-      verifyPasswordMock.mockResolvedValue({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" });
+    test("expects the verified hash when the rehash loses to a reset", async () => {
+      verifyPasswordMock
+        .mockResolvedValueOnce({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" })
+        .mockResolvedValueOnce({ isValid: false, needsRehash: false, scheme: "pbkdf2-sha256" });
       returningMock.mockResolvedValue([]);
+      findUserMock.mockResolvedValueOnce({ id: "user-1", passwordHash: CURRENT_HASH })
+        .mockResolvedValueOnce({ passwordHash: RESET_HASH });
       const recheck = await signInAndGetRecheck();
 
-      expect(() => recheck("pbkdf2-sha256$100000$salt$reset")).toThrow(
-        expect.objectContaining({ code: "NOT_AUTHORIZED" }),
-      );
+      expect(verifyPasswordMock).toHaveBeenLastCalledWith({
+        storedHash: RESET_HASH,
+        passwordAttempt: "current-password",
+      });
+      expect(() => recheck(RESET_HASH)).toThrow(expect.objectContaining({ code: "NOT_AUTHORIZED" }));
       expect(() => recheck(CURRENT_HASH)).not.toThrow();
+    });
+
+    // A parallel sign-in upgraded the same password first, so its new hash verifies this password.
+    test("expects the winner's hash when a parallel sign-in wins the rehash", async () => {
+      verifyPasswordMock.mockResolvedValue({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" });
+      returningMock.mockResolvedValue([]);
+      findUserMock.mockResolvedValueOnce({ id: "user-1", passwordHash: CURRENT_HASH })
+        .mockResolvedValueOnce({ passwordHash: WINNER_HASH });
+      const recheck = await signInAndGetRecheck();
+
+      expect(() => recheck(WINNER_HASH)).not.toThrow();
+      expect(() => recheck(CURRENT_HASH)).toThrow(expect.objectContaining({ code: "NOT_AUTHORIZED" }));
+    });
+
+    test("expects the verified hash when the rehash loses to a Google reclaim", async () => {
+      verifyPasswordMock.mockResolvedValue({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" });
+      returningMock.mockResolvedValue([]);
+      findUserMock.mockResolvedValueOnce({ id: "user-1", passwordHash: CURRENT_HASH })
+        .mockResolvedValueOnce({ passwordHash: null });
+      const recheck = await signInAndGetRecheck();
+
+      expect(verifyPasswordMock).toHaveBeenCalledOnce();
+      expect(() => recheck(null)).toThrow(expect.objectContaining({ code: "NOT_AUTHORIZED" }));
     });
   });
 });

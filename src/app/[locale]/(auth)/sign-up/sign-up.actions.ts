@@ -7,13 +7,14 @@ import { userByEmailWhere } from "@/lib/auth/user-email";
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
-import { createAndStoreSession, type SignInSuccess } from "@/utils/auth";
+import { createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { isTurnstileEnabled } from "@/flags";
 import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
+import { assertPasswordHashUnchanged } from "@/lib/auth/password-recheck";
 import { getNewAccountLocale } from "@/i18n/new-account-locale";
 
 export const signUpAction = actionClient
@@ -68,7 +69,13 @@ export const signUpAction = actionClient
         }
 
         try {
-          const { preferredLocale } = await createAndStoreSession(user.id, "password");
+          // A Google reclaim of this unverified row can land before the session write. It clears
+          // the hash, so the recheck rolls this session back.
+          const { preferredLocale } = await createSessionUnlessBanned({
+            userId: user.id,
+            authenticationType: "password",
+            recheck: (state) => assertPasswordHashUnchanged({ state, verifiedHash: hashedPassword }),
+          });
 
           await sendUserVerificationEmail({
             userId: user.id,

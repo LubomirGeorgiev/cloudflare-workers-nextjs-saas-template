@@ -8,10 +8,10 @@ import { getDB } from "@/db";
 import { userTable } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/utils/password-hasher";
 import { createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
-import type { SessionRecheckState } from "@/utils/session-user";
 import { hashToken } from "@/utils/random-token";
 import { normalizeEmail } from "@/lib/validation";
 import { userByEmailWhere } from "@/lib/auth/user-email";
+import { assertPasswordHashUnchanged, invalidCredentialsError } from "@/lib/auth/password-recheck";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
 
 // Built by the real hasher on first use, so its format and PBKDF2 cost follow password-hasher.ts.
@@ -28,12 +28,6 @@ interface PasswordSignInUser {
   id: string;
   passwordHash: string | null;
   bannedAt: Date | null;
-}
-
-function invalidCredentialsError(): ActionError {
-  return new ActionError("NOT_AUTHORIZED", {
-    key: "Client.Auth.SignIn.errorInvalidCredentials",
-  });
 }
 
 async function getPasswordSignInUser({
@@ -122,8 +116,8 @@ async function requirePasswordSignIn({
   }
 }
 
-// Returns the hash the row holds after the attempt. A lost compare-and-set keeps the verified
-// hash, so the session recheck sees the change that beat it.
+// Returns the hash the session recheck must find. A lost compare-and-set returns what
+// `currentHashIfPasswordMatches` picks, so a reset still refuses the session.
 async function upgradePasswordHash({
   db,
   password,
@@ -146,7 +140,11 @@ async function upgradePasswordHash({
       ))
       .returning({ id: userTable.id });
 
-    return updated.length > 0 ? passwordHash : storedHash;
+    if (updated.length > 0) {
+      return passwordHash;
+    }
+
+    return await currentHashIfPasswordMatches({ db, password, storedHash, userId });
   } catch (error) {
     // A hashing-policy migration should not lock out a user with valid credentials.
     console.error("Failed to upgrade password hash after sign-in", error);
@@ -155,18 +153,34 @@ async function upgradePasswordHash({
   }
 }
 
-// A password reset or a Google reclaim can change the hash after the password verified. The
-// session write re-reads the row after it, and a changed hash rolls that one session back.
-function assertPasswordHashUnchanged({
-  state,
-  verifiedHash,
+// A parallel sign-in can win the upgrade with a new hash of the same password. A reset's hash does
+// not verify this password, so the old hash comes back and the session recheck refuses it.
+async function currentHashIfPasswordMatches({
+  db,
+  password,
+  storedHash,
+  userId,
 }: {
-  state: SessionRecheckState | null;
-  verifiedHash: string;
-}): void {
-  if (state?.passwordHash !== verifiedHash) {
-    throw invalidCredentialsError();
+  db: Database;
+  password: string;
+  storedHash: string;
+  userId: string;
+}): Promise<string> {
+  const current = await db.query.userTable.findFirst({
+    where: { id: userId },
+    columns: { passwordHash: true },
+  });
+
+  if (!current?.passwordHash) {
+    return storedHash;
   }
+
+  const verification = await verifyPassword({
+    storedHash: current.passwordHash,
+    passwordAttempt: password,
+  });
+
+  return verification.isValid ? current.passwordHash : storedHash;
 }
 
 async function authenticateWithPassword({

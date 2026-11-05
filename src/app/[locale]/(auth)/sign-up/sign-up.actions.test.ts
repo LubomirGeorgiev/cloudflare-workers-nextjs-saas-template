@@ -1,22 +1,25 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ENABLED_LOCALES } from "@/i18n/config";
+import type { SessionRecheckState } from "@/utils/session-user";
 
 const {
-  createAndStoreSessionMock,
+  createSessionUnlessBannedMock,
   findUserMock,
   getNewAccountLocaleMock,
   insertMock,
+  SIGN_UP_HASH,
   valuesMock,
 } = vi.hoisted(() => {
   const returning = vi.fn(async () => [{ id: "user-1", email: "new@example.com", firstName: "New" }]);
   const values = vi.fn(() => ({ returning }));
 
   return {
-    createAndStoreSessionMock: vi.fn(),
+    createSessionUnlessBannedMock: vi.fn(),
     findUserMock: vi.fn(async () => undefined),
     getNewAccountLocaleMock: vi.fn(),
     insertMock: vi.fn(() => ({ values })),
+    SIGN_UP_HASH: "pbkdf2-sha256$100000$salt$sign-up",
     valuesMock: values,
   };
 });
@@ -46,8 +49,8 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/db/schema", () => ({ userTable: {} }));
 
-vi.mock("@/utils/auth", () => ({ createAndStoreSession: createAndStoreSessionMock }));
-vi.mock("@/utils/password-hasher", () => ({ hashPassword: vi.fn(async () => "hash") }));
+vi.mock("@/utils/auth", () => ({ createSessionUnlessBanned: createSessionUnlessBannedMock }));
+vi.mock("@/utils/password-hasher", () => ({ hashPassword: vi.fn(async () => SIGN_UP_HASH) }));
 vi.mock("@/utils/email-verification", () => ({ sendUserVerificationEmail: vi.fn() }));
 vi.mock("@/utils/get-IP", () => ({ getIP: vi.fn(async () => "127.0.0.1") }));
 vi.mock("@/utils/validate-captcha", () => ({ validateTurnstileToken: vi.fn(async () => true) }));
@@ -75,7 +78,7 @@ describe("signUpAction", () => {
 
   beforeEach(() => {
     getNewAccountLocaleMock.mockResolvedValue(locale);
-    createAndStoreSessionMock.mockResolvedValue({ preferredLocale: locale });
+    createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale: locale });
   });
 
   afterEach(() => {
@@ -94,6 +97,23 @@ describe("signUpAction", () => {
       success: true,
       preferredLocale: locale,
     });
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "password");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
+      userId: "user-1",
+      authenticationType: "password",
+      recheck: expect.any(Function),
+    });
+  });
+
+  // A Google reclaim clears the hash between the insert and the session write.
+  test("rolls the session back when the sign-up hash is gone on the recheck", async () => {
+    await signUpAction(SIGN_UP_INPUT);
+    const [{ recheck }] = createSessionUnlessBannedMock.mock.calls[0] as [{ recheck: Recheck }];
+    const stateWith = (passwordHash: string | null) => ({ bannedAt: null, passwordHash, passkeyLive: false });
+
+    expect(() => recheck(stateWith(SIGN_UP_HASH))).not.toThrow();
+    expect(() => recheck(stateWith(null))).toThrow(expect.objectContaining({ code: "NOT_AUTHORIZED" }));
+    expect(() => recheck(null)).toThrow(expect.objectContaining({ code: "NOT_AUTHORIZED" }));
   });
 });
+
+type Recheck = (state: SessionRecheckState | null) => void;

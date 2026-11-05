@@ -231,8 +231,8 @@ async function reclaimUnverifiedUser({
     db.delete(passKeyCredentialTable).where(eq(passKeyCredentialTable.userId, userId)),
   ]);
 
-  // After the batch: this catches a session written before it. A sign-in that writes its session
-  // after this sees the claimed row on its recheck (`createSessionUnlessBanned`) and rolls back.
+  // After the batch: this catches a session written before it. A sign-in or sign-up that writes its
+  // session after this sees the claimed row on its recheck (`createSessionUnlessBanned`) and rolls back.
   await deleteAllSessionsOfUser(userId);
 
   return updatedUser;
