@@ -7,8 +7,8 @@ import type {
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import { getDB } from "@/db";
-import { passKeyCredentialTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { passKeyCredentialTable, userTable } from "@/db/schema";
+import { and, eq, isNull, notExists, type SQL } from "drizzle-orm";
 import { SITE_NAME, SITE_DOMAIN, SITE_URL } from "@/constants";
 
 const rpName = SITE_NAME;
@@ -49,12 +49,15 @@ export async function verifyPasskeyRegistration({
   challenge,
   userAgent,
   ipAddress,
+  requireUnclaimedSignUp = false,
 }: {
   userId: string;
   response: RegistrationResponseJSON;
   challenge: string;
   userAgent?: string | null;
   ipAddress?: string | null;
+  /** Sign-up only: refuse when someone proved the mailbox after the challenge was issued. */
+  requireUnclaimedSignUp?: boolean;
 }) {
   const verification = await verifyRegistrationResponse({
     response,
@@ -70,7 +73,7 @@ export async function verifyPasskeyRegistration({
   const { credential, aaguid } = verification.registrationInfo;
 
   const db = getDB();
-  await db.insert(passKeyCredentialTable).values({
+  const insert = db.insert(passKeyCredentialTable).values({
     userId,
     credentialId: credential.id,
     credentialPublicKey: Buffer.from(credential.publicKey).toString("base64url"),
@@ -81,7 +84,39 @@ export async function verifyPasskeyRegistration({
     ipAddress,
   });
 
+  if (!requireUnclaimedSignUp) {
+    await insert;
+
+    return verification;
+  }
+
+  // One D1 batch is one transaction: the guard removes the insert when the row is claimed, and
+  // no reader sees the credential in between. A separate read first would leave a race.
+  const [, refused] = await db.batch([
+    insert,
+    db.delete(passKeyCredentialTable)
+      .where(and(
+        eq(passKeyCredentialTable.credentialId, credential.id),
+        notExists(db.select({ id: userTable.id }).from(userTable).where(unclaimedSignUpUserWhere(userId))),
+      ))
+      .returning({ id: passKeyCredentialTable.id }),
+  ]);
+
+  if (refused.length > 0) {
+    throw new Error("Passkey sign-up refused: the account was claimed");
+  }
+
   return verification;
+}
+
+// A passkey sign-up row stays open until someone proves the mailbox: the email link, or Google
+// (`reclaimUnverifiedUser` in the Google callback action).
+function unclaimedSignUpUserWhere(userId: string): SQL | undefined {
+  return and(
+    eq(userTable.id, userId),
+    isNull(userTable.emailVerified),
+    isNull(userTable.googleAccountId),
+  );
 }
 
 export async function generateDiscoverablePasskeyAuthenticationOptions() {

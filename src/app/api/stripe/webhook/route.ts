@@ -1,7 +1,9 @@
 import "server-only";
 
 import Stripe from "stripe";
+import { STRIPE_WEBHOOK_BODY_MAX_BYTES } from "@/constants";
 import { getStripe } from "@/lib/stripe";
+import { readBoundedRequestBody } from "@/utils/bounded-request-body";
 import { handleStripeEvent, STRIPE_EVENT_RESULT } from "@/utils/stripe-webhook-handler";
 import { recordSpanException, withSpan } from "@/utils/trace";
 
@@ -42,8 +44,11 @@ async function handleWebhook({ request, span }: { request: Request; span: Span }
     return new Response("Bad request", { status: 400 });
   }
 
-  // RAW body is required for signature verification — never request.json() here.
-  const body = await request.text();
+  const bodyRead = await readWebhookBody({ request, span });
+  if ("refusal" in bodyRead) {
+    return bodyRead.refusal;
+  }
+  const { body } = bodyRead;
 
   let event: Stripe.Event;
   try {
@@ -79,6 +84,31 @@ async function handleWebhook({ request, span }: { request: Request; span: Span }
   return new Response(null, { status: 200 });
 }
 
+// RAW body is required for signature verification — never request.json() here. The read stops at
+// the cap, because this route is public and the signature check needs the whole body first.
+async function readWebhookBody({
+  request,
+  span,
+}: {
+  request: Request;
+  span: Span;
+}): Promise<{ body: string } | { refusal: Response }> {
+  const { exceededLimit, text } = await readBoundedRequestBody({
+    request,
+    maxBytes: STRIPE_WEBHOOK_BODY_MAX_BYTES,
+  });
+  if (exceededLimit) {
+    span.setAttribute(OUTCOME_ATTRIBUTE, WEBHOOK_OUTCOME.PAYLOAD_TOO_LARGE);
+    return { refusal: new Response("Payload too large", { status: 413 }) };
+  }
+  if (text === null) {
+    span.setAttribute(OUTCOME_ATTRIBUTE, WEBHOOK_OUTCOME.BAD_REQUEST);
+    return { refusal: new Response("Bad request", { status: 400 }) };
+  }
+
+  return { body: text };
+}
+
 // Every value of `app.stripe.outcome`: the handler's own results, plus the answers this route gives.
 const WEBHOOK_OUTCOME = {
   ...STRIPE_EVENT_RESULT,
@@ -86,4 +116,5 @@ const WEBHOOK_OUTCOME = {
   BAD_SIGNATURE: "bad_signature",
   HANDLER_ERROR: "handler_error",
   NOT_CONFIGURED: "not_configured",
+  PAYLOAD_TOO_LARGE: "payload_too_large",
 } as const;

@@ -3,14 +3,13 @@
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db";
+import { userByEmailWhere } from "@/lib/auth/user-email";
 import { sendPasswordResetEmail } from "@/utils/email";
-import { getResetTokenKey } from "@/utils/auth-utils";
 import { validateTurnstileToken } from "@/utils/validate-captcha";
 import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { isTurnstileEnabled } from "@/flags";
-import { createExpiringToken } from "@/utils/kv-token";
+import { createPasswordResetToken } from "@/utils/password-reset-token";
 import { getUserLocale } from "@/i18n/locale";
 import { isBanned } from "@/lib/account/ban";
 
@@ -37,7 +36,7 @@ export const forgotPasswordAction = actionClient
         try {
           // Find user by email
           const user = await db.query.userTable.findFirst({
-            where: { email: input.email.toLowerCase() },
+            where: userByEmailWhere(input.email),
           });
 
           // Even if user is not found, return success to prevent email enumeration. A banned
@@ -47,13 +46,7 @@ export const forgotPasswordAction = actionClient
             return { success: true };
           }
 
-          const token = await createExpiringToken({
-            key: getResetTokenKey,
-            expiresInSeconds: PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS,
-            payload: {
-              userId: user.id,
-            },
-          });
+          const token = await createPasswordResetToken(user.id);
 
           // Send reset email
           if (user?.email) {

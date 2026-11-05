@@ -14,7 +14,7 @@ const {
   createExpiringToken,
   deleteExpiringToken,
   getValidExpiringToken,
-  hasValidExpiringToken,
+  readExpiringToken,
 } = await import("@/utils/kv-token");
 
 describe("expiring bearer tokens", () => {
@@ -81,10 +81,10 @@ describe("expiring bearer tokens", () => {
       expiresAt: new Date(Date.now() - 60_000).toISOString(),
     }));
 
-    await expect(hasValidExpiringToken({
+    await expect(readExpiringToken({
       token: "expired-token",
       key,
-    })).resolves.toBe(false);
+    })).resolves.toEqual({ status: "expired" });
 
     expect(kv.delete).toHaveBeenCalledOnce();
   });

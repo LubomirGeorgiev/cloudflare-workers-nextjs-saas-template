@@ -28,6 +28,8 @@ vi.mock("@/utils/rate-limit", async (importOriginal) => {
 });
 
 const { default: worker } = await import("../../worker-entrypoint");
+const { checkRateLimit: realCheckRateLimit } =
+  await vi.importActual<typeof import("@/utils/rate-limit")>("@/utils/rate-limit");
 
 const CLIENT_IP = "203.0.113.72";
 const CLIENT_ID = "public-client-id";
@@ -52,6 +54,19 @@ function tokenRequest(body?: URLSearchParams): Request {
 
 function callTokenEndpoint(): Promise<Response> {
   return worker.fetch(tokenRequest(), env, createExecutionContext());
+}
+
+// A plain client_id, not a CIMD URL, so the provider makes no network fetch.
+function callRevocation(): Promise<Response> {
+  return worker.fetch(
+    tokenRequest(new URLSearchParams({
+      token: REFRESH_TOKEN,
+      token_type_hint: "refresh_token",
+      client_id: CLIENT_ID,
+    })),
+    env,
+    createExecutionContext(),
+  );
 }
 
 beforeEach(() => {
@@ -97,20 +112,44 @@ test("charges separate trusted-IP and hashed grant-identity buckets", async () =
   expect(innerFetchMock).not.toHaveBeenCalled();
 });
 
-test("leaves RFC 7009 revocation requests available without charging issuance buckets", async () => {
-  const response = await worker.fetch(
-    tokenRequest(new URLSearchParams({
-      token: REFRESH_TOKEN,
-      token_type_hint: "refresh_token",
-      client_id: CLIENT_ID,
-    })),
-    env,
-    createExecutionContext(),
-  );
+test("charges RFC 7009 revocation requests to the revoke bucket, not the issuance buckets", async () => {
+  const response = await callRevocation();
 
   expect(response.status).not.toBe(PROBLEM_BY_CODE.RATE_LIMITED.status);
-  expect(checkRateLimitMock).not.toHaveBeenCalled();
+  expect(checkRateLimitMock.mock.calls).toEqual([
+    [{
+      key: CLIENT_IP,
+      options: {
+        identifier: RATE_LIMITS.OAUTH_REVOKE_IP.identifier,
+        limit: RATE_LIMITS.OAUTH_REVOKE_IP.limit,
+        windowInSeconds: RATE_LIMITS.OAUTH_REVOKE_IP.windowInSeconds,
+        deferWrite: undefined,
+      },
+    }],
+  ]);
   expect(innerFetchMock).not.toHaveBeenCalled();
+});
+
+// Real KV limiter, with the clock pinned so every request lands in one window.
+test("rejects the revocation after the IP budget and leaves the issuance budget intact", async () => {
+  const { windowInSeconds, limit } = RATE_LIMITS.OAUTH_REVOKE_IP;
+  const windowStartMs = Math.floor(Date.now() / 1000 / windowInSeconds) * windowInSeconds * 1000;
+  const nowSpy = vi.spyOn(Date, "now").mockReturnValue(windowStartMs + 1000);
+  checkRateLimitMock.mockImplementation(realCheckRateLimit);
+
+  try {
+    for (let attempt = 0; attempt < limit; attempt++) {
+      expect((await callRevocation()).status).not.toBe(PROBLEM_BY_CODE.RATE_LIMITED.status);
+    }
+
+    expect((await callRevocation()).status).toBe(PROBLEM_BY_CODE.RATE_LIMITED.status);
+    expect(new Set(checkRateLimitMock.mock.calls.map(([{ options }]) => options.identifier)))
+      .toEqual(new Set([RATE_LIMITS.OAUTH_REVOKE_IP.identifier]));
+
+    expect((await callTokenEndpoint()).status).not.toBe(PROBLEM_BY_CODE.RATE_LIMITED.status);
+  } finally {
+    nowSpy.mockRestore();
+  }
 });
 
 test("does not mistake a token parameter alongside grant_type for revocation", async () => {

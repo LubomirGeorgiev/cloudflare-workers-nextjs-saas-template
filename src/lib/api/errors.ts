@@ -26,6 +26,7 @@ export const PROBLEM_CODES = [
   "NOT_FOUND",
   "CONFLICT",
   "PRECONDITION_FAILED",
+  "PAYLOAD_TOO_LARGE",
   "RATE_LIMITED",
   "INTERNAL_SERVER_ERROR",
 ] as const;
@@ -79,6 +80,11 @@ export const PROBLEM_BY_CODE: Record<ProblemCode, ProblemDefinition> = {
     status: 409,
     title: "Precondition failed",
     detail: "A precondition for this operation was not met.",
+  },
+  PAYLOAD_TOO_LARGE: {
+    status: 413,
+    title: "Payload too large",
+    detail: "The request body is larger than this API accepts.",
   },
   RATE_LIMITED: {
     status: 429,

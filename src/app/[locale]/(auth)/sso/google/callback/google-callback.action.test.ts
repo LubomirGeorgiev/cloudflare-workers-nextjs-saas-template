@@ -8,16 +8,20 @@ import {
 import { ENABLED_LOCALES } from "@/i18n/config";
 
 const {
+  batchMock,
   cookieJar,
   cookieStoreMock,
   createAndStoreSessionMock,
   createSessionUnlessBannedMock,
+  deleteAllSessionsMock,
+  deletePasskeysWhereMock,
   findUserMock,
   getNewAccountLocaleMock,
   insertValuesMock,
   invalidateCmsAuthorMock,
   isGoogleSSOEnabledMock,
   runInBackgroundMock,
+  parseGoogleIdTokenMock,
   updateSetMock,
 } = vi.hoisted(() => {
   const jar = new Map<string, string>();
@@ -25,6 +29,7 @@ const {
   const updateReturning = vi.fn(async () => [{ id: "existing-user" }]);
 
   return {
+    batchMock: vi.fn(async () => [[{ id: "existing-user" }], undefined]),
     cookieJar: jar,
     cookieStoreMock: {
       get: vi.fn((name: string) => (jar.has(name) ? { name, value: jar.get(name) } : undefined)),
@@ -32,11 +37,14 @@ const {
     },
     createAndStoreSessionMock: vi.fn(),
     createSessionUnlessBannedMock: vi.fn(),
+    deleteAllSessionsMock: vi.fn(async () => undefined),
+    deletePasskeysWhereMock: vi.fn(),
     findUserMock: vi.fn(),
     getNewAccountLocaleMock: vi.fn(),
     insertValuesMock: vi.fn(() => ({ returning: insertReturning })),
     invalidateCmsAuthorMock: vi.fn(async () => undefined),
     isGoogleSSOEnabledMock: vi.fn(async () => true),
+    parseGoogleIdTokenMock: vi.fn(),
     runInBackgroundMock: vi.fn(),
     updateSetMock: vi.fn(() => ({ where: () => ({ returning: updateReturning }) })),
   };
@@ -63,11 +71,17 @@ vi.mock("@/db", () => ({
   getDB: () => ({
     insert: () => ({ values: insertValuesMock }),
     update: () => ({ set: updateSetMock }),
+    delete: () => ({ where: deletePasskeysWhereMock }),
+    batch: batchMock,
     query: { userTable: { findFirst: findUserMock } },
   }),
 }));
 
-vi.mock("@/db/schema", () => ({ userTable: { id: "id" } }));
+vi.mock("@/db/schema", () => ({
+  passKeyCredentialTable: { userId: "userId" },
+  userTable: { id: "id", email: "email" },
+}));
+vi.mock("@/utils/kv-session", () => ({ deleteAllSessionsOfUser: deleteAllSessionsMock }));
 vi.mock("@/lib/cms/cms-author-cache-invalidation", () => ({
   invalidateCmsAuthorAfterUserWrite: invalidateCmsAuthorMock,
 }));
@@ -75,13 +89,15 @@ vi.mock("@/utils/run-in-background", () => ({ runInBackground: runInBackgroundMo
 
 vi.mock("@/lib/sso/google-sso", () => ({
   validateGoogleAuthorizationCode: vi.fn(async () => "id-token"),
-  parseGoogleIdToken: vi.fn(() => ({
-    sub: "google-sub",
-    email: "new@example.com",
-    email_verified: true,
-    given_name: "New",
-  })),
+  parseGoogleIdToken: parseGoogleIdTokenMock,
 }));
+
+const GOOGLE_CLAIMS = {
+  sub: "google-sub",
+  email: "new@example.com",
+  email_verified: true,
+  given_name: "New",
+};
 
 vi.mock("@/utils/auth", () => ({
   createAndStoreSession: createAndStoreSessionMock,
@@ -128,6 +144,7 @@ describe("googleSSOCallbackAction", () => {
     getNewAccountLocaleMock.mockResolvedValue(entryLocale);
     createAndStoreSessionMock.mockResolvedValue({ preferredLocale: entryLocale });
     createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale: entryLocale });
+    parseGoogleIdTokenMock.mockReturnValue(GOOGLE_CLAIMS);
   });
 
   afterEach(() => {
@@ -172,7 +189,7 @@ describe("googleSSOCallbackAction", () => {
   test("does not write a locale when it links Google to an existing email account", async () => {
     findUserMock
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: null });
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: new Date() });
 
     await googleSSOCallbackAction(CALLBACK_INPUT);
 
@@ -181,7 +198,7 @@ describe("googleSSOCallbackAction", () => {
   });
 
   test("runs the CMS author purge of a linked account in the background and does not wait for it", async () => {
-    const existingUser = { id: "existing-user", avatar: null, emailVerified: null };
+    const existingUser = { id: "existing-user", avatar: null, emailVerified: new Date() };
     const pendingPurge = new Promise<undefined>(() => {});
     findUserMock.mockResolvedValueOnce(undefined).mockResolvedValueOnce(existingUser);
     invalidateCmsAuthorMock.mockReturnValueOnce(pendingPurge);
@@ -197,6 +214,92 @@ describe("googleSSOCallbackAction", () => {
       after: { id: "existing-user" },
     });
     expect(runInBackgroundMock).toHaveBeenCalledWith(pendingPurge);
+  });
+
+  test("stores the Google email claim in canonical form", async () => {
+    parseGoogleIdTokenMock.mockReturnValueOnce({ ...GOOGLE_CLAIMS, email: " New@Example.COM " });
+    findUserMock.mockResolvedValue(undefined);
+
+    await googleSSOCallbackAction(CALLBACK_INPUT);
+
+    expect(insertValuesMock).toHaveBeenCalledWith(expect.objectContaining({ email: "new@example.com" }));
+  });
+
+  test("links Google to a verified account and keeps its credentials and sessions", async () => {
+    findUserMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: new Date() });
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).resolves.toMatchObject({ success: true });
+
+    expect(updateSetMock).toHaveBeenCalledWith(expect.not.objectContaining({ passwordHash: expect.anything() }));
+    expect(deleteAllSessionsMock).not.toHaveBeenCalled();
+    expect(batchMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "existing-user" }));
+  });
+
+  // A stranger can pre-register the address with a password; Google proves the real owner.
+  test("ends sessions before and after it clears the credentials of an unverified account it reclaims", async () => {
+    findUserMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: null });
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).resolves.toMatchObject({ success: true });
+
+    expect(deleteAllSessionsMock).toHaveBeenCalledTimes(2);
+    expect(deleteAllSessionsMock).toHaveBeenNthCalledWith(2, "existing-user");
+    expect(updateSetMock).toHaveBeenCalledWith(expect.objectContaining({
+      googleAccountId: GOOGLE_CLAIMS.sub,
+      passwordHash: null,
+      emailVerified: expect.any(Date),
+    }));
+    expect(deletePasskeysWhereMock).toHaveBeenCalledTimes(1);
+    expect(batchMock).toHaveBeenCalledTimes(1);
+
+    // The revoke after the batch is the one that a session written before the claim cannot outlive.
+    const [firstRevoke, finalRevoke] = deleteAllSessionsMock.mock.invocationCallOrder;
+    const [claim] = batchMock.mock.invocationCallOrder;
+    expect(firstRevoke).toBeLessThan(claim);
+    expect(claim).toBeLessThan(finalRevoke);
+    expect(finalRevoke).toBeLessThan(createSessionUnlessBannedMock.mock.invocationCallOrder[0]);
+  });
+
+  test("does not sign in when the revoke after the claim fails", async () => {
+    findUserMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: null });
+    deleteAllSessionsMock
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("KV down"));
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+
+    expect(batchMock).toHaveBeenCalledTimes(1);
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
+  });
+
+  test("does not reclaim or sign in when the session delete fails", async () => {
+    findUserMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: null });
+    deleteAllSessionsMock.mockRejectedValueOnce(new Error("KV down"));
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+
+    expect(batchMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
+  });
+
+  test("refuses to link an existing account when Google did not verify the email", async () => {
+    parseGoogleIdTokenMock.mockReturnValueOnce({ ...GOOGLE_CLAIMS, email_verified: false });
+    findUserMock
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ id: "existing-user", avatar: null, emailVerified: new Date() });
+
+    await expect(googleSSOCallbackAction(CALLBACK_INPUT)).rejects.toMatchObject({ code: "NOT_AUTHORIZED" });
+
+    expect(updateSetMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
   });
 
   test("refuses before it reads a cookie when Google SSO is disabled", async () => {

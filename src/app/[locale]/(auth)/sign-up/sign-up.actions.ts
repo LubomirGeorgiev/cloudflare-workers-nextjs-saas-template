@@ -3,6 +3,7 @@
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { getDB } from "@/db"
+import { userByEmailWhere } from "@/lib/auth/user-email";
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
@@ -40,7 +41,7 @@ export const signUpAction = actionClient
         await assertEmailNotBlocked({ email: input.email });
 
         const existingUser = await db.query.userTable.findFirst({
-          where: { email: input.email },
+          where: userByEmailWhere(input.email),
         });
 
         if (existingUser) {

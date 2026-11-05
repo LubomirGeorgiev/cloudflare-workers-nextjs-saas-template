@@ -7,10 +7,11 @@ import { ENABLED_LOCALES } from "@/i18n/config";
 const {
   cookieStore,
   consumeWebAuthnChallengeMock,
-  createAndStoreSessionMock,
+  createSessionUnlessBannedMock,
   findUserMock,
   getNewAccountLocaleMock,
   valuesMock,
+  verifyPasskeyRegistrationMock,
 } = vi.hoisted(() => {
   const returning = vi.fn(async () => [{ id: "user-1", email: "new@example.com" }]);
 
@@ -21,10 +22,11 @@ const {
       set: vi.fn(),
     },
     consumeWebAuthnChallengeMock: vi.fn(async () => ({ userId: "user-1" })),
-    createAndStoreSessionMock: vi.fn(),
+    createSessionUnlessBannedMock: vi.fn(),
     findUserMock: vi.fn(),
     getNewAccountLocaleMock: vi.fn(),
     valuesMock: vi.fn(() => ({ returning })),
+    verifyPasskeyRegistrationMock: vi.fn(),
   };
 });
 
@@ -58,10 +60,10 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/db/schema", () => ({ userTable: {} }));
 
-vi.mock("@/utils/auth", () => ({ createAndStoreSession: createAndStoreSessionMock }));
+vi.mock("@/utils/auth", () => ({ createSessionUnlessBanned: createSessionUnlessBannedMock }));
 vi.mock("@/utils/webauthn", () => ({
   generatePasskeyRegistrationOptions: vi.fn(async () => ({ challenge: "challenge-1" })),
-  verifyPasskeyRegistration: vi.fn(),
+  verifyPasskeyRegistration: verifyPasskeyRegistrationMock,
 }));
 vi.mock("@/utils/webauthn-challenge", () => ({
   consumeWebAuthnChallenge: consumeWebAuthnChallengeMock,
@@ -101,7 +103,7 @@ describe("passkey sign-up actions", () => {
   beforeEach(() => {
     getNewAccountLocaleMock.mockResolvedValue(locale);
     findUserMock.mockResolvedValue(undefined);
-    createAndStoreSessionMock.mockResolvedValue({ preferredLocale: locale });
+    createSessionUnlessBannedMock.mockResolvedValue({ preferredLocale: locale });
   });
 
   afterEach(() => {
@@ -125,6 +127,36 @@ describe("passkey sign-up actions", () => {
     await expect(
       completePasskeyRegistrationAction({ response: REGISTRATION_RESPONSE }),
     ).resolves.toEqual({ success: true, preferredLocale: locale });
-    expect(createAndStoreSessionMock).toHaveBeenCalledWith("user-1", "passkey", "credential-1");
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith(expect.objectContaining({
+      userId: "user-1",
+      authenticationType: "passkey",
+      passkeyCredentialId: "credential-1",
+    }));
+  });
+
+  // The guard against a Google reclaim between start and completion: the insert must be guarded.
+  // A reclaim after the insert deletes the passkey, which the session write's re-read refuses.
+  test("completePasskeyRegistrationAction guards the insert and names the passkey for the re-read", async () => {
+    findUserMock.mockResolvedValue({ id: "user-1", email: "new@example.com", firstName: "New" });
+
+    await completePasskeyRegistrationAction({ response: REGISTRATION_RESPONSE });
+
+    expect(verifyPasskeyRegistrationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "user-1", requireUnclaimedSignUp: true }),
+    );
+    expect(createSessionUnlessBannedMock).toHaveBeenCalledWith(
+      expect.objectContaining({ passkeyCredentialId: "credential-1" }),
+    );
+  });
+
+  test("completePasskeyRegistrationAction writes no session when the guarded insert refuses", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    verifyPasskeyRegistrationMock.mockRejectedValueOnce(new Error("claimed"));
+
+    await expect(
+      completePasskeyRegistrationAction({ response: REGISTRATION_RESPONSE }),
+    ).rejects.toMatchObject({ messageKey: "Client.Auth.SignUp.errorRegisterFailed" });
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });

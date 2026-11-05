@@ -82,7 +82,6 @@
         "toastSigningIn": "Iniciando tu sesión...",
         "toastSignInSuccess": "Sesión iniciada correctamente",
         "errorInvalidCredentials": "Correo electrónico o contraseña no válidos",
-        "errorUseGoogle": "Inicia sesión con tu cuenta de Google.",
         "errorUsePasskey": "Inicia sesión con tu passkey.",
         "errorAccountSuspended": "Esta cuenta está suspendida. Contacta con el soporte para obtener ayuda."
       },
@@ -234,7 +233,8 @@
         "errorMissingCookies": "Faltan cookies requeridas",
         "errorInvalidState": "Parámetro de estado no válido",
         "errorInvalidCode": "Código de autorización no válido",
-        "errorInvalidIdToken": "Token de inicio de sesión de Google no válido"
+        "errorInvalidIdToken": "Token de inicio de sesión de Google no válido",
+        "errorEmailNotVerified": "El correo de tu cuenta de Google no está verificado, así que no puede iniciar sesión en una cuenta existente"
       }
     },
     "Docs": {
@@ -323,6 +323,7 @@
           "NOT_FOUND": "El recurso indicado no existe o no es visible para esta credencial.",
           "CONFLICT": "La petición entra en conflicto con el estado actual del recurso.",
           "PRECONDITION_FAILED": "No se cumplió una regla de la operación: por ejemplo un límite del plan o una invitación ya utilizada.",
+          "PAYLOAD_TOO_LARGE": "El cuerpo de la petición supera el tamaño que acepta la API. El miembro detail indica el límite en bytes. Envía un cuerpo más pequeño.",
           "RATE_LIMITED": "Demasiadas peticiones para esta credencial o dirección IP. Las credenciales autenticadas permiten {limit} peticiones por cada {windowInSeconds} segundos; los intentos de autenticación fallidos usan un límite por IP independiente. Espera los segundos indicados en retry-after.",
           "INTERNAL_SERVER_ERROR": "Algo falló en el servidor. Los detalles se omiten a propósito; reintenta y cita requestId si el problema persiste."
         },

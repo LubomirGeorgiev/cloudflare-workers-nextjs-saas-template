@@ -2,6 +2,7 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { STRIPE_WEBHOOK_BODY_MAX_BYTES } from "@/constants";
 import { handleStripeEvent } from "@/utils/stripe-webhook-handler";
 import { POST } from "@/app/api/stripe/webhook/route";
 
@@ -97,6 +98,16 @@ describe("Stripe webhook route", () => {
     }));
 
     expect(response.status).toBe(400);
+    expect(handleStripeEvent).not.toHaveBeenCalled();
+  });
+
+  // Correctly signed, so only the size cap can refuse it, and it must do so before the signature check.
+  test("rejects an over-limit body with 413 before signature checking", async () => {
+    const payload = eventPayload("customer.created", { object: "customer", id: "cus_x" });
+
+    const response = await POST(await signedRequest(payload.padEnd(STRIPE_WEBHOOK_BODY_MAX_BYTES + 1, " ")));
+
+    expect(response.status).toBe(413);
     expect(handleStripeEvent).not.toHaveBeenCalled();
   });
 

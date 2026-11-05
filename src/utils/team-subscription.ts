@@ -13,8 +13,8 @@ import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, t
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
 import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
 import {
+  cancelParamsForStatus,
   getStripeSubscriptionTransitionPolicy,
-  REVENUE_PRESERVING_CANCEL_PARAMS,
 } from "@/constants/subscription-lifecycle";
 
 // The item whose period/interval describes the subscription: the plan item when one
@@ -145,15 +145,8 @@ export async function settleRecordedSubscription({
 
   // Do not create a replacement unless Stripe confirms the old subscription is
   // canceled. Reconciling the terminal snapshot releases the team's slot.
-  //
-  // `invoiceOnCancel` is the per-status decision, held beside the other lifecycle rules rather
-  // than as a condition here: an `incomplete` subscription collected nothing, while `unpaid` and
-  // `paused` ones ran and can carry prorations or usage we are owed.
   const settled = policy.subscribe === "cancel"
-    ? await stripe.subscriptions.cancel(existing.id, {
-        ...REVENUE_PRESERVING_CANCEL_PARAMS,
-        invoice_now: policy.invoiceOnCancel,
-      })
+    ? await stripe.subscriptions.cancel(existing.id, cancelParamsForStatus(existing.status))
     : existing;
   await reconcileTeamFromSubscription({ subscription: settled });
 }

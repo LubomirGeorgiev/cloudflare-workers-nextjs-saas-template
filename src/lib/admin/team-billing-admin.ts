@@ -3,7 +3,7 @@ import "server-only";
 import type Stripe from "stripe";
 
 import { getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
-import { REVENUE_PRESERVING_CANCEL_PARAMS } from "@/constants/subscription-lifecycle";
+import { cancelParamsForStatus } from "@/constants/subscription-lifecycle";
 import { getDB } from "@/db";
 import { ActionError } from "@/lib/action-error";
 import { getStripe } from "@/lib/stripe";
@@ -152,18 +152,16 @@ export async function cancelTeamSubscriptionAsAdmin({
     return { cancelled: false };
   }
 
-  const cancelled: Stripe.Subscription | null = await (await getStripe()).subscriptions
+  const stripe = await getStripe();
+  // The team row can be stale after a lost webhook, and the invoice decision depends on the
+  // status, so read it from Stripe.
+  const current = await stripe.subscriptions.retrieve(recordedId).catch(nullWhenMissing);
+  const cancelled: Stripe.Subscription | null = current && await stripe.subscriptions
     .cancel(recordedId, {
-      ...REVENUE_PRESERVING_CANCEL_PARAMS,
+      ...cancelParamsForStatus(current.status),
       cancellation_details: { comment: reason },
     })
-    .catch((error: unknown) => {
-      if ((error as { code?: string })?.code === STRIPE_MISSING_RESOURCE_CODE) {
-        return null;
-      }
-
-      throw error;
-    });
+    .catch(nullWhenMissing);
 
   if (!cancelled) {
     // Stripe no longer knows this subscription — an earlier retry landed, or somebody cancelled
@@ -177,4 +175,12 @@ export async function cancelTeamSubscriptionAsAdmin({
   await reconcileTeamFromSubscription({ subscription: cancelled });
 
   return { cancelled: true };
+}
+
+function nullWhenMissing(error: unknown): null {
+  if ((error as { code?: string })?.code === STRIPE_MISSING_RESOURCE_CODE) {
+    return null;
+  }
+
+  throw error;
 }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { ENABLED_LOCALES } from "@/i18n/config";
+import type { SessionRecheckState } from "@/utils/session-user";
 
 const {
   andMock,
@@ -10,13 +11,15 @@ const {
   findUserMock,
   hashPasswordMock,
   hashTokenMock,
+  returningMock,
   setMock,
   updateMock,
   verifyPasswordMock,
   whereMock,
   withRateLimitMock,
 } = vi.hoisted(() => {
-  const where = vi.fn();
+  const returning = vi.fn();
+  const where = vi.fn(() => ({ returning }));
   const set = vi.fn(() => ({ where }));
   const update = vi.fn(() => ({ set }));
   return {
@@ -27,6 +30,7 @@ const {
     findUserMock: vi.fn(),
     hashPasswordMock: vi.fn(),
     hashTokenMock: vi.fn(),
+    returningMock: returning,
     setMock: set,
     updateMock: update,
     verifyPasswordMock: vi.fn(),
@@ -114,7 +118,7 @@ describe("signInWithPassword", () => {
       needsRehash: false,
       scheme: "pbkdf2-sha256",
     });
-    whereMock.mockResolvedValue({ meta: { changes: 1 } });
+    returningMock.mockResolvedValue([{ id: "user-1" }]);
   });
 
   afterEach(() => {
@@ -185,6 +189,7 @@ describe("signInWithPassword", () => {
     expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
       userId: "user-1",
       authenticationType: "password",
+      recheck: expect.any(Function),
     });
   });
 
@@ -219,6 +224,7 @@ describe("signInWithPassword", () => {
     expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
       userId: "user-1",
       authenticationType: "password",
+      recheck: expect.any(Function),
     });
   });
 
@@ -244,6 +250,48 @@ describe("signInWithPassword", () => {
     // Expected ActionError failures must not be logged as unexpected errors.
     expect(consoleError).not.toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  test.each([
+    {
+      name: "a wrong password",
+      user: { googleAccountId: null, id: "user-1", passwordHash: CURRENT_HASH },
+      isValid: false,
+    },
+    { name: "a missing account", user: undefined, isValid: true },
+    {
+      name: "a Google-only account",
+      user: { googleAccountId: "google-1", id: "user-1", passwordHash: null },
+      isValid: true,
+    },
+    {
+      name: "an account without a password",
+      user: { googleAccountId: null, id: "user-1", passwordHash: null },
+      isValid: true,
+    },
+  ])("rejects $name with the generic error after one password verification", async ({
+    user,
+    isValid,
+  }) => {
+    findUserMock.mockResolvedValue(user);
+    // A dummy verification that matches must still reject.
+    verifyPasswordMock.mockResolvedValue({ isValid, needsRehash: false, scheme: "pbkdf2-sha256" });
+
+    await expect(signInWithPassword({
+      email: "user@example.com",
+      password: "attempt",
+    })).rejects.toMatchObject({
+      code: "NOT_AUTHORIZED",
+      messageKey: "Client.Auth.SignIn.errorInvalidCredentials",
+    });
+
+    expect(verifyPasswordMock).toHaveBeenCalledOnce();
+    expect(verifyPasswordMock).toHaveBeenCalledWith({
+      storedHash: user?.passwordHash ?? "pbkdf2-sha256$100000$new-salt$new-hash",
+      passwordAttempt: "attempt",
+    });
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(createSessionUnlessBannedMock).not.toHaveBeenCalled();
   });
 
   test("does not upgrade a password when passkey sign-in is required", async () => {
@@ -313,7 +361,61 @@ describe("signInWithPassword", () => {
     expect(createSessionUnlessBannedMock).toHaveBeenCalledWith({
       userId: "user-1",
       authenticationType: "password",
+      recheck: expect.any(Function),
     });
     consoleError.mockRestore();
   });
+  // The recheck runs after the session write. A reset or a Google reclaim that changed the hash
+  // since the password verified makes it throw, and `createSessionUnlessBanned` rolls back.
+  describe("the hash recheck after the session write", () => {
+    async function signInAndGetRecheck(): Promise<(passwordHash: string | null) => void> {
+      await signInWithPassword({ email: "user@example.com", password: "current-password" });
+
+      const [{ recheck }] = createSessionUnlessBannedMock.mock.calls[0] as [{ recheck: Recheck }];
+
+      return (passwordHash) => recheck({ bannedAt: null, passwordHash, passkeyLive: false });
+    }
+
+    test("passes when the hash is still the verified one", async () => {
+      const recheck = await signInAndGetRecheck();
+
+      expect(() => recheck(CURRENT_HASH)).not.toThrow();
+    });
+
+    test.each([
+      { name: "a password reset", passwordHash: "pbkdf2-sha256$100000$salt$reset" },
+      { name: "a Google reclaim", passwordHash: null },
+      { name: "a deleted account", passwordHash: undefined },
+    ])("refuses with the invalid-credentials error after $name", async ({ passwordHash }) => {
+      await signInWithPassword({ email: "user@example.com", password: "current-password" });
+      const [{ recheck }] = createSessionUnlessBannedMock.mock.calls[0] as [{ recheck: Recheck }];
+      const state = passwordHash === undefined ? null : { bannedAt: null, passwordHash, passkeyLive: false };
+
+      expect(() => recheck(state)).toThrow(expect.objectContaining({
+        code: "NOT_AUTHORIZED",
+        messageKey: "Client.Auth.SignIn.errorInvalidCredentials",
+      }));
+    });
+
+    test("expects the upgraded hash after the rehash lands", async () => {
+      verifyPasswordMock.mockResolvedValue({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" });
+      const recheck = await signInAndGetRecheck();
+
+      expect(() => recheck("pbkdf2-sha256$100000$new-salt$new-hash")).not.toThrow();
+    });
+
+    // The compare-and-set lost to a reset, so the row holds a hash this sign-in never verified.
+    test("expects the verified hash when the rehash loses its compare-and-set", async () => {
+      verifyPasswordMock.mockResolvedValue({ isValid: true, needsRehash: true, scheme: "legacy-pbkdf2-sha256" });
+      returningMock.mockResolvedValue([]);
+      const recheck = await signInAndGetRecheck();
+
+      expect(() => recheck("pbkdf2-sha256$100000$salt$reset")).toThrow(
+        expect.objectContaining({ code: "NOT_AUTHORIZED" }),
+      );
+      expect(() => recheck(CURRENT_HASH)).not.toThrow();
+    });
+  });
 });
+
+type Recheck = (state: SessionRecheckState | null) => void;

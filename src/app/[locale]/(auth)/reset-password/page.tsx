@@ -2,10 +2,9 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslator } from "@/i18n/translator";
 import ResetPasswordClientComponent from "./reset-password.client";
-import { getResetTokenKey } from "@/utils/auth-utils";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
-import { hasValidExpiringToken } from "@/utils/kv-token";
+import { hasValidPasswordResetToken } from "@/utils/password-reset-token";
 
 export async function generateMetadata({
   params,
@@ -33,7 +32,7 @@ export default async function ResetPasswordPage({
     return notFound();
   }
 
-  if (!await hasValidExpiringToken({ token, key: getResetTokenKey })) {
+  if (!await hasValidPasswordResetToken(token)) {
     return notFound();
   }
 

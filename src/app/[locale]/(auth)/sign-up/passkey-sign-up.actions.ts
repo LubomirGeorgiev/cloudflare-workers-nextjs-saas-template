@@ -2,11 +2,15 @@
 
 import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
-import { generatePasskeyRegistrationOptions, verifyPasskeyRegistration } from "@/utils/webauthn";
+import {
+  generatePasskeyRegistrationOptions,
+  verifyPasskeyRegistration,
+} from "@/utils/webauthn";
 import { getDB } from "@/db";
+import { userByEmailWhere } from "@/lib/auth/user-email";
 import { userTable } from "@/db/schema";
 import { cookies, headers } from "next/headers";
-import { createAndStoreSession, type SignInSuccess } from "@/utils/auth";
+import { createSessionUnlessBanned, type SignInSuccess } from "@/utils/auth";
 import type { PublicKeyCredentialCreationOptionsJSON } from "@simplewebauthn/server";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getIP } from "@/utils/get-IP";
@@ -51,7 +55,7 @@ export const startPasskeyRegistrationAction = actionClient
         const db = getDB();
 
         const existingUser = await db.query.userTable.findFirst({
-          where: { email: input.email },
+          where: userByEmailWhere(input.email),
         });
 
         if (existingUser) {
@@ -137,13 +141,15 @@ export const completePasskeyRegistrationAction = actionClient
     }
 
     try {
-      // Verify the registration
+      // The challenge outlives a Google sign-in that claims this row, and the claim cannot reach
+      // the challenge. So the insert refuses a claimed row, and the session write checks again.
       await verifyPasskeyRegistration({
         userId,
         response: input.response,
         challenge,
         userAgent: (await headers()).get("user-agent"),
         ipAddress: await getIP(),
+        requireUnclaimedSignUp: true,
       });
 
       const db = getDB();
@@ -161,7 +167,11 @@ export const completePasskeyRegistrationAction = actionClient
         username: user.firstName || user.email,
       });
 
-      const { preferredLocale } = await createAndStoreSession(userId, "passkey", input.response.id);
+      const { preferredLocale } = await createSessionUnlessBanned({
+        userId,
+        authenticationType: "passkey",
+        passkeyCredentialId: input.response.id,
+      });
 
       return { success: true, preferredLocale };
     } catch (error) {

@@ -42,6 +42,12 @@ export const CURRENT_API_KEY_CACHE_VERSION = 3;
 // Public machine API (Hono app in `src/api/`). The base path is edge-routed in
 // `worker-entrypoint.ts`, is the OpenAPI `servers` entry, and is what the docs UI reads.
 export const API_V1_BASE_PATH = "/api/v1";
+// Cap on one JSON request body to the public and admin APIs (`apiValidator`). The largest body
+// today is a few KiB; raise this when a fork adds an operation that takes more.
+export const API_JSON_BODY_MAX_BYTES = 64 * 1024;
+// Cap on a Stripe webhook body. Real events are far smaller; a refused event makes Stripe retry,
+// so keep this generous rather than tight.
+export const STRIPE_WEBHOOK_BODY_MAX_BYTES = 1024 * 1024;
 export const LLMS_TXT_PATH = "/llms.txt";
 // File-local: `LLMS_DESCRIBED_BY_RELATION.href` is the one URL every consumer reads.
 const LLMS_TXT_URL = `${SITE_URL}${LLMS_TXT_PATH}`;

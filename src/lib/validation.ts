@@ -75,14 +75,7 @@ export function requiredString(message?: string) {
 // run against an unbounded string.
 export function emailString(message?: string) {
   return v.config(
-    v.pipe(
-      requiredString(),
-      v.maxLength(
-        EMAIL_MAX_LENGTH,
-        encodeValidationMessage("emailMaxLength", { max: EMAIL_MAX_LENGTH })
-      ),
-      v.email(message ?? INVALID_EMAIL_MESSAGE)
-    ),
+    v.pipe(requiredString(), ...emailChecks(message)),
     { abortPipeEarly: true }
   );
 }
@@ -93,6 +86,26 @@ export function emailString(message?: string) {
 // normalize, so callers must canonicalize before comparing or storing.
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+// For fields that become an account identity (sign-up, sign-in, recovery, passkey), so every
+// action receives the canonical form and stores it. The checks stay top-level in the pipe so
+// `bounded-strings.test.ts` can see the maximum.
+export function canonicalEmailString(message?: string) {
+  return v.config(
+    v.pipe(requiredString(), ...emailChecks(message), v.transform(normalizeEmail)),
+    { abortPipeEarly: true }
+  );
+}
+
+function emailChecks(message?: string) {
+  return [
+    v.maxLength<string, typeof EMAIL_MAX_LENGTH, string>(
+      EMAIL_MAX_LENGTH,
+      encodeValidationMessage("emailMaxLength", { max: EMAIL_MAX_LENGTH })
+    ),
+    v.email<string, string>(message ?? INVALID_EMAIL_MESSAGE),
+  ] as const;
 }
 
 export function minString(length: number, message?: string) {

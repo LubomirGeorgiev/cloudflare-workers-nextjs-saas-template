@@ -130,7 +130,7 @@ interface GrantSnapshotRead<T> {
 // No stamp means no purge is still in force. The stamp outlives every snapshot written before it
 // (see OAUTH_GRANT_GENERATION_TTL_SECONDS), so anything still alive once it expires was built
 // after that purge and is safe to accept — which is what keeps expiry from causing false misses.
-function isCurrentGeneration(
+export function isCurrentGeneration(
   { stamped, generation }: { stamped: string | null | undefined; generation: string | null },
 ): boolean {
   return generation === null || stamped === generation;

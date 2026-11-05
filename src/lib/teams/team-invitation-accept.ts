@@ -14,12 +14,15 @@ import { normalizeEmail } from "@/lib/validation";
 import { assertEmailNotBlocked } from "@/lib/auth/blocked-email-guard";
 import { createRandomId } from "@/utils/random-token";
 import {
+  bothGuards,
   buildInvitationAcceptance,
   buildMembershipInsert,
   buildMembershipReactivation,
   didInsert,
+  isInvitationPending,
   isUniqueConstraintError,
   toUnixSeconds,
+  whenInvitationPending,
   withinJoinedTeamCap,
 } from "@/lib/teams/team-writes";
 import { resolveInvitationRole } from "@/lib/teams/team-invitation-roles";
@@ -54,13 +57,7 @@ async function acceptResolvedInvitation({
 }) {
   const db = getDB();
 
-  if (invitation.expiresAt && new Date(invitation.expiresAt) < new Date()) {
-    throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorInvitationExpired" });
-  }
-
-  if (invitation.acceptedAt) {
-    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Teams.errorInvitationAlreadyAccepted" });
-  }
+  assertInvitationAcceptable(invitation);
 
   // Reject a missing session email explicitly instead of the previous fail-open.
   const sessionEmail = requireNormalizedSessionEmail(session);
@@ -152,6 +149,7 @@ async function acceptResolvedInvitation({
         });
       }
 
+      await assertInvitationStillAcceptable(invitation.id);
       throw new ActionError("FORBIDDEN", {
         key: "Client.Dashboard.Teams.errorJoinLimit",
         params: { max: MAX_TEAMS_JOINED_PER_USER },
@@ -197,7 +195,10 @@ async function acceptResolvedInvitation({
       joinedAtSec: nowSec,
       nowSec,
     },
-    withinJoinedTeamCap({ userId: session.userId, max: MAX_TEAMS_JOINED_PER_USER, nowSec }),
+    bothGuards(
+      whenInvitationPending({ invitationId: invitation.id, teamId: invitation.teamId, nowSec }),
+      withinJoinedTeamCap({ userId: session.userId, max: MAX_TEAMS_JOINED_PER_USER, nowSec }),
+    ),
   );
 
   const markAccepted = buildInvitationAcceptance(d1, {
@@ -219,7 +220,8 @@ async function acceptResolvedInvitation({
   }
 
   if (!didInsert(batchResult?.[0])) {
-    // The conditional insert wrote nothing because the joined-team cap was reached.
+    // The guarded insert wrote nothing: the invitation went away mid-accept, or the cap is full.
+    await assertInvitationStillAcceptable(invitation.id);
     throw new ActionError("FORBIDDEN", {
       key: "Client.Dashboard.Teams.errorJoinLimit",
       params: { max: MAX_TEAMS_JOINED_PER_USER },
@@ -287,4 +289,32 @@ export async function acceptTeamInvitationById(invitationId: string) {
   }
 
   return acceptResolvedInvitation({ invitation, session });
+}
+
+// Split from `isInvitationPending` (team-writes.ts) only to give each failure its own message.
+function assertInvitationAcceptable(invitation: Pick<AcceptableInvitation, "expiresAt" | "acceptedAt">) {
+  if (isInvitationPending({ invitation, now: new Date() })) {
+    return;
+  }
+
+  if (invitation.acceptedAt) {
+    throw new ActionError("CONFLICT", { key: "Client.Dashboard.Teams.errorInvitationAlreadyAccepted" });
+  }
+
+  throw new ActionError("ERROR", { key: "Client.Dashboard.Teams.errorInvitationExpired" });
+}
+
+// A refused join write re-reads the invitation, so a removal or revoke that deleted it mid-accept
+// reports the invitation as gone instead of blaming the joined-team cap.
+async function assertInvitationStillAcceptable(invitationId: string) {
+  const current = await getDB().query.teamInvitationTable.findFirst({
+    where: { id: invitationId },
+    columns: { expiresAt: true, acceptedAt: true },
+  });
+
+  if (!current) {
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorInvitationNotFound" });
+  }
+
+  assertInvitationAcceptable(current);
 }

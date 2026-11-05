@@ -4,7 +4,7 @@ import Stripe from "stripe";
 import { TEAMS_DASHBOARD_PATH } from "@/constants";
 import { AVAILABLE_BILLING_INTERVALS, PAID_PLAN_IDS, TEAM_PLANS } from "@/constants/plans";
 import {
-  REVENUE_PRESERVING_CANCEL_PARAMS,
+  cancelParamsForStatus,
   STRIPE_SUBSCRIPTION_TRANSITION_POLICY,
 } from "@/constants/subscription-lifecycle";
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
@@ -296,7 +296,7 @@ describe("cancelSubscriptionAction", () => {
     const result = await cancelSubscriptionAction({ teamId: TEAM.id, atPeriodEnd: false });
 
     expect(result).toEqual({ success: true, canceledNow: true });
-    expect(cancelSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, REVENUE_PRESERVING_CANCEL_PARAMS);
+    expect(cancelSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, cancelParamsForStatus(status));
     expect(updateSubscriptionMock).not.toHaveBeenCalled();
   });
 });

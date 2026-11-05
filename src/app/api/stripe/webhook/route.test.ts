@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import { STRIPE_WEBHOOK_BODY_MAX_BYTES } from "@/constants";
 import { STRIPE_EVENT_RESULT } from "@/utils/stripe-webhook-handler";
 
 const WEBHOOK_SPAN_NAME = "app.stripe.webhook";
@@ -134,6 +135,15 @@ describe("Stripe webhook span", () => {
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("bad_request");
   });
 
+  // A string body carries no content-length here, so the streamed read is what refuses it.
+  test("refuses an over-limit body with 413 before the signature check", async () => {
+    const response = await POST(signedRequest(" ".repeat(STRIPE_WEBHOOK_BODY_MAX_BYTES + 1)));
+
+    expect(response.status).toBe(413);
+    expect(constructEventMock).not.toHaveBeenCalled();
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("payload_too_large");
+  });
+
   test("tags a template with no Stripe config as not configured", async () => {
     vi.stubEnv("STRIPE_SECRET_KEY", "");
     vi.stubEnv("STRIPE_WEBHOOK_SECRET", "");
@@ -164,10 +174,10 @@ function buildEvent(type: string) {
 }
 
 // Signature checks are mocked, so any header value reaches `constructEventAsync`.
-function signedRequest(): Request {
+function signedRequest(body = "{}"): Request {
   return new Request("https://example.com/api/stripe/webhook", {
     method: "POST",
-    body: "{}",
+    body,
     headers: { "stripe-signature": "t=1,v1=unit" },
   });
 }

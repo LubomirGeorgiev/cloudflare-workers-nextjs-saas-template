@@ -19,6 +19,9 @@ export const APP_KV_PREFIXES = {
   rateLimit: "rate-limit:",
   webauthnChallenge: "webauthn-challenge:",
   passwordReset: "password-reset:",
+  // Per-user stamp that a reset link must match. A reset writes a new one, so every older link
+  // dies. See `src/utils/password-reset-token.ts`.
+  passwordResetGeneration: "password-reset-gen:",
   emailVerification: "email-verification:",
   apiKey: "apikey:",
   oauthGrant: "oauthgrant:",

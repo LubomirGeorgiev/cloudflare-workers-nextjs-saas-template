@@ -147,12 +147,14 @@ context, and the session cookie is opaque to both.
 Banning an owner cancels the subscription of every team they own, immediately. Ownership transfer is
 not offered.
 
-The cancel parameters live in `REVENUE_PRESERVING_CANCEL_PARAMS`
-(`src/constants/subscription-lifecycle.ts`). Both Stripe defaults are wrong for this path, so both
-are stated:
+The cancel parameters come from `cancelParamsForStatus` (`src/constants/subscription-lifecycle.ts`).
+The staff path reads the subscription status from Stripe first, because the team row can be stale.
+Both Stripe defaults are wrong for a subscription that ran, so both are stated:
 
-- `invoice_now: true` raises a final invoice covering pending proration items and any un-invoiced
-  metered usage. With both flags false Stripe **deletes** pending prorations — money already owed.
+- `invoice_now` comes from the `invoiceOnCancel` value of the status in the lifecycle policy. A
+  status that ran passes `true`: the final invoice covers pending proration items and any
+  un-invoiced metered usage. With both flags false Stripe **deletes** pending prorations — money
+  already owed. An `incomplete` subscription collected nothing, so it passes `false`.
 - `prorate: false` keeps the default deliberately. Setting it true would credit the customer for
   unused time, which is a pricing policy change, not a bug fix.
 
@@ -162,7 +164,7 @@ and must never credit unused time. Never reach for `clear_usage` on these paths.
 The race and orphan cleanups (`convergeOnWinningCheckout`, `discardLosingTrial`,
 `cancelOrphanIfPresent`) deliberately pass **no** flags: they cancel an `incomplete` subscription
 the customer never used, and invoicing one would bill them for something that never existed.
-`settleRecordedSubscription` reads `invoiceOnCancel` from the per-status policy instead.
+`settleRecordedSubscription`, the user cancel action, and the staff path use `cancelParamsForStatus`.
 
 Consequences the ban form must state in plain words:
 

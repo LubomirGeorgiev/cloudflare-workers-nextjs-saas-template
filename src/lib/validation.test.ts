@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import { trimmedString, v } from "@/lib/validation";
+import { signUpSchema } from "@/schemas/signup.schema";
+import { forgotPasswordSchema } from "@/schemas/forgot-password.schema";
 
 const LABEL_MIN_LENGTH = 1;
 const LABEL_MAX_LENGTH = 8;
@@ -73,5 +75,16 @@ describe("trimmedString", () => {
 
     expect(result.success).toBe(false);
     expect(result.issues?.[0]?.message).toBe(maxMessage);
+  });
+});
+
+// One mailbox must map to one row, so identity fields reach the action in canonical form.
+describe("canonicalEmailString", () => {
+  test("sign-up and recovery receive the same lowercase address for any casing", () => {
+    const signUp = v.safeParse(v.pick(signUpSchema, ["email"]), { email: "John@Example.COM" });
+    const recovery = v.safeParse(forgotPasswordSchema.entries.email, "john@example.com");
+
+    expect(signUp.success && signUp.output.email).toBe("john@example.com");
+    expect(recovery.success && recovery.output).toBe("john@example.com");
   });
 });
