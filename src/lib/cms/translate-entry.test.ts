@@ -240,7 +240,8 @@ describe.skipIf(!TARGET_LOCALE)("translateEntryFields", () => {
     expect(result.seoDescription).toBe("keep me");
     expect(result.content.content?.[0].content?.[0].text).toBe("keep body");
     expect(runAiTextMock).toHaveBeenCalledTimes(1);
-    const { prompt } = runAiTextMock.mock.calls[0][0];
+    const { prompt, reasoning } = runAiTextMock.mock.calls[0][0];
+    expect(reasoning).toBe(false);
     expect(prompt).toContain("hello title");
     expect(prompt).not.toContain("keep body");
   });

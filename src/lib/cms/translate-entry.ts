@@ -29,6 +29,8 @@ const TRANSLATE_CHUNK_MAX_CHARS = 3000;
 // How many content chunks to translate concurrently. Bounded to keep large
 // documents from bursting past Workers-AI rate limits.
 const TRANSLATE_CHUNK_CONCURRENCY = 4;
+// Reasoning stays off: in tests it cost ~10x more and ran 5-10x slower for almost the same output.
+// A full 3000-character chunk needs about 1.1k output tokens without reasoning.
 const TRANSLATE_MAX_TOKENS = 4096;
 
 function pushField(
@@ -164,7 +166,7 @@ Rules:
 Input:
 ${JSON.stringify(chunk)}`;
 
-  const response = await runAiText({ AI, prompt, maxTokens: TRANSLATE_MAX_TOKENS });
+  const response = await runAiText({ AI, prompt, maxTokens: TRANSLATE_MAX_TOKENS, reasoning: false });
 
   if (typeof response !== "string") {
     return chunk;

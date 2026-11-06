@@ -10,6 +10,10 @@ import { extractTextFromContent } from "@/lib/cms/extract-text-from-content";
 import { runAiText } from "@/lib/ai/generate-text";
 import { truncateSeoDescription } from "@/lib/cms/seo-description";
 
+// Reasoning stays off: with it on, reasoning tokens ate the budget and cost ~10x more for the same output.
+// Without reasoning, a description used under 50 tokens in tests; the rest is headroom for non-Latin scripts.
+const SEO_DESCRIPTION_MAX_TOKENS = 512;
+
 type GenerateSeoDescriptionParams = {
   title: string;
   content: JSONContent;
@@ -64,7 +68,7 @@ The description should be:
 
 Return only the description text, no quotes or additional text.`;
 
-    const response = await runAiText({ AI, prompt, maxTokens: 100 });
+    const response = await runAiText({ AI, prompt, maxTokens: SEO_DESCRIPTION_MAX_TOKENS, reasoning: false });
 
     if (!response) {
       return null;

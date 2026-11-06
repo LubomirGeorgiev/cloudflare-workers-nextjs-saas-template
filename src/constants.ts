@@ -179,8 +179,9 @@ export const ADMIN_API_DOCS_PATH = "/admin/api" satisfies Route;
 export const ADMIN_USERS_PATH = "/admin/users" satisfies Route;
 export const ADMIN_TEAMS_PATH = "/admin/teams" satisfies Route;
 export const ADMIN_BLOCKED_EMAILS_PATH = "/admin/blocked-emails" satisfies Route;
-// Gemma 4 26B (A4B, instruction-tuned): chat-completions model used for SEO descriptions and CMS
-export const DEFAULT_AI_MODEL = '@cf/google/gemma-4-26b-a4b-it' as const satisfies keyof AiModels;
+// DeepSeek V4.1 Flash: chat-completions model for CMS SEO descriptions and translation. Needs Workers Paid.
+// Not in the generated AiModels yet, so AI.run takes its untyped overload for unknown model names.
+export const DEFAULT_AI_MODEL = '@cf/deepseek-ai/deepseek-v4.1-flash-1017' as const;
 
 // CMS Image Upload Configuration
 export const CMS_IMAGES_BASE_PATH = "cms-images" as const;

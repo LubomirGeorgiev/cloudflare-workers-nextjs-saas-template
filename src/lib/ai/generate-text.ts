@@ -10,6 +10,8 @@ interface RunAiTextParams {
   AI: AiBinding;
   prompt: string;
   maxTokens?: number;
+  // Defaults to the model's own setting (on). Reasoning tokens count against maxTokens.
+  reasoning?: boolean;
 }
 
 // Runs DEFAULT_AI_MODEL as a chat completion and returns the assistant's text
@@ -19,12 +21,15 @@ export async function runAiText({
   AI,
   prompt,
   maxTokens,
+  reasoning = true,
 }: RunAiTextParams): Promise<string | null> {
   const messages = [{ role: "user" as const, content: prompt }];
 
   const result = await AI.run(DEFAULT_AI_MODEL, {
     messages,
     ...(maxTokens ? { max_tokens: maxTokens } : {}),
+    // The off switch is model-specific: DeepSeek takes reasoning_effort, Gemma takes chat_template_kwargs.
+    ...(reasoning ? {} : { reasoning_effort: "none" }),
   });
 
   // Workers AI output shape varies by model: text-generation models return `{ response }`, chat-completions
