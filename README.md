@@ -233,7 +233,11 @@ Happy path:
 
 1. Create a Stripe account and copy `sk_test_...` / `pk_test_...` into `.env` (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`).
 2. Run `pnpm stripe:setup` — this idempotently creates the products + recurring prices for the paid plans and, by default, upserts the resolved `STRIPE_PRICE_PRO` / `STRIPE_PRICE_ENTERPRISE` values into `.env` (replacing existing keys in place, never duplicating). When yearly billing is enabled (see below) it also creates the yearly prices and writes `STRIPE_PRICE_PRO_YEAR` / `STRIPE_PRICE_ENTERPRISE_YEAR`. It refuses to run against a live key unless you pass `--live`. Use `--dry-run` to preview without changing anything, or `--no-write` to create the Stripe resources but only print the values instead of touching `.env`.
-3. Local webhooks: `stripe listen --forward-to localhost:3000/api/stripe/webhook`, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`.
+3. Local webhooks: run the command below, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`. The command forwards all events, and the webhook ignores the events it does not handle. For `pnpm preview`, use port 8787.
+
+   ```bash
+   stripe listen --forward-to localhost:3000/api/stripe/webhook --all-snapshot
+   ```
 4. Production: `pnpm stripe:setup --with-webhook https://<domain>/api/stripe/webhook`, then set the secrets via `wrangler secret put STRIPE_SECRET_KEY` and `wrangler secret put STRIPE_WEBHOOK_SECRET`.
 5. Manual Dashboard alternative: create the Products + recurring Prices yourself, add a webhook endpoint for the subscription/invoice events to `/api/stripe/webhook`, and copy the price IDs + signing secret into your env.
 6. Customer Portal: `pnpm stripe:setup` also provisions a portal configuration (written to `.env` as `STRIPE_PORTAL_CONFIG_ID`) that enables payment method updates, invoice history, and billing-details editing — including business name, address, and VAT/tax IDs, which Stripe prints on invoices automatically. Plan changes and cancellation are deliberately disabled in the portal because they're handled by in-app server actions; keeping a single code path avoids conflicting subscription state. If `STRIPE_PORTAL_CONFIG_ID` is unset, sessions fall back to the account's default portal configuration ([Settings → Billing → Customer portal](https://dashboard.stripe.com/settings/billing/portal)).
