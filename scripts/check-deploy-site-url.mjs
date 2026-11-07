@@ -1,8 +1,11 @@
-import { findDeploySiteUrlProblem } from './utils/deploy-site-url.mjs';
+import { findDeployLocalModeProblem, findDeploySiteUrlProblem } from './utils/deploy-site-url.mjs';
 
-const problem = findDeploySiteUrlProblem(process.env.NEXT_PUBLIC_SITE_URL);
+const problems = [
+  findDeploySiteUrlProblem(process.env.NEXT_PUBLIC_SITE_URL),
+  findDeployLocalModeProblem(process.env.NEXT_PUBLIC_APP_LOCAL_MODE),
+].filter(Boolean);
 
-if (problem) {
-  console.error(problem);
+if (problems.length > 0) {
+  console.error(problems.join("\n\n"));
   process.exit(1);
 }

@@ -97,7 +97,7 @@ vi.mock("@/utils/kv-session", async (importOriginal) => {
 
 // The integration environment is localhost-shaped, where every email is logged instead of queued.
 // These tests are about the deployed path, so the switch is mocked off and the queue writes are real.
-vi.mock("@/utils/is-local", () => ({ isLocalhost: false }));
+vi.mock("@/utils/is-local", () => ({ isLocalMode: false }));
 
 // The email path goes through `getCloudflareContext`, so swapping only the queue binding leaves
 // D1 and KV real while every queued message is captured.

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { LOCAL_HOSTNAMES as SOURCE_OF_TRUTH } from "@/constants";
 import {
   LOCAL_HOSTNAMES,
+  findDeployLocalModeProblem,
   findDeploySiteUrlProblem,
   resolveDeployedSiteUrl,
   resolveDeployZoneId,
@@ -34,6 +35,20 @@ describe("deploy site URL guard", () => {
 
   test("rejects a value that is not a URL", () => {
     expect(findDeploySiteUrlProblem("nextjs-saas-template.example.com")).toContain("not a valid URL");
+  });
+});
+
+describe("deploy local mode guard", () => {
+  test("allows an unset, empty, or false value", () => {
+    for (const value of [undefined, "", "  ", "false"]) {
+      expect(findDeployLocalModeProblem(value)).toBeUndefined();
+    }
+  });
+
+  test("rejects true and any other value", () => {
+    for (const value of ["true", " true ", "1", "TRUE"]) {
+      expect(findDeployLocalModeProblem(value)).toContain("NEXT_PUBLIC_APP_LOCAL_MODE");
+    }
   });
 });
 

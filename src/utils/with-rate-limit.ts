@@ -2,7 +2,7 @@ import "server-only";
 import { checkRateLimit, resetRateLimit } from "./rate-limit";
 import { getIP } from "./get-IP";
 import ms from "ms";
-import { isLocalhost } from "./is-local";
+import { isLocalMode } from "./is-local";
 import { isTestMode } from "./is-test-mode";
 import { withSpan } from "./trace";
 
@@ -320,7 +320,7 @@ function selectRateLimitKey({
 export async function consumeRateLimit(
   config: RateLimitConfig
 ): Promise<RateLimitSnapshot | null> {
-  if (isLocalhost || isTestMode()) {
+  if (isLocalMode || isTestMode()) {
     return null;
   }
 
@@ -331,7 +331,7 @@ export async function withRateLimit<T>(
   action: () => Promise<T>,
   config: RateLimitConfig
 ): Promise<T> {
-  if (isLocalhost || isTestMode()) {
+  if (isLocalMode || isTestMode()) {
     return action();
   }
 

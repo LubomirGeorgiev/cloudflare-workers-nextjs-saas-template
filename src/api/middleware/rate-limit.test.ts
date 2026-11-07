@@ -11,7 +11,7 @@ vi.mock("server-only", () => ({}));
 
 // The middleware only throttles outside localhost; the KV limiter itself is mocked so the
 // assertions are about keying and the 429 contract, not about KV.
-vi.mock("@/utils/is-local", () => ({ isLocalhost: false }));
+vi.mock("@/utils/is-local", () => ({ isLocalMode: false }));
 
 vi.mock("@/utils/is-test-mode", () => ({ isTestMode: () => false }));
 

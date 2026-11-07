@@ -6,7 +6,7 @@ import { cmsEntryListingPath, cmsEntryPagePath } from "@/lib/cms/cms-entry-page-
 import { getEntryLocales } from "@/lib/cms/entry/queries";
 import { buildAbsoluteMarkdownPageUrl, localizedPagePathname } from "@/lib/markdown-pages/page-paths";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
-import { isLocalhost } from "@/utils/is-local";
+import { isLocalMode } from "@/utils/is-local";
 import { isTestMode } from "@/utils/is-test-mode";
 import { mapInBatches } from "@/utils/map-in-batches";
 import { runInBackground } from "@/utils/run-in-background";
@@ -35,9 +35,9 @@ const WARM_FAILED_COUNT_ATTRIBUTE = "app.cms.warm_failed_count";
 // Collapses the listing-page URL that every entry of one collection shares.
 const inFlightWarmUrls = new Set<string>();
 
-/** Localhost is unreachable from the Worker: `global_fetch_strictly_public` blocks the loopback. */
+/** Off in local mode: `global_fetch_strictly_public` blocks the loopback, and a local build is not live. */
 function isWarmingDisabled(): boolean {
-  return isLocalhost || isTestMode();
+  return isLocalMode || isTestMode();
 }
 
 // A publish outside a request scope (queue consumer) cannot read the cached locale list, and a

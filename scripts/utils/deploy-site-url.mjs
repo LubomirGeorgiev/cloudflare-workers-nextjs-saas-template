@@ -4,6 +4,9 @@ import { parseWranglerConfig } from "./parse-wrangler.mjs";
 // time and cannot import TypeScript. deploy-site-url.test.mjs fails when the two drift.
 export const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
 
+const LOCAL_MODE_EFFECTS =
+  "It turns on local mode, which disables rate limiting and stops all transactional email.";
+
 /**
  * Report why NEXT_PUBLIC_SITE_URL must not ship, or undefined when it is safe to deploy.
  * An unset value is safe: SITE_URL then falls back to the production domain.
@@ -27,13 +30,29 @@ export function findDeploySiteUrlProblem(siteUrl) {
     return undefined;
   }
 
-  // `isLocalhost` reads this same value, so shipping it would disable rate limiting, drop the
-  // session cookie to sameSite=lax, and stop every transactional email.
+  // `isLocalMode` in src/utils/is-local.ts reads this same value.
   return [
     `NEXT_PUBLIC_SITE_URL points at a local origin: ${trimmed}`,
-    "A deployed build must not use one. It turns on local mode, which disables rate limiting,",
-    "relaxes the session cookie sameSite policy, and stops all transactional email.",
+    `A deployed build must not use one. ${LOCAL_MODE_EFFECTS}`,
     "Unset the variable to use the production fallback, or set it to the public site URL.",
+  ].join("\n");
+}
+
+/**
+ * Report why NEXT_PUBLIC_APP_LOCAL_MODE must not ship, or undefined when it is safe to deploy.
+ * It refuses any value but unset, empty, or "false", so it also covers a typo of "true".
+ */
+export function findDeployLocalModeProblem(localMode) {
+  const trimmed = localMode?.trim();
+
+  if (!trimmed || trimmed === "false") {
+    return undefined;
+  }
+
+  return [
+    `NEXT_PUBLIC_APP_LOCAL_MODE is set: ${trimmed}`,
+    `A deployed build must not use it. ${LOCAL_MODE_EFFECTS}`,
+    "Unset the variable before you build and deploy.",
   ].join("\n");
 }
 

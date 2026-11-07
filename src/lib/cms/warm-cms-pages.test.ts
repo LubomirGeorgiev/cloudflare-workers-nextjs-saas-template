@@ -8,13 +8,13 @@ import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 
 const {
   getEntryLocalesMock,
-  isLocalhostMock,
+  isLocalModeMock,
   isTestModeMock,
   runInBackgroundMock,
   warmSpans,
 } = vi.hoisted(() => ({
   getEntryLocalesMock: vi.fn(),
-  isLocalhostMock: { value: false },
+  isLocalModeMock: { value: false },
   isTestModeMock: vi.fn(() => false),
   runInBackgroundMock: vi.fn(),
   warmSpans: [] as Array<{ name: string; attributes: Record<string, unknown> }>,
@@ -48,8 +48,8 @@ vi.mock("@/lib/cms/entry/queries", () => ({
 }));
 
 vi.mock("@/utils/is-local", () => ({
-  get isLocalhost() {
-    return isLocalhostMock.value;
+  get isLocalMode() {
+    return isLocalModeMock.value;
   },
 }));
 
@@ -90,7 +90,7 @@ describe.skipIf(!WARMABLE_COLLECTION)("warmCmsEntryPages", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    isLocalhostMock.value = false;
+    isLocalModeMock.value = false;
     isTestModeMock.mockReturnValue(false);
     getEntryLocalesMock.mockResolvedValue([DEFAULT_LOCALE]);
     fetchMock = vi.fn(async () => new Response("", { status: 200 }));
@@ -219,8 +219,8 @@ describe.skipIf(!WARMABLE_COLLECTION)("warmCmsEntryPages", () => {
     });
   });
 
-  test("warms nothing on localhost", async () => {
-    isLocalhostMock.value = true;
+  test("warms nothing in local mode", async () => {
+    isLocalModeMock.value = true;
 
     warmCmsEntryPages({ entries: [{ collection, slug: SLUG }] });
     await flushWarms();

@@ -39,7 +39,7 @@ const {
 vi.mock("server-only", () => ({}));
 
 vi.mock("./is-local", () => ({
-  isLocalhost: false,
+  isLocalMode: false,
 }));
 
 vi.mock("./is-test-mode", () => ({

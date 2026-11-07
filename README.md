@@ -324,6 +324,19 @@ pnpm run test:e2e
 | `pnpm run typecheck` | Run TypeScript without emitting files |
 | `pnpm run cf-typegen` | Regenerate Cloudflare Worker types |
 
+## Local mode on a non-local URL
+
+The app runs in local mode when `NEXT_PUBLIC_SITE_URL` is a local origin. In local mode, the app logs transactional emails instead of sending them, skips rate limits, and skips CMS page warm-up.
+
+To keep local mode on another URL, such as a VPS on a private network, set `NEXT_PUBLIC_APP_LOCAL_MODE=true` at build time:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://dev-box.example.ts.net:3000 NEXT_PUBLIC_APP_LOCAL_MODE=true pnpm build
+pnpm exec wrangler dev --ip 127.0.0.1 --port 3000
+```
+
+`pnpm deploy` stops when this variable has a value other than `false`.
+
 ## Changes to wrangler.jsonc
 
 After making a change to `wrangler.jsonc`, run `pnpm run cf-typegen` to regenerate `worker-configuration.d.ts`.

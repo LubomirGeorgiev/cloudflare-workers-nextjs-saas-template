@@ -17,7 +17,7 @@ import {
   SCHEDULED_JOB_TYPES,
   type EmailSendJobPayload,
 } from "@/lib/scheduler/jobs";
-import { isLocalhost } from "./is-local";
+import { isLocalMode } from "./is-local";
 
 // The ban and unban notices are deliberately English only, and are the one documented exception
 // to "customer-facing email goes through the catalogs, with a row in every locale".
@@ -141,7 +141,7 @@ export async function sendTransactionalEmailNow({
 // builds as production.
 function logTransactionalEmail({ to, subject, text, html, type }: TransactionalEmailOptions): void {
   console.warn([
-    `\n\n=== ${type} email - logged, not sent (localhost) ===`,
+    `\n\n=== ${type} email - logged, not sent (local mode) ===`,
     `To: ${to}`,
     `Subject: ${subject}`,
     "",
@@ -152,7 +152,7 @@ function logTransactionalEmail({ to, subject, text, html, type }: TransactionalE
 
 async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
   // The one gate every sender below passes through, so no template can miss it.
-  if (isLocalhost) {
+  if (isLocalMode) {
     logTransactionalEmail(await renderTransactionalEmail(payload));
 
     return;
