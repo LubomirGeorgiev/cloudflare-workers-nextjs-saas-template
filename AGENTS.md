@@ -124,6 +124,21 @@ One declaration becomes a REST operation at `/api/v1`, an entry in `/docs/api`, 
 - Keep edge-only routing and header forwarding in `worker-entrypoint.ts`.
 - Cloudflare MCP: query Turnstile and Images in separate `execute` calls. Together they can fail with `10000: Authentication error`.
 
+## Production Data and Debugging
+
+To read production data, logs, or config, use the `cf` CLI first (global `cf` package, beta). Use `wrangler` only for what `cf` cannot do. Do not guess from code when you can read the real state.
+
+- Before the first call, run `cf auth whoami`. If it fails, ask the user to run `cf auth login`.
+- To find a command, run `cf cli search "<task>"`, then `<command> --help`. Do not chain nested `--help` calls. Keep search text anonymous: no names, emails, domains, or IDs.
+- For Cloudflare docs, run `cf docs search "<question>"`.
+- Get resource IDs from `wrangler.jsonc`. `cf` takes IDs, not binding names.
+- D1: `cf d1 query <database_id> --sql "SELECT ..."`. KV: `cf kv keys list|get --namespace-id <id>`. R2: `cf r2 objects list`.
+- Worker logs and traces: `cf o11y telemetry query`. For a live stream, use `wrangler tail`; `cf` has no tail command.
+- Production access is read-only. Before any write, delete, migration, purge, or secret change, get approval from the user in the current message. This includes `cf d1 query` with a non-`SELECT` statement and `cf kv keys put|delete`.
+- When `cf` has `--dry-run`, run it first for any approved write.
+- `KV_STORE` and `OAUTH_KV` share one namespace. Keys under `OAUTH_RESERVED_KV_PREFIXES` (`src/constants/kv-prefixes.ts`) hold OAuth tokens. Do not read them unless the user asks. Never write them.
+- Do not print secrets, tokens, or personal data from production in chat. Select only the columns you need, and add a `LIMIT`.
+
 ## Async Work
 
 - `Promise.all` independent consecutive awaits. Leave borderline cases sequential.
