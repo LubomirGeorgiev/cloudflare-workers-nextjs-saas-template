@@ -6,7 +6,7 @@ Below are only the non-obvious caveats for this environment.
 ## Node version (critical)
 
 - The repo floor is Node **>= 22.18**, the `engines` field in `package.json`. Two things set it: the
-  build toolchain (`@cloudflare/vite-plugin` → `vinext build`/`pnpm build`) needs 22.15 for
+  build toolchain (`@cloudflare/vite-plugin` → `vite build`/`pnpm build`) needs 22.15 for
   `node:module`'s `registerHooks`, and `scripts/measure-ttfb.mjs` imports `.ts` files, which Node
   strips without a flag only from 22.18. The VM's default `/exec-daemon/node` is 22.14 and fails
   `pnpm build`/`pnpm dev` with
@@ -17,7 +17,7 @@ Below are only the non-obvious caveats for this environment.
 
 ## Running the app locally
 
-- By default `pnpm dev` (`vinext dev`) and `pnpm preview` (without `--local`) open a Cloudflare
+- By default `pnpm dev` (`vite dev`) and `pnpm preview` (without `--local`) open a Cloudflare
   **remote proxy session**, because the `EMAIL` `send_email` binding is `remote: true` in
   `wrangler.jsonc`; without Cloudflare auth this hangs and fails with
   `Timed out waiting for authorization code`.

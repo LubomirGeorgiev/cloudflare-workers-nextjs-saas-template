@@ -20,7 +20,7 @@ const LINES: TerminalLine[] = [
   { command: "pnpm install" },
   { output: "packages resolved · workspace ready", ok: true },
   { command: "pnpm deploy" },
-  { output: "vinext build → vite bundle complete", ok: true },
+  { output: "vite build → bundle complete", ok: true },
   { output: "uploaded worker to cloudflare", ok: true },
   { output: "live on 330 cities · 0ms cold start", live: true },
 ];
