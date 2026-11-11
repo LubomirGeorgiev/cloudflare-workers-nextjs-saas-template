@@ -1,5 +1,6 @@
 "use client";
 
+import { useFetchSession } from "@/hooks/use-fetch-session";
 import { useLocale } from "@/i18n/client";
 import type { Locale } from "@/i18n/config";
 import { enterLocale, writeLocaleCookie } from "@/i18n/locale-cookie.client";
@@ -14,10 +15,11 @@ interface NavigateAfterAuthArgs {
 
 // Every auth success raises a toast and then leaves the page. A `window.location` assignment would
 // load a new document, tear down the root layout, and destroy the toast before the user reads it —
-// so the hand-off has to be a soft navigation, and `refresh()` is what picks up the new session.
+// so the hand-off has to be a soft navigation. A soft navigation does not load the client session store.
 export function useNavigateAfterAuth(): (args?: NavigateAfterAuthArgs) => void {
   const router = useRouter();
   const activeLocale = useLocale();
+  const fetchSession = useFetchSession();
 
   return ({ redirectPath, preferredLocale }: NavigateAfterAuthArgs = {}) => {
     const { href, switchToLocale, cookieLocale } = resolvePostAuthTarget({
@@ -37,6 +39,9 @@ export function useNavigateAfterAuth(): (args?: NavigateAfterAuthArgs) => void {
       writeLocaleCookie(cookieLocale);
     }
 
+    // Pages without a SessionHydrator read only the store, and no RSC refresh fills it. Fetch it
+    // here: the auth action already set the session cookie.
+    void fetchSession({ reason: "mutation" });
     router.refresh();
     router.push(href);
   };

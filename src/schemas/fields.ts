@@ -2,6 +2,7 @@ import {
   DEFAULT_ADMIN_TABLE_PAGE_SIZE,
   ID_MAX_LENGTH,
   MAX_ADMIN_TABLE_PAGE_SIZE,
+  RETURN_TO_MAX_LENGTH,
   SLUG_MAX_LENGTH,
   TOKEN_MAX_LENGTH,
 } from "@/constants";
@@ -27,6 +28,14 @@ export function tokenField(message?: string) {
 /** URL-addressable slugs, which end up in a route segment and a D1 index. */
 export function slugField(message?: string) {
   return minMaxString({ min: 1, max: SLUG_MAX_LENGTH, minMessage: message });
+}
+
+/**
+ * An optional in-app path to send the user back to. A value that fails the bound becomes
+ * `undefined`, so a long link falls back to the default page instead of failing the form.
+ */
+export function returnToField() {
+  return v.fallback(v.optional(minMaxString({ max: RETURN_TO_MAX_LENGTH })), undefined);
 }
 
 /** Path or body `teamId`. Not a `v.object`: callers compose it with their own fields. */

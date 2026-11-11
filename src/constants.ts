@@ -253,6 +253,8 @@ export const EMAIL_MAX_LENGTH = 255;
 export const CAPTCHA_TOKEN_MAX_LENGTH = 2048;
 // The whole OAuth authorize query string, round-tripped through the consent form.
 export const OAUTH_QUERY_MAX_LENGTH = 4096;
+// An in-app path plus query that a flow sends the user back to, such as a team-invite link.
+export const RETURN_TO_MAX_LENGTH = 2048;
 export const SEARCH_QUERY_MAX_LENGTH = 100;
 export const SLUG_MAX_LENGTH = 255;
 

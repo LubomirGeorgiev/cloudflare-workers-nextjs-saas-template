@@ -21,7 +21,7 @@ export const CLIENT_MESSAGE_SCOPES = {
   // groups nest their own provider below it, so page copy never belongs here.
   root: {
     entryPaths: ["components/root-shell.tsx", "app/[locale]/layout.tsx"],
-    namespaces: ["AskiChatBanner", "Auth.EmailVerificationDialog"],
+    namespaces: ["AskiChatBanner", "Auth.EmailVerificationDialog", "Settings.Nav"],
   },
   marketing: {
     entryPaths: ["app/[locale]/(marketing)"],

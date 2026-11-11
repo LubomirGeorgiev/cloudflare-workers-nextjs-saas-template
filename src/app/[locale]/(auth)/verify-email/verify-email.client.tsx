@@ -8,14 +8,15 @@ import { useAction } from "next-safe-action/hooks";
 import { verifyEmailAction } from "./verify-email.action";
 import { verifyEmailSchema } from "@/schemas/verify-email.schema";
 import { Spinner } from "@/components/ui/spinner";
-import { REDIRECT_AFTER_SIGN_IN } from "@/constants";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
 import { useManagedLoadingToast } from "@/hooks/use-managed-loading-toast";
+import { useNavigateAfterAuth } from "@/hooks/use-navigate-after-auth";
 import { useTranslations } from "@/i18n/client";
 
 export default function VerifyEmailClientComponent() {
   const router = useRouter();
+  const navigateAfterAuth = useNavigateAfterAuth();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const hasCalledVerification = useRef(false);
@@ -31,12 +32,13 @@ export default function VerifyEmailClientComponent() {
     onExecute: () => {
       showLoadingToast(t("toastVerifying"));
     },
-    onSuccess: () => {
+    onSuccess: ({ data }) => {
       dismissLoadingToast();
       toast.success(t("toastVerifySuccess"));
 
-      router.refresh();
-      router.push(REDIRECT_AFTER_SIGN_IN);
+      // Not a bare push: pages without a SessionHydrator need the store that
+      // `useNavigateAfterAuth` loads, or they keep `emailVerified: false`.
+      navigateAfterAuth({ redirectPath: data?.returnTo });
     },
   });
   const error = result.serverError;

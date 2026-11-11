@@ -2,12 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useSessionStore } from "@/state/session";
 import { useAction } from "next-safe-action/hooks";
 import { sendVerificationAction } from "@/app/[locale]/(auth)/send-verification.action";
@@ -19,6 +19,7 @@ import { usePathname } from "@/i18n/navigation";
 import { Route } from "next";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useTranslations } from "@/i18n/client";
+import useSignOut from "@/hooks/useSignOut";
 
 const pagesToBypass: Route[] = [
   "/verify-email",
@@ -37,6 +38,7 @@ export function EmailVerificationDialog() {
   // Locale-stripped pathname so bypass matches work under `/es/...` prefixes.
   const pathname = usePathname();
   const t = useTranslations("Client.Auth.EmailVerificationDialog");
+  const { signOut } = useSignOut();
 
   const { execute: sendVerification, status } = useAction(sendVerificationAction, {
     onError: ({ error }) => {
@@ -67,31 +69,27 @@ export function EmailVerificationDialog() {
   const isLoading = status === "executing";
   const expirationHours = Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600);
 
+  // An alert dialog has no close control: the user leaves the gate by verifying or signing out.
   return (
-    <Dialog open modal onOpenChange={(newState) => {
-      if (newState === false) {
-        toast.warning(t("toastCloseWarning"));
-      }
-    }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>
+    <AlertDialog open>
+      <AlertDialogContent className="w-[calc(100%-2rem)] sm:max-w-md max-h-screen overflow-y-auto">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("title")}</AlertDialogTitle>
+          <AlertDialogDescription>
             {t("description", { email: session.user.email ?? "", hours: expirationHours })}
-
-            {isLocalMode && (
-              <Alert className="mt-4 mb-2">
-                <AlertTitle>{t("devModeTitle")}</AlertTitle>
-                <AlertDescription>
-                  {t("devModeDescription")}
-                </AlertDescription>
-              </Alert>
-            )}
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {isLocalMode && (
+          <Alert>
+            <AlertTitle>{t("devModeTitle")}</AlertTitle>
+            <AlertDescription>
+              {t("devModeDescription")}
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex flex-col gap-4">
           <Button
-            onClick={() => sendVerification()}
+            onClick={() => sendVerification({ returnTo: `${pathname}${window.location.search}` })}
             disabled={isLoading || !canSendAgain}
           >
             {isLoading
@@ -100,8 +98,13 @@ export function EmailVerificationDialog() {
                 ? t("cooldown")
                 : t("resend")}
           </Button>
+          <p className="text-sm text-muted-foreground">{t("spamHint")}</p>
+          <p className="text-sm text-muted-foreground">{t("wrongEmailHint")}</p>
+          <Button variant="outline" onClick={() => void signOut()}>
+            {t("signOut")}
+          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

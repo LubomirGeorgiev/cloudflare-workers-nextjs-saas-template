@@ -2,7 +2,7 @@ import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simp
 
 import { NAME_MAX_LENGTH, NAME_MIN_LENGTH } from "@/constants";
 import { canonicalEmailString, trimmedString, v, validationKey } from "@/lib/validation";
-import { idField } from "@/schemas/fields";
+import { idField, returnToField } from "@/schemas/fields";
 import { captchaSchema } from "./captcha.schema";
 
 export const passkeyEmailSchema = v.object({
@@ -54,4 +54,5 @@ export const completePasskeyRegistrationSchema = v.object({
   response: webAuthnResponseSchema<RegistrationResponseJSON>(
     validationKey("invalidRegistrationResponse"),
   ),
+  returnTo: returnToField(),
 });

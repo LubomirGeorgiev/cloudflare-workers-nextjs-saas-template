@@ -81,6 +81,7 @@ export const signUpAction = actionClient
             userId: user.id,
             email: user.email,
             username: user.firstName || user.email,
+            returnTo: input.returnTo,
           });
 
           return { success: true, preferredLocale };

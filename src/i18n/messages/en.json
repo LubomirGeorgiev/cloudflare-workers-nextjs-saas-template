@@ -178,15 +178,17 @@
       },
       "EmailVerificationDialog": {
         "title": "Verify your email",
-        "description": "Please verify your email address to access all features. We sent a verification link to {email}. The verification link will expire in {hours, plural, =1 {1 hour} other {# hours}}.",
+        "description": "To continue, verify your email address. We sent a verification link to {email}. The link expires in {hours, plural, =1 {1 hour} other {# hours}}.",
         "devModeTitle": "Development mode",
         "devModeDescription": "You can find the verification link in the console.",
         "toastSending": "Sending verification email...",
         "toastSent": "Verification email sent",
-        "toastCloseWarning": "Please verify your email before you continue",
         "sending": "Sending...",
         "cooldown": "Please wait 1 minute before sending again",
-        "resend": "Send verification email again"
+        "resend": "Send verification email again",
+        "spamHint": "Did you not get the email? Look in your spam folder.",
+        "wrongEmailHint": "Is the email address wrong? Sign out, then sign up again with the correct address.",
+        "signOut": "Sign out"
       },
       "TeamInvite": {
         "meta": {

@@ -178,15 +178,17 @@
       },
       "EmailVerificationDialog": {
         "title": "Verifica tu correo",
-        "description": "Verifica tu dirección de correo para acceder a todas las funciones. Enviamos un enlace de verificación a {email}. El enlace caducará en {hours, plural, =1 {1 hora} other {# horas}}.",
+        "description": "Para continuar, verifica tu dirección de correo. Enviamos un enlace de verificación a {email}. El enlace caduca en {hours, plural, =1 {1 hora} other {# horas}}.",
         "devModeTitle": "Modo de desarrollo",
         "devModeDescription": "Puedes encontrar el enlace de verificación en la consola.",
         "toastSending": "Enviando correo de verificación...",
         "toastSent": "Correo de verificación enviado",
-        "toastCloseWarning": "Verifica tu correo antes de continuar",
         "sending": "Enviando...",
         "cooldown": "Espera 1 minuto antes de volver a enviar",
-        "resend": "Enviar de nuevo el correo de verificación"
+        "resend": "Enviar de nuevo el correo de verificación",
+        "spamHint": "¿No recibiste el correo? Revisa la carpeta de spam.",
+        "wrongEmailHint": "¿La dirección de correo es incorrecta? Cierra sesión y regístrate de nuevo con la dirección correcta.",
+        "signOut": "Cerrar sesión"
       },
       "TeamInvite": {
         "meta": {

@@ -6,12 +6,12 @@ import { getCurrentSession } from "@/utils/auth";
 import { sendUserVerificationEmail } from "@/utils/email-verification";
 import { assertNotBanned } from "@/lib/account/ban";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
-import { v } from "@/lib/validation";
+import { sendVerificationSchema } from "@/schemas/verify-email.schema";
 
 export const sendVerificationAction = actionClient
   .metadata({ actionName: "sendVerificationAction" })
-  .inputSchema(v.void())
-  .action(async () => {
+  .inputSchema(sendVerificationSchema)
+  .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
         const session = await getCurrentSession();
@@ -32,6 +32,7 @@ export const sendVerificationAction = actionClient
           userId: session.user.id,
           email: session.user.email!,
           username: session.user.firstName || session.user.email!,
+          returnTo: input.returnTo,
         });
 
         return { success: true };

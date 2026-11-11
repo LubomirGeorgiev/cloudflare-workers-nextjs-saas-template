@@ -92,7 +92,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
           optionsJSON: data.optionsJSON,
           useAutoRegister: true,
         });
-        completePasskeyRegistration({ response: attResp });
+        completePasskeyRegistration({ response: attResp, returnTo: redirectPath });
       } catch (error: unknown) {
         console.error("Failed to register passkey:", error);
         dismissLoadingToast()
@@ -125,7 +125,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
   const passkeyCaptchaToken = useWatch({ control: passkeyForm.control, name: 'captchaToken' });
 
   const onSubmit = async (data: SignUpSchema) => {
-    signUp(data)
+    signUp({ ...data, returnTo: redirectPath })
   }
 
   const onPasskeySubmit = async (data: PasskeyEmailSchema) => {

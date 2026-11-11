@@ -165,6 +165,7 @@ export const completePasskeyRegistrationAction = actionClient
         userId: user.id,
         email: user.email,
         username: user.firstName || user.email,
+        returnTo: input.returnTo,
       });
 
       const { preferredLocale } = await createSessionUnlessBanned({

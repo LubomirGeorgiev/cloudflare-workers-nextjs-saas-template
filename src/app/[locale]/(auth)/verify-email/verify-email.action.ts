@@ -12,6 +12,8 @@ import { ActionError } from "@/lib/action-error";
 import { actionClient } from "@/lib/safe-action";
 import { deleteExpiringToken, getValidExpiringToken } from "@/utils/kv-token";
 import { assertNotBanned } from "@/lib/account/ban";
+import { getSafeRedirectPath } from "@/utils/auth-redirect";
+import type { EmailVerificationTokenPayload } from "@/utils/email-verification";
 
 export const verifyEmailAction = actionClient
   .metadata({ actionName: "verifyEmailAction" })
@@ -19,7 +21,7 @@ export const verifyEmailAction = actionClient
   .action(async ({ parsedInput: input }) => {
     return withRateLimit(
       async () => {
-        const verificationToken = await getValidExpiringToken({
+        const verificationToken = await getValidExpiringToken<EmailVerificationTokenPayload>({
           token: input.token,
           key: getVerificationTokenKey,
           notFoundError: {
@@ -54,7 +56,8 @@ export const verifyEmailAction = actionClient
             key: getVerificationTokenKey,
           });
 
-          return { success: true };
+          // Check again on read: an old token has no `returnTo`, and a stored path must stay on this site.
+          return { success: true, returnTo: getSafeRedirectPath({ value: verificationToken.returnTo }) };
         } catch (error) {
           console.error(error);
 
