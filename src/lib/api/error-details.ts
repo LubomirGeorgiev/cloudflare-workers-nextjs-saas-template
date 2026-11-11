@@ -21,6 +21,9 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
   "Client.Errors.emailVerificationRequired":
     "The account behind this credential has not verified its email address.",
   "Client.Dashboard.Teams.errorTeamNotFound": "No team exists with that id.",
+  "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember":
+    "No team with that id is visible to this credential. Pass the team `id` from listTeams " +
+    "(it starts with `team_`), not the team slug.",
   "Client.Dashboard.Teams.errorTeamPermissionRequired":
     "Your membership of this team does not carry the permission this operation requires.",
   "Client.Dashboard.Teams.errorCreateLimit": ({ max }) =>

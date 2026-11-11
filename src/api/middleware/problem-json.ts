@@ -19,6 +19,11 @@ import { readBoundedRequestBody } from "@/utils/bounded-request-body";
 const UNKNOWN_ENDPOINT_DETAIL = "Unknown API endpoint.";
 const MALFORMED_BODY_DETAIL = "The request body is not valid JSON.";
 const OVERSIZED_BODY_DETAIL = `The request body must be at most ${API_JSON_BODY_MAX_BYTES} bytes.`;
+const NOT_JSON_BODY_DETAIL =
+  "The request has a body but no JSON content type. Send it with `Content-Type: application/json`.";
+// The media types Hono's JSON validator parses. It reads any other body as `{}`, which a caller
+// then sees as "field required" for a field that the body does contain.
+const JSON_CONTENT_TYPE_PATTERN = /^application\/([a-z-.]+\+)?json(;|$)/i;
 
 /**
  * Hono throws `HTTPException` from `validator()` when a body declared as JSON cannot be parsed
@@ -117,6 +122,9 @@ function withBoundedJsonBody<Handler extends MiddlewareHandler>(validatorMiddlew
     }
     if (text === null) {
       throw new ActionError("INPUT_PARSE_ERROR", MALFORMED_BODY_DETAIL);
+    }
+    if (text.trim() !== "" && !JSON_CONTENT_TYPE_PATTERN.test(c.req.header("content-type") ?? "")) {
+      throw new ActionError("INPUT_PARSE_ERROR", NOT_JSON_BODY_DETAIL);
     }
 
     return validatorMiddleware(c, next);

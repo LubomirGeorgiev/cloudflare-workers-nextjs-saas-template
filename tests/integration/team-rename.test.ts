@@ -263,11 +263,14 @@ test("a session-refresh failure does not fail the committed rename", async () =>
 });
 
 // A nonexistent team has no membership row, so the permission gate rejects it before the update
-// ever runs: the failure is FORBIDDEN, not the NOT_FOUND that only a delete race can reach.
+// ever runs, with the same NOT_FOUND that a team the caller is not in gets.
 test("renaming a team that does not exist is rejected by the permission gate", async () => {
   const team = await seedTeam();
   authState.current = team.ownerSession;
 
   await expect(renameTeam({ teamId: uid("team_missing"), name: "Ghost" }))
-    .rejects.toMatchObject({ code: "FORBIDDEN" });
+    .rejects.toMatchObject({
+      code: "NOT_FOUND",
+      messageKey: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember",
+    });
 });

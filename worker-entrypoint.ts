@@ -348,7 +348,14 @@ async function handleApiRefusal({
 }): Promise<Response> {
   const answer = isAdminOpenApiPath(pathname)
     ? await adminOpenApiRefusalAnswer({ method: request.method, request })
-    : withInternalBearerChallengeIfNeeded({ origin, pathname, response });
+    : withInternalBearerChallengeIfNeeded({
+        origin,
+        pathname,
+        response: (await import("./src/lib/api/errors")).bearerRefusalToProblemResponse({
+          request,
+          response,
+        }),
+      });
 
   // An admin who authenticated is not a failed attempt, so it charges no anonymous bucket.
   if (answer.ok) {

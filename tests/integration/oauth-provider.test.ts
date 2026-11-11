@@ -781,6 +781,8 @@ test("a garbage bearer token is rejected with the discovery pointer", async () =
 
   expect(response.status).toBe(401);
   expect(response.headers.get("www-authenticate")).toContain("resource_metadata=");
+  // The provider answers before any handler, so the edge restates its 401 as a problem document.
+  expect(await response.json()).toMatchObject({ code: "NOT_AUTHORIZED" });
 });
 
 test("the consent page is served by the Next app, not the provider", async () => {

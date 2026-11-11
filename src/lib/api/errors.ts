@@ -216,3 +216,38 @@ export function toProblemResponse(problem: ProblemResult): Response {
     headers: problem.headers,
   });
 }
+
+const MISSING_BEARER_DETAIL =
+  "This request carries no credential. Send an API key or an OAuth access token in the " +
+  "`Authorization: Bearer` header.";
+const REJECTED_BEARER_DETAIL =
+  "The bearer credential is invalid, expired, or revoked. Create a new API key, or connect the " +
+  "OAuth client again.";
+
+/**
+ * The OAuth provider refuses a bad or missing bearer token before any handler runs, with an OAuth
+ * error body or no body. Callers branch on `code`, so that 401 becomes a problem document. The
+ * provider's headers stay, because `WWW-Authenticate` is what starts the OAuth flow.
+ */
+export function bearerRefusalToProblemResponse({
+  request,
+  response,
+}: {
+  request: Request;
+  response: Response;
+}): Response {
+  if (response.headers.get("content-type")?.startsWith(PROBLEM_JSON_CONTENT_TYPE)) {
+    return response;
+  }
+
+  const detail = request.headers.has("authorization") ? REJECTED_BEARER_DETAIL : MISSING_BEARER_DETAIL;
+  const problem = actionErrorToProblem({ request, error: new ActionError("NOT_AUTHORIZED", detail) });
+  const headers = new Headers(response.headers);
+
+  headers.delete("content-length");
+  for (const [name, value] of Object.entries(problem.headers)) {
+    headers.set(name, value);
+  }
+
+  return new Response(JSON.stringify(problem.body), { status: problem.status, headers });
+}

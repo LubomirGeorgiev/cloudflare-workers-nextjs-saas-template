@@ -202,6 +202,7 @@ test("an unauthenticated client is told where to authenticate", async () => {
   expect(response.headers.get("www-authenticate")).toContain(
     `resource_metadata="${ORIGIN}${OAUTH_PROTECTED_RESOURCE_PATH}${MCP_PATH}"`,
   );
+  expect(await response.json()).toMatchObject({ code: "NOT_AUTHORIZED" });
   expect(innerFetchMock).not.toHaveBeenCalled();
 });
 

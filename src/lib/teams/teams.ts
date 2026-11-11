@@ -313,15 +313,13 @@ export async function renameTeam(
   };
 }
 
-const TEAM_NOT_FOUND_DETAIL = "No team with that id is visible to this credential.";
-
 // Membership is the read authorization for a single team: `getUserTeams` already returns exactly
 // the teams the caller can open, so filtering it cannot leak a team they are not a member of.
 export async function getTeamForCaller(teamId: string): Promise<TeamSummary> {
   const team = (await getUserTeams()).find((candidate) => candidate.id === teamId);
 
   if (!team) {
-    throw new ActionError("NOT_FOUND", TEAM_NOT_FOUND_DETAIL);
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember" });
   }
 
   return team;

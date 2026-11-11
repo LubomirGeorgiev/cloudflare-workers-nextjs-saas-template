@@ -67,9 +67,16 @@ export const requireTeamPermission = async (teamId: string, permission: string) 
     throw new ActionError("NOT_AUTHORIZED", { key: "Client.Errors.notAuthenticated" });
   }
 
-  const hasPermission = await hasTeamPermission(teamId, permission);
+  // A caller outside the team gets the same 404 as for a team that does not exist, so team ids
+  // cannot be probed, and a wrong id (a slug) is not read as a missing role permission.
+  const membership = await getActiveTeamMembership({ teamId, userId: session.userId });
 
-  if (!hasPermission) {
+  if (!membership) {
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember" });
+  }
+
+  // Check the row read above: outside an App Router request, React `cache` does not dedupe a second read.
+  if (!membership.permissions.includes(permission)) {
     throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorTeamPermissionRequired" });
   }
 

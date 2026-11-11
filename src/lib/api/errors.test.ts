@@ -24,6 +24,7 @@ const {
   PROBLEM_BY_CODE,
   PROBLEM_JSON_CONTENT_TYPE,
   actionErrorToProblem,
+  bearerRefusalToProblemResponse,
   toProblemResponse,
 } = await import("@/lib/api/errors");
 
@@ -178,5 +179,55 @@ describe("toProblemResponse", () => {
     expect(response.headers.get("content-type")).toBe(PROBLEM_JSON_CONTENT_TYPE);
     expect(response.headers.get("retry-after")).toBe("7");
     await expect(response.json()).resolves.toEqual(problem.body);
+  });
+});
+
+describe("bearerRefusalToProblemResponse", () => {
+  const challenge = 'Bearer realm="OAuth", error="invalid_token"';
+
+  test.each<{ name: string; headers: Record<string, string> }>([
+    { name: "a rejected token", headers: { authorization: "Bearer nope" } },
+    { name: "no token", headers: {} },
+  ])("restates the provider 401 for $name as a problem and keeps the challenge", async ({ headers }) => {
+    const providerRefusal = Response.json(
+      { error: "invalid_token", error_description: "Invalid access token" },
+      { status: 401, headers: { "www-authenticate": challenge } },
+    );
+
+    const response = bearerRefusalToProblemResponse({
+      request: new Request("https://example.com/api/v1/me", { headers }),
+      response: providerRefusal,
+    });
+    const body = await response.json() as ProblemDetails;
+
+    expect(response.status).toBe(PROBLEM_BY_CODE.NOT_AUTHORIZED.status);
+    expect(response.headers.get("content-type")).toBe(PROBLEM_JSON_CONTENT_TYPE);
+    expect(response.headers.get("www-authenticate")).toBe(challenge);
+    expect(body).toMatchObject({ code: "NOT_AUTHORIZED", status: PROBLEM_BY_CODE.NOT_AUTHORIZED.status });
+    expect(body.detail).not.toMatch(CATALOG_KEY_PATTERN);
+  });
+
+  test("gives a missing token and a rejected token different details", async () => {
+    const detailFor = async (headers: Record<string, string>) => (
+      await bearerRefusalToProblemResponse({
+        request: new Request("https://example.com/api/v1/me", { headers }),
+        response: new Response(null, { status: 401 }),
+      }).json() as ProblemDetails
+    ).detail;
+
+    expect(await detailFor({})).not.toBe(await detailFor({ authorization: "Bearer nope" }));
+  });
+
+  test("passes a handler problem document through unchanged", () => {
+    const handlerProblem = toProblemResponse(
+      actionErrorToProblem({ error: new ActionError("NOT_AUTHORIZED", "inline") }),
+    );
+
+    expect(
+      bearerRefusalToProblemResponse({
+        request: new Request("https://example.com/api/v1/me"),
+        response: handlerProblem,
+      }),
+    ).toBe(handlerProblem);
   });
 });

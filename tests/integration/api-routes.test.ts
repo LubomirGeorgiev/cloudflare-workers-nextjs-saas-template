@@ -334,6 +334,31 @@ test.each([
   expect(body.code).toBe("INPUT_PARSE_ERROR");
 });
 
+// Hono reads a body with another content type as `{}`, which used to answer "field required".
+test.each([
+  ["a text", "text/plain"],
+  ["a form", "application/x-www-form-urlencoded"],
+])("a JSON body with %s content type names the header, not a field", async (_label, contentType) => {
+  const user = await seedUser();
+  const secret = await seedKey({ userId: user.id, scopes: ["profile:write"] });
+
+  const response = await apiApp.fetch(
+    new Request(`${ORIGIN}${API_V1_BASE_PATH}/me`, {
+      method: "PATCH",
+      headers: { authorization: `Bearer ${secret}`, "content-type": contentType },
+      body: JSON.stringify({ firstName: "Ada" }),
+    }),
+    env,
+    createExecutionContext(),
+  );
+  const body = await response.json() as Record<string, unknown>;
+
+  expect(response.status).toBe(PROBLEM_BY_CODE.INPUT_PARSE_ERROR.status);
+  expect(body.code).toBe("INPUT_PARSE_ERROR");
+  expect(body.errors).toBeUndefined();
+  expect(body.detail).toContain("Content-Type");
+});
+
 // Whitespace is valid JSON, so padding a valid body proves the cap is on bytes, not on the schema.
 function paddedProfileBody(totalBytes: number): string {
   return JSON.stringify({ firstName: "Ada", lastName: "Lovelace" }).padEnd(totalBytes, " ");
@@ -459,6 +484,22 @@ test("a team the credential is not a member of is not found", async () => {
 
   expect(response.status).toBe(404);
   expect(body.code).toBe("NOT_FOUND");
+});
+
+// Sub-routes go through requireTeamPermission, which once answered 403 before it saw the team.
+test.each([
+  ["a team the caller is not in", "member"],
+  ["a team id that does not exist", "unknown"],
+])("a team sub-route for %s is not found", async (_label, kind) => {
+  const [owner, outsider] = await Promise.all([seedUser(), seedUser()]);
+  const teamId = kind === "member" ? await seedTeam({ userId: owner.id }) : uid("team_missing");
+  const secret = await seedKey({ userId: outsider.id, scopes: ["members:read"] });
+
+  const { response, body } = await call(`/teams/${teamId}/members`, { secret });
+
+  expect(response.status).toBe(PROBLEM_BY_CODE.NOT_FOUND.status);
+  expect(body.code).toBe("NOT_FOUND");
+  expect(body.detail).not.toBe(PROBLEM_BY_CODE.NOT_FOUND.detail);
 });
 
 test("a team is renamed through the existing service", async () => {

@@ -113,6 +113,17 @@ describe("team-auth audience contract", () => {
 
     expect(session).toEqual({ userId: USER_ID });
     expect(assertTeamAudienceMock).toHaveBeenCalledOnce();
+    expect(getActiveTeamMembershipMock).toHaveBeenCalledOnce();
+  });
+
+  test("require answers NOT_FOUND for a caller with no membership, before the permission check", async () => {
+    getActiveTeamMembershipMock.mockResolvedValue(null);
+
+    await expect(requireTeamPermission(OWN_TEAM_ID, PERMISSION)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      messageKey: "Client.Dashboard.Teams.errorTeamNotFoundOrNotMember",
+    });
+    expect(getActiveTeamMembershipMock).toHaveBeenCalledOnce();
   });
 
   test("require still rejects a missing permission inside the audience", async () => {
@@ -126,6 +137,7 @@ describe("team-auth audience contract", () => {
       messageKey: "Client.Dashboard.Teams.errorTeamPermissionRequired",
     });
     expect(assertTeamAudienceMock).toHaveBeenCalledOnce();
+    expect(getActiveTeamMembershipMock).toHaveBeenCalledOnce();
   });
 
   test("require rejects an unauthenticated caller before any membership read", async () => {
