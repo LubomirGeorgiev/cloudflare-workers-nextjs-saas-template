@@ -31,6 +31,7 @@ import { Check } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   IS_YEARLY_BILLING_ENABLED,
+  PAID_PLAN_IDS,
   TEAM_PLANS,
   TEAM_PLAN_IDS,
   YEARLY_DISCOUNT_PERCENT,
@@ -69,6 +70,10 @@ const StripePaymentForm = dynamic(
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 10;
+// The element id that the add-on cards link to when the team has no paid plan.
+export const PLAN_CARDS_ANCHOR = "plans";
+// The price note names the currency only when every paid plan uses the same one.
+const PAID_PLAN_CURRENCIES = new Set(PAID_PLAN_IDS.map((planId) => TEAM_PLANS[planId].currency.toUpperCase()));
 
 interface PlanCardsProps {
   teamId: string;
@@ -81,6 +86,8 @@ interface PlanCardsProps {
   needsPaymentAction: boolean;
   canManage: boolean;
   isTrialEligible: boolean;
+  // Add-ons are items of the same Stripe subscription, so a cancel stops them too.
+  hasActiveAddons: boolean;
 }
 
 interface PaymentDialogState {
@@ -102,6 +109,7 @@ export function PlanCards({
   needsPaymentAction,
   canManage,
   isTrialEligible,
+  hasActiveAddons,
 }: PlanCardsProps) {
   const t = useTranslations("Client.Dashboard.Billing");
   const tErrors = useTranslations("Client.Errors");
@@ -114,29 +122,30 @@ export function PlanCards({
   const activationPollAttemptRef = useRef(0);
   const isActivationPollPendingRef = useRef(false);
 
-  const hasActiveSubscription =
-    currentPlanId !== "free"
-    && Boolean(getStripeSubscriptionTransitionPolicy(status)?.grantsPaidAccess);
-  const currentPlanPeriodLabel = planExpiresAt && (status === "active" || status === "trialing")
+  const hasActiveSubscription = currentPlanId !== "free" && hasPaidAccess(status);
+  const periodEndDate = planExpiresAt
+    ? format.dateTime(planExpiresAt, { year: "numeric", month: "short", day: "numeric" })
+    : null;
+  const currentPlanPeriodLabel = periodEndDate && hasPaidAccess(status)
     ? t(
         status === "trialing"
           ? "trialEndsOn"
           : cancelAtPeriodEnd
             ? "endsOn"
             : "renewsOn",
-        {
-          date: format.dateTime(planExpiresAt, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }),
-        },
+        { date: periodEndDate },
       )
     : null;
+  const addons = hasActiveAddons ? "active" : "none";
+  const cancelDescription = periodEndDate
+    ? t("confirmCancelDescriptionWithDate", { date: periodEndDate, addons })
+    : t("confirmCancelDescription", { addons });
 
   const { execute: executeChange, isExecuting: isChanging } = useAction(changePlanAction, {
-    onSuccess: () => {
-      toast.success(t("subscriptionActive"));
+    onSuccess: ({ data }) => {
+      toast.success(data
+        ? t("planChanged", { plan: TEAM_PLANS[data.planId].name, interval: data.interval })
+        : t("subscriptionActive"));
       router.refresh();
     },
     onError: ({ error }) => toast.error(error.serverError?.message ?? t("errorPaymentProvider")),
@@ -186,15 +195,18 @@ export function PlanCards({
 
     try {
       const result = await getSubscriptionAsync({ teamId });
-      const currentStatus = result?.data?.status;
-      if (currentStatus === "active" || currentStatus === "trialing") {
+      if (hasPaidAccess(result?.data?.status)) {
         finishActivationPolling(true);
         return;
       }
 
       if (activationPollAttemptRef.current >= POLL_MAX_ATTEMPTS) {
-        // Refresh after the timeout so the page still reflects the latest webhook state.
-        finishActivationPolling(false);
+        // A late webhook must not ask for a payment that is already made: resumePaymentAction
+        // reconciles the team row from Stripe first. A failed sync still stops the poll.
+        const synced = await resumeAsync({ teamId })
+          .then(() => getSubscriptionAsync({ teamId }))
+          .catch(() => undefined);
+        finishActivationPolling(hasPaidAccess(synced?.data?.status));
       }
     } finally {
       isActivationPollPendingRef.current = false;
@@ -308,7 +320,7 @@ export function PlanCards({
   }
 
   return (
-    <div className="space-y-6">
+    <div id={PLAN_CARDS_ANCHOR} className="scroll-mt-20 space-y-6">
       {needsPaymentAction && canManage && (
         <CompletePaymentCard
           status={status}
@@ -428,6 +440,9 @@ export function PlanCards({
                     offersTrial,
                   })}
                   planName={plan.name}
+                  priceLabel={priceLabel}
+                  changesInterval={!matchesCurrentInterval}
+                  cancelDescription={cancelDescription}
                   trialDays={plan.trialDays ?? 0}
                   billingInterval={billingInterval}
                   disabled={busy}
@@ -441,6 +456,12 @@ export function PlanCards({
           );
         })}
       </div>
+
+      {PAID_PLAN_CURRENCIES.size === 1 && (
+        <p className="text-center text-xs text-muted-foreground">
+          {t("pricesCurrencyNote", { currency: [...PAID_PLAN_CURRENCIES].join("") })}
+        </p>
+      )}
 
       <Dialog open={paymentDialog !== null} onOpenChange={(open) => !open && setPaymentDialog(null)}>
         <DialogContent className="sm:max-w-lg">
@@ -508,6 +529,9 @@ function CompletePaymentCard({
 function PlanCardActionButton({
   action,
   planName,
+  priceLabel,
+  changesInterval,
+  cancelDescription,
   trialDays,
   billingInterval,
   disabled,
@@ -518,6 +542,9 @@ function PlanCardActionButton({
 }: {
   action: PlanCardAction;
   planName: string;
+  priceLabel: string;
+  changesInterval: boolean;
+  cancelDescription: string;
   trialDays: number;
   billingInterval: BillingInterval;
   disabled: boolean;
@@ -539,20 +566,28 @@ function PlanCardActionButton({
       <div className="pt-2">
         <CancelSubscriptionButton
           disabled={disabled}
-          description={t("confirmCancelDescription")}
+          description={cancelDescription}
           onConfirm={onCancel}
         />
       </div>
     );
   }
 
+  if (action === "switchInterval" || action === "changePlan") {
+    return (
+      <PlanChangeButton
+        action={action}
+        planName={planName}
+        priceLabel={priceLabel}
+        billingInterval={billingInterval}
+        changesInterval={changesInterval}
+        disabled={disabled}
+        onConfirm={onChangePlan}
+      />
+    );
+  }
+
   const buttons = {
-    switchInterval: {
-      label: t(billingInterval === "year" ? "switchToYearly" : "switchToMonthly"),
-      variant: "outline",
-      onClick: onChangePlan,
-    },
-    changePlan: { label: t("changeToPlan", { plan: planName }), variant: "outline", onClick: onChangePlan },
     startTrial: { label: t("startFreeTrial", { days: trialDays }), variant: "default", onClick: onStartTrial },
     subscribe: { label: t("subscribe"), variant: "default", onClick: onSubscribe },
   } as const;
@@ -567,6 +602,46 @@ function PlanCardActionButton({
   );
 }
 
+function PlanChangeButton({
+  action,
+  planName,
+  priceLabel,
+  billingInterval,
+  changesInterval,
+  disabled,
+  onConfirm,
+}: {
+  action: "switchInterval" | "changePlan";
+  planName: string;
+  priceLabel: string;
+  billingInterval: BillingInterval;
+  changesInterval: boolean;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
+  const t = useTranslations("Client.Dashboard.Billing");
+  const isYearly = billingInterval === "year";
+  const label = action === "changePlan"
+    ? t("changeToPlan", { plan: planName })
+    : t(isYearly ? "switchToYearly" : "switchToMonthly");
+  const price = `${priceLabel}${t(isYearly ? "perYear" : "perMonth")}`;
+
+  return (
+    <div className="pt-2">
+      <ConfirmButton
+        label={label}
+        title={t("confirmPlanChangeTitle", { label })}
+        // Stripe starts a new period and invoices at once on an interval change. Without one,
+        // changePlanAction prorates onto the next invoice.
+        description={t(changesInterval ? "confirmNewPeriodDescription" : "confirmProrationDescription", { price })}
+        keepLabel={t("keepCurrentPlan")}
+        disabled={disabled}
+        onConfirm={onConfirm}
+      />
+    </div>
+  );
+}
+
 function CancelSubscriptionButton({
   disabled,
   description,
@@ -577,8 +652,34 @@ function CancelSubscriptionButton({
   onConfirm: () => void;
 }) {
   const t = useTranslations("Client.Dashboard.Billing");
-  const tCommon = useTranslations("Client.Common");
 
+  return (
+    <ConfirmButton
+      label={t("cancelSubscription")}
+      title={t("confirmCancelTitle")}
+      description={description}
+      keepLabel={t("keepSubscription")}
+      disabled={disabled}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+function ConfirmButton({
+  label,
+  title,
+  description,
+  keepLabel,
+  disabled,
+  onConfirm,
+}: {
+  label: string;
+  title: string;
+  description: string;
+  keepLabel: string;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
   return (
     <AlertDialog>
       <AlertDialogTrigger
@@ -586,18 +687,22 @@ function CancelSubscriptionButton({
           <Button variant="outline" className="w-full" disabled={disabled} />
         }
       >
-        {t("cancelSubscription")}
+        {label}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t("confirmCancelTitle")}</AlertDialogTitle>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{tCommon("cancel")}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>{t("confirmCancelAction")}</AlertDialogAction>
+          <AlertDialogCancel>{keepLabel}</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{label}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+function hasPaidAccess(status: string | null | undefined): boolean {
+  return Boolean(getStripeSubscriptionTransitionPolicy(status)?.grantsPaidAccess);
 }

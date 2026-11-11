@@ -19,9 +19,10 @@ import {
   type TeamAddonQuantities,
 } from "@/constants/addons";
 import type { BillingInterval } from "@/constants/plans";
-import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
+import { getStripeSubscriptionTransitionPolicy, mustPayOrCancel } from "@/constants/subscription-lifecycle";
 import { formatPrice } from "@/utils/format-price";
 import { updateAddonQuantityAction } from "../billing.actions";
+import { PLAN_CARDS_ANCHOR } from "./plan-cards";
 
 interface AddonCardsProps {
   teamId: string;
@@ -66,7 +67,18 @@ export function AddonCards({
       <h2 className="text-2xl font-semibold">{t("addonsTitle")}</h2>
       <p className="mt-1 text-muted-foreground">{t("addonsSubtitle")}</p>
       {!hasPaidAccess && (
-        <p className="mt-2 text-sm text-muted-foreground">{t("addonsRequirePaidPlan")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t("addonsRequirePaidPlan")}
+          {/* The plan cards offer no subscribe button while the team must pay or cancel. */}
+          {canManage && !mustPayOrCancel(status) && (
+            <>
+              {" "}
+              <a href={`#${PLAN_CARDS_ANCHOR}`} className="font-medium text-primary underline-offset-4 hover:underline">
+                {t("addonsChoosePlan")}
+              </a>
+            </>
+          )}
+        </p>
       )}
 
       <div className="mt-6 grid gap-6 md:grid-cols-3">
@@ -167,13 +179,19 @@ function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }
         {quantity > 0 && <p className="text-sm text-muted-foreground">{summary}</p>}
 
         {canEdit && isDirty && (
-          <Button className="w-full" disabled={isExecuting} onClick={() => onUpdate(quantity)}>
-            {active === 0
-              ? t("addonAdd")
-              : quantity === 0
-                ? t("addonRemove")
-                : t("addonUpdate")}
-          </Button>
+          <>
+            <Button className="w-full" disabled={isExecuting} onClick={() => onUpdate(quantity)}>
+              {active === 0
+                ? t("addonAdd")
+                : quantity === 0
+                  ? t("addonRemove")
+                  : t("addonUpdate")}
+            </Button>
+            {/* updateAddonQuantityAction prorates the change onto the next invoice; nothing is charged now. */}
+            <p className="text-xs text-muted-foreground">
+              {t(quantity > active ? "addonIncreaseNote" : "addonDecreaseNote")}
+            </p>
+          </>
         )}
       </CardContent>
     </Card>

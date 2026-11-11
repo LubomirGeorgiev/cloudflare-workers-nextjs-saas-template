@@ -1,4 +1,4 @@
-import { type AbstractIntlMessages, createTranslator, IntlErrorCode } from "use-intl";
+import { type AbstractIntlMessages, createTranslator, IntlErrorCode, type Messages } from "use-intl";
 import { describe, expect, test } from "vitest";
 
 import { DEFAULT_LOCALE, LOCALES } from "./config";
@@ -190,5 +190,28 @@ describe("message catalogs", () => {
     }
 
     expect(invalidKeys).toEqual([]);
+  });
+});
+
+// These messages describe state; each branch must exist in every locale, or the copy states a wrong fact.
+describe("state-dependent copy", () => {
+  test.each(LOCALES)("%s.json mentions pending invitations only when there are some", async (locale) => {
+    const t = createTranslator({ locale, messages: (await loadCatalog(locale)) as Messages });
+    const notice = (pending: number) =>
+      t("Client.Dashboard.Teams.seatLimitNotice", { used: 4, limit: 3, pending });
+
+    expect(notice(0)).not.toBe(notice(1));
+    expect(notice(0)).toContain("4");
+  });
+
+  test.each(LOCALES)("%s.json mentions add-ons in the cancel confirm only when active", async (locale) => {
+    const t = createTranslator({ locale, messages: (await loadCatalog(locale)) as Messages });
+
+    const withoutDate = (addons: string) => t("Client.Dashboard.Billing.confirmCancelDescription", { addons });
+    const withDate = (addons: string) =>
+      t("Client.Dashboard.Billing.confirmCancelDescriptionWithDate", { addons, date: "2030" });
+
+    expect(withoutDate("active")).not.toBe(withoutDate("none"));
+    expect(withDate("active")).not.toBe(withDate("none"));
   });
 });

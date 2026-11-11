@@ -91,6 +91,7 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
             needsPaymentAction={subscription.needsPaymentAction}
             canManage={canManage}
             isTrialEligible={trialEligible}
+            hasActiveAddons={Object.values(subscription.addons).some((quantity) => quantity > 0)}
           />
         </NuqsAdapter>
 

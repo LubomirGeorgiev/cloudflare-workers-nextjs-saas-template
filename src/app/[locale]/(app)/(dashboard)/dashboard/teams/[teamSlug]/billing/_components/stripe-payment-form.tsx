@@ -143,7 +143,9 @@ function PaymentForm({
             </div>
             <div className="h-px bg-border" />
             <div className="text-xs text-muted-foreground space-y-2">
-              {isTrial && <p>{t("trialPaymentNote", { days: trialDays ?? 0 })}</p>}
+              {isTrial
+                ? <p>{t("trialPaymentNote", { days: trialDays ?? 0 })}</p>
+                : <p>{t("renewalNote", { price: priceLabel })}</p>}
               <p>{t("securePaymentInfo")}</p>
               <p>{t("paymentDetailsInfo")}</p>
             </div>

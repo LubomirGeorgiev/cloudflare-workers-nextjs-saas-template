@@ -107,6 +107,7 @@ vi.mock("@/utils/with-rate-limit", () => ({
 
 const {
   cancelSubscriptionAction,
+  changePlanAction,
   completeTrialAction,
   createBillingPortalSessionAction,
   createSubscriptionAction,
@@ -244,6 +245,28 @@ describe("checkout actions", () => {
       });
       expect(reconcileTeamFromSubscription).toHaveBeenCalledWith({ subscription: paid });
     });
+  });
+});
+
+describe("changePlanAction", () => {
+  beforeEach(() => {
+    findTeamMock.mockResolvedValue(TEAM);
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status: "active", items: { data: [] } });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The confirm dialog in plan-cards.tsx describes Stripe prorations, and the toast names the new plan.
+  test("prorates the change and returns the new plan and interval", async () => {
+    const result = await changePlanAction({ teamId: TEAM.id, planId: PLAN_ID, interval: INTERVAL });
+
+    expect(result).toEqual({ success: true, planId: PLAN_ID, interval: INTERVAL });
+    expect(updateSubscriptionMock).toHaveBeenCalledWith(
+      TEAM.stripeSubscriptionId,
+      expect.objectContaining({ proration_behavior: "create_prorations" }),
+    );
   });
 });
 

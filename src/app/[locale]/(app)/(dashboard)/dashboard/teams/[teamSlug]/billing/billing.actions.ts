@@ -336,7 +336,7 @@ export const changePlanAction = actionClient
         // Optimistically reconcile so the UI updates without waiting for the webhook.
         await reconcileTeamFromSubscription({ subscription: updated });
 
-        return { success: true };
+        return { success: true, planId, interval };
       } catch (error) {
         if (error instanceof ActionError) {
           throw error;
