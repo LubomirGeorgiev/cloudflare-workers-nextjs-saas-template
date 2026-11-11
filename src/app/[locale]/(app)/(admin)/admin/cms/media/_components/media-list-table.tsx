@@ -16,19 +16,10 @@ import Image from "next/image";
 import { MediaTableActions } from "./media-table-actions";
 import { ClientRelativeTime } from "@/components/client-relative-time";
 import { DEFAULT_LOCALE } from "@/i18n/config";
+import { formatFileSize } from "@/utils/format-file-size";
 
 interface MediaListTableProps {
   page: number;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) {
-    return "0 Bytes";
-  }
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 export async function MediaListTable({ page }: MediaListTableProps) {
