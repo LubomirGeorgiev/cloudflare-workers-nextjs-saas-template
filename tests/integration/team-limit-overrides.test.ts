@@ -32,7 +32,7 @@ vi.mock("@/i18n/locale", () => ({
 
 import { eq } from "drizzle-orm";
 
-import { TEAM_LIMIT_OVERRIDE_BOUNDS } from "@/constants/limit-overrides";
+import { LIMIT_SOURCES, TEAM_LIMIT_OVERRIDE_BOUNDS } from "@/constants/limit-overrides";
 import { DEFAULT_PLAN_ID, TEAM_PLANS, TEAM_PLAN_IDS, getPlan, type TeamPlanId } from "@/constants/plans";
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
@@ -41,6 +41,7 @@ import { ActionError } from "@/lib/action-error";
 import { loadTeamLimitOverrides, setTeamLimitOverridesAsStaff } from "@/lib/admin/team-limit-overrides";
 import { inviteUserToTeam } from "@/lib/teams/team-invite";
 import { getTeamMemberManagementData } from "@/lib/teams/team-members";
+import { selectSeatLimitCopy } from "@/lib/teams/team-seats";
 import { normalizeEmail } from "@/lib/validation";
 
 const db = getDB();
@@ -188,6 +189,29 @@ describe("the seat limit", () => {
     await setOverrides({ teamId, overrides: {} });
     expect((await seatUsage(teamId))?.limit).toBe(TEAM_PLANS[MULTI_SEAT_PLAN_ID ?? DEFAULT_PLAN_ID].limits.seats);
     await expect(invite(teamId)).resolves.toEqual({ success: true });
+  });
+});
+
+// The refusal and the dialog notice must not tell the owner to upgrade a limit that staff set.
+describe("the seat limit copy", () => {
+  const seats = TEAM_LIMIT_OVERRIDE_BOUNDS.seats.min;
+
+  test.each([
+    { name: "plan", overrides: {}, hideFromCustomer: false, source: LIMIT_SOURCES.PLAN },
+    { name: "visible override", overrides: { seats }, hideFromCustomer: false, source: LIMIT_SOURCES.CUSTOM },
+    { name: "hidden override", overrides: { seats }, hideFromCustomer: true, source: LIMIT_SOURCES.HIDDEN_CUSTOM },
+  ])("the $name refusal and notice use the $source copy", async ({ overrides, hideFromCustomer, source }) => {
+    const teamId = await seedTeam({ extraMembers: (overrides.seats ?? FREE_LIMITS.seats) - 1 });
+    await setOverrides({ teamId, overrides, hideFromCustomer });
+    const copy = selectSeatLimitCopy(source);
+
+    const refused = await refusal(invite(teamId));
+    expect(refused.messageKey).toBe(copy.refusalKey);
+    expect(await seatUsage(teamId)).toMatchObject({
+      isFull: true,
+      noticeKey: copy.noticeKey,
+      offersUpgrade: copy.offersUpgrade,
+    });
   });
 });
 

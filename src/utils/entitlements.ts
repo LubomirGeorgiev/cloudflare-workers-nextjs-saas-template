@@ -1,6 +1,11 @@
 import { DEFAULT_PLAN_ID, getPlan, TEAM_PLAN_LIMIT_KEYS, type TeamPlan, type TeamPlanLimits } from "@/constants/plans";
 import { fromStoredAddonQuantities, getAddon, type TeamAddonQuantities } from "@/constants/addons";
-import type { StoredLimitOverrides, TeamLimitOverrides } from "@/constants/limit-overrides";
+import {
+  LIMIT_SOURCES,
+  type LimitSource,
+  type StoredLimitOverrides,
+  type TeamLimitOverrides,
+} from "@/constants/limit-overrides";
 import {
   fromStoredLimitOverrides,
   limitOverridesForCustomer,
@@ -143,6 +148,26 @@ export function getTeamEntitlements({
 // The team-row form of getTeamEntitlements, so the seat gate and the seat counter read one rule.
 export function getTeamRowEntitlements(team: TeamEntitlementColumns): TeamEntitlements {
   return getTeamEntitlements(toEntitlementInput(team));
+}
+
+/**
+ * Where the value in effect of one limit key comes from: the plan, or a staff override that the
+ * customer may see or not. Copy that tells the customer to upgrade is true only for `plan`.
+ */
+export function selectLimitSource({
+  entitlements,
+  key,
+}: {
+  entitlements: Pick<TeamEntitlements, "appliedLimitOverrides" | "customerLimitOverrides">;
+  key: keyof TeamPlanLimits;
+}): LimitSource {
+  if (entitlements.appliedLimitOverrides[key] === undefined) {
+    return LIMIT_SOURCES.PLAN;
+  }
+
+  return entitlements.customerLimitOverrides[key] === undefined
+    ? LIMIT_SOURCES.HIDDEN_CUSTOM
+    : LIMIT_SOURCES.CUSTOM;
 }
 
 export interface LimitOverridesReset {

@@ -9,7 +9,8 @@ import { TEAM_INVITATION_EXPIRY_DAYS } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
 import { getTranslator } from "@/i18n/translator";
 import { getUserLocale } from "@/i18n/locale";
-import { getTeamRowEntitlements } from "@/utils/entitlements";
+import { getTeamRowEntitlements, selectLimitSource } from "@/utils/entitlements";
+import { selectSeatLimitCopy } from "@/lib/teams/team-seats";
 import { isEnabledLocale, type Locale } from "@/i18n/config";
 import {
   generateInvitationToken,
@@ -80,7 +81,8 @@ export async function inviteUserToTeam({
   // Seat-cap gate: enforce the team plan's seat limit at this grow point. Counts current
   // members plus outstanding invitations. Limits are enforced only when growing — a team
   // already over a lowered cap keeps its members (never auto-evicted).
-  const { limits } = getTeamRowEntitlements(team);
+  const entitlements = getTeamRowEntitlements(team);
+  const { limits } = entitlements;
 
   const emailLocale = await getInvitationEmailLocale(email);
 
@@ -188,9 +190,9 @@ export async function inviteUserToTeam({
   }
 
   if (!didInsert(insertResult)) {
-    // A plan limit, not a permission: a 403 sends an agent after a scope or a role.
+    // A seat limit, not a permission: a 403 sends an agent after a scope or a role.
     throw new ActionError("PRECONDITION_FAILED", {
-      key: "Client.Dashboard.Teams.seatLimitReached",
+      key: selectSeatLimitCopy(selectLimitSource({ entitlements, key: "seats" })).refusalKey,
       params: { seats: limits.seats },
     });
   }

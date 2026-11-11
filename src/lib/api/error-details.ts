@@ -38,6 +38,16 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
     `This team's plan includes ${seats} seat${seats === 1 ? "" : "s"}, all taken by members or ` +
     "pending invitations. Remove a member, revoke a pending invitation, or upgrade the team's " +
     "plan before inviting again.",
+  // A staff override does not grow with the plan, so these two do not tell the caller to upgrade.
+  "Client.Dashboard.Teams.seatLimitReachedCustom": ({ seats }) =>
+    `This team has a custom limit of ${seats} seat${seats === 1 ? "" : "s"}, all taken by members ` +
+    "or pending invitations. A plan upgrade does not change it. Remove a member, revoke a pending " +
+    "invitation, or contact support before inviting again.",
+  // The override is hidden from the customer, so this row does not name it.
+  "Client.Dashboard.Teams.seatLimitReachedContact": ({ seats }) =>
+    `This team has ${seats} seat${seats === 1 ? "" : "s"}, all taken by members or pending ` +
+    "invitations. Remove a member, revoke a pending invitation, or contact support before " +
+    "inviting again.",
   "Client.Dashboard.Teams.errorInvalidRole":
     "No system role has that id. Call listTeamRoles for the ids this team accepts, and pass " +
     "`isSystemRole: false` when the role is one the team defined itself.",

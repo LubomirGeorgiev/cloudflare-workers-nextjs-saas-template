@@ -13,6 +13,16 @@ export interface StoredLimitOverrides {
   hideFromCustomer: boolean;
 }
 
+/** Where the value of one limit in effect comes from. Only `plan` grows with a plan upgrade. */
+export const LIMIT_SOURCES = {
+  PLAN: "plan",
+  CUSTOM: "custom",
+  // A staff override that customer-facing copy must not name.
+  HIDDEN_CUSTOM: "hidden_custom",
+} as const;
+
+export type LimitSource = (typeof LIMIT_SOURCES)[keyof typeof LIMIT_SOURCES];
+
 // A Record over the limit keys: a fork that adds a limit key fails typecheck until it sets a bound.
 export const TEAM_LIMIT_OVERRIDE_BOUNDS: Record<keyof TeamPlanLimits, { min: number; max: number }> = {
   // A team always has its owner. The session refresh job does about 15 D1 and KV calls for

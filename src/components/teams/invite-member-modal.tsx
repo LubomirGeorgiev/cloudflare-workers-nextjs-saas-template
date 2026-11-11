@@ -105,14 +105,14 @@ export function InviteMemberModal({ teamId, trigger, seatUsage, upgradeHref, onI
             {seatUsage.isFull && (
               <div className="space-y-2 rounded-md border p-3 text-sm">
                 <p>
-                  {t("seatLimitNotice", {
+                  {t(seatUsage.noticeKey, {
                     used: seatUsage.used,
                     limit: seatUsage.limit,
                     pending: seatUsage.pendingInvitations,
                   })}
                 </p>
                 <p className="text-muted-foreground">{t("seatLimitResendHint")}</p>
-                {upgradeHref && (
+                {upgradeHref && seatUsage.offersUpgrade && (
                   // Close first: the team page stays mounted, so browser Back would show the dialog again.
                   <Link
                     href={upgradeHref}

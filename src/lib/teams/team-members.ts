@@ -12,7 +12,7 @@ import { requireNormalizedSessionEmail } from "@/utils/session-user";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { normalizeEmail } from "@/lib/validation";
 import { getTeamSeatUsage } from "@/lib/teams/team-seats";
-import { getTeamRowEntitlements } from "@/utils/entitlements";
+import { getTeamRowEntitlements, selectLimitSource } from "@/utils/entitlements";
 
 export const getTeamMemberManagementData = cache(async (teamId: string) => {
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
@@ -96,6 +96,7 @@ export const getTeamMemberManagementData = cache(async (teamId: string) => {
           activeMembers: members.filter((member) => isMembershipCurrentlyActive(member)).length,
           pendingInvitations: pendingInvitations.length,
           seats: invitationsAndSeats.seats,
+          limitSource: invitationsAndSeats.seatLimitSource,
         })
       : null,
     members: memberEntries,
@@ -290,5 +291,11 @@ async function getPendingInvitationsAndSeats(teamId: string) {
     throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFound" });
   }
 
-  return { pendingInvitations, seats: getTeamRowEntitlements(team).limits.seats };
+  const entitlements = getTeamRowEntitlements(team);
+
+  return {
+    pendingInvitations,
+    seats: entitlements.limits.seats,
+    seatLimitSource: selectLimitSource({ entitlements, key: "seats" }),
+  };
 }
