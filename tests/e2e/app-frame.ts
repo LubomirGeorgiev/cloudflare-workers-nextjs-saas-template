@@ -160,7 +160,9 @@ export async function clickAppRole(
 }
 
 export async function fillAppPlaceholder(placeholder: string, value: string): Promise<void> {
-  await fillHydratedField({ field: getAppPage().getByPlaceholder(placeholder), value });
+  // Tab panels stay mounted, so a hidden panel can hold a field with the same placeholder.
+  const field = getAppPage().getByPlaceholder(placeholder).filter({ visible: true });
+  await fillHydratedField({ field, value });
 }
 
 export async function fillAppLabel({

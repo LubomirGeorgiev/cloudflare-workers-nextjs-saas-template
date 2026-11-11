@@ -9,11 +9,13 @@ import { GITHUB_REPO_URL, SITE_DOMAIN } from "@/constants";
 const GITHUB_STARS_FETCH_TIMEOUT_MS = 2_000;
 
 export const getGithubStars = cache(async () => {
-  if (!GITHUB_REPO_URL || typeof GITHUB_REPO_URL !== "string") {
+  // Widen the literal: a fork that sets the constant to "" must still type-check this guard.
+  const githubRepoUrl: string = GITHUB_REPO_URL;
+  if (!githubRepoUrl) {
     return null;
   }
 
-  const match = GITHUB_REPO_URL.match(/github\.com\/([^/]+)\/([^/]+)/);
+  const match = githubRepoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
   if (!match) {
     return null;
   }
