@@ -378,7 +378,7 @@
       },
       "Mcp": {
         "title": "Connecting AI agents (MCP)",
-        "description": "The public API is also a remote MCP server, so any compatible agent client can use it as a set of tools. Every REST operation becomes one tool, derived from the same OpenAPI document this site publishes.",
+        "description": "The public API is also a remote MCP server, so any compatible agent client can use it as a set of tools. Its tools come from the same OpenAPI document that this site publishes, and the API reference names the tool for each operation.",
         "apiReferenceLink": "Browse the REST API reference",
         "oauthTitle": "Option 1: sign in with OAuth",
         "oauthBody": "Paste the endpoint URL into the client and it discovers the authorization server and opens a consent screen in your browser. Clients with a stable metadata-document identity use it directly; other compatible clients dynamically register as a fallback. You approve the requested scopes once, and the grant can be revoked under Settings → API & MCP. OAuth is the only option for hosted assistants with no bearer-token field.",
@@ -386,7 +386,7 @@
         "apiKeyBody": "Create a key in your account settings, grant it only the scopes the agent needs, and have the client send it as an Authorization bearer header. The secret is shown once at creation. Command-line and editor clients support this; it needs no browser round trip, which makes it convenient for scripts and CI.",
         "clientsTitle": "Per-client setup",
         "toolsTitle": "Which tools an agent sees",
-        "toolsBody": "Tool listings are filtered by the credential: an operation whose scope the key or grant does not hold is never advertised, so an agent cannot even attempt it. Team permissions are checked again on every call, so revoking someone's membership removes their agent's access too. Failed calls come back with the API's stable error code rather than translated prose, which is what lets a model react to a missing scope or a rate limit.",
+        "toolsBody": "Tool listings are filtered by the credential: an operation whose scope the key or grant does not hold is never advertised, so an agent cannot even attempt it. Team permissions are checked again on every call, so revoking someone's membership removes their agent's access too. A tool that is not in the list needs a scope that the credential does not hold, and the server instructions tell the agent so. Failed calls come back with the API's stable error code rather than translated prose, which lets a model react to a missing team permission or a rate limit.",
         "authLink": "How authentication works",
         "meta": {
           "title": "Connecting AI agents (MCP)",

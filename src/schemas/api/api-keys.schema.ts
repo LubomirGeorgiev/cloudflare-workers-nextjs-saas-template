@@ -1,6 +1,7 @@
 import { v } from "@/lib/validation";
 import { apiKeyIdField, apiKeyScopesField } from "@/schemas/api-key.schema";
-import { teamIdField } from "@/schemas/fields";
+import { API_SCOPE_NAMES } from "@/lib/api/scopes";
+import { API_ID_EXAMPLES, teamIdField } from "@/schemas/fields";
 import { isoDateSchema, nullableIsoDateSchema } from "@/schemas/api/common.schema";
 
 /** `GET /api-keys`: personal keys by default, a team's keys when `teamId` is given. */
@@ -20,12 +21,12 @@ export const updateApiKeyScopesBodySchema = v.object({
 });
 
 export const apiKeySchema = v.object({
-  id: v.string(),
+  id: v.pipe(v.string(), v.examples([API_ID_EXAMPLES.apiKey])),
   name: v.string(),
   keyPrefix: v.string(),
   last4: v.string(),
-  scopes: v.array(v.string()),
-  teamId: v.nullable(v.string()),
+  scopes: v.pipe(v.array(v.string()), v.examples([[API_SCOPE_NAMES[0]]])),
+  teamId: v.nullable(v.pipe(v.string(), v.examples([API_ID_EXAMPLES.team]))),
   createdAt: isoDateSchema,
   lastUsedAt: nullableIsoDateSchema,
   expiresAt: nullableIsoDateSchema,

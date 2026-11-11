@@ -49,6 +49,18 @@ export interface McpToolDescriptor {
   inputSchema: JsonSchemaObject;
   /** Only set for object-shaped success responses — `structuredContent` must be an object. */
   outputSchema?: JsonSchemaObject;
+  annotations: McpToolAnnotations;
+}
+
+/** MCP tool hints, so a client can approve reads without a prompt. */
+interface McpToolAnnotations {
+  readOnlyHint: boolean;
+}
+
+// The method proves only "read" or "write". A PUT or POST can destroy too (a ban), so no tool
+// sets `destructiveHint`, and the MCP default (true) applies to every write.
+function annotationsFor(method: string): McpToolAnnotations {
+  return { readOnlyHint: method === "GET" };
 }
 
 /** `x-mcp: false` on an operation hides it; anything else (including absent) keeps it. */
@@ -346,16 +358,18 @@ function toDescriptor({
   }
 
   const outputSchema = outputSchemaFor(operation);
+  const upperMethod = method.toUpperCase();
 
   return {
     name: override?.name ?? operation.operationId,
     operationId: operation.operationId,
-    method: method.toUpperCase(),
+    method: upperMethod,
     path,
     scope: scopeOfOperation(operation),
     audience: audienceOfOperation(operation),
     ...describeTool({ operation, override }),
     ...buildInputShape({ operation, operationId: operation.operationId }),
     ...(outputSchema ? { outputSchema } : {}),
+    annotations: annotationsFor(upperMethod),
   };
 }

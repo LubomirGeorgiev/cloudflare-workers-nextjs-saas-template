@@ -378,7 +378,7 @@
       },
       "Mcp": {
         "title": "Conectar agentes de IA (MCP)",
-        "description": "La API pública también es un servidor MCP remoto, así que cualquier cliente de agente compatible puede usarla como un conjunto de herramientas. Cada operación REST se convierte en una herramienta, derivada del mismo documento OpenAPI que publica este sitio.",
+        "description": "La API pública también es un servidor MCP remoto, así que cualquier cliente de agente compatible puede usarla como un conjunto de herramientas. Sus herramientas salen del mismo documento OpenAPI que publica este sitio, y la referencia de la API indica la herramienta de cada operación.",
         "apiReferenceLink": "Ver la referencia de la API REST",
         "oauthTitle": "Opción 1: iniciar sesión con OAuth",
         "oauthBody": "Pega la URL del endpoint en el cliente: descubrirá el servidor de autorización y abrirá una pantalla de consentimiento en tu navegador. Los clientes con una identidad estable mediante documento de metadatos la usan directamente; los demás clientes compatibles se registran dinámicamente como alternativa. Apruebas los permisos una vez y puedes revocar la concesión en Ajustes → API y MCP. OAuth es la única opción para asistentes alojados sin campo para un token bearer.",
@@ -386,7 +386,7 @@
         "apiKeyBody": "Crea una clave en los ajustes de tu cuenta, concédele solo los permisos que el agente necesita y haz que el cliente la envíe como cabecera Authorization bearer. El secreto se muestra una sola vez al crearlo. Los clientes de línea de comandos y de editor lo admiten; no requiere pasar por el navegador, lo que resulta cómodo para scripts y CI.",
         "clientsTitle": "Configuración por cliente",
         "toolsTitle": "Qué herramientas ve un agente",
-        "toolsBody": "El listado de herramientas se filtra según la credencial: una operación cuyo permiso no tenga la clave o la concesión nunca se anuncia, así que el agente ni siquiera puede intentarla. Los permisos de equipo se comprueban de nuevo en cada llamada, de modo que revocar la pertenencia de alguien también elimina el acceso de su agente. Las llamadas fallidas devuelven el código de error estable de la API en lugar de texto traducido, que es lo que permite a un modelo reaccionar ante un permiso ausente o un límite de velocidad.",
+        "toolsBody": "El listado de herramientas se filtra según la credencial: una operación cuyo permiso no tenga la clave o la concesión nunca se anuncia, así que el agente ni siquiera puede intentarla. Los permisos de equipo se comprueban de nuevo en cada llamada, de modo que revocar la pertenencia de alguien también elimina el acceso de su agente. Una herramienta que no aparece en el listado necesita un permiso que la credencial no tiene, y las instrucciones del servidor se lo indican al agente. Las llamadas fallidas devuelven el código de error estable de la API en lugar de texto traducido, lo que permite a un modelo reaccionar ante un permiso de equipo ausente o un límite de velocidad.",
         "authLink": "Cómo funciona la autenticación",
         "meta": {
           "title": "Conectar agentes de IA (MCP)",

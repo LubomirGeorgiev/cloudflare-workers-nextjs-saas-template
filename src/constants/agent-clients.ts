@@ -1,4 +1,5 @@
-import { MCP_PATH, SITE_URL } from "@/constants";
+import { MCP_PATH, SITE_NAME, SITE_URL } from "@/constants";
+import { generateSlug } from "@/utils/slugify";
 
 // ---------------------------------------------------------------------------
 // The agent clients this template ships setup snippets for.
@@ -19,8 +20,11 @@ const MCP_URL_TOKEN = "{{MCP_URL}}";
 const API_KEY_TOKEN = "{{API_KEY}}";
 const SERVER_KEY_TOKEN = "{{SERVER_KEY}}";
 
-/** The server name agent clients register the connection under; safe as a config object key. */
-export const AGENT_SERVER_KEY = "saas-template";
+/**
+ * The server name agent clients register the connection under; safe as a config object key.
+ * A site name with no Latin letters or digits slugs to "", which would break every command.
+ */
+export const AGENT_SERVER_KEY = generateSlug(SITE_NAME) || "mcp";
 
 export type AgentClientAuthFlavor = "oauth" | "api-key";
 /** Drives the code-block label and syntax highlighting: what a user has to do with the snippet. */
@@ -213,7 +217,7 @@ export const AGENT_CLIENTS: AgentClient[] = [
   },
   {
     // Config key is `mcp`, not `mcpServers`, and remote servers need `"type": "remote"`. OAuth is
-    // discovered automatically (dynamic client registration); `opencode mcp auth saas-template`
+    // discovered automatically (dynamic client registration); `opencode mcp auth <server key>`
     // forces the browser flow early. A project-local `opencode.json` works the same way.
     id: "opencode",
     name: "opencode",

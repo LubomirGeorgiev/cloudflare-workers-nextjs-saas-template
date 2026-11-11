@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { API_KEY_PREFIX_LIVE, MCP_PATH, SITE_URL } from "@/constants";
+import { API_KEY_PREFIX_LIVE, MCP_PATH, SITE_NAME, SITE_URL } from "@/constants";
 import {
   AGENT_CLIENTS,
   AGENT_SERVER_KEY,
@@ -15,6 +15,7 @@ import {
   renderAgentClientSnippet,
   type AgentClient,
 } from "@/constants/agent-clients";
+import { generateSlug } from "@/utils/slugify";
 
 const FRESH_SECRET = `${API_KEY_PREFIX_LIVE}exampleSecretValue`;
 
@@ -56,6 +57,16 @@ describe("agent client registry", () => {
   test("hosted assistants are offered over OAuth and CLI clients over both", () => {
     expect(getAgentClientsForFlavor("oauth").length).toBe(AGENT_CLIENTS.length);
     expect(getAgentClientsForFlavor("api-key").length).toBeGreaterThan(0);
+  });
+});
+
+describe("AGENT_SERVER_KEY", () => {
+  test("is the site name as a slug that every client accepts as a config key", () => {
+    expect(AGENT_SERVER_KEY).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    const siteSlug = generateSlug(SITE_NAME);
+    if (siteSlug) {
+      expect(AGENT_SERVER_KEY).toBe(siteSlug);
+    }
   });
 });
 

@@ -1,9 +1,9 @@
 import { isoDateSchema, nullableIsoDateSchema } from "@/schemas/api/common.schema";
 import { v } from "@/lib/validation";
-import { sessionIdField } from "@/schemas/fields";
+import { API_ID_EXAMPLES, sessionIdField } from "@/schemas/fields";
 
 export const meSchema = v.object({
-  id: v.string(),
+  id: v.pipe(v.string(), v.examples([API_ID_EXAMPLES.user])),
   // Nullable in D1: an account can exist without an email address.
   email: v.nullable(v.string()),
   firstName: v.nullable(v.string()),

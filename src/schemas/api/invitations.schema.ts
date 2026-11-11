@@ -1,6 +1,7 @@
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { v } from "@/lib/validation";
 import { isoDateSchema } from "@/schemas/api/common.schema";
+import { API_ID_EXAMPLES } from "@/schemas/fields";
 import { inviteUserSchema } from "@/schemas/team-membership.schema";
 
 const invitationBody = v.omit(inviteUserSchema, ["teamId"]);
@@ -18,7 +19,7 @@ export const createInvitationSchema = v.object({
 });
 
 export const invitationSchema = v.object({
-  id: v.string(),
+  id: v.pipe(v.string(), v.examples([API_ID_EXAMPLES.invitation])),
   email: v.string(),
   roleId: v.string(),
   roleName: v.nullable(v.string()),

@@ -29,6 +29,7 @@ function buildToolConfig(descriptor: McpToolDescriptor) {
   return {
     title: descriptor.title,
     description: descriptor.description,
+    annotations: descriptor.annotations,
     inputSchema: fromJsonSchema<Record<string, unknown>>(descriptor.inputSchema as JsonSchemaType),
     ...(descriptor.outputSchema
       ? { outputSchema: fromJsonSchema(descriptor.outputSchema as JsonSchemaType) }
@@ -121,6 +122,7 @@ export function buildDerivedMcpServer({
   requestInfo,
   isReachable,
   registerExtraTools,
+  instructions,
 }: {
   name: string;
   document: OpenAPIV3_1.Document;
@@ -130,8 +132,10 @@ export function buildDerivedMcpServer({
   /** Keeps `tools/list` honest: a credential never sees a tool whose operation it could not call. */
   isReachable: (descriptor: McpToolDescriptor) => boolean;
   registerExtraTools?: (params: { server: McpServer; principal: ApiPrincipal }) => void;
+  /** Sent on `initialize`; clients show it to the model before any tool call. */
+  instructions?: string;
 }): McpServer {
-  const server = new McpServer({ name, version: API_VERSION });
+  const server = new McpServer({ name, version: API_VERSION }, instructions ? { instructions } : undefined);
   const origin = requestInfo ? new URL(requestInfo.url).origin : `https://${SITE_DOMAIN}`;
 
   for (const registration of loadToolRegistrations(document)) {

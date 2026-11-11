@@ -69,8 +69,14 @@ function asSchemaNode(value: unknown): SchemaNode | undefined {
     : undefined;
 }
 
+// A pipe can start with a piped schema (`v.pipe(idField(), v.description(...))`), whose own pipe
+// holds the bound, so the search goes into that schema too.
 function hasAction(node: SchemaNode, actionType: string): boolean {
-  return (node.pipe ?? []).some((item) => item.type === actionType);
+  return (node.pipe ?? []).some((item) => {
+    const inner = asSchemaNode(item);
+
+    return item.type === actionType || (inner !== undefined && hasAction(inner, actionType));
+  });
 }
 
 function collectUnbounded({

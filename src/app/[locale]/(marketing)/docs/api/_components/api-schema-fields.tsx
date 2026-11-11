@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import type { ParameterView, SchemaFieldView } from "@/lib/api/reference-model";
 import { cn } from "@/lib/utils";
 
+import { ApiProse } from "./api-prose";
+
 // One row per documented field. Rows, not a table: a schema nests, and an indented row reads as
 // nesting where a table cell does not. Type names, constraints, and enum values are contract
 // vocabulary and stay untranslated — only the requiredness chips are localized, resolved once per
@@ -108,7 +110,9 @@ function FieldRow({
       </div>
 
       {description ? (
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <ApiProse text={description} />
+        </p>
       ) : null}
 
       <EnumValues values={enumValues} />

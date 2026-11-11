@@ -2,7 +2,7 @@ import { API_KEY_MAX_EXPIRY_DAYS, API_KEY_NAME_MAX_LENGTH } from "@/constants";
 import { API_SCOPE_NAMES } from "@/lib/api/scopes";
 import { teamIdField } from "@/schemas/fields";
 import { encodeValidationMessage, trimmedString, v, validationKey } from "@/lib/validation";
-import { idField } from "@/schemas/fields";
+import { API_ID_EXAMPLES, idField } from "@/schemas/fields";
 
 const API_KEY_NAME_REQUIRED_MESSAGE = validationKey("apiKeyNameRequired");
 const API_KEY_SCOPES_REQUIRED_MESSAGE = validationKey("apiKeyScopesRequired");
@@ -16,7 +16,11 @@ const apiKeyNameField = trimmedString({
 
 /** The key id, wherever it arrives: a form body, an action input, or a REST path parameter. */
 export function apiKeyIdField() {
-  return idField(validationKey("apiKeyIdRequired"));
+  return v.pipe(
+    idField(validationKey("apiKeyIdRequired")),
+    v.description("The API key `id` (it starts with `akey_`), not the secret."),
+    v.examples([API_ID_EXAMPLES.apiKey]),
+  );
 }
 
 // Capped at the catalog size: every scope at once is the most a key can ever legitimately hold,

@@ -38,13 +38,30 @@ export function returnToField() {
   return v.fallback(v.optional(minMaxString({ max: RETURN_TO_MAX_LENGTH })), undefined);
 }
 
+/** Realistic ids for the API document, so an example shows the prefix instead of "string". */
+export const API_ID_EXAMPLES = {
+  team: "team_Xc3vQ9LmT2bR8nWy",
+  user: "usr_Kp4sW8nQ1vZx6TbM",
+  invitation: "tinv_R7mY2cLq9XwB5hNd",
+  apiKey: "akey_Q2nV8tLx4ZcM7rWb",
+} as const;
+
+// The description and example reach the OpenAPI document and the MCP tool schemas, where an
+// agent otherwise guesses that the slug in a dashboard URL is the id.
 /** Path or body `teamId`. Not a `v.object`: callers compose it with their own fields. */
 export function teamIdField() {
-  return idField(validationKey("teamIdRequired"));
+  return v.pipe(
+    idField(validationKey("teamIdRequired")),
+    v.description("The team `id` (it starts with `team_`), not the team slug."),
+    v.examples([API_ID_EXAMPLES.team]),
+  );
 }
 
 export function sessionIdField() {
-  return idField(validationKey("sessionIdRequired"));
+  return v.pipe(
+    idField(validationKey("sessionIdRequired")),
+    v.description("The session `id`, as listMySessions returns it."),
+  );
 }
 
 /** The `/teams/:teamId` path parameter, which most API routes validate. */

@@ -1,5 +1,6 @@
 import { v } from "@/lib/validation";
 import { nullableIsoDateSchema } from "@/schemas/api/common.schema";
+import { API_ID_EXAMPLES } from "@/schemas/fields";
 import { renameTeamSchema } from "@/schemas/team.schema";
 
 // The rename body drops `teamId`: the path already carries it, and accepting it twice would
@@ -7,7 +8,7 @@ import { renameTeamSchema } from "@/schemas/team.schema";
 export const updateTeamSchema = v.omit(renameTeamSchema, ["teamId"]);
 
 export const teamSchema = v.object({
-  id: v.string(),
+  id: v.pipe(v.string(), v.examples([API_ID_EXAMPLES.team])),
   name: v.string(),
   slug: v.string(),
   description: v.nullable(v.string()),

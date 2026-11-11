@@ -1,5 +1,5 @@
 import { emailString, v, validationKey } from "@/lib/validation";
-import { idField, teamIdField, tokenField } from "@/schemas/fields";
+import { API_ID_EXAMPLES, idField, teamIdField, tokenField } from "@/schemas/fields";
 
 // `emailString()` carries EMAIL_MAX_LENGTH itself, so this is the shared rule with nothing added.
 const teamMemberEmailField = emailString();
@@ -21,7 +21,11 @@ export const inviteUserSchema = v.object({
 
 export const removeMemberSchema = v.object({
   teamId: teamIdField(),
-  userId: idField(validationKey("userIdRequired")),
+  userId: v.pipe(
+    idField(validationKey("userIdRequired")),
+    v.description("The user `id` of the member (it starts with `usr_`), as listTeamMembers returns it."),
+    v.examples([API_ID_EXAMPLES.user]),
+  ),
 });
 
 export const leaveTeamSchema = v.object({
@@ -36,7 +40,11 @@ export const invitationIdSchema = v.object({
 
 export const revokeTeamInvitationSchema = v.object({
   teamId: teamIdField(),
-  invitationId: idField(validationKey("invitationIdRequired")),
+  invitationId: v.pipe(
+    idField(validationKey("invitationIdRequired")),
+    v.description("The invitation `id` (it starts with `tinv_`), as listTeamInvitations returns it."),
+    v.examples([API_ID_EXAMPLES.invitation]),
+  ),
 });
 
 export type RevokeTeamInvitationSchema = v.InferOutput<typeof revokeTeamInvitationSchema>;

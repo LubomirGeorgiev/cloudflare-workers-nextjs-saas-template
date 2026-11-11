@@ -9,6 +9,7 @@ import { API_SCOPE_NAMES, describeApiScope } from "@/lib/api/scopes";
 import {
   buildApiReferenceView,
   buildCurlSnippet,
+  splitInlineCode,
   type OperationView,
 } from "@/lib/api/reference-model";
 
@@ -148,6 +149,24 @@ describe("buildApiReferenceView", () => {
       ["size", "number", false],
     ]);
     expect(success.schema?.example).toEqual([{ id: "string", size: 0 }]);
+  });
+
+  test("a JSON Schema `examples` value is the example, not the type name", () => {
+    const operation = only({
+      "/api/v1/widgets": {
+        get: {
+          ...LIST_WIDGETS,
+          responses: {
+            200: jsonResponse({
+              type: "object",
+              properties: { id: { type: "string", examples: ["wid_1", "wid_2"] } },
+            }),
+          },
+        },
+      },
+    });
+
+    expect(operation.successResponses[0].schema?.example).toEqual({ id: "wid_1" });
   });
 
   test("nullable unions collapse to one field row rather than reading as a union", () => {
@@ -407,5 +426,21 @@ describe("buildCurlSnippet", () => {
 
     expect(snippet).toContain('-H "Content-Type: application/merge-patch+json"');
     expect(snippet).not.toContain("Content-Type: application/json");
+  });
+});
+
+describe("splitInlineCode", () => {
+  test("backtick spans become code segments, and the backticks go", () => {
+    expect(splitInlineCode("Pass `teamId`, not `slug`.")).toEqual([
+      { text: "Pass ", code: false },
+      { text: "teamId", code: true },
+      { text: ", not ", code: false },
+      { text: "slug", code: true },
+      { text: ".", code: false },
+    ]);
+  });
+
+  test("text with no complete span stays one plain segment", () => {
+    expect(splitInlineCode("A lone ` backtick")).toEqual([{ text: "A lone ` backtick", code: false }]);
   });
 });

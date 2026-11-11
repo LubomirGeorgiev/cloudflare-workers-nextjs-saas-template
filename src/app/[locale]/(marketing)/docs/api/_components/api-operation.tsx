@@ -2,6 +2,7 @@ import { LinkIcon } from "lucide-react";
 
 import { ApiCodeBlock } from "./api-code-block";
 import { ApiJsonPreview } from "./api-json-preview";
+import { ApiProse } from "./api-prose";
 import { ApiParameterFields, ApiSchemaFields, type FieldRowLabels } from "./api-schema-fields";
 import { filterAttributes, methodStyle } from "./api-reference-dom";
 import { API_AUTH_DOCS_PATH, API_ERRORS_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
@@ -311,7 +312,7 @@ export function ApiOperation({
           <h3 className="text-base font-semibold tracking-tight">{operation.summary}</h3>
           {operation.description ? (
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              {operation.description}
+              <ApiProse text={operation.description} />
             </p>
           ) : null}
         </div>

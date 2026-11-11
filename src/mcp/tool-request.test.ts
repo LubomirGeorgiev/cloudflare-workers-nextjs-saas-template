@@ -24,6 +24,7 @@ function descriptor(overrides: Partial<McpToolDescriptor> = {}): McpToolDescript
     bodyParams: ["name"],
     wrapsBody: false,
     inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: false },
     ...overrides,
   };
 }

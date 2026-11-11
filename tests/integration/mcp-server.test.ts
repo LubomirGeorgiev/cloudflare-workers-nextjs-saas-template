@@ -14,6 +14,7 @@ import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
 import { beforeAll, expect, test, vi } from "vitest";
 
+import { adminApiDocument } from "@/api/admin/generated-document";
 import {
   API_OPENAPI_SPEC_PATH,
   MCP_PATH,
@@ -67,6 +68,7 @@ interface JsonRpcResponse {
 interface McpTool {
   name: string;
   description?: string;
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean };
   inputSchema?: { properties?: Record<string, unknown>; required?: string[] };
   outputSchema?: Record<string, unknown>;
 }
@@ -222,6 +224,53 @@ test("the handshake identifies the server and advertises tools", async () => {
   expect(message.error).toBeUndefined();
   expect(message.result?.serverInfo).toMatchObject({ name: expect.any(String) });
   expect(message.result?.capabilities).toMatchObject({ tools: expect.any(Object) });
+
+  // This key lacks `teams:read`, so the tool that the instructions name first must not need it.
+  const listed = (await listTools(token)).map((tool) => tool.name);
+  const [firstLine] = String(message.result?.instructions).split("\n");
+  const firstTool = listed.find((name) => firstLine.startsWith(`Call ${name} `));
+  expect(firstTool).toBeDefined();
+  expect(listed).not.toContain("listTeams");
+});
+
+// A write that claims `destructiveHint: false` lets a client skip its confirmation, so no tool may
+// claim it. The MCP default (true) then applies to every write.
+test("advertised tools carry the read hint of their operation, and no write claims to be safe", async () => {
+  const { token } = await seedKeyedUser([...API_SCOPE_NAMES]);
+  const document = await (await callWorker(API_OPENAPI_SPEC_PATH)).json() as Parameters<
+    typeof deriveMcpTools
+  >[0]["document"];
+  const methodByName = new Map(deriveMcpTools({ document }).map((tool) => [tool.name, tool.method]));
+  const checkedMethods = new Set<string>();
+
+  for (const tool of await listTools(token)) {
+    const method = methodByName.get(tool.name);
+    // A fork's custom tool has no operation, so it sets its own hints.
+    if (!method) {
+      continue;
+    }
+    checkedMethods.add(method);
+    expect(tool.annotations?.readOnlyHint).toBe(method === "GET");
+    expect(tool.annotations).not.toHaveProperty("destructiveHint");
+  }
+
+  expect(checkedMethods).toContain("GET");
+  expect([...checkedMethods].some((method) => method !== "GET")).toBe(true);
+});
+
+// The internal server derives from its own document. A ban and a role change are PUTs that revoke
+// access, which is the case a method-based `destructiveHint: false` got wrong.
+test("internal write tools such as the ban do not claim to be non-destructive", () => {
+  const tools = new Map(deriveMcpTools({ document: adminApiDocument() }).map((tool) => [tool.name, tool]));
+
+  for (const name of ["adminBanUser", "adminSetUserRole"]) {
+    const tool = tools.get(name);
+    expect(tool?.method).not.toBe("GET");
+    expect(tool?.annotations).toEqual({ readOnlyHint: false });
+  }
+
+  const read = [...tools.values()].find((tool) => tool.method === "GET");
+  expect(read?.annotations).toEqual({ readOnlyHint: true });
 });
 
 // The template's defining property: the tool surface is the API surface, with no hand-written list

@@ -9,7 +9,7 @@ import { MCP_PATH, SITE_NAME } from "@/constants";
 import { hasScope, type ApiPrincipal } from "@/lib/api/principal";
 import { isApiScope } from "@/lib/api/scopes";
 import { buildDerivedMcpServer } from "@/mcp/derived-server";
-import type { McpToolDescriptor } from "@/mcp/derive-tools";
+import { mcpToolNameByOperationId, type McpToolDescriptor } from "@/mcp/derive-tools";
 import { requireMcpPrincipal } from "@/mcp/principal";
 
 // The remote MCP server. Tools are derived from the same OpenAPI document the docs UI reads, so a
@@ -57,6 +57,24 @@ function isReachable({
   return isApiScope(descriptor.scope) && hasScope(principal, descriptor.scope);
 }
 
+// Machine text, so untranslated. Tool names come from the derived map, so an override rename stays true.
+function serverInstructions(): string {
+  const names = mcpToolNameByOperationId(apiDocument());
+  const tool = (operationId: string) => names.get(operationId) ?? operationId;
+
+  return [
+    `Call ${tool("getCredential")} first. Every credential can call it. It returns the audience, ` +
+      "the team `id` of a team credential, and the scopes in force.",
+    "A team tool takes the team `id`, not the team slug. A personal credential can get the ids " +
+      `from ${tool("listTeams")} when that tool is listed.`,
+    "The tool list shows only the tools that this credential can call. A missing scope hides a " +
+      "tool. A team credential sees no account tool. Some operations are not offered as tools. " +
+      "When a scope or the audience hides a tool that you need, ask the user for a different credential.",
+    "A failed call returns a stable error `code` and a `detail` that names the cause. Branch on " +
+      "the code, and read the detail to decide the next step.",
+  ].join("\n");
+}
+
 async function createMcpServer({ requestInfo }: { requestInfo?: Request }) {
   const principal = await requireMcpPrincipal({ missingCredentialMessage: MISSING_CREDENTIAL });
 
@@ -68,6 +86,7 @@ async function createMcpServer({ requestInfo }: { requestInfo?: Request }) {
     requestInfo,
     isReachable: (descriptor) => isReachable({ descriptor, principal }),
     registerExtraTools: registerCustomTools,
+    instructions: serverInstructions(),
   });
 }
 
@@ -80,7 +99,6 @@ const mcpHandler = createMcpHandler(createMcpServer, {
 });
 
 /** Mounted on the OAuth provider's `apiHandlers`, which is what authenticates the request. */
-// fallow-ignore-next-line unused-export -- Reached by dynamic import from worker-entrypoint.ts.
 export const mcpApiHandler = {
   fetch: (request: Request, workerEnv: Env, ctx: ExecutionContext): Promise<Response> =>
     mcpHandler(request, workerEnv, ctx),

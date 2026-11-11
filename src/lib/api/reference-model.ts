@@ -28,6 +28,23 @@ const ADDITIONAL_PROPERTY_EXAMPLE_KEY = "key";
 /** `typeof` results a literal is labelled by directly; anything else is unknown. */
 const LITERAL_TYPE_LABELS = ["boolean", "number", "object", "string"] as const;
 
+/** A run of description text; `code` runs were wrapped in backticks in the document. */
+interface ProseSegment {
+  text: string;
+  code: boolean;
+}
+
+/**
+ * Descriptions use Markdown backticks for identifiers. Rendered as plain text, they show raw
+ * backticks, and the page's Markdown twin escapes them, so they become code spans here.
+ */
+export function splitInlineCode(text: string): ProseSegment[] {
+  return text
+    .split(/`([^`]+)`/)
+    .map((part, index) => ({ text: part, code: index % 2 === 1 }))
+    .filter((segment) => segment.text !== "");
+}
+
 /** operationId -> the name the operation is advertised under to agents. */
 type McpToolNames = ReadonlyMap<string, string>;
 
@@ -442,6 +459,15 @@ function objectExample({
   return schema.additionalProperties === true ? { [ADDITIONAL_PROPERTY_EXAMPLE_KEY]: "string" } : {};
 }
 
+// OpenAPI 3.1 deprecates `example` for JSON Schema `examples`, which is what Valibot emits.
+function documentedExample(schema: Record<string, unknown>): unknown {
+  if (schema.example !== undefined) {
+    return schema.example;
+  }
+
+  return Array.isArray(schema.examples) ? schema.examples[0] : undefined;
+}
+
 function buildExample({ input, depth }: { input: unknown; depth: number }): unknown {
   const { schema, nullable } = resolveSchema(input);
 
@@ -454,8 +480,9 @@ function buildExample({ input, depth }: { input: unknown; depth: number }): unkn
   if (schema.default !== undefined) {
     return schema.default;
   }
-  if (schema.example !== undefined) {
-    return schema.example;
+  const documented = documentedExample(schema);
+  if (documented !== undefined) {
+    return documented;
   }
 
   const enumValues = Array.isArray(schema.enum) ? schema.enum : [];

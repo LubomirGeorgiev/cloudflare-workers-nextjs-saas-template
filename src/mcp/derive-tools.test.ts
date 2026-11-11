@@ -66,6 +66,30 @@ describe("deriveMcpTools", () => {
     });
   });
 
+  // A PUT can destroy (the admin ban is one), so no write may claim `destructiveHint: false`.
+  // The generated documents need the vite plugin; tests/integration/mcp-server.test.ts checks them.
+  test("the method sets only the read hint, so every write keeps the MCP destructive default", () => {
+    const tools = deriveMcpTools({
+      document: document({
+        "/widgets": {
+          get: LIST_WIDGETS,
+          post: { ...LIST_WIDGETS, operationId: "createWidget" },
+          delete: { ...LIST_WIDGETS, operationId: "deleteWidget" },
+        },
+        "/widgets/{id}/ban": {
+          put: { ...LIST_WIDGETS, operationId: "banWidget" },
+          patch: { ...LIST_WIDGETS, operationId: "patchWidget" },
+        },
+      }),
+      overrides: NO_OVERRIDES,
+    });
+
+    expect(byName(tools, "listWidgets").annotations).toEqual({ readOnlyHint: true });
+    for (const name of ["createWidget", "banWidget", "patchWidget", "deleteWidget"]) {
+      expect(byName(tools, name).annotations).toEqual({ readOnlyHint: false });
+    }
+  });
+
   test("an operation with no operationId cannot become a tool", () => {
     const tools = deriveMcpTools({
       document: document({ "/widgets": { get: { summary: "Anonymous" } } }),
