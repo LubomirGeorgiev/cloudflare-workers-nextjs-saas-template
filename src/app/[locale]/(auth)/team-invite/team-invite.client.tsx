@@ -11,8 +11,18 @@ import { Spinner } from "@/components/ui/spinner";
 import { AuthStatusCard } from "@/app/[locale]/(auth)/_components/auth-status-card";
 import { v } from "@/lib/validation";
 import { useTranslations } from "@/i18n/client";
+import { Button } from "@/components/ui/button";
+import useSignOut from "@/hooks/useSignOut";
+import { getTeamInviteSignInPath } from "@/lib/teams/team-invite-links";
 
-export default function TeamInviteClientComponent() {
+const WRONG_EMAIL_ERROR_KEY = "Client.Dashboard.Teams.errorInvitationWrongEmail";
+const EMAIL_VERIFICATION_REQUIRED_ERROR_KEY = "Client.Errors.emailVerificationRequired";
+const EXPIRED_OR_REVOKED_ERROR_KEYS = new Set([
+  "Client.Dashboard.Teams.errorInvitationNotFound",
+  "Client.Dashboard.Teams.errorInvitationExpired",
+]);
+
+export default function TeamInviteClientComponent({ currentEmail }: { currentEmail: string | null }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -74,22 +84,22 @@ export default function TeamInviteClientComponent() {
     );
   }
 
+  if (error && token && error.reason === WRONG_EMAIL_ERROR_KEY) {
+    return <WrongAccountCard message={error.message} currentEmail={currentEmail} token={token} />;
+  }
+
   if (error) {
+    const hintKey = getErrorHintKey(error);
+
     return (
       <AuthStatusCard
         title={t("errorTitle")}
-        description={error?.message || t("errorDescriptionFallback")}
+        description={error.message || t("errorDescriptionFallback")}
         actionLabel={t("goToDashboard")}
         onAction={() => router.push("/dashboard")}
         contentClassName="flex flex-col gap-4"
       >
-        <p className="text-sm text-muted-foreground">
-          {error?.code === "CONFLICT"
-            ? t("errorAlreadyMember")
-            : error?.reason === "Client.Dashboard.Teams.errorJoinLimit"
-            ? t("errorTeamLimitReached")
-            : t("errorExpiredOrRevoked")}
-        </p>
+        {hintKey && <p className="text-sm text-muted-foreground">{t(hintKey)}</p>}
       </AuthStatusCard>
     );
   }
@@ -103,6 +113,64 @@ export default function TeamInviteClientComponent() {
         onAction={() => router.push("/dashboard")}
       />
     );
+  }
+
+  return null;
+}
+
+function WrongAccountCard({
+  message,
+  currentEmail,
+  token,
+}: {
+  message: string;
+  currentEmail: string | null;
+  token: string;
+}) {
+  const router = useRouter();
+  const { signOut } = useSignOut();
+  const t = useTranslations("Client.Auth.TeamInvite");
+
+  return (
+    <AuthStatusCard
+      title={t("errorTitle")}
+      description={message}
+      actionLabel={t("goToDashboard")}
+      onAction={() => router.push("/dashboard")}
+      contentClassName="flex flex-col gap-4"
+    >
+      {currentEmail && (
+        <p className="text-sm text-muted-foreground">
+          {t("errorWrongAccount", { email: currentEmail })}
+        </p>
+      )}
+      <Button
+        className="w-full"
+        onClick={() => void signOut({ redirectTo: getTeamInviteSignInPath(token) })}
+      >
+        {t("signOutAndContinue")}
+      </Button>
+    </AuthStatusCard>
+  );
+}
+
+// Each hint names one cause, so it shows only for the errors that have that cause.
+function getErrorHintKey(error: { code: string; reason?: string }) {
+  if (error.code === "CONFLICT") {
+    return "errorAlreadyMember";
+  }
+
+  if (error.reason === "Client.Dashboard.Teams.errorJoinLimit") {
+    return "errorTeamLimitReached";
+  }
+
+  if (error.reason && EXPIRED_OR_REVOKED_ERROR_KEYS.has(error.reason)) {
+    return "errorExpiredOrRevoked";
+  }
+
+  // verify-email.client.tsx has no return path to this page, so the user must open the link again.
+  if (error.reason === EMAIL_VERIFICATION_REQUIRED_ERROR_KEY) {
+    return "errorVerifyEmailFirst";
   }
 
   return null;

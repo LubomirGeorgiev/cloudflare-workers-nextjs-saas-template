@@ -5,6 +5,9 @@ import { getTranslator } from "@/i18n/translator";
 import TeamInviteClientComponent from "./team-invite.client";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
+import { TEAM_INVITE_PATH } from "@/constants";
+import { getTeamInviteSignInPath } from "@/lib/teams/team-invite-links";
+import { SessionHydrator } from "@/components/session-hydrator";
 
 export async function generateMetadata({
   params,
@@ -17,7 +20,7 @@ export async function generateMetadata({
   return {
     title: t("title"),
     description: t("description"),
-    alternates: buildAlternates({ pathname: "/team-invite", locale, availableLocales: LOCALES }),
+    alternates: buildAlternates({ pathname: TEAM_INVITE_PATH, locale, availableLocales: LOCALES }),
   };
 }
 
@@ -39,12 +42,14 @@ export default async function TeamInvitePage({
 
   // If user is not logged in, redirect to sign in with return URL
   if (!session) {
-    const returnUrl = `/team-invite?token=${token}`;
-    return redirect({
-      href: `/sign-in?redirect=${encodeURIComponent(returnUrl)}`,
-      locale,
-    });
+    return redirect({ href: getTeamInviteSignInPath(token), locale });
   }
 
-  return <TeamInviteClientComponent />;
+  // The (auth) layout has no SessionHydrator. A signed-in user can open the invite link directly, so
+  // fill the store from this render; the header and EmailVerificationDialog read it.
+  return (
+    <SessionHydrator session={session}>
+      <TeamInviteClientComponent currentEmail={session.user.email} />
+    </SessionHydrator>
+  );
 }

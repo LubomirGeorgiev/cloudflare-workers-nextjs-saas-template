@@ -62,6 +62,8 @@ export const CLIENT_MESSAGE_SCOPES = {
       "Auth.VerifyEmail",
       "LocaleSwitcher",
       "Nav",
+      // `useSignOut` toasts: the team invite page signs out a wrong account.
+      "Settings.Nav",
       "ThemeSwitch",
       "Validation",
     ],

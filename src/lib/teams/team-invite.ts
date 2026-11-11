@@ -10,6 +10,7 @@ import { sendTeamInvitationEmail } from "@/utils/email";
 import { getTranslator } from "@/i18n/translator";
 import { getUserLocale } from "@/i18n/locale";
 import { getTeamRowEntitlements } from "@/utils/entitlements";
+import { isEnabledLocale, type Locale } from "@/i18n/config";
 import {
   generateInvitationToken,
   hashInvitationToken,
@@ -81,15 +82,12 @@ export async function inviteUserToTeam({
   // already over a lowered cap keeps its members (never auto-evicted).
   const { limits } = getTeamRowEntitlements(team);
 
-  // The invitee may not have an account yet, so there's no preferredLocale to
-  // read - use the inviter's locale instead (request-scoped: cookie ->
-  // preferredLocale -> Accept-Language -> default).
-  const inviterLocale = await getUserLocale();
+  const emailLocale = await getInvitationEmailLocale(email);
 
-  // Email content (not an error): translated here, in the inviter's locale. Must be the
+  // Email content (not an error): translated here, in the email locale. Must be the
   // request-free translator — this service also runs on the API/MCP path, where the request-scoped
   // API in `@/i18n/server` throws.
-  const t = await getTranslator({ locale: inviterLocale, namespace: "Client.Dashboard.Teams" });
+  const t = await getTranslator({ locale: emailLocale, namespace: "Client.Dashboard.Teams" });
   const teamName = team.name || t("teamFallbackName");
 
   const inviter = {
@@ -119,7 +117,7 @@ export async function inviteUserToTeam({
       invitationToken: rawToken,
       teamName,
       inviterName: inviter.fullName || t("teamOwnerFallback"),
-      locale: inviterLocale,
+      locale: emailLocale,
     });
 
   // At most one PENDING invitation row per (team, email) — enforced by the partial unique index
@@ -200,4 +198,15 @@ export async function inviteUserToTeam({
   await sendInvitationEmail();
 
   return INVITE_SUCCESS;
+}
+
+// The email goes in the invitee's stored language. An address with no account (or no stored
+// preference) falls back to the inviter's request locale. Only the invitee sees the result.
+async function getInvitationEmailLocale(email: string): Promise<Locale> {
+  const [inviterLocale, invitee] = await Promise.all([
+    getUserLocale(),
+    getDB().query.userTable.findFirst({ where: { email }, columns: { preferredLocale: true } }),
+  ]);
+
+  return isEnabledLocale(invitee?.preferredLocale) ? invitee.preferredLocale : inviterLocale;
 }

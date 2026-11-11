@@ -9,7 +9,7 @@ const useSignOut = () => {
   const locale = useLocale();
   const t = useTranslations("Client.Settings.Nav");
 
-  const signOut = async () => {
+  const signOut = async ({ redirectTo = "/" }: { redirectTo?: string } = {}) => {
     const toastId = toast.loading(t("toastSigningOut"));
 
     try {
@@ -23,7 +23,7 @@ const useSignOut = () => {
       toast.dismiss(toastId);
       // Full reload on purpose (clears client state); keep the locale prefix
       // so a Spanish user lands on /es without a middleware redirect hop.
-      window.location.replace(getPathname({ href: "/", locale }));
+      window.location.replace(getPathname({ href: redirectTo, locale }));
     } catch (error) {
       toast.dismiss(toastId);
       toast.error(error instanceof Error ? error.message : t("toastSignOutError"));

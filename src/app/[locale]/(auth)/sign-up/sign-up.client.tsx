@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { Link } from "@/i18n/navigation";
 import SSOButtons from "../_components/sso-buttons";
+import { TeamInviteNotice } from "../_components/team-invite-notice";
 import { useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { KeyIcon } from 'lucide-react'
@@ -148,6 +149,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
               {t("signInLink")}
             </Link>
           </p>
+          <TeamInviteNotice redirectPath={redirectPath} />
         </div>
 
         <div className="space-y-4">

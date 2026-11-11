@@ -19,7 +19,7 @@ const { authState, sendInvitationEmailMock } = vi.hoisted(() => {
 
   return {
     authState,
-    sendInvitationEmailMock: vi.fn(async () => {}),
+    sendInvitationEmailMock: vi.fn<(input: { locale?: string }) => Promise<void>>(async () => {}),
   };
 });
 
@@ -45,6 +45,9 @@ vi.mock("@/i18n/locale", () => ({
 
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
+import { eq } from "drizzle-orm";
+import { ENABLED_LOCALES } from "@/i18n/config";
+import { getUserLocale } from "@/i18n/locale";
 import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import type Stripe from "stripe";
 import { TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
@@ -238,6 +241,39 @@ test("invite -> accept -> remove -> re-invite creates a usable NEW pending invit
   expect(newPending.token).toBeTruthy();
   expect(newPending.expiresAt).not.toBeNull();
   expect(new Date(newPending.expiresAt).getTime()).toBeGreaterThan(Date.now());
+});
+
+const inviterLocale = await getUserLocale();
+const otherEnabledLocale = ENABLED_LOCALES.find((locale) => locale !== inviterLocale);
+
+test("an invite to an address with no account uses the inviter's locale", async () => {
+  const f = await seedFixture();
+
+  authState.current = f.ownerSession;
+  await inviteUserToTeam({
+    teamId: f.teamId,
+    email: normalizeEmail(`${uid("stranger")}@example.com`),
+    roleId: SYSTEM_ROLES_ENUM.MEMBER,
+    isSystemRole: true,
+  });
+
+  expect(sendInvitationEmailMock).toHaveBeenCalledWith(
+    expect.objectContaining({ locale: inviterLocale }),
+  );
+});
+
+// With one enabled locale there is no second language to prefer.
+test.skipIf(!otherEnabledLocale)("an invite to an existing account uses the invitee's stored locale", async () => {
+  const f = await seedFixture();
+  await db.update(userTable)
+    .set({ preferredLocale: otherEnabledLocale })
+    .where(eq(userTable.id, f.inviteeId));
+
+  await inviteAsOwner(f);
+
+  expect(sendInvitationEmailMock).toHaveBeenCalledWith(
+    expect.objectContaining({ locale: otherEnabledLocale }),
+  );
 });
 
 test("a second invite while one is pending resends without creating a duplicate pending row", async () => {

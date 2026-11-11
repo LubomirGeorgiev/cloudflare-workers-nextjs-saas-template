@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useAction } from "next-safe-action/hooks";
 import { Link } from "@/i18n/navigation";
 import SSOButtons from "../_components/sso-buttons";
+import { TeamInviteNotice } from "../_components/team-invite-notice";
 import { KeyIcon } from "lucide-react";
 import {
   generateAuthenticationOptionsAction,
@@ -152,6 +153,7 @@ const SignInPage = ({ redirectPath }: SignInClientProps) => {
               {t("createAccountLink")}
             </Link>
           </p>
+          <TeamInviteNotice redirectPath={redirectPath} />
         </div>
 
         <div className="space-y-4">

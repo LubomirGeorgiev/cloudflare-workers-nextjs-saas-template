@@ -173,6 +173,7 @@ export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
 // team key write has to invalidate the team page as well as the settings page.
 export const SETTINGS_API_MCP_PATH = "/settings/api-mcp" satisfies Route;
 export const TEAMS_DASHBOARD_PATH = "/dashboard/teams" satisfies Route;
+export const TEAM_INVITE_PATH = "/team-invite" satisfies Route;
 export const ADMIN_OAUTH_APPS_PATH = "/admin/oauth-apps" satisfies Route;
 /** Staff-only reference for the internal admin API and MCP endpoints, and where their keys are minted. */
 export const ADMIN_API_DOCS_PATH = "/admin/api" satisfies Route;
