@@ -24,6 +24,10 @@ export const removeMemberSchema = v.object({
   userId: idField(validationKey("userIdRequired")),
 });
 
+export const leaveTeamSchema = v.object({
+  teamId: teamIdField(),
+});
+
 // Dashboard acceptance addresses invitations by id + the session's verified email, never by a
 // bearer token.
 export const invitationIdSchema = v.object({

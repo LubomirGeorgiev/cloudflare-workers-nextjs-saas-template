@@ -46,3 +46,8 @@ export const SYSTEM_ROLE_PERMISSIONS = {
     TEAM_PERMISSIONS.ACCESS_DASHBOARD,
   ],
 } satisfies Record<SystemRole, readonly TeamPermission[]>;
+
+// The one owner rule. `roleId` is free text, so only the system flag makes "owner" the owner role.
+export function isTeamOwnerRole(role: { roleId: string; isSystemRole: boolean | number }): boolean {
+  return Boolean(role.isSystemRole) && role.roleId === SYSTEM_ROLES_ENUM.OWNER;
+}

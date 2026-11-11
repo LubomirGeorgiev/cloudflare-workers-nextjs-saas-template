@@ -3,6 +3,7 @@
 import { actionClient } from "@/lib/safe-action";
 import { runVerifiedAction } from "@/lib/verified-action";
 import {
+  leaveTeam,
   removeTeamMember,
   getPendingInvitationsForCurrentUser
 } from "@/lib/teams/team-members";
@@ -11,7 +12,7 @@ import { acceptTeamInvitationById } from "@/lib/teams/team-invitation-accept";
 import { revokeTeamInvitation } from "@/lib/teams/team-invitation-revoke";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { withUserRateLimit } from "@/utils/with-user-rate-limit";
-import { invitationIdSchema, inviteUserSchema, removeMemberSchema, revokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
+import { invitationIdSchema, inviteUserSchema, leaveTeamSchema, removeMemberSchema, revokeTeamInvitationSchema } from "@/schemas/team-membership.schema";
 
 export const inviteUserAction = actionClient
   .metadata({ actionName: "inviteUserAction" })
@@ -39,6 +40,22 @@ export const removeTeamMemberAction = actionClient
           actionName: "Failed to remove team member",
           failureMessageKey: "Client.Dashboard.Teams.toastRemoveError",
           handler: () => removeTeamMember(input),
+        });
+      },
+      RATE_LIMITS.SETTINGS
+    );
+  });
+
+export const leaveTeamAction = actionClient
+  .metadata({ actionName: "leaveTeamAction" })
+  .inputSchema(leaveTeamSchema)
+  .action(async ({ parsedInput: input }) => {
+    return withUserRateLimit(
+      async () => {
+        return runVerifiedAction({
+          actionName: "Failed to leave team",
+          failureMessageKey: "Client.Dashboard.Teams.toastLeaveError",
+          handler: () => leaveTeam(input.teamId),
         });
       },
       RATE_LIMITS.SETTINGS

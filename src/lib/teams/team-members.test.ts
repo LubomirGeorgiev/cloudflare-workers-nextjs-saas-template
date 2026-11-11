@@ -7,7 +7,13 @@ const {
   pendingInvitationsFindManyMock,
   membershipsFindManyMock,
   rolesFindManyMock,
+  membershipFindFirstMock,
+  deleteMock,
+  updateAllSessionsOfUserMock,
 } = vi.hoisted(() => ({
+  membershipFindFirstMock: vi.fn(),
+  deleteMock: vi.fn(),
+  updateAllSessionsOfUserMock: vi.fn(),
   requireTeamPermissionMock: vi.fn(),
   getActiveTeamMembershipMock: vi.fn(),
   pendingInvitationsFindManyMock: vi.fn(),
@@ -27,10 +33,11 @@ vi.mock("@/db/schema", () => ({
 vi.mock("@/db", () => ({
   getDB: () => ({
     query: {
-      teamMembershipTable: { findMany: membershipsFindManyMock },
+      teamMembershipTable: { findMany: membershipsFindManyMock, findFirst: membershipFindFirstMock },
       teamInvitationTable: { findMany: pendingInvitationsFindManyMock },
       teamRoleTable: { findMany: rolesFindManyMock },
     },
+    delete: () => ({ where: deleteMock }),
   }),
 }));
 
@@ -39,9 +46,10 @@ vi.mock("@/lib/action-error", () => ({ ActionError: class extends Error {} }));
 vi.mock("@/utils/team-auth", () => ({ requireTeamPermission: requireTeamPermissionMock }));
 vi.mock("@/utils/team-membership", () => ({ getActiveTeamMembership: getActiveTeamMembershipMock }));
 vi.mock("@/utils/session-user", () => ({ requireNormalizedSessionEmail: vi.fn() }));
-vi.mock("@/utils/kv-session", () => ({ updateAllSessionsOfUser: vi.fn() }));
+vi.mock("@/utils/kv-session", () => ({ updateAllSessionsOfUser: updateAllSessionsOfUserMock }));
 
-const { getTeamMemberManagementData } = await import("./team-members");
+const { getTeamMemberManagementData, leaveTeam } = await import("./team-members");
+
 
 const samplePendingInvitation = {
   id: "tinv_1",
@@ -95,5 +103,36 @@ describe("getTeamMemberManagementData invitation gating", () => {
     expect(pendingInvitationsFindManyMock).not.toHaveBeenCalled();
     expect(result.pendingInvitations).toEqual([]);
     expect(result.canRevokeInvitations).toBe(false);
+  });
+});
+
+describe("leaveTeam", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireTeamPermissionMock.mockResolvedValue({ userId: "u1" });
+  });
+
+  test("removes the caller's own membership", async () => {
+    membershipFindFirstMock.mockResolvedValue({
+      roleId: SYSTEM_ROLES_ENUM.MEMBER,
+      isSystemRole: 1,
+      user: { email: null },
+    });
+
+    await expect(leaveTeam("team_1")).resolves.toEqual({ success: true });
+    expect(requireTeamPermissionMock).toHaveBeenCalledWith("team_1", TEAM_PERMISSIONS.ACCESS_DASHBOARD);
+    expect(deleteMock).toHaveBeenCalledTimes(1);
+    expect(updateAllSessionsOfUserMock).toHaveBeenCalledWith("u1");
+  });
+
+  test("refuses to let the owner leave", async () => {
+    membershipFindFirstMock.mockResolvedValue({
+      roleId: SYSTEM_ROLES_ENUM.OWNER,
+      isSystemRole: 1,
+      user: { email: null },
+    });
+
+    await expect(leaveTeam("team_1")).rejects.toThrow();
+    expect(deleteMock).not.toHaveBeenCalled();
   });
 });

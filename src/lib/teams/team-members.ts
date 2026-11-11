@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
+import { isTeamOwnerRole, TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import { teamInvitationTable, teamMembershipTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
@@ -120,6 +120,14 @@ export async function removeTeamMember({
   return deleteTeamMembership({ teamId, userId });
 }
 
+// Leaving needs ACCESS_DASHBOARD, the same gate as the team page that shows the button.
+// The owner rule in deleteTeamMembership keeps the owner in.
+export async function leaveTeam(teamId: string) {
+  const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
+
+  return deleteTeamMembership({ teamId, userId: session.userId });
+}
+
 // The removal itself, minus the team-permission check: an admin acting from the user detail page
 // is authorized by their system role, not by a membership they do not have. Owner protection is
 // part of the operation, not of the check, so it applies to both callers.
@@ -149,7 +157,7 @@ export async function deleteTeamMembership({
   }
 
   // Don't allow removing an owner
-  if (membership.roleId === SYSTEM_ROLES_ENUM.OWNER && membership.isSystemRole) {
+  if (isTeamOwnerRole(membership)) {
     throw new ActionError("FORBIDDEN", { key: "Client.Dashboard.Teams.errorCannotRemoveOwner" });
   }
 

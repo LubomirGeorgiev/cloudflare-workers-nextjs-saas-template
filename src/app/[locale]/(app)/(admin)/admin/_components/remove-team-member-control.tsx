@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialog";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
+import { isTeamOwnerRole } from "@/constants/team-roles";
 
 /** The two fields the owner test reads, so both admin membership rows satisfy it. */
 interface RemovableMembership {
@@ -41,7 +41,7 @@ export function RemoveTeamMemberControl({
   // exists in every catalog for the team dashboard.
   const tTeams = useTranslations("Client.Dashboard.Teams");
   // The service refuses it too; disabling the control is what explains why.
-  const isOwner = member.isSystemRole && member.roleId === SYSTEM_ROLES_ENUM.OWNER;
+  const isOwner = isTeamOwnerRole(member);
 
   if (isOwner) {
     return (

@@ -4,7 +4,7 @@ import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { ROLES_ENUM } from "@/app/enums";
 import { USER_BAN_EVENT_PAGE_SIZE } from "@/constants";
-import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
+import { isTeamOwnerRole } from "@/constants/team-roles";
 import { getDB } from "@/db";
 import {
   teamInvitationTable,
@@ -83,11 +83,6 @@ interface UserBanImpact {
   memberOnlyTeams: BanTargetTeam[];
 }
 
-/** The `owner` system role is the only thing that makes a team "theirs" for billing purposes. */
-function isOwnerMembership(membership: { roleId: string; isSystemRole: number }): boolean {
-  return Boolean(membership.isSystemRole) && membership.roleId === SYSTEM_ROLES_ENUM.OWNER;
-}
-
 async function readOwnedAndMemberTeams(userId: string) {
   const memberships = await getDB().query.teamMembershipTable.findMany({
     where: { userId },
@@ -96,9 +91,10 @@ async function readOwnedAndMemberTeams(userId: string) {
   });
 
   return {
-    ownedTeamIds: memberships.filter(isOwnerMembership).map((membership) => membership.teamId),
+    // Ownership is the only thing that makes a team "theirs" for billing purposes.
+    ownedTeamIds: memberships.filter((membership) => isTeamOwnerRole(membership)).map((membership) => membership.teamId),
     memberOnlyTeams: memberships
-      .filter((membership) => !isOwnerMembership(membership))
+      .filter((membership) => !isTeamOwnerRole(membership))
       .map((membership) => ({
         teamId: membership.teamId,
         teamName: membership.team.name,
