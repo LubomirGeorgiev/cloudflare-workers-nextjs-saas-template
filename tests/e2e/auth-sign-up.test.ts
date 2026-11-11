@@ -5,6 +5,7 @@ import {
   expectAppText,
   expectAppToast,
   expectNoAppToast,
+  fillAppLabel,
   fillAppPlaceholder,
   getAppCookie,
   loadAppFrame,
@@ -34,9 +35,9 @@ test("shows sign-up validation before creating an account", async () => {
 
   await expectAppText(AUTH_COPY.SignUp.heading, { exact: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, "new-user-e2e@example.com");
-  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, tooShort(NAME_MIN_LENGTH));
-  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, tooShort(NAME_MIN_LENGTH));
-  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, tooShort(PASSWORD_MIN_LENGTH));
+  await fillAppLabel({ label: AUTH_COPY.SignUp.firstNameLabel, value: tooShort(NAME_MIN_LENGTH) });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.lastNameLabel, value: tooShort(NAME_MIN_LENGTH) });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.passwordLabel, value: tooShort(PASSWORD_MIN_LENGTH) });
   await clickAppRole("button", AUTH_COPY.SignUp.createAccountWithPassword);
 
   await expectAppText(NAME_MIN_LENGTH_MESSAGE, { exact: true });
@@ -49,9 +50,9 @@ test("creates and verifies a new password account", async () => {
   await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, email);
-  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "New");
-  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Account");
-  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "correct horse battery staple");
+  await fillAppLabel({ label: AUTH_COPY.SignUp.firstNameLabel, value: "New" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.lastNameLabel, value: "Account" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.passwordLabel, value: "correct horse battery staple" });
   await clickAppRole("button", AUTH_COPY.SignUp.createAccountWithPassword);
 
   await expectAppPathname("/dashboard");
@@ -82,9 +83,9 @@ test.skipIf(!NON_DEFAULT_LOCALE)("stores and applies the locale a password accou
   expect(await getAppCookie(LOCALE_COOKIE_NAME)).toBeUndefined();
 
   await fillAppPlaceholder(Common.emailPlaceholder, email);
-  await fillAppPlaceholder(SignUp.firstNamePlaceholder, "Locale");
-  await fillAppPlaceholder(SignUp.lastNamePlaceholder, "Account");
-  await fillAppPlaceholder(Common.passwordPlaceholder, "correct horse battery staple");
+  await fillAppLabel({ label: SignUp.firstNameLabel, value: "Locale" });
+  await fillAppLabel({ label: SignUp.lastNameLabel, value: "Account" });
+  await fillAppLabel({ label: SignUp.passwordLabel, value: "correct horse battery staple" });
   await clickAppRole("button", SignUp.createAccountWithPassword);
 
   await expectAppPathname(localizedPathname({ pathname: "/dashboard", locale }));

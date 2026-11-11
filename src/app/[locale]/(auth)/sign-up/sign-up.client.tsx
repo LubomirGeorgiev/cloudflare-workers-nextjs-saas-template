@@ -2,10 +2,11 @@
 
 import { signUpAction } from "./sign-up.actions";
 import { type SignUpSchema, signUpSchema } from "@/schemas/signup.schema";
+import { PASSWORD_MIN_LENGTH } from "@/schemas/password.schema";
 import { type PasskeyEmailSchema, passkeyEmailSchema } from "@/schemas/passkey.schema";
 import { startPasskeyRegistrationAction, completePasskeyRegistrationAction } from "./passkey-sign-up.actions";
 
-import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SeparatorWithText from "@/components/separator-with-text";
@@ -175,6 +176,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
               name="email"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>{tCommon("emailLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
@@ -193,9 +195,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
               name="firstName"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>{t("firstNameLabel")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={t("firstNamePlaceholder")}
                       className="w-full px-3 py-2"
                       {...field}
                     />
@@ -210,9 +212,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
               name="lastName"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>{t("lastNameLabel")}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={t("lastNamePlaceholder")}
                       className="w-full px-3 py-2"
                       {...field}
                     />
@@ -227,14 +229,15 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
               name="password"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>{t("passwordLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
-                      placeholder={tCommon("passwordPlaceholder")}
                       className="w-full px-3 py-2"
                       {...field}
                     />
                   </FormControl>
+                  <FormDescription>{t("passwordHint", { min: PASSWORD_MIN_LENGTH })}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -291,6 +294,7 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
+                    <FormLabel>{tCommon("emailLabel")}</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
@@ -309,9 +313,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
+                    <FormLabel>{t("firstNameLabel")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={t("firstNamePlaceholder")}
                         className="w-full px-3 py-2"
                         disabled={isRegistering}
                         {...field}
@@ -326,9 +330,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
+                    <FormLabel>{t("lastNameLabel")}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={t("lastNamePlaceholder")}
                         className="w-full px-3 py-2"
                         disabled={isRegistering}
                         {...field}

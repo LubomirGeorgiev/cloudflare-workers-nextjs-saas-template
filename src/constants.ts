@@ -260,7 +260,7 @@ export const SLUG_MAX_LENGTH = 255;
 
 // Shared by every schema that collects a person's name (sign-up, passkey registration, profile
 // settings) so the limit and its validation copy stay in one place.
-export const NAME_MIN_LENGTH = 2;
+export const NAME_MIN_LENGTH = 1;
 export const NAME_MAX_LENGTH = 255;
 
 // Ban and unban each record a staff-only internal reason and an optional external one the

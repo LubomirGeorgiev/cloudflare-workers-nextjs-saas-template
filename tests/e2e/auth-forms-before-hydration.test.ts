@@ -34,9 +34,9 @@ test("keeps the sign-up password out of every URL when the form submits before h
 
   await loadAppFrame("/sign-up", { scriptsDisabled: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, `pre-hydration-${Date.now()}@example.com`);
-  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "Before");
-  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Hydration");
-  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, password);
+  await fillAppLabel({ label: AUTH_COPY.SignUp.firstNameLabel, value: "Before" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.lastNameLabel, value: "Hydration" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.passwordLabel, value: password });
   const submitRequest = await clickAppRoleAndWaitForNavigation({
     role: "button",
     name: AUTH_COPY.SignUp.createAccountWithPassword,

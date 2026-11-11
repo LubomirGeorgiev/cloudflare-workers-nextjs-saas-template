@@ -69,9 +69,9 @@ test("refuses a sign-up at a blocked domain", async () => {
   await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
 
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, `newcomer@${blockedDomain}`);
-  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "New");
-  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Comer");
-  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "correct horse battery staple");
+  await fillAppLabel({ label: AUTH_COPY.SignUp.firstNameLabel, value: "New" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.lastNameLabel, value: "Comer" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.passwordLabel, value: "correct horse battery staple" });
   await clickAppRole("button", AUTH_COPY.SignUp.createAccountWithPassword);
 
   await expectAppToast(AUTH_COPY.SignUp.errorEmailNotAllowed);

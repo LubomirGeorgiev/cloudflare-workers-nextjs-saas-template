@@ -4,6 +4,7 @@ import {
   expectAppPathname,
   expectAppText,
   expectAppToast,
+  fillAppLabel,
   fillAppPlaceholder,
   getAppCurrentUrl,
   loadAppFrame,
@@ -45,9 +46,9 @@ test("lets an unregistered invitee sign up, verify, and accept the invitation", 
   // The invitee has no account yet, so they register through the real sign-up UI.
   await loadAppFrame("/sign-up?redirect=%2Fdashboard", { waitForNetworkIdle: true });
   await fillAppPlaceholder(AUTH_COPY.Common.emailPlaceholder, inviteeEmail);
-  await fillAppPlaceholder(AUTH_COPY.SignUp.firstNamePlaceholder, "Unregistered");
-  await fillAppPlaceholder(AUTH_COPY.SignUp.lastNamePlaceholder, "Invitee");
-  await fillAppPlaceholder(AUTH_COPY.Common.passwordPlaceholder, "correct horse battery staple");
+  await fillAppLabel({ label: AUTH_COPY.SignUp.firstNameLabel, value: "Unregistered" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.lastNameLabel, value: "Invitee" });
+  await fillAppLabel({ label: AUTH_COPY.SignUp.passwordLabel, value: "correct horse battery staple" });
   await clickAppRole("button", AUTH_COPY.SignUp.createAccountWithPassword);
   await expectAppPathname("/dashboard");
 
