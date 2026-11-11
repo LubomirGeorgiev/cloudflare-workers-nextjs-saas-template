@@ -7,11 +7,13 @@ import {
   CMS_REPURGE_PATHNAME_MAX_LENGTH,
   CMS_REPURGE_PATHNAMES_PER_MESSAGE,
   cmsRepurgeJobPayloadSchema,
+  SCHEDULED_JOB_TYPES,
 } from "@/lib/scheduler/jobs";
 import { v } from "@/lib/validation";
 
-const { sendBatchMock } = vi.hoisted(() => ({
+const { sendBatchMock, scheduleJobMock } = vi.hoisted(() => ({
   sendBatchMock: vi.fn(async (__messages: Array<{ body: { payload: unknown } }>) => undefined),
+  scheduleJobMock: vi.fn(async () => "queued" as const),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -20,11 +22,31 @@ vi.mock("cloudflare:workers", () => ({
   env: { SCHEDULER_QUEUE: { send: vi.fn(), sendBatch: sendBatchMock } },
 }));
 
-const { enqueueCmsRepurge } = await import("./enqueue");
+vi.mock("@/lib/scheduler/scheduler", () => ({ scheduleJob: scheduleJobMock }));
+
+const { enqueueBillingCancelSubscription, enqueueCmsRepurge } = await import("./enqueue");
 
 function sentPayloads() {
   return sendBatchMock.mock.calls.flatMap(([messages]) => messages.map(({ body }) => body.payload));
 }
+
+describe("enqueueBillingCancelSubscription", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // A lost retry keeps charging a banned user, so the job must survive a failed queue send.
+  test("schedules a durable job, one per subscription", async () => {
+    await enqueueBillingCancelSubscription({ teamId: "team_1", subscriptionId: "sub_1" });
+
+    expect(scheduleJobMock).toHaveBeenCalledWith(expect.objectContaining({
+      type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION,
+      dedupeKey: expect.stringContaining("sub_1"),
+      payload: { teamId: "team_1", subscriptionId: "sub_1" },
+      durable: true,
+    }));
+  });
+});
 
 describe("enqueueCmsRepurge", () => {
   afterEach(() => {

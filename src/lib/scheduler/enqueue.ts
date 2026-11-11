@@ -10,6 +10,7 @@ import {
   createScheduledQueueMessage,
   SCHEDULED_JOB_TYPES,
 } from "@/lib/scheduler/jobs";
+import { scheduleJob } from "@/lib/scheduler/scheduler";
 import { chunk } from "@/utils/chunk";
 
 // A `sendBatch` call takes at most 256 KB. Three full repurge messages stay below it.
@@ -36,11 +37,15 @@ export async function enqueueBillingCancelSubscription({
   teamId: string;
   subscriptionId: string;
 }): Promise<void> {
-  await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
+  // Durable: nothing else asks for this cancel again, and a lost one keeps charging a banned user.
+  await scheduleJob({
+    queue: env.SCHEDULER_QUEUE,
     type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION,
+    dedupeKey: `billing-cancel:${subscriptionId}`,
     payload: { teamId, subscriptionId },
     runAt: new Date(),
-  }));
+    durable: true,
+  });
 }
 
 // Fire-once by design: the job handler runs the purge without a warm and without this enqueue, so a

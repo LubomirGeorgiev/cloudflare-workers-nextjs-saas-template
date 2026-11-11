@@ -320,8 +320,8 @@ interface TeamCancellationCounts {
  * A Stripe failure never blocks the ban: it enqueues the retry job instead. One team failing must
  * not stop the others, and must not stop the cache purge that follows.
  *
- * When the retry enqueue rejects too, nothing will ever cancel that subscription, so it is counted
- * as failed rather than cancelled — the caller must not tell the user their billing stopped.
+ * The retry enqueue rejects only when it could not save the job row. Then nothing will ever cancel
+ * that subscription, so it counts as failed — the caller must not tell the user their billing stopped.
  */
 async function cancelOwnedTeamSubscriptions({
   ownedTeamIds,
@@ -353,13 +353,13 @@ async function cancelOwnedTeamSubscriptions({
           logBanCleanupFailure(`Stripe cancellation for team ${teamId}`)(error);
 
           return enqueueBillingCancelSubscription({ teamId, subscriptionId })
-            // Counted as cancelled: the retry will land, and the user must be told their
-            // subscription is gone rather than left to discover it.
+            // Counted as cancelled: the retry job is saved (queued or left for the cron), and the
+            // user must be told their subscription is gone rather than left to discover it.
             .then((): TeamCancellationOutcome => "cancelled")
             .catch((enqueueError: unknown): TeamCancellationOutcome => {
               logBanCleanupFailure(
                 `cancellation retry enqueue for team ${teamId}; subscription ${subscriptionId} ` +
-                  "is still live and needs a manual cancellation",
+                  "is still live: no scheduled_job row was saved, so it needs a manual cancellation",
               )(enqueueError);
 
               return "failed";

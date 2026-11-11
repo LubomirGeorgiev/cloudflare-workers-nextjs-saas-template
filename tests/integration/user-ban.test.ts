@@ -10,7 +10,14 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { env } from "cloudflare:workers";
 
-const { stripeState, connectedAppsState, sessionState, enqueueRetryMock, queueSendMock } = vi.hoisted(() => ({
+const {
+  stripeState,
+  connectedAppsState,
+  sessionState,
+  enqueueRetryMock,
+  queueSendMock,
+  realEnqueue,
+} = vi.hoisted(() => ({
   stripeState: {
     cancelCalls: [] as { id: string; params: unknown }[],
     failNext: new Set<string>(),
@@ -25,8 +32,10 @@ const { stripeState, connectedAppsState, sessionState, enqueueRetryMock, queueSe
   // How many session deletes must reject before the real one runs again, so a test can leave a ban
   // half finished and prove the next ban repairs it.
   sessionState: { failDeletes: 0 },
-  enqueueRetryMock: vi.fn(async () => undefined),
+  enqueueRetryMock: vi.fn(async (__params: { teamId: string; subscriptionId: string }): Promise<void> => undefined),
   queueSendMock: vi.fn(),
+  // The real retry helper, so one test can run the durable scheduler path against real D1.
+  realEnqueue: { current: null as null | ((params: { teamId: string; subscriptionId: string }) => Promise<void>) },
 }));
 
 // The cancel parameters depend on the status Stripe reports before the cancel, so the fake reports
@@ -72,10 +81,12 @@ vi.mock("@/lib/oauth/connected-apps", () => ({
 
 // `enqueue.ts` reads the queue binding straight off `cloudflare:workers`, so the retry is spied on
 // at the helper rather than at the binding.
-vi.mock("@/lib/scheduler/enqueue", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/scheduler/enqueue")>()),
-  enqueueBillingCancelSubscription: enqueueRetryMock,
-}));
+vi.mock("@/lib/scheduler/enqueue", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/scheduler/enqueue")>();
+  realEnqueue.current = original.enqueueBillingCancelSubscription;
+
+  return { ...original, enqueueBillingCancelSubscription: enqueueRetryMock };
+});
 
 // Only the session delete is wrapped, and only while a test asks for it: everything else in this
 // module — including the session probe's own reads — stays the real KV implementation.
@@ -156,6 +167,7 @@ function uid(prefix: string): string {
 
 async function clearRows(): Promise<void> {
   await env.D1_DB.batch([
+    env.D1_DB.prepare("DELETE FROM scheduled_job"),
     env.D1_DB.prepare("DELETE FROM user_ban_event"),
     env.D1_DB.prepare("DELETE FROM api_key"),
     env.D1_DB.prepare("DELETE FROM team_invitation"),
@@ -500,6 +512,37 @@ describe("banning an account that owns teams", () => {
     // Nothing cancelled it, so the event must not record one and the notice must not claim one.
     const [event] = await listUserBanEvents({ userId });
     expect(event?.cancelledSubscriptionCount).toBeNull();
+  });
+
+  test("a retry the queue refused but D1 saved counts as cancelled, and the notice says so", async () => {
+    const userId = await seedUser();
+    stripeState.failNext.add("sub_saved");
+    const teamId = await seedTeam({ ownerId: userId, subscriptionId: "sub_saved" });
+    const sendSpy = vi.spyOn(env.SCHEDULER_QUEUE, "send").mockRejectedValueOnce(new Error("Queue is unavailable"));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    enqueueRetryMock.mockImplementationOnce(async (params) => realEnqueue.current?.(params));
+
+    try {
+      const result = await banUser({ userId, ...BAN_INPUT, sendEmail: true, actorUserId: null });
+
+      expect(sendSpy).toHaveBeenCalledOnce();
+      expect(result.cancelledSubscriptionCount).toBe(1);
+      expect(result.subscriptionCancellationFailedCount).toBe(0);
+      // The cron sends this row later, so Stripe does cancel the subscription.
+      const job = await db.query.scheduledJobTable.findFirst({
+        where: { type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION },
+      });
+      expect(job?.payload).toMatchObject({ teamId, subscriptionId: "sub_saved" });
+      expect(queuedEmails()[0]?.payload).toMatchObject({
+        template: EMAIL_TEMPLATE_TYPES.BAN_NOTICE,
+        data: { subscriptionCancelled: true },
+      });
+      const [event] = await listUserBanEvents({ userId });
+      expect(event?.cancelledSubscriptionCount).toBe(1);
+    } finally {
+      sendSpy.mockRestore();
+      consoleError.mockRestore();
+    }
   });
 
   test("one team's Stripe failure does not stop the other team or the rest of the ban", async () => {
