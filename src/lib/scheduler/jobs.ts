@@ -1,6 +1,6 @@
 import { maxString, trimmedString, v } from "@/lib/validation";
 import { cmsNavigationKeys } from "@/../cms.config";
-import { BAN_REASON_MAX_LENGTH, NAME_MAX_LENGTH, SLUG_MAX_LENGTH } from "@/constants";
+import { BAN_REASON_MAX_LENGTH, NAME_MAX_LENGTH, SLUG_MAX_LENGTH, TEAM_NAME_MAX_LENGTH } from "@/constants";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import {
   CMS_ENTRY_CHANGE_VALUES,
@@ -26,6 +26,9 @@ export const EMAIL_TEMPLATE_TYPES = {
   TEAM_INVITATION: "team-invitation",
   BAN_NOTICE: "ban-notice",
   UNBAN_NOTICE: "unban-notice",
+  // Sent to every team owner once per change of the subscription status.
+  PAYMENT_PAST_DUE: "payment-past-due",
+  PAYMENT_UNPAID: "payment-unpaid",
 } as const;
 
 const nonEmptyString = v.pipe(v.string(), v.minLength(1));
@@ -165,12 +168,35 @@ const unbanNoticeEmailJobPayloadSchema = v.object({
   }),
 });
 
+// Every notice to a team owner greets the owner, names the team, and links to its pages.
+const teamOwnerNoticeFields = {
+  username: trimmedString({ min: 1, max: NAME_MAX_LENGTH }),
+  teamName: trimmedString({ min: 1, max: TEAM_NAME_MAX_LENGTH }),
+  teamSlug: trimmedString({ min: 1, max: SLUG_MAX_LENGTH }),
+};
+
+// The two payment notices: paid access stops at past_due, and the team moves to Free at unpaid.
+export const PAYMENT_STATUS_EMAIL_TEMPLATES = [
+  EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE,
+  EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID,
+] as const;
+
+export type PaymentStatusEmailTemplate = (typeof PAYMENT_STATUS_EMAIL_TEMPLATES)[number];
+
+const paymentStatusEmailJobPayloadSchema = v.object({
+  to: nonEmptyString,
+  template: v.picklist(PAYMENT_STATUS_EMAIL_TEMPLATES),
+  locale: emailLocaleSchema,
+  data: v.object(teamOwnerNoticeFields),
+});
+
 export const emailSendJobPayloadSchema = v.union([
   passwordResetEmailJobPayloadSchema,
   emailVerificationJobPayloadSchema,
   teamInvitationEmailJobPayloadSchema,
   banNoticeEmailJobPayloadSchema,
   unbanNoticeEmailJobPayloadSchema,
+  paymentStatusEmailJobPayloadSchema,
 ]);
 
 export type EmailSendJobPayload = v.InferOutput<typeof emailSendJobPayloadSchema>;

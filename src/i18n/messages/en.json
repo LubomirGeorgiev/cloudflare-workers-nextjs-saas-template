@@ -1464,6 +1464,20 @@
       "intro": "{inviterName} has invited you to join the \"{teamName}\" team on {siteDomain}.",
       "buttonLabel": "Accept Invitation",
       "secondaryText": "This invitation was sent to {recipientEmail} and expires in {expirationDays, plural, =1 {1 day} other {# days}}. If you do not have an account yet, you can create one when you accept the invitation. If you did not expect this invitation, you can safely ignore this email."
+    },
+    "PaymentPastDue": {
+      "subject": "Payment failed for {teamName}",
+      "title": "Your payment failed",
+      "intro": "We could not charge the card for {teamName}. Until the payment goes through, the team has the limits of the Free plan.",
+      "buttonLabel": "Update payment",
+      "secondaryText": "Stripe tries the card again during the next days. To get the paid plan back now, pay the open invoice on the billing page or update the card."
+    },
+    "PaymentUnpaid": {
+      "subject": "{teamName} moved to the Free plan",
+      "title": "Your team moved to the Free plan",
+      "intro": "We could not collect the payment for {teamName}, so the team moved to the Free plan. The team and its data stay.",
+      "buttonLabel": "Open billing",
+      "secondaryText": "To get a paid plan again, choose a plan on the billing page."
     }
   }
 }

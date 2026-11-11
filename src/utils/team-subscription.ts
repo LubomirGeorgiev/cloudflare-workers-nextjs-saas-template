@@ -9,6 +9,9 @@ import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
 import { teamTable, teamTrialReservationTable, userTable, type Team } from "@/db/schema";
 import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
+import { EMAIL_TEMPLATE_TYPES, type PaymentStatusEmailTemplate } from "@/lib/scheduler/jobs";
+import { sendPaymentStatusEmail } from "@/utils/email";
+import { listTeamOwnerRecipients } from "@/lib/teams/team-owners";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
 import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
@@ -62,6 +65,12 @@ const TEAM_WRITE_STATE_COLUMNS = {
   limitOverrides: teamTable.limitOverrides,
   subscriptionStatus: teamTable.subscriptionStatus,
   stripeSubscriptionId: teamTable.stripeSubscriptionId,
+};
+
+// The statuses that email every team owner, with the template of each.
+const PAYMENT_STATUS_EMAILS: Partial<Record<Stripe.Subscription.Status, PaymentStatusEmailTemplate>> = {
+  past_due: EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE,
+  unpaid: EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID,
 };
 
 interface EnsureStripeCustomerParams {
@@ -458,10 +467,11 @@ export async function reconcileTeamFromSubscription({
 
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
-  if (policy.plan === "free") {
-    await writeFreeSnapshot({ team, subscription, policy, cancelAtPeriodEnd });
-  } else {
-    await writePaidSnapshot({ team, subscription, cancelAtPeriodEnd });
+  const previous = policy.plan === "free"
+    ? await writeFreeSnapshot({ team, subscription, policy, cancelAtPeriodEnd })
+    : await writePaidSnapshot({ team, subscription, cancelAtPeriodEnd });
+  if (previous) {
+    await notifyPaymentStatusChange({ team, subscription, previous });
   }
 
   await enqueueTeamSessionsRefresh(team.id);
@@ -522,6 +532,8 @@ async function writePaidSnapshot({
   return previous ?? null;
 }
 
+// The unpaid email (`Emails.PaymentUnpaid.intro`) tells owners the team data stays. A fork that
+// deletes data on this downgrade must change that row in every locale catalog.
 async function writeFreeSnapshot({
   team,
   subscription,
@@ -545,6 +557,44 @@ async function writeFreeSnapshot({
       planExpiresAt: null,
     },
   });
+}
+
+/**
+ * Emails every team owner when the subscription enters past_due or unpaid. The snapshot write is
+ * the claim: its batch read the status just before it, so only the write that changed the stored
+ * status sends, and a replay sends nothing.
+ */
+async function notifyPaymentStatusChange({
+  team,
+  subscription,
+  previous,
+}: {
+  team: Team;
+  subscription: Stripe.Subscription;
+  previous: TeamWriteState;
+}): Promise<void> {
+  const template = PAYMENT_STATUS_EMAILS[subscription.status];
+  const replacedSubscription = previous.stripeSubscriptionId !== null && previous.stripeSubscriptionId !== subscription.id;
+  if (!template || previous.subscriptionStatus === subscription.status || replacedSubscription) {
+    return;
+  }
+
+  // Team owners are few (a seat cap), and each send has its own catch, so one failure stops no other.
+  // The snapshot write already claimed the status, so a failed read sends nothing; it must not fail the reconcile.
+  const owners = await listTeamOwnerRecipients({ teamId: team.id }).catch((error: unknown) => {
+    console.error("notifyPaymentStatusChange: owner read failed", { teamId: team.id, template, error });
+    return [];
+  });
+  await Promise.all(owners.map((owner) => sendPaymentStatusEmail({
+    email: owner.email,
+    template,
+    username: owner.username,
+    teamName: team.name,
+    teamSlug: team.slug,
+    locale: owner.locale ?? undefined,
+  }).catch((error: unknown) => {
+    console.error("notifyPaymentStatusChange: email enqueue failed", { teamId: team.id, template, error });
+  })));
 }
 
 interface TeamSubscriptionView {

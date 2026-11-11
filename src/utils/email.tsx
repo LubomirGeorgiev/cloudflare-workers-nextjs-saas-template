@@ -6,6 +6,7 @@ import {
   SITE_DOMAIN,
   SITE_NAME,
   TEAM_INVITATION_EXPIRY_DAYS,
+  TEAMS_DASHBOARD_PATH,
 } from "@/constants";
 import { EMAIL_LOGO_IMAGE } from "@/constants/logo-url";
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
@@ -18,6 +19,7 @@ import {
   EMAIL_TEMPLATE_TYPES,
   SCHEDULED_JOB_TYPES,
   type EmailSendJobPayload,
+  type PaymentStatusEmailTemplate,
 } from "@/lib/scheduler/jobs";
 import { isLocalMode } from "./is-local";
 
@@ -57,6 +59,12 @@ const UNBAN_NOTICE_COPY = {
   secondary: `If you have any questions, contact ${SITE_DOMAIN} support.`,
   footer: `This is an automated message from ${SITE_DOMAIN}.`,
 } as const;
+
+// A Record, not a ternary: a new payment template fails typecheck until it names its catalog copy.
+const PAYMENT_STATUS_EMAIL_COPY = {
+  [EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE]: "PaymentPastDue",
+  [EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID]: "PaymentUnpaid",
+} as const satisfies Record<PaymentStatusEmailTemplate, string>;
 
 // The queue consumer has no request context (no cookies/headers), so it takes `getTranslator`,
 // which needs none.
@@ -424,7 +432,46 @@ export async function renderTransactionalEmail(
         type: payload.template,
       };
     }
+    case EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE:
+    case EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID:
+      return renderPaymentStatusEmail(payload);
   }
+}
+
+/**
+ * The past_due and the unpaid notice to one team owner. The unpaid copy promises the team data
+ * stays, which is true only while `writeFreeSnapshot` in `team-subscription.ts` deletes nothing.
+ */
+async function renderPaymentStatusEmail(
+  payload: Extract<EmailSendJobPayload, { template: PaymentStatusEmailTemplate }>,
+): Promise<TransactionalEmailOptions> {
+  const { locale, t } = await getEmailTranslator(payload.locale);
+  const copy = PAYMENT_STATUS_EMAIL_COPY[payload.template];
+  const billingUrl = absoluteLocalizedUrl({
+    pathname: `${TEAMS_DASHBOARD_PATH}/${payload.data.teamSlug}/billing`,
+    locale,
+  });
+  const emailTemplate = buildEmailTemplate({
+    locale,
+    title: t(`${copy}.title`, { teamName: payload.data.teamName }),
+    greeting: t("Common.greeting", { username: payload.data.username }),
+    intro: t(`${copy}.intro`, { teamName: payload.data.teamName }),
+    cta: {
+      label: t(`${copy}.buttonLabel`),
+      url: billingUrl,
+      fallbackText: t("Common.fallbackText"),
+    },
+    secondaryText: t(`${copy}.secondaryText`),
+    footerText: await getCommonFooterText(t),
+  });
+
+  return {
+    to: payload.to,
+    subject: t(`${copy}.subject`, { teamName: payload.data.teamName }),
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: payload.template,
+  };
 }
 
 export async function sendPasswordResetEmail({
@@ -535,5 +582,29 @@ export async function sendUnbanNoticeEmail({
     to: email,
     template: EMAIL_TEMPLATE_TYPES.UNBAN_NOTICE,
     data: { username, externalReason, cancelledSubscriptionCount },
+  });
+}
+
+/** The payment notice to one team owner, in the owner's language. */
+export async function sendPaymentStatusEmail({
+  email,
+  template,
+  username,
+  teamName,
+  teamSlug,
+  locale = DEFAULT_LOCALE,
+}: {
+  email: string;
+  template: PaymentStatusEmailTemplate;
+  username: string;
+  teamName: string;
+  teamSlug: string;
+  locale?: Locale;
+}): Promise<void> {
+  await queueTransactionalEmail({
+    to: email,
+    template,
+    locale,
+    data: { username, teamName, teamSlug },
   });
 }

@@ -1464,6 +1464,20 @@
       "intro": "{inviterName} te ha invitado a unirte al equipo \"{teamName}\" en {siteDomain}.",
       "buttonLabel": "Aceptar Invitación",
       "secondaryText": "Esta invitación se envió a {recipientEmail} y caduca en {expirationDays, plural, =1 {1 día} other {# días}}. Si aún no tienes una cuenta, podrás crear una al aceptar la invitación. Si no esperabas esta invitación, puedes ignorar este correo electrónico de forma segura."
+    },
+    "PaymentPastDue": {
+      "subject": "Pago fallido para {teamName}",
+      "title": "Tu pago falló",
+      "intro": "No pudimos cobrar la tarjeta de {teamName}. Hasta que se complete el pago, el equipo tiene los límites del plan Gratis.",
+      "buttonLabel": "Actualizar el pago",
+      "secondaryText": "Stripe volverá a intentar el cobro en los próximos días. Para recuperar el plan de pago ahora, paga la factura pendiente en la página de facturación o actualiza la tarjeta."
+    },
+    "PaymentUnpaid": {
+      "subject": "{teamName} pasó al plan Gratis",
+      "title": "Tu equipo pasó al plan Gratis",
+      "intro": "No pudimos cobrar el pago de {teamName}, así que el equipo pasó al plan Gratis. El equipo y sus datos se conservan.",
+      "buttonLabel": "Abrir facturación",
+      "secondaryText": "Para volver a un plan de pago, elige un plan en la página de facturación."
     }
   }
 }

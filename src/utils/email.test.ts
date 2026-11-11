@@ -7,6 +7,7 @@ import {
   SITE_NAME,
   SITE_URL,
   TEAM_INVITATION_EXPIRY_DAYS,
+  TEAMS_DASHBOARD_PATH,
 } from "@/constants";
 import { EMAIL_LOGO } from "@/constants/logo";
 import { LOGO_VERSION } from "@/constants/logo-version";
@@ -14,7 +15,12 @@ import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import { CATALOG_LOADERS, loadCatalog } from "@/i18n/message-catalogs";
 import { getTranslator } from "@/i18n/translator";
 import { escapeHtml } from "@/utils/escape-html";
-import { EMAIL_TEMPLATE_TYPES, type EmailSendJobPayload } from "@/lib/scheduler/jobs";
+import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+import {
+  EMAIL_TEMPLATE_TYPES,
+  PAYMENT_STATUS_EMAIL_TEMPLATES,
+  type EmailSendJobPayload,
+} from "@/lib/scheduler/jobs";
 
 /** One payload per template, so the shared header is covered for every email the app sends. */
 const LOGO_HEADER_PAYLOADS: Extract<EmailSendJobPayload, { locale: string }>[] = [
@@ -36,6 +42,12 @@ const LOGO_HEADER_PAYLOADS: Extract<EmailSendJobPayload, { locale: string }>[] =
     locale: DEFAULT_LOCALE,
     data: { invitationToken: "invite-token", inviterName: "Ana", teamName: "Acme" },
   },
+  ...PAYMENT_STATUS_EMAIL_TEMPLATES.map((template) => ({
+    to: "owner@example.com",
+    template,
+    locale: DEFAULT_LOCALE,
+    data: { username: "Ana", teamName: "Acme", teamSlug: "acme" },
+  })),
 ];
 
 const HOUR_SECONDS = 60 * 60;
@@ -171,7 +183,7 @@ describe("transactional email", () => {
     expect(renderedEmail.text).toContain("/team-invite?token=invite-token");
   });
 
-  // Every template shares one builder, so the mark either reaches all three inboxes or none.
+  // Every template shares one builder, so the mark either reaches every inbox or none.
   // The dimensions are asserted because Outlook lays the message out before the image arrives.
   test.each(LOGO_HEADER_PAYLOADS)("puts the rasterized logo in the $template header", async (payload) => {
     const renderedEmail = await renderTransactionalEmail(payload);
@@ -187,6 +199,23 @@ describe("transactional email", () => {
     );
     // A hosted PNG, never SVG or a data URI: clients strip both.
     expect(renderedEmail.html).not.toContain("data:image");
+  });
+
+  // The owner acts on the team billing page, in the owner's own language.
+  describe.each(LOCALES)("payment notices in %s", (locale) => {
+    test.each(PAYMENT_STATUS_EMAIL_TEMPLATES)("%s links to the team billing page and names the team", async (template) => {
+      const renderedEmail = await renderTransactionalEmail({
+        to: "owner@example.com",
+        template,
+        locale,
+        data: { username: "Ana", teamName: "A&B Team", teamSlug: "acme" },
+      });
+
+      expect(renderedEmail.text).toContain(absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/acme/billing`, locale }));
+      expect(renderedEmail.subject).toContain("A&B Team");
+      expect(renderedEmail.html).toContain(escapeHtml("A&B Team"));
+      expect(renderedEmail.html).not.toContain("A&B Team");
+    });
   });
 
   test("renders the password reset email in Spanish when the payload locale is es", async () => {
