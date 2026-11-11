@@ -360,6 +360,7 @@ Bindings worth knowing about when you fork:
 7. Optional: Update the color palette in `src/app/globals.css`
 8. Update the metadata in `src/utils/root-metadata.ts` (`authors`, `creator`, the Twitter handle) with your project details — the root layout, `src/app/[locale]/layout.tsx`, reads it
 9. Update `cms.config.ts` if necessary
+10. **Replace the legal pages.** The Terms of Service and the Privacy Policy (`Legal.Terms` and `Legal.Privacy` in every catalog under `src/i18n/messages/`) are placeholder text, not a legal agreement. Write your own text, then remove the placeholder notice from `src/app/[locale]/(legal)/layout.tsx`
 
 ## Production deployment
 

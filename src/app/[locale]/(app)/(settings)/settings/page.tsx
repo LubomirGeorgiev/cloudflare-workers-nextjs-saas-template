@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import { getCurrentSession } from "@/utils/auth";
 import { redirectToSignIn } from "@/utils/auth-redirect";
 import { SettingsForm } from "./settings-form";
@@ -53,7 +54,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <Suspense fallback={<SettingsFormSkeleton />}>
-        <SettingsForm />
+        <SettingsForm supportEmail={env.EMAIL_REPLY_TO || undefined} />
       </Suspense>
       <LanguageForm />
     </div>

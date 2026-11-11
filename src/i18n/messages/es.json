@@ -574,7 +574,7 @@
         "accept": "Aceptar",
         "formNameLabel": "Nombre del equipo",
         "formNamePlaceholder": "Introduce el nombre del equipo",
-        "formNameDescription": "Un nombre único para tu equipo",
+        "formNameDescription": "El nombre que ven los miembros de tu equipo. Puedes cambiarlo más tarde.",
         "formDescriptionLabel": "Descripción",
         "formDescriptionPlaceholder": "Introduce una breve descripción de tu equipo",
         "formDescriptionHelp": "Descripción opcional del propósito de tu equipo",
@@ -796,7 +796,6 @@
     "Settings": {
       "Nav": {
         "settings": "Ajustes",
-        "overview": "Resumen",
         "profile": "Perfil",
         "security": "Seguridad",
         "sessions": "Sesiones",
@@ -812,6 +811,8 @@
         "lastNameLabel": "Apellidos",
         "emailLabel": "Correo electrónico",
         "emailDescription": "Este es el correo que usas para iniciar sesión.",
+        "emailChangeContact": "Para cambiarlo, escribe a <link>{email}</link>.",
+        "emailChangeSupport": "Para cambiarlo, contacta con el soporte.",
         "saveButton": "Guardar cambios",
         "toastUpdating": "Actualizando el perfil...",
         "toastUpdateSuccess": "Perfil actualizado correctamente",
@@ -823,13 +824,9 @@
         "cardDescription": "Elige el idioma de tu panel y de las páginas de tu cuenta."
       },
       "Device": {
-        "deviceDescription": "{browserName} {browserVersion} en {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "deviceDescription": "{browser} en {platform}",
         "unknownBrowser": "Navegador desconocido",
-        "unknownVersion": "Versión desconocida",
-        "unknownDevice": "Dispositivo desconocido",
-        "unknownModel": "Modelo desconocido",
-        "unknownType": "Tipo desconocido",
-        "unknownOs": "Sistema operativo desconocido"
+        "unknownDevice": "Dispositivo desconocido"
       },
       "Security": {
         "passkeysHeading": "Claves de acceso",
@@ -1278,6 +1275,7 @@
     }
   },
   "Legal": {
+    "placeholderNotice": "Esta página contiene texto de ejemplo de la plantilla. No es un acuerdo legal. Sustitúyelo por tu propio texto antes del lanzamiento.",
     "Privacy": {
       "meta": {
         "title": "Política de privacidad",
@@ -1344,6 +1342,7 @@
     "legal": "Legal",
     "company": "Empresa",
     "social": "Redes sociales",
+    "xProfile": "X (antes Twitter)",
     "termsOfService": "Términos del servicio",
     "privacyPolicy": "Política de privacidad",
     "home": "Inicio",

@@ -26,7 +26,7 @@ import { useTranslations } from "@/i18n/client";
 
 type UserSettingsFormValues = UserSettingsSchema;
 
-export function SettingsForm() {
+export function SettingsForm({ supportEmail }: SettingsFormProps) {
   const router = useRouter()
   const t = useTranslations("Client.Settings.Profile");
 
@@ -153,7 +153,15 @@ export function SettingsForm() {
                 />
               </FormControl>
               <FormDescription>
-                {t("emailDescription")}
+                {t("emailDescription")}{" "}
+                {supportEmail
+                  ? t.rich("emailChangeContact", {
+                    email: supportEmail,
+                    link: (chunks) => (
+                      <a href={`mailto:${supportEmail}`} className="underline underline-offset-4">{chunks}</a>
+                    ),
+                  })
+                  : t("emailChangeSupport")}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -168,4 +176,9 @@ export function SettingsForm() {
       </CardContent>
     </Card>
   );
+}
+
+interface SettingsFormProps {
+  /** The reply-to address, when one is configured; the user writes to it to change the sign-in email. */
+  supportEmail?: string;
 }

@@ -574,7 +574,7 @@
         "accept": "Accept",
         "formNameLabel": "Team Name",
         "formNamePlaceholder": "Enter team name",
-        "formNameDescription": "A unique name for your team",
+        "formNameDescription": "The name your teammates see. You can change it later.",
         "formDescriptionLabel": "Description",
         "formDescriptionPlaceholder": "Enter a brief description of your team",
         "formDescriptionHelp": "Optional description of your team's purpose",
@@ -796,7 +796,6 @@
     "Settings": {
       "Nav": {
         "settings": "Settings",
-        "overview": "Overview",
         "profile": "Profile",
         "security": "Security",
         "sessions": "Sessions",
@@ -812,6 +811,8 @@
         "lastNameLabel": "Last Name",
         "emailLabel": "Email",
         "emailDescription": "This is the email you use to sign in.",
+        "emailChangeContact": "To change it, send an email to <link>{email}</link>.",
+        "emailChangeSupport": "To change it, contact support.",
         "saveButton": "Save changes",
         "toastUpdating": "Updating profile...",
         "toastUpdateSuccess": "Profile updated successfully",
@@ -823,13 +824,9 @@
         "cardDescription": "Choose the language for your dashboard and account pages."
       },
       "Device": {
-        "deviceDescription": "{browserName} {browserVersion} on {deviceVendor} {deviceModel} {deviceType} ({osName} {osVersion})",
+        "deviceDescription": "{browser} on {platform}",
         "unknownBrowser": "Unknown browser",
-        "unknownVersion": "Unknown version",
-        "unknownDevice": "Unknown device",
-        "unknownModel": "Unknown model",
-        "unknownType": "Unknown type",
-        "unknownOs": "Unknown OS"
+        "unknownDevice": "Unknown device"
       },
       "Security": {
         "passkeysHeading": "Passkeys",
@@ -1278,6 +1275,7 @@
     }
   },
   "Legal": {
+    "placeholderNotice": "This page holds placeholder text from the template. It is not a legal agreement. Replace it with your own text before you launch.",
     "Privacy": {
       "meta": {
         "title": "Privacy Policy",
@@ -1344,6 +1342,7 @@
     "legal": "Legal",
     "company": "Company",
     "social": "Social",
+    "xProfile": "X (formerly Twitter)",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "home": "Home",

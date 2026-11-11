@@ -5,6 +5,7 @@ import { getTranslator } from "@/i18n/translator";
 import { env } from "cloudflare:workers";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
+import { formatDate } from "@/utils/format-date";
 import { buildPageGraph, JsonLd } from "@/lib/seo/json-ld";
 
 export async function generateMetadata({
@@ -52,7 +53,7 @@ export default async function PrivacyPage({
       <JsonLd graph={graph} />
       <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
 
-      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: lastUpdated.toLocaleDateString(locale) })}</p>
+      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: formatDate(lastUpdated, locale) })}</p>
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">{t("informationWeCollect.heading")}</h2>

@@ -26,7 +26,7 @@ export function SettingsBreadcrumbs() {
 
   let pageTitle: string;
   if (!segment) {
-    pageTitle = t("overview");
+    pageTitle = t("profile");
   } else if (SEGMENT_TITLE_KEYS[segment]) {
     pageTitle = t(SEGMENT_TITLE_KEYS[segment]);
   } else {

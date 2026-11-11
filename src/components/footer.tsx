@@ -75,7 +75,7 @@ export async function Footer({ params }: { params: Promise<{ locale: Locale }> }
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <XIcon className="h-5 w-5" />
-                  <span className="sr-only">X (formerly Twitter)</span>
+                  <span className="sr-only">{t("xProfile")}</span>
                 </a>
               </div>
             </div>
