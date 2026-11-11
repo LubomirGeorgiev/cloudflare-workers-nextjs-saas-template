@@ -604,9 +604,10 @@ test("a full seat plan is reported as such, not as a generic denial", async () =
     body: { email: "invitee@example.com" },
   });
 
-  expect(response.status).toBe(403);
-  expect(body.code).toBe("FORBIDDEN");
-  expect(body.detail).not.toBe(PROBLEM_BY_CODE.FORBIDDEN.detail);
+  // A plan limit, not a permission, so it must not read as a missing scope or role.
+  expect(response.status).toBe(PROBLEM_BY_CODE.PRECONDITION_FAILED.status);
+  expect(body.code).toBe("PRECONDITION_FAILED");
+  expect(body.detail).not.toBe(PROBLEM_BY_CODE.PRECONDITION_FAILED.detail);
   // The limit itself is what tells a caller whether to upgrade or free a seat.
   expect(body.detail).toContain(String(seats));
 });

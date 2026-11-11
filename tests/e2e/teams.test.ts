@@ -26,6 +26,7 @@ import {
   uniqueSuffix,
 } from "./team-helpers";
 import { SYSTEM_ROLES_ENUM } from "../../src/constants/team-roles";
+import { formatTeamRoleLabel } from "../../src/lib/teams/team-role-labels";
 import { DEFAULT_LOCALE } from "../../src/i18n/config";
 import { getTranslator } from "../../src/i18n/translator";
 
@@ -68,8 +69,14 @@ test("creates a team and persists it in the authenticated teams flow", async () 
   await expectAppText(description, { exact: true });
   await expectAppText(TEAMS_COPY.teamMembers, { exact: true });
   await expectAppText(email, { exact: true });
-  // The "your role" card prints the session role id, not a catalog label.
-  await expectAppText(SYSTEM_ROLES_ENUM.OWNER, { exact: true });
+  // The "your role" card prints the catalog label of the creator's D1 role, not the raw role id.
+  await expectAppText(
+    formatTeamRoleLabel({
+      member: { roleId: SYSTEM_ROLES_ENUM.OWNER, isSystemRole: true, roleName: null },
+      translate: formatTeamsCopy,
+    }),
+    { exact: true },
+  );
 
   const teamId = await queryLocalD1({
     sql: `select id from team where slug = ${sqlStringLiteral(expectedTeamPathname.split("/").at(-1)!)};`,

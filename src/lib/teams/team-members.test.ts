@@ -8,9 +8,11 @@ const {
   membershipsFindManyMock,
   rolesFindManyMock,
   membershipFindFirstMock,
+  teamFindFirstMock,
   deleteMock,
   updateAllSessionsOfUserMock,
 } = vi.hoisted(() => ({
+  teamFindFirstMock: vi.fn(),
   membershipFindFirstMock: vi.fn(),
   deleteMock: vi.fn(),
   updateAllSessionsOfUserMock: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock("@/db", () => ({
       teamMembershipTable: { findMany: membershipsFindManyMock, findFirst: membershipFindFirstMock },
       teamInvitationTable: { findMany: pendingInvitationsFindManyMock },
       teamRoleTable: { findMany: rolesFindManyMock },
+      teamTable: { findFirst: teamFindFirstMock },
     },
     delete: () => ({ where: deleteMock }),
   }),
@@ -44,12 +47,22 @@ vi.mock("@/db", () => ({
 vi.mock("@/utils/auth", () => ({ requireVerifiedEmail: vi.fn() }));
 vi.mock("@/lib/action-error", () => ({ ActionError: class extends Error {} }));
 vi.mock("@/utils/team-auth", () => ({ requireTeamPermission: requireTeamPermissionMock }));
-vi.mock("@/utils/team-membership", () => ({ getActiveTeamMembership: getActiveTeamMembershipMock }));
+vi.mock("@/utils/team-membership", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/team-membership")>()),
+  getActiveTeamMembership: getActiveTeamMembershipMock,
+}));
 vi.mock("@/utils/session-user", () => ({ requireNormalizedSessionEmail: vi.fn() }));
 vi.mock("@/utils/kv-session", () => ({ updateAllSessionsOfUser: updateAllSessionsOfUserMock }));
 
 const { getTeamMemberManagementData, leaveTeam } = await import("./team-members");
+const { getTeamRowEntitlements } = await import("@/utils/entitlements");
 
+const sampleTeamRow = {
+  subscriptionPlanId: null,
+  subscriptionStatus: null,
+  planExpiresAt: null,
+  subscriptionAddonIds: null,
+};
 
 const samplePendingInvitation = {
   id: "tinv_1",
@@ -67,6 +80,7 @@ describe("getTeamMemberManagementData invitation gating", () => {
     membershipsFindManyMock.mockResolvedValue([]);
     rolesFindManyMock.mockResolvedValue([]);
     pendingInvitationsFindManyMock.mockResolvedValue([samplePendingInvitation]);
+    teamFindFirstMock.mockResolvedValue(sampleTeamRow);
   });
 
   test("does not fetch or return pending invitations without INVITE_MEMBERS", async () => {
@@ -78,8 +92,10 @@ describe("getTeamMemberManagementData invitation gating", () => {
     const result = await getTeamMemberManagementData("team_1");
 
     expect(pendingInvitationsFindManyMock).not.toHaveBeenCalled();
+    expect(teamFindFirstMock).not.toHaveBeenCalled();
     expect(result.pendingInvitations).toEqual([]);
     expect(result.canRevokeInvitations).toBe(false);
+    expect(result.seatUsage).toBeNull();
   });
 
   test("returns pending invitations for a viewer with INVITE_MEMBERS", async () => {
@@ -103,6 +119,29 @@ describe("getTeamMemberManagementData invitation gating", () => {
     expect(pendingInvitationsFindManyMock).not.toHaveBeenCalled();
     expect(result.pendingInvitations).toEqual([]);
     expect(result.canRevokeInvitations).toBe(false);
+  });
+
+  test("counts only current memberships and pending invitations as used seats", async () => {
+    getActiveTeamMembershipMock.mockResolvedValue({
+      permissions: [TEAM_PERMISSIONS.ACCESS_DASHBOARD, TEAM_PERMISSIONS.INVITE_MEMBERS],
+    });
+    const user = { id: "u", firstName: null, lastName: null, email: "u@example.com", avatar: null };
+    const membership = { roleId: SYSTEM_ROLES_ENUM.MEMBER, isSystemRole: 1, joinedAt: null, user };
+    membershipsFindManyMock.mockResolvedValue([
+      { ...membership, id: "m1", userId: "u1", isActive: 1, expiresAt: null },
+      { ...membership, id: "m2", userId: "u2", isActive: 0, expiresAt: null },
+      { ...membership, id: "m3", userId: "u3", isActive: 1, expiresAt: new Date(Date.now() - 1000) },
+    ]);
+
+    const result = await getTeamMemberManagementData("team_1");
+
+    expect(result.seatUsage).toEqual({
+      activeMembers: 1,
+      pendingInvitations: 1,
+      used: 2,
+      limit: getTeamRowEntitlements(sampleTeamRow).limits.seats,
+      isFull: 2 >= getTeamRowEntitlements(sampleTeamRow).limits.seats,
+    });
   });
 });
 

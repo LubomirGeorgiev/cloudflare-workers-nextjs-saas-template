@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAction } from "next-safe-action/hooks";
 import { inviteUserAction } from "@/actions/team-membership-actions";
@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/form";
 import { inviteMemberFormSchema, type InviteMemberFormSchema } from "@/schemas/team-membership.schema";
 import { useTranslations } from "@/i18n/client";
+import { Link } from "@/i18n/navigation";
+import type { TeamSeatUsage } from "@/lib/teams/team-seats";
 import { useRouter } from "next/navigation";
 
 type FormValues = InviteMemberFormSchema;
@@ -26,10 +28,13 @@ type FormValues = InviteMemberFormSchema;
 interface InviteMemberModalProps {
   teamId: string;
   trigger: React.ReactElement;
+  seatUsage: TeamSeatUsage;
+  // The team billing page; absent when billing is off or the viewer cannot open it.
+  upgradeHref?: string;
   onInviteSuccess?: () => void;
 }
 
-export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMemberModalProps) {
+export function InviteMemberModal({ teamId, trigger, seatUsage, upgradeHref, onInviteSuccess }: InviteMemberModalProps) {
   const t = useTranslations("Client.Dashboard.Teams");
   const tCommon = useTranslations("Client.Common");
   const router = useRouter();
@@ -43,7 +48,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
     }
   });
 
-  const { execute } = useAction(inviteUserAction, {
+  const { execute, isExecuting } = useAction(inviteUserAction, {
     onError: ({ error }) => {
       toast.dismiss();
       toast.error(error.serverError?.message || t("toastInviteError"));
@@ -84,10 +89,42 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("inviteModalTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("seatUsage", {
+              used: seatUsage.used,
+              limit: seatUsage.limit,
+              members: seatUsage.activeMembers,
+              pending: seatUsage.pendingInvitations,
+            })}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            {/* Keep the form when full: the service resends a pending invitation without a seat check. */}
+            {seatUsage.isFull && (
+              <div className="space-y-2 rounded-md border p-3 text-sm">
+                <p>
+                  {t("seatLimitNotice", {
+                    used: seatUsage.used,
+                    limit: seatUsage.limit,
+                    pending: seatUsage.pendingInvitations,
+                  })}
+                </p>
+                <p className="text-muted-foreground">{t("seatLimitResendHint")}</p>
+                {upgradeHref && (
+                  // Close first: the team page stays mounted, so browser Back would show the dialog again.
+                  <Link
+                    href={upgradeHref}
+                    className={buttonVariants({ size: "sm" })}
+                    onClick={() => setOpen(false)}
+                  >
+                    {t("upgradePlan")}
+                  </Link>
+                )}
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="email"
@@ -113,7 +150,7 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
                 {tCommon("cancel")}
               </DialogClose>
 
-              <Button type="submit">
+              <Button type="submit" disabled={isExecuting}>
                 {t("sendInvitation")}
               </Button>
             </div>

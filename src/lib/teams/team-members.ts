@@ -7,10 +7,12 @@ import { requireVerifiedEmail } from "@/utils/auth";
 import { ActionError } from "@/lib/action-error";
 import { eq, and, isNull, sql } from "drizzle-orm";
 import { requireTeamPermission } from "@/utils/team-auth";
-import { getActiveTeamMembership } from "@/utils/team-membership";
+import { getActiveTeamMembership, isMembershipCurrentlyActive } from "@/utils/team-membership";
 import { requireNormalizedSessionEmail } from "@/utils/session-user";
 import { updateAllSessionsOfUser } from "@/utils/kv-session";
 import { normalizeEmail } from "@/lib/validation";
+import { getTeamSeatUsage } from "@/lib/teams/team-seats";
+import { getTeamRowEntitlements } from "@/utils/entitlements";
 
 export const getTeamMemberManagementData = cache(async (teamId: string) => {
   const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_DASHBOARD);
@@ -26,7 +28,7 @@ export const getTeamMemberManagementData = cache(async (teamId: string) => {
     currentMembership?.permissions.includes(TEAM_PERMISSIONS.INVITE_MEMBERS),
   );
 
-  const [members, pendingInvitations, teamRoles] = await Promise.all([
+  const [members, invitationsAndSeats, teamRoles] = await Promise.all([
     db.query.teamMembershipTable.findMany({
       where: { teamId: teamId },
       with: {
@@ -41,23 +43,7 @@ export const getTeamMemberManagementData = cache(async (teamId: string) => {
         }
       },
     }),
-    canManageInvitations
-      ? db.query.teamInvitationTable.findMany({
-          where: {
-            teamId,
-            acceptedAt: { isNull: true },
-            expiresAt: { gt: new Date() },
-          },
-          columns: {
-            id: true,
-            email: true,
-            roleId: true,
-            isSystemRole: true,
-            createdAt: true,
-            expiresAt: true,
-          },
-        })
-      : Promise.resolve([]),
+    canManageInvitations ? getPendingInvitationsAndSeats(teamId) : Promise.resolve(null),
     db.query.teamRoleTable.findMany({
       where: { teamId: teamId },
     }),
@@ -89,6 +75,7 @@ export const getTeamMemberManagementData = cache(async (teamId: string) => {
     };
   });
 
+  const pendingInvitations = invitationsAndSeats?.pendingInvitations ?? [];
   const invitationEntries = pendingInvitations.map(invitation => ({
     id: invitation.id,
     email: invitation.email,
@@ -103,6 +90,14 @@ export const getTeamMemberManagementData = cache(async (teamId: string) => {
     // Revoking is gated on the same INVITE_MEMBERS permission as viewing the list above, so a
     // viewer who sees pending invitations can always act on them.
     canRevokeInvitations: canManageInvitations,
+    // Seat usage is only for inviters, the same viewers as the pending list it counts.
+    seatUsage: invitationsAndSeats
+      ? getTeamSeatUsage({
+          activeMembers: members.filter((member) => isMembershipCurrentlyActive(member)).length,
+          pendingInvitations: pendingInvitations.length,
+          seats: invitationsAndSeats.seats,
+        })
+      : null,
     members: memberEntries,
     pendingInvitations: invitationEntries,
   };
@@ -256,4 +251,43 @@ function pendingInvitationsForEmail({ teamId, email }: { teamId: string; email: 
     isNull(teamInvitationTable.acceptedAt),
     sql`lower(trim(${teamInvitationTable.email})) = ${normalizeEmail(email)}`,
   );
+}
+
+// The same pending filter and seat source as the invite gate (`withinSeatCap` in ./team-writes.ts).
+// tests/integration/team-seat-usage.test.ts pins the pair.
+async function getPendingInvitationsAndSeats(teamId: string) {
+  const db = getDB();
+
+  const [pendingInvitations, team] = await Promise.all([
+    db.query.teamInvitationTable.findMany({
+      where: {
+        teamId,
+        acceptedAt: { isNull: true },
+        expiresAt: { gt: new Date() },
+      },
+      columns: {
+        id: true,
+        email: true,
+        roleId: true,
+        isSystemRole: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    }),
+    db.query.teamTable.findFirst({
+      where: { id: teamId },
+      columns: {
+        subscriptionPlanId: true,
+        subscriptionStatus: true,
+        planExpiresAt: true,
+        subscriptionAddonIds: true,
+      },
+    }),
+  ]);
+
+  if (!team) {
+    throw new ActionError("NOT_FOUND", { key: "Client.Dashboard.Teams.errorTeamNotFound" });
+  }
+
+  return { pendingInvitations, seats: getTeamRowEntitlements(team).limits.seats };
 }

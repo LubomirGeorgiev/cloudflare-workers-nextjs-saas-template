@@ -1,5 +1,5 @@
 import { getPlan, type TeamPlan, type TeamPlanLimits } from "@/constants/plans";
-import { getAddon, type TeamAddonQuantities } from "@/constants/addons";
+import { fromStoredAddonQuantities, getAddon, type TeamAddonQuantities } from "@/constants/addons";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 
 // Backstop for lost/delayed webhooks: paid access lapses this long after the recorded
@@ -26,6 +26,13 @@ interface EntitlementInput {
   // Their per-unit limit grants stack on the plan's limits only while the
   // subscription is active.
   addons?: TeamAddonQuantities | null;
+}
+
+interface TeamRowEntitlementInput {
+  subscriptionPlanId: string | null;
+  subscriptionStatus: string | null;
+  planExpiresAt: Date | null;
+  subscriptionAddonIds: unknown;
 }
 
 // Add-on limit grants are additive on top of the plan's limits, multiplied by the held
@@ -70,4 +77,14 @@ export function getTeamEntitlements({
     : freePlan.limits;
 
   return { plan, isActive, limits };
+}
+
+// The team-row form of getTeamEntitlements, so the seat gate and the seat counter read one rule.
+export function getTeamRowEntitlements(team: TeamRowEntitlementInput): TeamEntitlements {
+  return getTeamEntitlements({
+    planId: team.subscriptionPlanId,
+    subscriptionStatus: team.subscriptionStatus,
+    planExpiresAt: team.planExpiresAt,
+    addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
+  });
 }

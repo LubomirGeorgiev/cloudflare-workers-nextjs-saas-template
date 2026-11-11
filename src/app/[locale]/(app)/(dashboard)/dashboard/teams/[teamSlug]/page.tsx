@@ -1,13 +1,18 @@
 import { Suspense } from "react";
 
 import { hasTeamPermission } from "@/utils/team-auth";
-import { TEAM_PERMISSIONS } from "@/constants/team-roles";
+import { isTeamOwnerRole, TEAM_PERMISSIONS } from "@/constants/team-roles";
 import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { InviteMemberModal } from "@/components/teams/invite-member-modal";
 import { RenameTeamModal } from "@/components/teams/rename-team-modal";
+import { LeaveTeamButton } from "@/components/teams/leave-team-button";
 import { getTeamMemberManagementData } from "@/lib/teams/team-members";
+import type { TeamSeatUsage } from "@/lib/teams/team-seats";
+import { getActiveTeamMembership } from "@/utils/team-membership";
+import { getTeamSectionPath } from "@/utils/active-team";
+import { isBillingEnabled } from "@/flags";
 import { requireTeamAccess } from "./team-page-guard";
 import {
   Table,
@@ -53,19 +58,25 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
   const { team, session } = await requireTeamAccess(teamSlug);
 
   // Independent reads of the same request-cached membership; requireTeamAccess above is the
-  // access guard and must stay sequential.
-  const [canInviteMembers, canRemoveMembers, canEditTeamSettings, canManageApiKeys] = await Promise.all([
-    hasTeamPermission(team.id, TEAM_PERMISSIONS.INVITE_MEMBERS),
+  // access guard and must stay sequential. The viewer role comes from D1, as `leaveTeam` reads it.
+  const [viewerMembership, canRemoveMembers, canEditTeamSettings, canManageApiKeys, canAccessBilling] = await Promise.all([
+    getActiveTeamMembership({ teamId: team.id, userId: session.userId }),
     hasTeamPermission(team.id, TEAM_PERMISSIONS.REMOVE_MEMBERS),
     hasTeamPermission(team.id, TEAM_PERMISSIONS.EDIT_TEAM_SETTINGS),
     hasTeamPermission(team.id, TEAM_PERMISSIONS.MANAGE_API_KEYS),
+    hasTeamPermission(team.id, TEAM_PERMISSIONS.ACCESS_BILLING),
   ]);
 
   const {
     canRevokeInvitations,
     members: teamMembers,
     pendingInvitations,
+    seatUsage,
   } = await getTeamMemberManagementData(team.id);
+
+  const upgradeHref = isBillingEnabled() && canAccessBilling
+    ? getTeamSectionPath({ teamSlug: team.slug, section: "billing" })
+    : undefined;
 
   return (
     <>
@@ -82,56 +93,42 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
         ]}
       />
       <div className="container mx-auto px-5 pb-12">
-        <div className="flex justify-between items-start mb-8">
-          <div className="flex items-center gap-4">
-            <div className="space-y-2">
-              <h1 className="text-4xl font-bold mt-4">{team.name}</h1>
+        <div className="flex flex-col gap-4 mb-8 sm:flex-row sm:justify-between sm:items-start">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="min-w-0 space-y-2">
+              <h1 className="text-4xl font-bold mt-4 break-words">{team.name}</h1>
               {team.description && (
                 <p className="text-muted-foreground mt-2">{team.description}</p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {canEditTeamSettings && (
-              <RenameTeamModal
-                teamId={team.id}
-                currentName={team.name}
-                trigger={
-                  <Button variant="outline">{t("renameTeam")}</Button>
-                }
-              />
-            )}
-
-            {canInviteMembers && (
-              <InviteMemberModal
-                teamId={team.id}
-                trigger={
-                  <Button>{t("inviteMembers")}</Button>
-                }
-              />
-            )}
-
-            {team.avatarUrl ? (
-              <div className="h-16 w-16 rounded-md overflow-hidden">
-                {/* oxlint-disable-next-line nextjs/no-img-element */}
-                <img
-                  src={team.avatarUrl || ""}
-                  alt={`${team.name} avatar`}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : null}
-          </div>
+          <TeamHeaderActions
+            team={team}
+            locale={locale}
+            canEditTeamSettings={canEditTeamSettings}
+            seatUsage={seatUsage}
+            upgradeHref={upgradeHref}
+            isOwner={viewerMembership ? isTeamOwnerRole(viewerMembership) : false}
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Quick stats */}
-          <div className="col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-6 border rounded-lg bg-card flex flex-col">
               <span className="text-sm font-medium text-muted-foreground">{t("yourRoleLabel")}</span>
-              <span className="text-2xl font-bold capitalize">
-                {session.teams?.find(team2 => team2.id === team.id)?.role.name || t("memberRole")}
+              <span className="text-2xl font-bold">
+                {viewerMembership
+                  ? formatTeamRoleLabel({
+                      member: {
+                        roleId: viewerMembership.roleId,
+                        isSystemRole: viewerMembership.isSystemRole,
+                        roleName: viewerMembership.roleName || null,
+                      },
+                      translate: t,
+                    })
+                  : t("memberRole")}
               </span>
             </div>
 
@@ -144,12 +141,22 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           </div>
 
           {/* Team actions */}
-          <div className="col-span-3 flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-4">
           </div>
 
           {/* Team Members Table */}
-          <div className="col-span-3 border rounded-lg p-6 bg-card">
+          <div className="border rounded-lg p-6 bg-card">
             <h2 className="text-xl font-semibold mb-4">{t("teamMembers")}</h2>
+            {seatUsage && (
+              <p className="text-sm text-muted-foreground -mt-2 mb-4">
+                {t("seatUsage", {
+                  used: seatUsage.used,
+                  limit: seatUsage.limit,
+                  members: seatUsage.activeMembers,
+                  pending: seatUsage.pendingInvitations,
+                })}
+              </p>
+            )}
 
             <Table>
               <TableHeader>
@@ -206,7 +213,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
                             teamId={team.id}
                             userId={member.userId}
                             memberName={`${member.user.firstName || ''} ${member.user.lastName || ''}`.trim() || member.user.email || ''}
-                            isDisabled={member.isSystemRole && member.roleId === 'owner'}
+                            isDisabled={isTeamOwnerRole(member)}
                             tooltipText={t("ownerCannotBeRemoved")}
                           />
                         </TableCell>
@@ -219,7 +226,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           </div>
 
           {pendingInvitations.length > 0 && (
-            <div className="col-span-3 border rounded-lg p-6 bg-card">
+            <div className="border rounded-lg p-6 bg-card">
               <h2 className="text-xl font-semibold mb-4">{t("pendingInvitationsTitle")}</h2>
 
               <Table>
@@ -262,7 +269,7 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
           )}
 
           {canManageApiKeys && (
-            <Suspense fallback={<Skeleton className="col-span-3 h-48 w-full" />}>
+            <Suspense fallback={<Skeleton className="h-48 w-full" />}>
               <TeamApiKeys teamId={team.id} />
             </Suspense>
           )}
@@ -271,3 +278,62 @@ export default async function TeamDashboardPage({ params }: TeamPageProps) {
     </>
   );
 }
+
+async function TeamHeaderActions({
+  team,
+  locale,
+  canEditTeamSettings,
+  seatUsage,
+  upgradeHref,
+  isOwner,
+}: {
+  team: TeamRow;
+  locale: Locale;
+  canEditTeamSettings: boolean;
+  /** Present only for viewers who can invite. */
+  seatUsage: TeamSeatUsage | null;
+  upgradeHref: string | undefined;
+  isOwner: boolean;
+}) {
+  const t = await getTranslator({ locale, namespace: "Client.Dashboard.Teams" });
+
+  return (
+    <div className="flex flex-wrap items-center gap-4">
+      {canEditTeamSettings && (
+        <RenameTeamModal
+          teamId={team.id}
+          currentName={team.name}
+          trigger={
+            <Button variant="outline">{t("renameTeam")}</Button>
+          }
+        />
+      )}
+
+      {seatUsage && (
+        <InviteMemberModal
+          teamId={team.id}
+          seatUsage={seatUsage}
+          upgradeHref={upgradeHref}
+          trigger={
+            <Button>{t("inviteMembers")}</Button>
+          }
+        />
+      )}
+
+      {!isOwner && <LeaveTeamButton teamId={team.id} teamName={team.name} />}
+
+      {team.avatarUrl ? (
+        <div className="h-16 w-16 rounded-md overflow-hidden">
+          {/* oxlint-disable-next-line nextjs/no-img-element */}
+          <img
+            src={team.avatarUrl || ""}
+            alt={`${team.name} avatar`}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type TeamRow = Awaited<ReturnType<typeof requireTeamAccess>>["team"];

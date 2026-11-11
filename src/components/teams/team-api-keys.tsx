@@ -10,7 +10,7 @@ export async function TeamApiKeys({ teamId }: { teamId: string }) {
 
   // No heading here: ApiKeysManager renders its own, and two titles for one section read as two.
   return (
-    <div className="col-span-3 border rounded-lg p-6 bg-card">
+    <div className="border rounded-lg p-6 bg-card">
       <ApiKeysManager apiKeys={apiKeys} teamId={teamId} />
     </div>
   );

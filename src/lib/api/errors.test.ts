@@ -78,18 +78,18 @@ describe("actionErrorToProblem status mapping", () => {
     expect(problemFor("ERROR").detail).not.toMatch(CATALOG_KEY_PATTERN);
   });
 
-  // The per-code sentence is the same for every FORBIDDEN, so a caller that hits a plan limit
-  // reads "not allowed to perform this operation" and goes hunting for a missing scope instead.
+  // The per-code sentence is the same for every PRECONDITION_FAILED, so a caller that hits a plan
+  // limit would not learn which limit, or how to clear it.
   test("a key with its own entry states the specific reason, not the per-code sentence", () => {
     const problem = actionErrorToProblem({
-      error: new ActionError("FORBIDDEN", {
+      error: new ActionError("PRECONDITION_FAILED", {
         key: "Client.Dashboard.Teams.seatLimitReached",
         params: { seats: 3 },
       }),
     }).body;
 
-    expect(problem.code).toBe("FORBIDDEN");
-    expect(problem.detail).not.toBe(PROBLEM_BY_CODE.FORBIDDEN.detail);
+    expect(problem.code).toBe("PRECONDITION_FAILED");
+    expect(problem.detail).not.toBe(PROBLEM_BY_CODE.PRECONDITION_FAILED.detail);
     expect(problem.detail).not.toMatch(CATALOG_KEY_PATTERN);
     // Interpolated from the error's own params: the number is what decides the next move.
     expect(problem.detail).toContain("3");

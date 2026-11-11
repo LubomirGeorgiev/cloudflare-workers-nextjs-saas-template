@@ -9,8 +9,7 @@ import { TEAM_INVITATION_EXPIRY_DAYS } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
 import { getTranslator } from "@/i18n/translator";
 import { getUserLocale } from "@/i18n/locale";
-import { getTeamEntitlements } from "@/utils/entitlements";
-import { fromStoredAddonQuantities } from "@/constants/addons";
+import { getTeamRowEntitlements } from "@/utils/entitlements";
 import {
   generateInvitationToken,
   hashInvitationToken,
@@ -80,12 +79,7 @@ export async function inviteUserToTeam({
   // Seat-cap gate: enforce the team plan's seat limit at this grow point. Counts current
   // members plus outstanding invitations. Limits are enforced only when growing — a team
   // already over a lowered cap keeps its members (never auto-evicted).
-  const { limits } = getTeamEntitlements({
-    planId: team.subscriptionPlanId,
-    subscriptionStatus: team.subscriptionStatus,
-    planExpiresAt: team.planExpiresAt,
-    addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
-  });
+  const { limits } = getTeamRowEntitlements(team);
 
   // The invitee may not have an account yet, so there's no preferredLocale to
   // read - use the inviter's locale instead (request-scoped: cookie ->
@@ -196,7 +190,8 @@ export async function inviteUserToTeam({
   }
 
   if (!didInsert(insertResult)) {
-    throw new ActionError("FORBIDDEN", {
+    // A plan limit, not a permission: a 403 sends an agent after a scope or a role.
+    throw new ActionError("PRECONDITION_FAILED", {
       key: "Client.Dashboard.Teams.seatLimitReached",
       params: { seats: limits.seats },
     });

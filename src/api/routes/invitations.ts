@@ -6,8 +6,9 @@ import { toIsoString } from "@/utils/iso-timestamp";
 import { apiValidator, teamIdParam } from "@/api/middleware/problem-json";
 import { apiOperation } from "@/api/operation";
 import { API_TAGS } from "@/api/openapi-document";
-import { jsonResponse } from "@/api/openapi";
+import { jsonResponse, preconditionFailedResponse } from "@/api/openapi";
 import type { ApiEnv } from "@/api/types";
+import { PROBLEM_BY_CODE } from "@/lib/api/errors";
 import type { v } from "@/lib/validation";
 import { getTeamMemberManagementData } from "@/lib/teams/team-members";
 import { inviteUserToTeam } from "@/lib/teams/team-invite";
@@ -102,12 +103,15 @@ export const invitationRoutes = new Hono<ApiEnv>()
         `\`${DEFAULT_INVITATION_ROLE_ID}\`; call listTeamRoles for the other ids this team accepts, ` +
         "and pass `isSystemRole: false` alongside a role the team defined itself. Requires the " +
         "`invite_members` permission and a free seat on the team's plan — inviting past the seat " +
-        "limit answers 403, and the response detail names the limit. The response never reveals " +
-        "whether the address already has an account or is already a member.",
+        `limit answers ${PROBLEM_BY_CODE.PRECONDITION_FAILED.status} \`PRECONDITION_FAILED\`, and the ` +
+        "response detail names the limit. The response is the same `{ success: true }` whether the " +
+        "address already has an account or is already a member, so it carries no invitation id; " +
+        "call listTeamInvitations for the id.",
       scope: "invites:write",
       audience: "team",
       responses: {
         201: jsonResponse({ description: "The invitation was sent.", schema: successSchema }),
+        ...preconditionFailedResponse("Every seat on the team's plan is taken."),
       },
     }),
     teamIdParam(),

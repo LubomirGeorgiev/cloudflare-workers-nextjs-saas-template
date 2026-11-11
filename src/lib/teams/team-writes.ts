@@ -89,7 +89,7 @@ export function withinJoinedTeamCap({
 }
 
 // Guard: the team's seat usage (active members + non-expired, unaccepted invitations) is below
-// `seats`.
+// `seats`. `getTeamSeatUsage` in src/lib/teams/team-seats.ts is its JS form.
 export function withinSeatCap({
   teamId,
   seats,
