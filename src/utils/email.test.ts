@@ -130,14 +130,16 @@ describe("transactional email", () => {
     expect(renderedEmail.subject).toContain("Team Name");
   });
 
-  // The "ignore this email" line once sat in the fallback slot, above the raw URL.
-  test.each(LOGO_HEADER_PAYLOADS)("puts the copy-the-link line above the raw URL in $template", async (payload) => {
+  // The "ignore this email" line once sat in the fallback slot, and the plain text once had no URL.
+  test.each(LOGO_HEADER_PAYLOADS)("puts the raw URL right after the copy-the-link line in $template", async (payload) => {
     const t = await getTranslator({ locale: DEFAULT_LOCALE, namespace: "Emails" });
     const renderedEmail = await renderTransactionalEmail(payload);
     const lines = renderedEmail.text?.split("\n") ?? [];
+    const ctaUrl = expectedCtaUrl(payload);
 
-    expect(lines).toContain(t("Common.fallbackText"));
+    expect(lines[lines.indexOf(t("Common.fallbackText")) + 1]).toBe(ctaUrl);
     expect(renderedEmail.html).toContain(`${escapeHtml(t("Common.fallbackText"))}</p>`);
+    expect(renderedEmail.html).toContain(`<a href="${escapeHtml(ctaUrl)}"`);
   });
 
   test.each([
@@ -331,3 +333,19 @@ describe("transactional email", () => {
     })).rejects.toThrow("Cloudflare Email Service binding EMAIL is not configured.");
   });
 });
+
+/** The button URL each template must carry, built from the payload so a fork's copy does not matter. */
+function expectedCtaUrl(payload: (typeof LOGO_HEADER_PAYLOADS)[number]) {
+  const { locale } = payload;
+  switch (payload.template) {
+    case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET:
+      return `${absoluteLocalizedUrl({ pathname: "/reset-password", locale })}?token=${payload.data.resetToken}`;
+    case EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION:
+      return `${absoluteLocalizedUrl({ pathname: "/verify-email", locale })}?token=${payload.data.verificationToken}`;
+    case EMAIL_TEMPLATE_TYPES.TEAM_INVITATION:
+      return `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${payload.data.invitationToken}`;
+    case EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE:
+    case EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID:
+      return absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${payload.data.teamSlug}/billing`, locale });
+  }
+}

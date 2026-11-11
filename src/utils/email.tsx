@@ -275,7 +275,7 @@ function buildEmailTemplate({
       ...(cta ? ["", `${cta.label}: ${cta.url}`] : []),
       "",
       secondaryText,
-      ...(cta ? ["", cta.fallbackText] : []),
+      ...(cta ? ["", cta.fallbackText, cta.url] : []),
       "",
       footerText,
     ].join("\n"),
