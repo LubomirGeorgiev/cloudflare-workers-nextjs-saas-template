@@ -6,6 +6,9 @@ import { Bug, Building2, CalendarClock, FileText, Image, PanelLeft, Plug, Shield
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+import { getSidebarBillingUrl } from "@/components/app-sidebar-data"
+import { useSessionStore } from "@/state/session"
+import type { SessionValidationResult } from "@/types"
 import {
   Sidebar,
   SidebarContent,
@@ -114,7 +117,16 @@ const adminNavItems: NavMainItem[] = [
   },
 ]
 
-export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AdminSidebar({
+  serverSession,
+  billingEnabled,
+  ...props
+}: AdminSidebarProps) {
+  const clientSession = useSessionStore((store) => store.session)
+  const session = clientSession ?? serverSession
+  // Admin routes have no `[teamSlug]`, so the selected team decides the path.
+  const billingUrl = getSidebarBillingUrl({ session, billingEnabled })
+
   return (
     <Sidebar
       collapsible="icon"
@@ -139,9 +151,15 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
         <NavMain items={adminNavItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser />
+        <NavUser session={session} billingUrl={billingUrl} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   )
+}
+
+interface AdminSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  serverSession: SessionValidationResult;
+  // Server-evaluated isBillingEnabled() from @/flags, the same value the app sidebar gets.
+  billingEnabled: boolean;
 }

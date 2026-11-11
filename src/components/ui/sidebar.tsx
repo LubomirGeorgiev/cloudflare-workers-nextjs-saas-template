@@ -752,6 +752,7 @@ export {
   SidebarInput,
   SidebarInset,
   SidebarMenu,
+// oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarMenuAction,
 // oxlint-disable-next-line project/no-unused-module-exports -- Shadcn/Radix modules intentionally expose optional composition slots.
   SidebarMenuBadge,

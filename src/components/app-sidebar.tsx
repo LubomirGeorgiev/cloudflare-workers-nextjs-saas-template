@@ -1,7 +1,6 @@
 "use client"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
 import {
@@ -14,6 +13,7 @@ import {
 import {
   getAppSidebarData,
 } from "@/components/app-sidebar-data"
+import { useParams } from "next/navigation"
 import { useSessionStore } from "@/state/session"
 import type { SessionValidationResult } from "@/types"
 
@@ -29,22 +29,23 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const clientSession = useSessionStore((store) => store.session);
   const session = clientSession ?? serverSession ?? null;
-  const data = getAppSidebarData({ session, billingEnabled });
+  // Vinext returns null outside a route match, though the Next types do not admit it.
+  const teamSlug = useParams<{ teamSlug?: string }>()?.teamSlug;
+  const data = getAppSidebarData({ session, billingEnabled, teamSlug });
 
   return (
     <Sidebar collapsible="icon" {...props}>
       {data?.teams?.length > 0 && (
         <SidebarHeader>
-          <TeamSwitcher teams={data.teams} />
+          <TeamSwitcher teams={data.teams} activeTeamId={data.activeTeamId} teamSlug={teamSlug} />
         </SidebarHeader>
       )}
 
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser session={session} />
+        <NavUser session={session} billingUrl={data.billingUrl} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

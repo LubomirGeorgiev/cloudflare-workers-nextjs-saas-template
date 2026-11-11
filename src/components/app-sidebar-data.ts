@@ -3,9 +3,6 @@ import type { Route } from "next";
 import {
   Building2,
   CreditCard,
-  Frame,
-  Map,
-  PieChart,
   Settings2,
   Shield,
   SquareTerminal,
@@ -15,7 +12,9 @@ import {
 import { ROLES_ENUM } from "@/app/enums";
 import { SETTINGS_API_MCP_PATH } from "@/constants";
 import type { SessionValidationResult } from "@/types";
+import { getActiveTeam, getTeamSectionPath } from "@/utils/active-team";
 import type messages from "@/i18n/messages/en.json";
+import type { SessionTeamRole } from "@/lib/teams/team-role-labels";
 
 // Valid keys under the `Client.Sidebar.nav.*` message namespace, derived from the
 // source catalog so the type stays in sync without duplicating the key list.
@@ -43,23 +42,32 @@ type AppSidebarData = {
   };
   teams: {
     id: string;
+    slug: string;
     name: string;
     logo: ComponentType;
-    role: string;
+    role: SessionTeamRole;
   }[];
+  activeTeamId?: string;
+  // The one billing path for the nav and the user menu; null hides both.
+  billingUrl: Route | null;
   navMain: NavMainItem[];
-  projects: NavItem[];
 }
 
 export function getAppSidebarData({
   session,
   billingEnabled = true,
+  teamSlug,
 }: {
   session: SessionValidationResult | null;
   // Server-evaluated isBillingEnabled(); when false the Billing nav item is hidden
   // (the flag hides billing UI entirely, not just the destination page).
   billingEnabled?: boolean;
+  // The `[teamSlug]` route param of the current page, if any.
+  teamSlug?: string;
 }): AppSidebarData {
+  const activeTeam = getSessionActiveTeam({ session, teamSlug });
+  const billingUrl = getSidebarBillingUrl({ session, billingEnabled, teamSlug });
+
   return {
     user: {
       name: session?.user?.firstName || "User",
@@ -67,11 +75,14 @@ export function getAppSidebarData({
     },
     teams: session?.teams?.map((team) => ({
       id: team.id,
+      slug: team.slug,
       name: team.name,
       // TODO Get the actual logo when we implement team avatars
       logo: Building2,
-      role: team.role.name || "Member",
+      role: team.role,
     })) ?? [],
+    activeTeamId: activeTeam?.id,
+    billingUrl,
     navMain: [
       {
         title: "Dashboard",
@@ -86,11 +97,11 @@ export function getAppSidebarData({
         url: "/dashboard/teams",
         icon: Users,
       },
-      ...(billingEnabled ? [
+      ...(billingUrl ? [
         {
           title: "Billing",
           titleKey: "billing",
-          url: "/dashboard/billing",
+          url: billingUrl,
           icon: CreditCard,
         } as NavMainItem,
       ] : []),
@@ -136,25 +147,42 @@ export function getAppSidebarData({
         } as NavMainItem,
       ] : []),
     ],
-    projects: [
-      {
-        title: "Design Engineering",
-        titleKey: "designEngineering",
-        url: "#",
-        icon: Frame,
-      },
-      {
-        title: "Sales & Marketing",
-        titleKey: "salesMarketing",
-        url: "#",
-        icon: PieChart,
-      },
-      {
-        title: "Travel",
-        titleKey: "travel",
-        url: "#",
-        icon: Map,
-      },
-    ],
   };
+}
+
+// The admin sidebar calls this too, so its user menu opens the same team and obeys the same flag.
+export function getSidebarBillingUrl({
+  session,
+  billingEnabled,
+  teamSlug,
+}: {
+  session: SessionValidationResult | null;
+  billingEnabled: boolean;
+  teamSlug?: string;
+}): Route | null {
+  if (!billingEnabled) {
+    return null;
+  }
+
+  const activeTeam = getSessionActiveTeam({ session, teamSlug });
+
+  return getBillingUrl({ teamSlug: activeTeam?.slug });
+}
+
+export function getBillingUrl({ teamSlug }: { teamSlug?: string }): Route {
+  return teamSlug ? getTeamSectionPath({ teamSlug, section: "billing" }) : "/dashboard/billing";
+}
+
+function getSessionActiveTeam({
+  session,
+  teamSlug,
+}: {
+  session: SessionValidationResult | null;
+  teamSlug?: string;
+}) {
+  return getActiveTeam({
+    teams: session?.teams ?? [],
+    teamSlug,
+    selectedTeamId: session?.selectedTeam,
+  });
 }

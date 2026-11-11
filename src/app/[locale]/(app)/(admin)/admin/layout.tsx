@@ -1,6 +1,7 @@
 import { AdminSidebar } from "./_components/admin-sidebar"
 import { SessionHydrator } from "@/components/session-hydrator"
 import { requireAdminOrRedirectHome } from "@/utils/auth-redirect"
+import { isBillingEnabled } from "@/flags"
 import {
   SidebarInset,
   SidebarProvider,
@@ -14,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SessionHydrator session={session}>
       <SidebarProvider>
-        <AdminSidebar />
+        <AdminSidebar serverSession={session} billingEnabled={isBillingEnabled()} />
         <SidebarInset className="w-full flex flex-col">
           <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />

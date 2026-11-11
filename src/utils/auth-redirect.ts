@@ -6,6 +6,7 @@ import { getLocale } from "@/i18n/server";
 
 import { REDIRECT_AFTER_SIGN_IN, SITE_URL, TEAMS_DASHBOARD_PATH } from "@/constants";
 import { redirect } from "@/i18n/navigation";
+import { getActiveTeam, getTeamSectionPath } from "@/utils/active-team";
 import { getCurrentSession, requireAdmin } from "@/utils/auth";
 import type { CurrentSession, SessionValidationResult } from "@/types";
 
@@ -72,13 +73,12 @@ export async function redirectToSelectedTeamPage(section: string): Promise<never
   }
 
   const locale = await getLocale();
-  const teams = session.teams ?? [];
-  const selectedTeam = teams.find((team) => team.id === session.selectedTeam) ?? teams[0];
+  const selectedTeam = getActiveTeam({ teams: session.teams ?? [], selectedTeamId: session.selectedTeam });
   if (!selectedTeam) {
     redirect({ href: TEAMS_DASHBOARD_PATH, locale });
   }
 
-  return redirect({ href: `${TEAMS_DASHBOARD_PATH}/${selectedTeam.slug}/${section}`, locale });
+  return redirect({ href: getTeamSectionPath({ teamSlug: selectedTeam.slug, section }), locale });
 }
 
 export async function redirectAuthenticatedUser({

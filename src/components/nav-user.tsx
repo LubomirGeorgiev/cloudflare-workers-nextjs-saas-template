@@ -2,7 +2,6 @@
 
 import {
   BadgeCheck,
-  Bell,
   Check,
   ChevronsUpDown,
   CreditCard,
@@ -48,13 +47,16 @@ import { ENABLED_LOCALES, LOCALE_LABELS } from "@/i18n/config"
 import { LocaleFlag } from "@/components/locale-flag"
 import { useChangeLocale } from "@/hooks/useChangeLocale"
 import type { SessionValidationResult } from "@/types"
+import type { Route } from "next"
 import { getInitials } from "@/utils/name-initials"
 
 interface NavUserProps {
   session?: SessionValidationResult | null;
+  // From getSidebarBillingUrl(), so this menu matches the Billing nav item; null hides the item.
+  billingUrl: Route | null;
 }
 
-export function NavUser({ session: sessionProp }: NavUserProps) {
+export function NavUser({ session: sessionProp, billingUrl }: NavUserProps) {
   const { session: storeSession, isLoading } = useSessionStore();
   const session = storeSession ?? sessionProp ?? null;
   const { signOut } = useSignOut();
@@ -143,17 +145,15 @@ export function NavUser({ session: sessionProp }: NavUserProps) {
                 <BadgeCheck />
                 {t("account")}
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer" onClick={() => {
-                setOpenMobile(false)
-                router.push('/dashboard/billing')
-              }}>
-                <CreditCard />
-                {t("billing")}
-              </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Bell />
-                {t("notifications")}
-              </DropdownMenuItem>
+              {billingUrl && (
+                <DropdownMenuItem className="cursor-pointer" onClick={() => {
+                  setOpenMobile(false)
+                  router.push(billingUrl)
+                }}>
+                  <CreditCard />
+                  {t("billing")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />

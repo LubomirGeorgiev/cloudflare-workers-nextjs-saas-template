@@ -476,8 +476,7 @@
     "Sidebar": {
       "toggle": "Mostrar u ocultar la barra lateral",
       "groups": {
-        "platform": "Plataforma",
-        "projects": "Proyectos"
+        "platform": "Plataforma"
       },
       "nav": {
         "dashboard": "Panel",
@@ -489,21 +488,11 @@
         "sessions": "Sesiones",
         "apiMcp": "API y MCP",
         "changePassword": "Cambiar contraseña",
-        "adminPanel": "Panel de administración",
-        "designEngineering": "Ingeniería de diseño",
-        "salesMarketing": "Ventas y marketing",
-        "travel": "Viajes"
-      },
-      "projects": {
-        "more": "Más",
-        "view": "Ver proyecto",
-        "share": "Compartir proyecto",
-        "delete": "Eliminar proyecto"
+        "adminPanel": "Panel de administración"
       },
       "user": {
         "account": "Cuenta",
         "billing": "Facturación",
-        "notifications": "Notificaciones",
         "changeTheme": "Cambiar tema",
         "changeLanguage": "Cambiar idioma",
         "logOut": "Cerrar sesión"

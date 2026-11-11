@@ -476,8 +476,7 @@
     "Sidebar": {
       "toggle": "Toggle Sidebar",
       "groups": {
-        "platform": "Platform",
-        "projects": "Projects"
+        "platform": "Platform"
       },
       "nav": {
         "dashboard": "Dashboard",
@@ -489,21 +488,11 @@
         "sessions": "Sessions",
         "apiMcp": "API & MCP",
         "changePassword": "Change Password",
-        "adminPanel": "Admin Panel",
-        "designEngineering": "Design Engineering",
-        "salesMarketing": "Sales & Marketing",
-        "travel": "Travel"
-      },
-      "projects": {
-        "more": "More",
-        "view": "View Project",
-        "share": "Share Project",
-        "delete": "Delete Project"
+        "adminPanel": "Admin Panel"
       },
       "user": {
         "account": "Account",
         "billing": "Billing",
-        "notifications": "Notifications",
         "changeTheme": "Change theme",
         "changeLanguage": "Change language",
         "logOut": "Log out"

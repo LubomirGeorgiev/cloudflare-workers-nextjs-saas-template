@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, type ElementType } from "react"
+import { useCallback, type ElementType } from "react"
 import { Building2, ChevronsUpDown, Plus } from "lucide-react"
 
 import {
@@ -18,31 +18,37 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { Link } from "@/i18n/navigation"
+import { Link, usePathname, useRouter } from "@/i18n/navigation"
 import { useSessionStore } from "@/state/session"
 import { useAction } from "next-safe-action/hooks"
 import { updateSelectedTeamAction } from "@/actions/session.action"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
 import { useTranslations } from "@/i18n/client"
-import { useRouter } from "next/navigation"
+import { formatSessionTeamRoleLabel, type SessionTeamRole } from "@/lib/teams/team-role-labels"
+import { getSwitchedTeamPath } from "@/utils/active-team"
 
 export function TeamSwitcher({
   teams,
+  activeTeamId,
+  teamSlug,
 }: {
   teams: {
     id: string
+    slug: string
     name: string
     logo: ElementType
-    role: string
+    role: SessionTeamRole
   }[]
+  activeTeamId?: string
+  // The `[teamSlug]` route param of the current page, if any.
+  teamSlug?: string
 }) {
   const t = useTranslations("Client.Dashboard.Teams")
   const router = useRouter()
+  const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
-  const session = useSessionStore()
-  const selectedTeamId = session.selectedTeam()
-  const setSelectedTeam = session.setSelectedTeam
+  const selectedTeamId = useSessionStore((store) => store.session?.selectedTeam)
+  const setSelectedTeam = useSessionStore((store) => store.setSelectedTeam)
 
   const { execute: updateSelectedTeam, isExecuting } = useAction(updateSelectedTeamAction, {
     onError: ({ error }) => {
@@ -51,20 +57,17 @@ export function TeamSwitcher({
       setSelectedTeam(selectedTeamId);
       toast.error(error.serverError?.message || t("toastUpdateSelectedTeamError"));
     },
-    // Server components read the team from the KV session, so the store alone leaves them on the
-    // old team. Refresh from onSuccess, not handleTeamChange, so the KV write lands first.
-    onSuccess: () => router.refresh(),
+    // Server components off a team URL read the team from the KV session, so the store alone leaves
+    // them on the old team. Refresh from onSuccess, not handleTeamChange, so the KV write lands first.
+    onSuccess: () => {
+      if (!teamSlug) {
+        router.refresh()
+      }
+    },
   })
 
-  // Find the active team based on selectedTeamId from session
-  const activeTeam = useMemo(() => {
-    if (!selectedTeamId) {
-      return teams[0] || null
-    }
-
-    // Find the matching team in the props by ID
-    return teams.find(t => t.id === selectedTeamId) || teams[0] || null
-  }, [selectedTeamId, teams])
+  // Comes from props: the server render has an empty store, so a store read mismatches on hydration.
+  const activeTeam = teams.find((team) => team.id === activeTeamId) ?? null
 
   const LogoComponent = activeTeam?.logo || Building2
 
@@ -75,7 +78,13 @@ export function TeamSwitcher({
     // Call server action to persist
     // Error handling is done via the useAction onError callback
     updateSelectedTeam({ selectedTeam: team.id })
-  }, [setSelectedTeam, updateSelectedTeam])
+
+    // A team page takes its team from the URL, so open the same section of the next team.
+    if (teamSlug && team.slug !== teamSlug) {
+      setOpenMobile(false)
+      router.push(getSwitchedTeamPath({ pathname, currentTeamSlug: teamSlug, nextTeamSlug: team.slug }))
+    }
+  }, [pathname, router, setOpenMobile, setSelectedTeam, teamSlug, updateSelectedTeam])
 
   return (
     <SidebarMenu>
@@ -96,8 +105,8 @@ export function TeamSwitcher({
                 <span className="truncate font-semibold">
                   {activeTeam?.name || t("switcherNoTeam")}
                 </span>
-                <span className={cn("truncate text-xs", activeTeam?.role && "capitalize")}>
-                  {activeTeam?.role || t("memberRole")}
+                <span className="truncate text-xs">
+                  {activeTeam ? formatSessionTeamRoleLabel({ role: activeTeam.role, translate: t }) : t("memberRole")}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
