@@ -53,7 +53,7 @@ vi.mock("@/utils/with-rate-limit", () => ({
   },
 }));
 
-const { actionClient } = await import("@/lib/safe-action");
+const { actionClient, toActionServerError } = await import("@/lib/safe-action");
 const { RateLimitError } = await import("@/utils/with-rate-limit");
 
 const ACTION_SPAN_NAME = "app.action";
@@ -192,6 +192,26 @@ describe("actionClient span", () => {
     expect(spanAttributes.get("app.action.navigation_kind")).toBe("redirect");
     expect(fakeSpan.recordException).not.toHaveBeenCalled();
     expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});
+
+describe("toActionServerError", () => {
+  // next-safe-action wraps a non-Error before `handleServerError`; a route handler gets no such help.
+  test("gives a route handler the same shape an action returns", async () => {
+    const code = "NOT_AUTHORIZED";
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(toActionServerError(new ActionError(code, "denied"))).resolves.toEqual({
+      code,
+      message: "denied",
+      reason: undefined,
+    });
+    await expect(toActionServerError(new RateLimitError(60))).resolves
+      .toMatchObject({ code: "RATE_LIMITED" });
+    await expect(toActionServerError("not an error")).resolves
+      .toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+    expect(consoleError).toHaveBeenCalledOnce();
     consoleError.mockRestore();
   });
 });

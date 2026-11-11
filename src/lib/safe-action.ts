@@ -49,42 +49,50 @@ async function translateErrorKey(
   return (t as (key: string, params?: ActionErrorMessageParams) => string)(key, params);
 }
 
+/**
+ * The client-facing form of a thrown error, translated in the request locale. Route handlers that
+ * the dashboard calls with `fetch` answer with it too, so their toasts read like an action's.
+ */
+export async function toActionServerError(error: unknown): Promise<ActionServerError> {
+  if (error instanceof ActionError) {
+    return {
+      code: error.code,
+      message: error.messageKey
+        ? await translateErrorKey(error.messageKey, error.messageParams)
+        : error.message,
+      reason: error.messageKey,
+    };
+  }
+
+  if (error instanceof RateLimitError) {
+    const t = await getTranslations("Client.Errors");
+    return {
+      code: RATE_LIMITED_ERROR_CODE,
+      message: t("rateLimitExceeded", {
+        minutes: Math.ceil(error.retryAfterSeconds / 60),
+      }),
+    };
+  }
+
+  console.error("Safe action error:", error);
+  const t = await getTranslations("Client.Errors");
+  const serverError: ActionServerError = {
+    code: INTERNAL_SERVER_ERROR_CODE,
+    message: t("unexpected"),
+  };
+  unexpectedServerErrors.set(serverError, error instanceof Error ? error : new Error(String(error)));
+
+  return serverError;
+}
+
 const baseActionClient = createSafeActionClient({
   // With a schema, next-safe-action refuses `.action()` until `.metadata()` names the action.
   defineMetadataSchema: () => actionMetadataSchema,
-  async handleServerError(error): Promise<ActionServerError> {
+  handleServerError(error): Promise<ActionServerError> {
     // vinext's redirect digest has no type or status, so next-safe-action misses it as a navigation.
     unstable_rethrow(error);
 
-    if (error instanceof ActionError) {
-      return {
-        code: error.code,
-        message: error.messageKey
-          ? await translateErrorKey(error.messageKey, error.messageParams)
-          : error.message,
-        reason: error.messageKey,
-      };
-    }
-
-    if (error instanceof RateLimitError) {
-      const t = await getTranslations("Client.Errors");
-      return {
-        code: RATE_LIMITED_ERROR_CODE,
-        message: t("rateLimitExceeded", {
-          minutes: Math.ceil(error.retryAfterSeconds / 60),
-        }),
-      };
-    }
-
-    console.error("Safe action error:", error);
-    const t = await getTranslations("Client.Errors");
-    const serverError: ActionServerError = {
-      code: INTERNAL_SERVER_ERROR_CODE,
-      message: t("unexpected"),
-    };
-    unexpectedServerErrors.set(serverError, error);
-
-    return serverError;
+    return toActionServerError(error);
   },
 });
 

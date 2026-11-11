@@ -1,8 +1,8 @@
 import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { waitUntil } from "cloudflare:workers";
-import * as ipaddr from "ipaddr.js";
 import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
+import { normalizeRateLimitIp } from "@/utils/rate-limit-ip";
 
 interface RateLimitOptions {
   // Maximum number of requests allowed within the window
@@ -26,30 +26,6 @@ interface RateLimitResult {
 // reads and writes are eventually consistent and the increment is not atomic, so concurrent
 // requests (especially across PoPs) can temporarily exceed a configured limit.
 
-// Normalize an IP address for rate limiting
-// For IPv6, we use the /64 subnet to prevent rate limit bypassing
-function normalizeIP(ip: string): string {
-  try {
-    const addr = ipaddr.parse(ip);
-
-    if (addr.kind() === 'ipv6') {
-      const ipv6 = addr as ipaddr.IPv6;
-      const bytes = ipv6.toByteArray();
-      // Zero out the last 8 bytes (64 bits)
-      for (let i = 8; i < 16; i++) {
-        bytes[i] = 0;
-      }
-      return `${ipaddr.fromByteArray(bytes).toString()}/64`;
-    } else {
-      // For IPv4, return the address as-is without normalization
-      return addr.toString();
-    }
-  } catch {
-    // If parsing fails, return the original IP
-    return ip;
-  }
-}
-
 // Build the per-window KV key, normalizing IP-shaped keys to their /64 subnet.
 function buildWindowKey({
   key,
@@ -62,8 +38,7 @@ function buildWindowKey({
   windowInSeconds: number;
   now: number;
 }): string {
-  const normalizedKey = ipaddr.isValid(key) ? normalizeIP(key) : key;
-  return `${APP_KV_PREFIXES.rateLimit}${identifier}:${normalizedKey}:${Math.floor(now / windowInSeconds)}`;
+  return `${APP_KV_PREFIXES.rateLimit}${identifier}:${normalizeRateLimitIp(key)}:${Math.floor(now / windowInSeconds)}`;
 }
 
 export async function checkRateLimit({

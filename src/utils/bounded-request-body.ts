@@ -60,3 +60,32 @@ export async function readBoundedRequestBody({
     return { exceededLimit: false, text: null };
   }
 }
+
+/**
+ * Parses a JSON object body and refuses anything over `maxBytes` before it buffers the bytes. Null
+ * covers an oversized body, a parse failure, and a payload that is not a JSON object: a route
+ * answers all three alike, because each one is a caller sending something nobody asked for.
+ */
+export async function readBoundedJsonObject({
+  request,
+  maxBytes,
+}: {
+  request: Request;
+  maxBytes: number;
+}): Promise<Record<string, unknown> | null> {
+  const { exceededLimit, text } = await readBoundedRequestBody({ request, maxBytes });
+  if (exceededLimit || !text) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+
+  return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>)
+    : null;
+}
