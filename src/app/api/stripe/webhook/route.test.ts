@@ -4,6 +4,7 @@ import { STRIPE_WEBHOOK_BODY_MAX_BYTES } from "@/constants";
 import { STRIPE_EVENT_RESULT } from "@/utils/stripe-webhook-handler";
 
 const WEBHOOK_SPAN_NAME = "app.stripe.webhook";
+const STRIPE_CALL_SPAN_NAME = "app.stripe.call";
 const EVENT_TYPE_ATTRIBUTE = "app.stripe.event_type";
 const OUTCOME_ATTRIBUTE = "app.stripe.outcome";
 const HANDLED_EVENT_TYPE = "customer.subscription.updated";
@@ -27,19 +28,21 @@ const {
 
 vi.mock("server-only", () => ({}));
 
+// Only the webhook span's attributes are kept: the Stripe fetch opens its own child span.
 vi.mock("@/utils/trace", () => ({
   recordSpanException: recordSpanExceptionMock,
   withSpan: ({ name, run }: { name: string; run: (span: unknown) => Promise<unknown> }) => {
     enteredSpans.push(name);
+    const attributes = name === "app.stripe.webhook" ? spanAttributes : new Map<string, unknown>();
 
     return run({
       isTraced: true,
       setAttribute: (key: string, value: unknown) => {
-        spanAttributes.set(key, value);
+        attributes.set(key, value);
       },
       setAttributes: (values: Record<string, unknown>) => {
         for (const [key, value] of Object.entries(values)) {
-          spanAttributes.set(key, value);
+          attributes.set(key, value);
         }
       },
     });
@@ -83,7 +86,7 @@ describe("Stripe webhook span", () => {
 
     expect(response.status).toBe(200);
     expect(reconcileMock).toHaveBeenCalledOnce();
-    expect(enteredSpans).toEqual([WEBHOOK_SPAN_NAME]);
+    expect(enteredSpans).toEqual([WEBHOOK_SPAN_NAME, STRIPE_CALL_SPAN_NAME]);
     expect(Object.fromEntries(spanAttributes)).toEqual({
       [EVENT_TYPE_ATTRIBUTE]: HANDLED_EVENT_TYPE,
       [OUTCOME_ATTRIBUTE]: STRIPE_EVENT_RESULT.OK,

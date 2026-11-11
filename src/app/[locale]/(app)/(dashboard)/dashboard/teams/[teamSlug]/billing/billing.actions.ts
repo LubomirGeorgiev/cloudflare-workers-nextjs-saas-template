@@ -10,6 +10,7 @@ import { requireTeamPermission } from "@/utils/team-auth";
 import { withRateLimit, RATE_LIMITS } from "@/utils/with-rate-limit";
 import { getTeamBillingSummary } from "@/lib/billing/team-billing";
 import { getStripe } from "@/lib/stripe";
+import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import { isBillingEnabled } from "@/flags";
 import { getPlan } from "@/constants/plans";
 import { getAddonPriceId, getPlanPriceId } from "@/utils/plan-prices";
@@ -84,6 +85,14 @@ async function requireExistingSubscription(teamId: string) {
   return { stripe, subscriptionId: team.stripeSubscriptionId };
 }
 
+// The fresh Stripe state of a subscription: the team row can be stale after a lost webhook.
+function retrieveSubscription({ stripe, subscriptionId }: { stripe: Stripe; subscriptionId: string }) {
+  return callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+    run: () => stripe.subscriptions.retrieve(subscriptionId),
+  });
+}
+
 // The loser of a concurrent subscribe race discards its just-created incomplete
 // subscription and returns the winner's checkout state, so double-clicking clients
 // converge on a single payment flow.
@@ -96,16 +105,23 @@ async function convergeOnWinningCheckout({
 }) {
   const stripe = await getStripe();
 
-  await stripe.subscriptions.cancel(losingSubscriptionId).catch((error: unknown) => {
+  await callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsCancel,
+    run: () => stripe.subscriptions.cancel(losingSubscriptionId),
+  }).catch((error: unknown) => {
     // Unpaid incomplete subscriptions auto-expire on Stripe's side, so a failed
     // cleanup is safe to leave behind.
     console.error("createSubscriptionAction: losing-subscription cleanup failed", error);
   });
 
   const winner = await getDB().query.teamTable.findFirst({ where: { id: teamId } });
-  const winnerSubscription = winner?.stripeSubscriptionId
-    ? await stripe.subscriptions.retrieve(winner.stripeSubscriptionId, {
-      expand: ["latest_invoice.confirmation_secret"],
+  const winnerSubscriptionId = winner?.stripeSubscriptionId;
+  const winnerSubscription = winnerSubscriptionId
+    ? await callStripe({
+      operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+      run: () => stripe.subscriptions.retrieve(winnerSubscriptionId, {
+        expand: ["latest_invoice.confirmation_secret"],
+      }),
     }).catch((error: unknown) => {
       console.error("createSubscriptionAction: winning subscription retrieve failed", error);
       return null;
@@ -142,17 +158,20 @@ export const createSubscriptionAction = actionClient
           actingUserEmail: session.user.email,
         });
 
-        const subscription = await stripe.subscriptions.create({
-          customer: customerId,
-          items: [{ price: getPlanPriceId({ planId, interval }) }],
-          payment_behavior: "default_incomplete",
-          payment_settings: { save_default_payment_method: "on_subscription" },
-          expand: ["latest_invoice.confirmation_secret"],
-          metadata: { teamId },
-        }, {
-          // Fresh per request: only pins this call's network retries. Nothing is
-          // persisted, so a failed attempt cannot poison later ones.
-          idempotencyKey: `team-subscription:${teamId}:${crypto.randomUUID()}`,
+        const subscription = await callStripe({
+          operation: STRIPE_OPERATIONS.subscriptionsCreate,
+          run: () => stripe.subscriptions.create({
+            customer: customerId,
+            items: [{ price: getPlanPriceId({ planId, interval }) }],
+            payment_behavior: "default_incomplete",
+            payment_settings: { save_default_payment_method: "on_subscription" },
+            expand: ["latest_invoice.confirmation_secret"],
+            metadata: { teamId },
+          }, {
+            // Fresh per request: only pins this call's network retries. Nothing is
+            // persisted, so a failed attempt cannot poison later ones.
+            idempotencyKey: `team-subscription:${teamId}:${crypto.randomUUID()}`,
+          }),
         });
 
         const claimedSlot = await claimTeamSubscription({
@@ -236,11 +255,14 @@ export const startTrialSetupAction = actionClient
           actingUserEmail: session.user.email,
         });
 
-        const setupIntent = await stripe.setupIntents.create({
-          customer: customerId,
-          usage: "off_session",
-          // completeTrialSubscription reads the plan and interval back from here.
-          metadata: { teamId, planId, interval } satisfies TrialSetupMetadata,
+        const setupIntent = await callStripe({
+          operation: STRIPE_OPERATIONS.setupIntentsCreate,
+          run: () => stripe.setupIntents.create({
+            customer: customerId,
+            usage: "off_session",
+            // completeTrialSubscription reads the plan and interval back from here.
+            metadata: { teamId, planId, interval } satisfies TrialSetupMetadata,
+          }),
         });
 
         if (!setupIntent.client_secret) {
@@ -301,7 +323,7 @@ export const changePlanAction = actionClient
       const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
       try {
-        const current = await stripe.subscriptions.retrieve(subscriptionId);
+        const current = await retrieveSubscription({ stripe, subscriptionId });
 
         // A past_due/incomplete/unpaid subscription must settle its open payment first;
         // otherwise the price swap piles prorations onto a team that is still locked out.
@@ -328,9 +350,12 @@ export const changePlanAction = actionClient
           }
         }
 
-        const updated = await stripe.subscriptions.update(subscriptionId, {
-          items,
-          proration_behavior: "create_prorations",
+        const updated = await callStripe({
+          operation: STRIPE_OPERATIONS.subscriptionsUpdate,
+          run: () => stripe.subscriptions.update(subscriptionId, {
+            items,
+            proration_behavior: "create_prorations",
+          }),
         });
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.
@@ -366,7 +391,7 @@ export const updateAddonQuantityAction = actionClient
       }
 
       try {
-        const current = await stripe.subscriptions.retrieve(subscriptionId);
+        const current = await retrieveSubscription({ stripe, subscriptionId });
 
         // Add-ons ride on a subscription that grants paid access; a past_due/unpaid/
         // paused subscription must settle its plan payment first.
@@ -395,9 +420,12 @@ export const updateAddonQuantityAction = actionClient
           }];
         items.push(...duplicates.map(({ item }) => ({ id: item.id, deleted: true })));
 
-        const updated = await stripe.subscriptions.update(subscriptionId, {
-          items,
-          proration_behavior: "create_prorations",
+        const updated = await callStripe({
+          operation: STRIPE_OPERATIONS.subscriptionsUpdate,
+          run: () => stripe.subscriptions.update(subscriptionId, {
+            items,
+            proration_behavior: "create_prorations",
+          }),
         });
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.
@@ -424,7 +452,7 @@ export const cancelSubscriptionAction = actionClient
       try {
         // The page can show a stale status after a lost webhook. Stripe refuses an update on an
         // ended subscription, so only sync the row. Cancel now only when no paid access remains.
-        const current = await stripe.subscriptions.retrieve(subscriptionId);
+        const current = await retrieveSubscription({ stripe, subscriptionId });
         const policy = getStripeSubscriptionTransitionPolicy(current.status);
         if (policy?.subscription === "clear") {
           await reconcileTeamFromSubscription({ subscription: current });
@@ -434,8 +462,14 @@ export const cancelSubscriptionAction = actionClient
 
         // The `atPeriodEnd` branch keeps pending prorations; they bill when the period closes.
         const updated = canceledNow
-          ? await stripe.subscriptions.cancel(subscriptionId, cancelParamsForStatus(current.status))
-          : await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+          ? await callStripe({
+            operation: STRIPE_OPERATIONS.subscriptionsCancel,
+            run: () => stripe.subscriptions.cancel(subscriptionId, cancelParamsForStatus(current.status)),
+          })
+          : await callStripe({
+            operation: STRIPE_OPERATIONS.subscriptionsUpdate,
+            run: () => stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true }),
+          });
 
         // Optimistically reconcile so the UI updates without waiting for the webhook.
         await reconcileTeamFromSubscription({ subscription: updated });
@@ -460,8 +494,11 @@ export const resumePaymentAction = actionClient
     return withRateLimit(async () => {
       const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
 
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
-        expand: ["latest_invoice.confirmation_secret"],
+      const subscription = await callStripe({
+        operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+        run: () => stripe.subscriptions.retrieve(subscriptionId, {
+          expand: ["latest_invoice.confirmation_secret"],
+        }),
       });
 
       // The team row can be stale after a lost webhook. A paid invoice still returns a
@@ -507,15 +544,20 @@ export const createBillingPortalSessionAction = actionClient
         // Stripe falls back to the account's default portal configuration.
         const portalConfigurationId = process.env.STRIPE_PORTAL_CONFIG_ID;
 
-        const portalSession = await (await getStripe()).billingPortal.sessions.create({
-          customer: team.stripeCustomerId,
-          ...(portalConfigurationId ? { configuration: portalConfigurationId } : {}),
-          // The request host, so a preview deployment returns to itself. The locale prefix stays,
-          // because a bare path would let the proxy pick the locale from the cookie instead.
-          return_url: absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${team.slug}/billing`, locale, baseUrl }),
-          // The template's locales (en/es) are all valid portal locales. Downstream
-          // projects adding a locale Stripe doesn't support should map or omit this.
-          locale: locale as Stripe.BillingPortal.SessionCreateParams.Locale,
+        const stripe = await getStripe();
+        const customerId = team.stripeCustomerId;
+        const portalSession = await callStripe({
+          operation: STRIPE_OPERATIONS.billingPortalSessionsCreate,
+          run: () => stripe.billingPortal.sessions.create({
+            customer: customerId,
+            ...(portalConfigurationId ? { configuration: portalConfigurationId } : {}),
+            // The request host, so a preview deployment returns to itself. The locale prefix stays,
+            // because a bare path would let the proxy pick the locale from the cookie instead.
+            return_url: absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${team.slug}/billing`, locale, baseUrl }),
+            // The template's locales (en/es) are all valid portal locales. Downstream
+            // projects adding a locale Stripe doesn't support should map or omit this.
+            locale: locale as Stripe.BillingPortal.SessionCreateParams.Locale,
+          }),
         });
 
         return { success: true, url: portalSession.url };

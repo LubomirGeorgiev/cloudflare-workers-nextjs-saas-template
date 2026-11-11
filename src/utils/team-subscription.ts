@@ -16,6 +16,8 @@ import {
   cancelParamsForStatus,
   getStripeSubscriptionTransitionPolicy,
 } from "@/constants/subscription-lifecycle";
+import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
+import { getStripeId } from "@/utils/stripe-id";
 
 // The item whose period/interval describes the subscription: the plan item when one
 // resolves, otherwise the first item (all items share an interval on one subscription,
@@ -40,13 +42,6 @@ function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): Bi
   // literal narrowing; comparing as a plain string restores it.
   const interval: string | undefined = anchorItem?.price?.recurring?.interval;
   return interval === "month" || interval === "year" ? interval : null;
-}
-
-function getCustomerId(customer: Stripe.Subscription["customer"]): string | null {
-  if (!customer) {
-    return null;
-  }
-  return typeof customer === "string" ? customer : customer.id;
 }
 
 interface EnsureStripeCustomerParams {
@@ -116,8 +111,10 @@ export async function settleRecordedSubscription({
 }): Promise<void> {
   const stripe = await getStripe();
 
-  const existing = await stripe.subscriptions
-    .retrieve(recordedSubscriptionId)
+  const existing = await callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+    run: () => stripe.subscriptions.retrieve(recordedSubscriptionId),
+  })
     .catch((error: unknown) => {
       // Only a Stripe-confirmed missing subscription may release the slot; any other
       // failure (network, auth) must not risk creating a duplicate subscription.
@@ -146,7 +143,10 @@ export async function settleRecordedSubscription({
   // Do not create a replacement unless Stripe confirms the old subscription is
   // canceled. Reconciling the terminal snapshot releases the team's slot.
   const settled = policy.subscribe === "cancel"
-    ? await stripe.subscriptions.cancel(existing.id, cancelParamsForStatus(existing.status))
+    ? await callStripe({
+      operation: STRIPE_OPERATIONS.subscriptionsCancel,
+      run: () => stripe.subscriptions.cancel(existing.id, cancelParamsForStatus(existing.status)),
+    })
     : existing;
   await reconcileTeamFromSubscription({ subscription: settled });
 }
@@ -169,10 +169,14 @@ export async function ensureStripeCustomer({
     return team.stripeCustomerId;
   }
 
-  const customer = await (await getStripe()).customers.create({
-    email: team.billingEmail ?? actingUserEmail ?? undefined,
-    name: team.name,
-    metadata: { teamId },
+  const stripe = await getStripe();
+  const customer = await callStripe({
+    operation: STRIPE_OPERATIONS.customersCreate,
+    run: () => stripe.customers.create({
+      email: team.billingEmail ?? actingUserEmail ?? undefined,
+      name: team.name,
+      metadata: { teamId },
+    }),
   });
 
   const [claimedTeam] = await db
@@ -208,7 +212,11 @@ export async function syncStripeCustomerName({
     return;
   }
 
-  await (await getStripe()).customers.update(stripeCustomerId, { name });
+  const stripe = await getStripe();
+  await callStripe({
+    operation: STRIPE_OPERATIONS.customersUpdate,
+    run: () => stripe.customers.update(stripeCustomerId, { name }),
+  });
 }
 
 // One free trial per team AND per user: the team stamp stops re-trialing the same team,
@@ -268,7 +276,7 @@ export async function reconcileTeamFromSubscription({
 }: ReconcileParams): Promise<string | null> {
   const db = getDB();
 
-  const subscriptionCustomerId = getCustomerId(subscription.customer);
+  const subscriptionCustomerId = getStripeId(subscription.customer);
   const metadataTeamId = subscription.metadata?.teamId;
   let team = metadataTeamId
     ? await db.query.teamTable.findFirst({ where: { id: metadataTeamId } })

@@ -3,6 +3,7 @@ import "server-only";
 import type Stripe from "stripe";
 
 import { getStripe } from "@/lib/stripe";
+import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import { reconcileTeamFromSubscription } from "@/utils/team-subscription";
 
 // Events we act on. All of them resolve to a subscription that we re-fetch and snapshot,
@@ -80,7 +81,10 @@ export async function handleStripeEvent(
   // Re-fetch the subscription so we always write Stripe's latest state (source of truth).
   let subscription: Stripe.Subscription;
   try {
-    subscription = await client.subscriptions.retrieve(subscriptionId);
+    subscription = await callStripe({
+      operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+      run: () => client.subscriptions.retrieve(subscriptionId),
+    });
   } catch (error) {
     console.error("Failed to retrieve subscription for webhook", { subscriptionId, error });
     throw error;

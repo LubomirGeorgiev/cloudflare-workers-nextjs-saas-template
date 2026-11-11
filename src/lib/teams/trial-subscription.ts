@@ -4,6 +4,8 @@ import type Stripe from "stripe";
 
 import { ActionError } from "@/lib/action-error";
 import { getStripe } from "@/lib/stripe";
+import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
+import { getStripeId } from "@/utils/stripe-id";
 import { getDB } from "@/db";
 import { getPlanPriceId } from "@/utils/plan-prices";
 import { getPlan } from "@/constants/plans";
@@ -79,18 +81,21 @@ function createTrialSubscription(
   stripe: TrialSubscriptionStripe,
   inputs: TrialSubscriptionInputs,
 ): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.create({
-    customer: inputs.customerId,
-    items: [{ price: inputs.priceId }],
-    trial_period_days: inputs.trialDays,
-    // The card is attached; if it is ever detached before trial end, cancel instead of
-    // generating invoices that can only fail.
-    trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
-    default_payment_method: inputs.paymentMethodId,
-    payment_settings: { save_default_payment_method: "on_subscription" },
-    metadata: { teamId: inputs.teamId },
-  }, {
-    idempotencyKey: `team-trial:${inputs.id}`,
+  return callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsCreate,
+    run: () => stripe.subscriptions.create({
+      customer: inputs.customerId,
+      items: [{ price: inputs.priceId }],
+      trial_period_days: inputs.trialDays,
+      // The card is attached; if it is ever detached before trial end, cancel instead of
+      // generating invoices that can only fail.
+      trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+      default_payment_method: inputs.paymentMethodId,
+      payment_settings: { save_default_payment_method: "on_subscription" },
+      metadata: { teamId: inputs.teamId },
+    }, {
+      idempotencyKey: `team-trial:${inputs.id}`,
+    }),
   });
 }
 
@@ -114,13 +119,12 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
 
   const customerId = await ensureStripeCustomer({ teamId, actingUserEmail });
 
-  const setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
-  const setupCustomerId = typeof setupIntent.customer === "string"
-    ? setupIntent.customer
-    : setupIntent.customer?.id;
-  const paymentMethodId = typeof setupIntent.payment_method === "string"
-    ? setupIntent.payment_method
-    : setupIntent.payment_method?.id;
+  const setupIntent = await callStripe({
+    operation: STRIPE_OPERATIONS.setupIntentsRetrieve,
+    run: () => stripe.setupIntents.retrieve(setupIntentId),
+  });
+  const setupCustomerId = getStripeId(setupIntent.customer);
+  const paymentMethodId = getStripeId(setupIntent.payment_method);
 
   // The SetupIntent id arrives from the client: only one that succeeded for THIS team's
   // customer may start the trial.
@@ -222,7 +226,10 @@ async function discardLosingTrial({
   // The recovery sweep can pass a trial that Stripe already ended; a second cancel fails.
   const cancellation = hasEnded(subscription)
     ? subscription
-    : await stripe.subscriptions.cancel(subscription.id);
+    : await callStripe({
+      operation: STRIPE_OPERATIONS.subscriptionsCancel,
+      run: () => stripe.subscriptions.cancel(subscription.id),
+    });
   await reconcileTeamFromSubscription({ subscription: cancellation });
 
   if (!hasEnded(cancellation)) {
@@ -288,8 +295,10 @@ async function retrieveSubscriptionOrNull(
   stripe: TrialSubscriptionStripe,
   subscriptionId: string,
 ): Promise<Stripe.Subscription | null> {
-  return stripe.subscriptions
-    .retrieve(subscriptionId)
+  return callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+    run: () => stripe.subscriptions.retrieve(subscriptionId),
+  })
     .catch((error: unknown) => {
       if ((error as { code?: string })?.code === "resource_missing") {
         return null;
@@ -302,8 +311,10 @@ async function cancelOrphanIfPresent(
   stripe: TrialSubscriptionStripe,
   subscriptionId: string,
 ): Promise<void> {
-  await stripe.subscriptions
-    .cancel(subscriptionId)
+  await callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsCancel,
+    run: () => stripe.subscriptions.cancel(subscriptionId),
+  })
     .catch((error: unknown) => {
       // Already gone or auto-expired — nothing to clean up.
       if ((error as { code?: string })?.code === "resource_missing") {

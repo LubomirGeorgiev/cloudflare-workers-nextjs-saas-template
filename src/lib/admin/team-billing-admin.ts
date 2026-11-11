@@ -7,6 +7,7 @@ import { cancelParamsForStatus } from "@/constants/subscription-lifecycle";
 import { getDB } from "@/db";
 import { ActionError } from "@/lib/action-error";
 import { getStripe } from "@/lib/stripe";
+import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import {
   reconcileTeamFromSubscription,
   settleRecordedSubscription,
@@ -60,8 +61,11 @@ async function readOpenInvoices(stripeCustomerId: string | null): Promise<TeamOp
 
   // A billing read must never break the page it warns on: an unreachable Stripe reports "none
   // known" rather than throwing, and the rest of the impact summary still renders.
-  const invoices = await (await getStripe()).invoices
-    .list({ customer: stripeCustomerId, status: "open", limit: OPEN_INVOICE_QUERY_LIMIT })
+  const stripe = await getStripe();
+  const invoices = await callStripe({
+    operation: STRIPE_OPERATIONS.invoicesList,
+    run: () => stripe.invoices.list({ customer: stripeCustomerId, status: "open", limit: OPEN_INVOICE_QUERY_LIMIT }),
+  })
     .catch((error: unknown) => {
       console.error("getTeamBillingRisk: open invoice lookup failed", error);
       return null;
@@ -155,13 +159,17 @@ export async function cancelTeamSubscriptionAsAdmin({
   const stripe = await getStripe();
   // The team row can be stale after a lost webhook, and the invoice decision depends on the
   // status, so read it from Stripe.
-  const current = await stripe.subscriptions.retrieve(recordedId).catch(nullWhenMissing);
-  const cancelled: Stripe.Subscription | null = current && await stripe.subscriptions
-    .cancel(recordedId, {
+  const current = await callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
+    run: () => stripe.subscriptions.retrieve(recordedId),
+  }).catch(nullWhenMissing);
+  const cancelled: Stripe.Subscription | null = current && await callStripe({
+    operation: STRIPE_OPERATIONS.subscriptionsCancel,
+    run: () => stripe.subscriptions.cancel(recordedId, {
       ...cancelParamsForStatus(current.status),
       cancellation_details: { comment: reason },
-    })
-    .catch(nullWhenMissing);
+    }),
+  }).catch(nullWhenMissing);
 
   if (!cancelled) {
     // Stripe no longer knows this subscription — an earlier retry landed, or somebody cancelled
