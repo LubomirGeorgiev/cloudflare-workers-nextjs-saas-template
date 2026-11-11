@@ -13,6 +13,15 @@ export interface TeamPlanLimits {
   projects: number;
 }
 
+// A Record over the interface keys: a new limit key fails typecheck until it is listed here,
+// so the catalog schema and the add-on grants cover every key.
+const TEAM_PLAN_LIMIT_KEY_SET: Record<keyof TeamPlanLimits, true> = {
+  seats: true,
+  projects: true,
+};
+
+export const TEAM_PLAN_LIMIT_KEYS = Object.keys(TEAM_PLAN_LIMIT_KEY_SET) as (keyof TeamPlanLimits)[];
+
 export interface TeamPlan {
   id: string;
   name: string;
@@ -25,6 +34,16 @@ export interface TeamPlan {
   limits: TeamPlanLimits;
 }
 
+const nonNegativeInteger = v.pipe(v.number(), v.integer(), v.minValue(0));
+
+/** Every key of `TeamPlanLimits` as a non-negative integer. */
+export const teamPlanLimitsSchema = v.object(
+  Object.fromEntries(TEAM_PLAN_LIMIT_KEYS.map((key) => [key, nonNegativeInteger])) as Record<
+    keyof TeamPlanLimits,
+    typeof nonNegativeInteger
+  >
+);
+
 const teamPlanSchema = v.object({
   id: v.string(),
   name: v.string(),
@@ -32,7 +51,7 @@ const teamPlanSchema = v.object({
   currency: v.string(),
   interval: v.picklist(["month", "year"]),
   trialDays: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
-  limits: v.object({ seats: v.number(), projects: v.number() }),
+  limits: teamPlanLimitsSchema,
 });
 
 const planCatalogSchema = v.object({

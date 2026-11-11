@@ -13,6 +13,7 @@ import { AdminDetailSectionsSkeleton } from "../../_components/admin-detail-sect
 import { RenameTeam } from "../../_components/teams/rename-team"
 import { TeamOverviewCards } from "../../_components/teams/team-overview-cards"
 import { TeamBillingCard } from "../../_components/teams/team-billing-card"
+import { TeamLimitOverridesCard } from "../../_components/teams/team-limit-overrides-card"
 import { TeamSections } from "../../_components/teams/team-sections"
 
 interface TeamDetailPageProps {
@@ -111,6 +112,10 @@ export default async function TeamDetailPage({ params }: TeamDetailPageProps) {
             <TeamBillingCard teamId={team.id} />
           </Suspense>
         ) : null}
+
+        <Suspense fallback={<AdminDetailSectionsSkeleton />}>
+          <TeamLimitOverridesCard teamId={team.id} />
+        </Suspense>
 
         <Suspense fallback={<AdminDetailSectionsSkeleton />}>
           <TeamSections teamId={team.id} teamName={team.name} memberCount={team.memberCount} />

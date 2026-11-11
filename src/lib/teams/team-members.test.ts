@@ -62,6 +62,7 @@ const sampleTeamRow = {
   subscriptionStatus: null,
   planExpiresAt: null,
   subscriptionAddonIds: null,
+  limitOverrides: null,
 };
 
 const samplePendingInvitation = {

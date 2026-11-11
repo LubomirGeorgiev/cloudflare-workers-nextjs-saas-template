@@ -10,6 +10,8 @@ import { getTranslations } from "@/i18n/server";
 import { PlanCards } from "./_components/plan-cards";
 import { AddonCards } from "./_components/addon-cards";
 import { CustomerPortalButton } from "./_components/customer-portal-button";
+import { CustomLimitsCard } from "./_components/custom-limits-card";
+import { getTeamEntitlements } from "@/utils/entitlements";
 
 interface BillingPageProps {
   params: Promise<{ teamSlug: string }>;
@@ -94,6 +96,17 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
             hasActiveAddons={Object.values(subscription.addons).some((quantity) => quantity > 0)}
           />
         </NuqsAdapter>
+
+        {/* Only the overrides in effect now, and none when staff hide them from the customer. */}
+        <CustomLimitsCard
+          overrides={getTeamEntitlements({
+            planId: subscription.planId,
+            subscriptionStatus: subscription.status,
+            planExpiresAt: subscription.planExpiresAt,
+            addons: subscription.addons,
+            limitOverrides: subscription.limitOverrides,
+          }).customerLimitOverrides}
+        />
 
         <AddonCards
           teamId={team.id}

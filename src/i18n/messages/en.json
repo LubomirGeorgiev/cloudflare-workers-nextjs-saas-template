@@ -790,7 +790,13 @@
         "addonDecreaseNote": "Your next invoice gives a credit for the unused time of this billing period.",
         "addonUpdated": "Add-ons updated.",
         "errorAddonUnavailable": "This add-on is not available.",
-        "errorAddonMaxQuantity": "You can have at most {max} of this add-on."
+        "errorAddonMaxQuantity": "You can have at most {max} of this add-on.",
+        "CustomLimits": {
+          "title": "Custom limits",
+          "description": "Our team set these limits for your team. They apply in place of the values of your plan.",
+          "seats": "{count, plural, one {# seat} other {# seats}}",
+          "projects": "{count, plural, one {# project} other {# projects}}"
+        }
       }
     },
     "Settings": {

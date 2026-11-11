@@ -790,7 +790,13 @@
         "addonDecreaseNote": "Tu próxima factura te da un crédito por el tiempo no usado de este período de facturación.",
         "addonUpdated": "Complementos actualizados.",
         "errorAddonUnavailable": "Este complemento no está disponible.",
-        "errorAddonMaxQuantity": "Puedes tener como máximo {max} de este complemento."
+        "errorAddonMaxQuantity": "Puedes tener como máximo {max} de este complemento.",
+        "CustomLimits": {
+          "title": "Límites personalizados",
+          "description": "Nuestro equipo definió estos límites para tu equipo. Se aplican en lugar de los valores de tu plan.",
+          "seats": "{count, plural, one {# puesto} other {# puestos}}",
+          "projects": "{count, plural, one {# proyecto} other {# proyectos}}"
+        }
       }
     },
     "Settings": {

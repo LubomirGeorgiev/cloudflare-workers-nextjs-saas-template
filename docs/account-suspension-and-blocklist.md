@@ -180,6 +180,14 @@ Consequences the ban form must state in plain words:
 A Stripe failure never blocks the ban. It enqueues `billing.cancel-subscription`, which is
 idempotent and treats `resource_missing` as done.
 
+**The cancellation resets the staff limit overrides of the team.** The write that moves the team
+row to the Free plan also removes every override in `team.limitOverrides`, except a restriction
+below the Free value (`selectLimitOverridesReset` in `src/utils/entitlements.ts`). One other write
+does the same reset: the slot release when Stripe no longer knows the subscription. Both writes
+match the `limitOverrides` value they read, so a staff save that lands first is not lost. A banned
+owner does not keep a custom deal. An unban does not restore the overrides: the log line
+`team_limit_overrides_reset` has the old values, and staff set them again by hand.
+
 ---
 
 ## 7. Unban

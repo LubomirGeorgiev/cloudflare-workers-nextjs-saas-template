@@ -210,6 +210,9 @@ export const teamTable = sqliteTable("team", {
   cancelAtPeriodEnd: integer().default(0).notNull(),
   // Set the first time a subscription reaches `trialing`; a team gets one free trial ever.
   trialUsedAt: integer({ mode: "timestamp" }),
+  // Staff only. JSON of the limits that staff replaced, plus the hide flag; null = none. Plain
+  // text, not `mode: "json"`: a bad value must not throw on the row read (src/utils/entitlements.ts).
+  limitOverrides: text(),
 }, (table) => ([
   uniqueIndex('team_slug_unique').on(table.slug),
   uniqueIndex('team_stripe_customer_id_unique').on(table.stripeCustomerId),

@@ -1,8 +1,43 @@
 /// <reference types="@cloudflare/vitest-plugin/types" />
 
 import { env } from "cloudflare:workers";
-import { beforeEach, describe, expect, test } from "vitest";
+import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type Stripe from "stripe";
+
+// `batchHooks` lets a test land a write between a read and the D1 batch that follows it: each
+// batch call runs the next hook first. Every other query stays the real D1 client.
+const { batchHooks } = vi.hoisted(() => ({ batchHooks: [] as (() => Promise<void>)[] }));
+
+vi.mock("@/db", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/db")>();
+
+  return {
+    ...original,
+    getDB: () => {
+      const client = original.getDB();
+      const wrapped: typeof client = Object.create(client);
+      const batch: typeof client.batch = async (queries) => {
+        await batchHooks.shift()?.();
+        return client.batch(queries);
+      };
+      wrapped.batch = batch;
+
+      return wrapped;
+    },
+  };
+});
+
+// Only `settleRecordedSubscription` asks this client for anything here: Stripe no longer knows it.
+vi.mock("@/lib/stripe", () => ({
+  getStripe: async () => ({
+    subscriptions: {
+      retrieve: async () => {
+        throw Object.assign(new Error("No such subscription"), { statusCode: 404, code: "resource_missing" });
+      },
+    },
+  }),
+}));
 
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
 import { getDB } from "@/db";
@@ -13,9 +48,22 @@ import {
   type StripeSubscriptionFetcher,
 } from "@/utils/stripe-webhook-handler";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
-import { claimTeamSubscription, isTrialEligible, markUserTrialUsed } from "@/utils/team-subscription";
+import {
+  claimTeamSubscription,
+  isTrialEligible,
+  markUserTrialUsed,
+  reconcileTeamFromSubscription,
+  settleRecordedSubscription,
+} from "@/utils/team-subscription";
 import { DEFAULT_PLAN_ID, PAID_PLAN_IDS, type TeamPlanId } from "@/constants/plans";
+import { getTeamEntitlements, toEntitlementInput } from "@/utils/entitlements";
 import { runScheduledJob } from "@/lib/scheduler/job-handlers";
+import {
+  DEAL_RAISE,
+  DEAL_RESTRICTION,
+  HAS_LIMIT_OVERRIDE_DEAL,
+  storedLimitOverrides,
+} from "./helpers/limit-override-deal";
 import { SCHEDULED_JOB_TYPES } from "@/lib/scheduler/jobs";
 
 const db = getDB();
@@ -360,6 +408,160 @@ describe("Stripe subscription webhook handling", () => {
     expect(team?.stripeSubscriptionId).toBeNull();
     expect(team?.subscriptionStatus).toBe("canceled");
     expect(team?.cancelAtPeriodEnd).toBe(0);
+  });
+
+  // The staff limit overrides end with the paid access.
+  describe.skipIf(!HAS_LIMIT_OVERRIDE_DEAL)("the staff limit overrides of the team", () => {
+    const deal = storedLimitOverrides({ ...DEAL_RAISE, ...DEAL_RESTRICTION }, { hideFromCustomer: true });
+    const afterReset = storedLimitOverrides(DEAL_RESTRICTION, { hideFromCustomer: true });
+
+    async function seedDealTeam(): Promise<void> {
+      await seedTeam({ id: "team_a", planId: PAID_PLAN_ID });
+      await claimTeamSubscription({ teamId: "team_a", subscriptionId: "sub_test" });
+      await db.update(teamTable).set({ subscriptionStatus: "active", limitOverrides: deal }).where(eq(teamTable.id, "team_a"));
+    }
+
+    async function deliver({ type, status }: { type: string; status: Stripe.Subscription.Status }): Promise<void> {
+      const subscription = makeSubscription({ status, teamId: "team_a" });
+      const event = type.startsWith("invoice.")
+        ? makeInvoiceEvent(type, subscription.id)
+        : makeSubscriptionEvent(type, subscription);
+      await handleStripeEvent(event, { stripe: fakeStripe(subscription) });
+    }
+
+    test("customer.subscription.deleted drops every raise, and keeps a restriction below Free with its flag", async () => {
+      await seedDealTeam();
+      const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+      await deliver({ type: "customer.subscription.deleted", status: "canceled" });
+
+      const team = await getTeam("team_a");
+      expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+      expect(team?.limitOverrides).toBe(afterReset);
+      // The log line has the old values, so staff can restore the deal by hand.
+      const line = log.mock.calls.map(([text]) => String(text)).find((text) => text.includes("team_limit_overrides_reset"));
+      expect(JSON.parse(line ?? "{}")).toMatchObject({
+        teamId: "team_a",
+        reason: "subscription_canceled",
+        previousOverrides: { ...DEAL_RAISE, ...DEAL_RESTRICTION },
+        previousHideFromCustomer: true,
+      });
+      log.mockRestore();
+    });
+
+    test("a team with only raises ends with no stored value", async () => {
+      await seedDealTeam();
+      await db.update(teamTable).set({ limitOverrides: storedLimitOverrides(DEAL_RAISE) }).where(eq(teamTable.id, "team_a"));
+
+      await deliver({ type: "customer.subscription.deleted", status: "canceled" });
+
+      expect((await getTeam("team_a"))?.limitOverrides).toBeNull();
+    });
+
+    test("a failed payment (past_due) does not change the stored value, and recovery gives the limits back", async () => {
+      await seedDealTeam();
+
+      await deliver({ type: "invoice.payment_failed", status: "past_due" });
+      const failed = await getTeam("team_a");
+      expect(failed?.subscriptionStatus).toBe("past_due");
+      expect(failed?.limitOverrides).toBe(deal);
+      expect(getTeamEntitlements(toEntitlementInput(failed!)).appliedLimitOverrides).toEqual(DEAL_RESTRICTION);
+
+      await deliver({ type: "invoice.paid", status: "active" });
+      const recovered = await getTeam("team_a");
+      expect(recovered?.limitOverrides).toBe(deal);
+      expect(getTeamEntitlements(toEntitlementInput(recovered!)).appliedLimitOverrides).toEqual({ ...DEAL_RAISE, ...DEAL_RESTRICTION });
+    });
+
+    test("unpaid moves the team to Free, so it resets too", async () => {
+      await seedDealTeam();
+
+      await deliver({ type: "customer.subscription.updated", status: "unpaid" });
+
+      const team = await getTeam("team_a");
+      expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+      expect(team?.limitOverrides).toBe(afterReset);
+    });
+
+    // A staff save between the read and the write: the guarded write misses and recomputes once.
+    describe("a staff save during the reset write", () => {
+      const staffSave = (value: string | null) => async () => {
+        await db.update(teamTable).set({ limitOverrides: value }).where(eq(teamTable.id, "team_a"));
+      };
+
+      beforeEach(() => {
+        batchHooks.length = 0;
+      });
+
+      test("a raise saved after a read of no overrides does not survive on the Free row", async () => {
+        await seedDealTeam();
+        await db.update(teamTable).set({ limitOverrides: null }).where(eq(teamTable.id, "team_a"));
+        batchHooks.push(staffSave(deal));
+
+        await reconcileTeamFromSubscription({ subscription: makeSubscription({ status: "canceled", teamId: "team_a" }) });
+
+        const team = await getTeam("team_a");
+        expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+        expect(team?.limitOverrides).toBe(afterReset);
+      });
+
+      test("a restriction saved after the read is kept, not replaced by the stale reset", async () => {
+        await seedDealTeam();
+        const restrictionOnly = storedLimitOverrides(DEAL_RESTRICTION);
+        batchHooks.push(staffSave(restrictionOnly));
+
+        await reconcileTeamFromSubscription({ subscription: makeSubscription({ status: "canceled", teamId: "team_a" }) });
+
+        const team = await getTeam("team_a");
+        expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+        expect(team?.limitOverrides).toBe(restrictionOnly);
+      });
+
+      test("a second miss logs one line, throws, and leaves the row for the retry", async () => {
+        await seedDealTeam();
+        const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        batchHooks.push(staffSave(storedLimitOverrides(DEAL_RAISE)), staffSave(deal));
+
+        await expect(reconcileTeamFromSubscription({
+          subscription: makeSubscription({ status: "canceled", teamId: "team_a" }),
+        })).rejects.toThrow();
+
+        const lines = log.mock.calls.map(([text]) => String(text)).filter((text) => text.includes("team_limit_overrides_reset_conflict"));
+        expect(lines).toHaveLength(1);
+        const team = await getTeam("team_a");
+        expect(team?.subscriptionPlanId).toBe(PAID_PLAN_ID);
+        expect(team?.limitOverrides).toBe(deal);
+        log.mockRestore();
+      });
+
+      test("the slot release uses the same guard", async () => {
+        await seedDealTeam();
+        await db.update(teamTable).set({ limitOverrides: null }).where(eq(teamTable.id, "team_a"));
+        batchHooks.push(staffSave(deal));
+        // `callStripe` logs the resource_missing answer.
+        const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+        await settleRecordedSubscription({ teamId: "team_a", recordedSubscriptionId: "sub_test" });
+
+        const team = await getTeam("team_a");
+        expect(team?.stripeSubscriptionId).toBeNull();
+        expect(team?.limitOverrides).toBe(afterReset);
+        log.mockRestore();
+      });
+    });
+
+    test("a replayed webhook changes nothing, and does not remove a later staff grant", async () => {
+      await seedDealTeam();
+      await deliver({ type: "customer.subscription.deleted", status: "canceled" });
+
+      await deliver({ type: "customer.subscription.deleted", status: "canceled" });
+      expect((await getTeam("team_a"))?.limitOverrides).toBe(afterReset);
+
+      // Staff restore the deal on the Free plan; a late event of the old subscription keeps it.
+      await db.update(teamTable).set({ limitOverrides: deal }).where(eq(teamTable.id, "team_a"));
+      await deliver({ type: "customer.subscription.deleted", status: "canceled" });
+      expect((await getTeam("team_a"))?.limitOverrides).toBe(deal);
+    });
   });
 
   test("incomplete_expired (abandoned checkout) clears the subscription", async () => {

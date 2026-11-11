@@ -281,6 +281,7 @@ async function getPendingInvitationsAndSeats(teamId: string) {
         subscriptionStatus: true,
         planExpiresAt: true,
         subscriptionAddonIds: true,
+        limitOverrides: true,
       },
     }),
   ]);

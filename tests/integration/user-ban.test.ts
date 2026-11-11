@@ -138,6 +138,12 @@ import { getApiKeyPrincipal } from "@/utils/kv-api-key";
 import { CURRENT_SESSION_VERSION, type KVSession } from "@/utils/kv-session";
 import { generateApiKey } from "@/utils/api-key-format";
 import { renderTransactionalEmail } from "@/utils/email";
+import {
+  DEAL_RAISE,
+  DEAL_RESTRICTION,
+  HAS_LIMIT_OVERRIDE_DEAL,
+  storedLimitOverrides,
+} from "./helpers/limit-override-deal";
 
 const db = getDB();
 const PAID_PLAN_ID = PAID_PLAN_IDS[0];
@@ -412,6 +418,26 @@ describe("banning an account that owns teams", () => {
     const team = await db.query.teamTable.findFirst({ where: { id: teamId } });
     expect(team?.stripeSubscriptionId).toBeNull();
     expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+  });
+
+  test.skipIf(!HAS_LIMIT_OVERRIDE_DEAL)("resets the staff limit overrides of the owned team, except a restriction below Free", async () => {
+    const userId = await seedUser();
+    const teamId = await seedTeam({ ownerId: userId, subscriptionId: "sub_owned_deal" });
+    await db
+      .update(teamTable)
+      .set({ limitOverrides: storedLimitOverrides({ ...DEAL_RAISE, ...DEAL_RESTRICTION }) })
+      .where(eq(teamTable.id, teamId));
+
+    await banUser({ userId, ...BAN_INPUT, actorUserId: null });
+    const afterBan = await db.query.teamTable.findFirst({ where: { id: teamId } });
+    expect(afterBan?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
+    expect(afterBan?.limitOverrides).toBe(storedLimitOverrides(DEAL_RESTRICTION));
+
+    // The repair pass of a repeat ban changes nothing, and an unban restores nothing.
+    await banUser({ userId, ...BAN_INPUT, actorUserId: null });
+    await unbanUser({ userId, internalReason: "Appeal", externalReason: undefined, sendEmail: false, actorUserId: null });
+    const afterUnban = await db.query.teamTable.findFirst({ where: { id: teamId } });
+    expect(afterUnban?.limitOverrides).toBe(storedLimitOverrides(DEAL_RESTRICTION));
   });
 
   test("leaves a team alone when the banned user is only a member", async () => {

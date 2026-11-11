@@ -17,6 +17,8 @@ import {
 import { banDecisionFields } from "@/schemas/admin-users.schema";
 import { createBlockedEmailFields } from "@/schemas/admin-blocked-emails.schema";
 import { idField } from "@/schemas/fields";
+import { teamLimitOverridesSchema } from "@/schemas/limit-overrides.schema";
+import { teamPlanLimitsSchema } from "@/constants/plans";
 import { BLOCKED_EMAIL_KINDS } from "@/utils/email-pattern";
 
 // Request and response shapes for the *internal* admin API. Machine-facing like the public ones:
@@ -262,4 +264,31 @@ export const adminCancelTeamSubscriptionSchema = v.object({
 
 export const adminCancelTeamSubscriptionResultSchema = v.object({
   cancelled: v.boolean(),
+});
+
+// The staff limit overrides of one team. The limits use the units of `plans.json`.
+export const adminTeamLimitsSchema = v.object({
+  planId: v.string(),
+  // False: a paid plan with no paid access. `planLimits` are the Free limits, and only
+  // `appliedOverrides` apply.
+  isActive: v.boolean(),
+  // The plan with its add-ons, before the overrides.
+  planLimits: teamPlanLimitsSchema,
+  // Only the keys that staff set, as stored.
+  overrides: teamLimitOverridesSchema,
+  // The stored keys in effect now. With `isActive` false: only the keys below the Free values.
+  appliedOverrides: teamLimitOverridesSchema,
+  // True: nothing customer-facing says that the limits are custom. The limits apply either way.
+  hideFromCustomer: v.boolean(),
+  // What the team gets: `planLimits`, with each applied override in place of the plan value.
+  limits: teamPlanLimitsSchema,
+});
+
+export const adminSetTeamLimitOverridesBodySchema = v.object({
+  // The full new set. A key that is absent goes back to the plan value; `{}` removes every override.
+  overrides: teamLimitOverridesSchema,
+  // Absent means false: the customer sees the "Custom limits" card. Ignored when `overrides` is `{}`.
+  hideFromCustomer: v.optional(v.boolean(), false),
+  // Written to the audit log line with the change.
+  reason: minMaxString({ min: 1, max: BAN_REASON_MAX_LENGTH }),
 });

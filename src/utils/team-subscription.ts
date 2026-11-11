@@ -7,7 +7,7 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { getStripe } from "@/lib/stripe";
 import { ActionError } from "@/lib/action-error";
 import { getDB } from "@/db";
-import { teamTable, teamTrialReservationTable, userTable } from "@/db/schema";
+import { teamTable, teamTrialReservationTable, userTable, type Team } from "@/db/schema";
 import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
@@ -18,6 +18,7 @@ import {
 } from "@/constants/subscription-lifecycle";
 import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import { getStripeId } from "@/utils/stripe-id";
+import { selectLimitOverridesReset, type LimitOverridesReset } from "@/utils/entitlements";
 
 // The item whose period/interval describes the subscription: the plan item when one
 // resolves, otherwise the first item (all items share an interval on one subscription,
@@ -43,6 +44,25 @@ function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): Bi
   const interval: string | undefined = anchorItem?.price?.recurring?.interval;
   return interval === "month" || interval === "year" ? interval : null;
 }
+
+// The `reason` of the `team_limit_overrides_reset` log line: which write ended paid access.
+const LIMIT_OVERRIDES_RESET_REASONS = {
+  /** A prefix: the Stripe status of the subscription follows, for example `subscription_canceled`. */
+  subscriptionStatus: "subscription_",
+  /** Stripe no longer knows the subscription, so the team's slot was released. */
+  subscriptionMissing: "subscription_missing",
+} as const;
+
+// One write, and one retry after a staff save lands between the read and the write.
+const LIMIT_OVERRIDES_RESET_ATTEMPTS = 2;
+
+// The row state a snapshot write reads in its own batch, just before it writes.
+const TEAM_WRITE_STATE_COLUMNS = {
+  subscriptionPlanId: teamTable.subscriptionPlanId,
+  limitOverrides: teamTable.limitOverrides,
+  subscriptionStatus: teamTable.subscriptionStatus,
+  stripeSubscriptionId: teamTable.stripeSubscriptionId,
+};
 
 interface EnsureStripeCustomerParams {
   teamId: string;
@@ -87,15 +107,133 @@ async function releaseTeamSubscription({
   teamId,
   subscriptionId,
 }: TeamSubscriptionSlotParams): Promise<void> {
-  const db = getDB();
+  const team = await getDB().query.teamTable.findFirst({
+    where: { id: teamId, stripeSubscriptionId: subscriptionId },
+    columns: { subscriptionPlanId: true, limitOverrides: true },
+  });
+  if (!team) {
+    return;
+  }
 
-  await db
-    .update(teamTable)
-    .set({ stripeSubscriptionId: null, subscriptionStatus: null })
-    .where(and(
-      eq(teamTable.id, teamId),
-      eq(teamTable.stripeSubscriptionId, subscriptionId),
-    ));
+  await updateTeamResettingLimitOverrides({
+    teamId,
+    subscriptionId,
+    matchSubscriptionId: true,
+    state: team,
+    reason: LIMIT_OVERRIDES_RESET_REASONS.subscriptionMissing,
+    set: { stripeSubscriptionId: null, subscriptionStatus: null },
+  });
+}
+
+/**
+ * The write that ends paid access, with the staff limit overrides reset in the same UPDATE. Its
+ * WHERE carries the `limitOverrides` value the reset came from, so a staff save after that read
+ * makes it miss. Then it recomputes from the row its batch read, once. Null: the row is gone.
+ */
+async function updateTeamResettingLimitOverrides({
+  teamId,
+  subscriptionId,
+  matchSubscriptionId = false,
+  state,
+  reason,
+  set,
+}: {
+  teamId: string;
+  subscriptionId: string;
+  matchSubscriptionId?: boolean;
+  state: Pick<TeamWriteState, "subscriptionPlanId" | "limitOverrides">;
+  reason: string;
+  set: TeamUpdate;
+}): Promise<TeamWriteState | null> {
+  let current = state;
+  for (let attempt = 0; attempt < LIMIT_OVERRIDES_RESET_ATTEMPTS; attempt += 1) {
+    const reset = selectLimitOverridesReset({ planId: current.subscriptionPlanId, limitOverrides: current.limitOverrides });
+    const { previous, updated } = await updateTeamReadingPrevious({
+      teamId,
+      subscriptionId: matchSubscriptionId ? subscriptionId : undefined,
+      limitOverrides: { value: current.limitOverrides },
+      set: { ...set, ...limitOverridesResetColumns(reset) },
+    });
+    if (!previous) {
+      return null;
+    }
+    if (updated) {
+      logLimitOverridesReset({ teamId, subscriptionId, reason, reset });
+      return previous;
+    }
+    current = previous;
+  }
+
+  // Throw, not return: a row left on the paid plan after paid access ended must get the retry.
+  console.error(JSON.stringify({ event: "team_limit_overrides_reset_conflict", teamId, subscriptionId, reason }));
+  throw new Error(`The staff limit overrides of team ${teamId} changed during the write; try again`);
+}
+
+/**
+ * One D1 batch: the SELECT reads the row just before the UPDATE, and no other write can land
+ * between them. `previous` is undefined when no row matches the team (and the subscription).
+ */
+async function updateTeamReadingPrevious({
+  teamId,
+  subscriptionId,
+  limitOverrides,
+  set,
+}: {
+  teamId: string;
+  subscriptionId?: string;
+  limitOverrides?: { value: string | null };
+  set: TeamUpdate;
+}): Promise<{ previous: TeamWriteState | undefined; updated: boolean }> {
+  const db = getDB();
+  const match = and(
+    eq(teamTable.id, teamId),
+    subscriptionId === undefined ? undefined : eq(teamTable.stripeSubscriptionId, subscriptionId),
+  );
+  const guard = limitOverrides === undefined
+    ? undefined
+    : limitOverrides.value === null
+      ? isNull(teamTable.limitOverrides)
+      : eq(teamTable.limitOverrides, limitOverrides.value);
+
+  const [previousRows, updatedRows] = await db.batch([
+    db.select(TEAM_WRITE_STATE_COLUMNS).from(teamTable).where(match).limit(1),
+    db.update(teamTable).set(set).where(and(match, guard)).returning({ id: teamTable.id }),
+  ]);
+
+  return { previous: previousRows[0], updated: updatedRows.length > 0 };
+}
+
+// The reset goes into the UPDATE that ends paid access. A second write would leave a row that is
+// Free with the old overrides, and a Free row gets every override.
+function limitOverridesResetColumns(reset: LimitOverridesReset | null): { limitOverrides?: string | null } {
+  return reset ? { limitOverrides: reset.limitOverrides } : {};
+}
+
+// The old values are limits, not user content. Staff restore a deal by hand from this line.
+function logLimitOverridesReset({
+  teamId,
+  subscriptionId,
+  reason,
+  reset,
+}: {
+  teamId: string;
+  subscriptionId: string;
+  reason: string;
+  reset: LimitOverridesReset | null;
+}): void {
+  if (!reset) {
+    return;
+  }
+
+  console.info(JSON.stringify({
+    event: "team_limit_overrides_reset",
+    teamId,
+    subscriptionId,
+    reason,
+    previousOverrides: reset.previous.limits,
+    previousHideFromCustomer: reset.previous.hideFromCustomer,
+    limitOverrides: reset.limitOverrides,
+  }));
 }
 
 // Settles whatever subscription the team currently records so a new checkout can claim
@@ -321,55 +459,92 @@ export async function reconcileTeamFromSubscription({
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
   if (policy.plan === "free") {
-    await db
-      .update(teamTable)
-      .set({
-        subscriptionPlanId: DEFAULT_PLAN_ID,
-        stripeSubscriptionId: policy.subscription === "clear" ? null : subscription.id,
-        subscriptionStatus: policy.statusWrite === "clear" ? null : subscription.status,
-        subscriptionInterval: null,
-        subscriptionAddonIds: null,
-        cancelAtPeriodEnd,
-        planExpiresAt: null,
-      })
-      .where(eq(teamTable.id, team.id));
+    await writeFreeSnapshot({ team, subscription, policy, cancelAtPeriodEnd });
   } else {
-    const classified = classifySubscriptionItems(subscription);
-    const anchorItem = getAnchorItem(subscription, classified);
-    const planId = classified.planId ?? team.subscriptionPlanId ?? DEFAULT_PLAN_ID;
-
-    // Unknown items mean this deployment can't fully interpret the subscription
-    // (rotated price envs, or items added in the Stripe dashboard). Keep going with the
-    // fallbacks above, but say so — silence here would mislabel billing state quietly.
-    if (classified.unknownItems.length) {
-      console.warn("reconcileTeamFromSubscription: unrecognized subscription item prices", {
-        subscriptionId: subscription.id,
-        priceIds: classified.unknownItems.map((item) => item.price?.id ?? null),
-      });
-    }
-
-    await db
-      .update(teamTable)
-      .set({
-        stripeSubscriptionId: subscription.id,
-        subscriptionPlanId: planId,
-        subscriptionStatus: subscription.status,
-        subscriptionInterval: getSubscriptionInterval(anchorItem),
-        subscriptionAddonIds: toStoredAddonQuantities(addonQuantitiesFromItems(classified)),
-        cancelAtPeriodEnd,
-        planExpiresAt: getSubscriptionPeriodEnd(anchorItem),
-        // A team gets one free trial ever; stamp the first time Stripe reports `trialing`
-        // (covers both app-created trials and ones granted in the Stripe dashboard).
-        ...(subscription.status === "trialing" && !team.trialUsedAt
-          ? { trialUsedAt: new Date() }
-          : {}),
-      })
-      .where(eq(teamTable.id, team.id));
+    await writePaidSnapshot({ team, subscription, cancelAtPeriodEnd });
   }
 
   await enqueueTeamSessionsRefresh(team.id);
 
   return team.id;
+}
+
+type TransitionPolicy = NonNullable<ReturnType<typeof getStripeSubscriptionTransitionPolicy>>;
+
+type TeamWriteState = Pick<Team, keyof typeof TEAM_WRITE_STATE_COLUMNS>;
+
+type TeamUpdate = Partial<typeof teamTable.$inferInsert>;
+
+interface SnapshotWriteParams {
+  team: Team;
+  subscription: Stripe.Subscription;
+  cancelAtPeriodEnd: number;
+}
+
+// Returns the row state just before the write, or null when the team row is gone.
+async function writePaidSnapshot({
+  team,
+  subscription,
+  cancelAtPeriodEnd,
+}: SnapshotWriteParams): Promise<TeamWriteState | null> {
+  const classified = classifySubscriptionItems(subscription);
+  const anchorItem = getAnchorItem(subscription, classified);
+  const planId = classified.planId ?? team.subscriptionPlanId ?? DEFAULT_PLAN_ID;
+
+  // Unknown items mean this deployment can't fully interpret the subscription
+  // (rotated price envs, or items added in the Stripe dashboard). Keep going with the
+  // fallbacks above, but say so — silence here would mislabel billing state quietly.
+  if (classified.unknownItems.length) {
+    console.warn("reconcileTeamFromSubscription: unrecognized subscription item prices", {
+      subscriptionId: subscription.id,
+      priceIds: classified.unknownItems.map((item) => item.price?.id ?? null),
+    });
+  }
+
+  const { previous } = await updateTeamReadingPrevious({
+    teamId: team.id,
+    set: {
+      stripeSubscriptionId: subscription.id,
+      subscriptionPlanId: planId,
+      subscriptionStatus: subscription.status,
+      subscriptionInterval: getSubscriptionInterval(anchorItem),
+      subscriptionAddonIds: toStoredAddonQuantities(addonQuantitiesFromItems(classified)),
+      cancelAtPeriodEnd,
+      planExpiresAt: getSubscriptionPeriodEnd(anchorItem),
+      // A team gets one free trial ever; stamp the first time Stripe reports `trialing`
+      // (covers both app-created trials and ones granted in the Stripe dashboard).
+      ...(subscription.status === "trialing" && !team.trialUsedAt
+        ? { trialUsedAt: new Date() }
+        : {}),
+    },
+  });
+
+  return previous ?? null;
+}
+
+async function writeFreeSnapshot({
+  team,
+  subscription,
+  policy,
+  cancelAtPeriodEnd,
+}: SnapshotWriteParams & { policy: TransitionPolicy }): Promise<TeamWriteState | null> {
+  // Two writes reset the staff limit overrides: this one, for every end of paid access (the
+  // webhook, the user and staff cancels, the ban), and `releaseTeamSubscription` above.
+  return updateTeamResettingLimitOverrides({
+    teamId: team.id,
+    subscriptionId: subscription.id,
+    state: team,
+    reason: `${LIMIT_OVERRIDES_RESET_REASONS.subscriptionStatus}${subscription.status}`,
+    set: {
+      subscriptionPlanId: DEFAULT_PLAN_ID,
+      stripeSubscriptionId: policy.subscription === "clear" ? null : subscription.id,
+      subscriptionStatus: policy.statusWrite === "clear" ? null : subscription.status,
+      subscriptionInterval: null,
+      subscriptionAddonIds: null,
+      cancelAtPeriodEnd,
+      planExpiresAt: null,
+    },
+  });
 }
 
 interface TeamSubscriptionView {
@@ -380,6 +555,8 @@ interface TeamSubscriptionView {
   interval: BillingInterval | null;
   // Active add-on units per add-on id (empty when free or none configured).
   addons: TeamAddonQuantities;
+  // The stored staff limit overrides, for getTeamEntitlements. Null when staff set none.
+  limitOverrides: string | null;
   planExpiresAt: Date | null;
   stripeSubscriptionId: string | null;
   cancelAtPeriodEnd: boolean;
@@ -401,6 +578,7 @@ export const getTeamSubscription = cache(async (teamId: string): Promise<TeamSub
     status: team?.subscriptionStatus ?? null,
     interval: team?.subscriptionInterval ?? null,
     addons: fromStoredAddonQuantities(team?.subscriptionAddonIds),
+    limitOverrides: team?.limitOverrides ?? null,
     planExpiresAt: team?.planExpiresAt ?? null,
     stripeSubscriptionId: team?.stripeSubscriptionId ?? null,
     cancelAtPeriodEnd: Boolean(team?.cancelAtPeriodEnd),

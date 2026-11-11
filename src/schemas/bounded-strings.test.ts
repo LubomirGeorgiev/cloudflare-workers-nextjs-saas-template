@@ -9,6 +9,7 @@ import {
   updateApiKeyScopesBodySchema,
 } from "@/schemas/api/api-keys.schema";
 import {
+  adminSetTeamLimitOverridesBodySchema,
   adminSystemCollectionBodySchema,
   adminSystemPurgeConfirmBodySchema,
 } from "@/schemas/api/admin.schema";
@@ -37,6 +38,7 @@ const serviceSchemaModules = import.meta.glob("../lib/cms/entry/schemas.ts", {
 // Every other schema an API route validates (`createTeamSchema`, `removeMemberSchema`,
 // `userSettingsSchema`, `createApiKeySchema`, ...) is shared with a form and already covered.
 const apiRequestSchemas: Record<string, unknown> = {
+  adminSetTeamLimitOverridesBodySchema,
   adminSystemCollectionBodySchema,
   adminSystemPurgeConfirmBodySchema,
   apiKeyIdParamSchema,
