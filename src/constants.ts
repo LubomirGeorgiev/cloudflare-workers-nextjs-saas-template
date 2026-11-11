@@ -34,6 +34,8 @@ export const MAX_OAUTH_GRANTS_PER_USER = 20;
 // Revocation deletes the KV entry, so the worst-case acceptance window is this TTL plus KV's
 // cross-PoP propagation (~60s). Keep it short enough that the UI copy stays honest.
 export const API_KEY_CACHE_TTL_SECONDS = 300;
+// The one number every revocation notice states, so the settings, dialog, and docs agree.
+export const API_KEY_REVOCATION_MAX_MINUTES = Math.ceil(API_KEY_CACHE_TTL_SECONDS / 60);
 // Bump when the cached API-key snapshot shape or its permission semantics change. v2: the stored
 // `teamId` became the key's enforced audience, so v1 snapshots must not be read under the new rules.
 // v3: the snapshot carries `bannedAt`, and a v2 entry cannot report a ban it never stored.

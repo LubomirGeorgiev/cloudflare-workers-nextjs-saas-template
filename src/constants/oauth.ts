@@ -46,6 +46,7 @@ export const OAUTH_UNVERIFIED_CIMD_RETENTION_SECONDS =
 // Same TTL/version discipline as the API-key snapshot: revocation deletes the grant, so the
 // worst case is this TTL plus KV cross-PoP propagation.
 export const OAUTH_GRANT_CACHE_TTL_SECONDS = 300;
+export const OAUTH_GRANT_REVOCATION_MAX_MINUTES = Math.ceil(OAUTH_GRANT_CACHE_TTL_SECONDS / 60);
 // The stamp that invalidates a user's grant snapshots must outlive every snapshot written before
 // it, so a read finding no stamp can accept the snapshot it has. That is the cache TTL plus the
 // ~60s KV needs to propagate a write to every PoP.

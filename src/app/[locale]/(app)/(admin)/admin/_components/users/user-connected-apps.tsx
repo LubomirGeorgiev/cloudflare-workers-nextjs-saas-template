@@ -10,6 +10,7 @@ import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialo
 import { ClientVerificationBadge } from "@/components/credentials/client-verification-badge";
 import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
 import { Button } from "@/components/ui/button";
+import { OAUTH_GRANT_REVOCATION_MAX_MINUTES } from "@/constants";
 import type { ConnectedApp } from "@/lib/oauth/connected-apps";
 import { revokeUserConnectedAppAction } from "../../_actions/user-credentials-actions";
 import { RelativeDateCell } from "../relative-date-cell";
@@ -67,7 +68,7 @@ export function UserConnectedApps({ userId, apps }: { userId: string; apps: Conn
                 }
                 triggerLabel={t("revoke")}
                 title={t("revokeAppTitle")}
-                description={t("revokeAppDescription", { name: app.name ?? t("unknownApp") })}
+                description={t("revokeAppDescription", { name: app.name ?? t("unknownApp"), minutes: OAUTH_GRANT_REVOCATION_MAX_MINUTES })}
                 confirmLabel={t("revoke")}
                 pendingLabel={t("revoking")}
                 onConfirm={() => revokeApp({ userId, grantId: app.grantId })}

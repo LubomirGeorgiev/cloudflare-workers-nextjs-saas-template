@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
-import { API_KEY_CACHE_TTL_SECONDS } from "@/constants";
+import { API_KEY_REVOCATION_MAX_MINUTES } from "@/constants";
 import type { AdminApiKeySummary } from "@/lib/admin/user-credentials";
 import { revokeUserApiKeyAction } from "../../_actions/user-credentials-actions";
 import { AdminApiKeysLedger } from "../admin-api-keys-ledger";
@@ -31,9 +31,7 @@ export function UserApiKeys({ userId, apiKeys }: { userId: string; apiKeys: Admi
     <AdminDetailSection
       icon={KeyRound}
       title={t("apiKeysTitle", { count: apiKeys.length })}
-      description={t("apiKeysDescription", {
-        minutes: Math.ceil(API_KEY_CACHE_TTL_SECONDS / 60),
-      })}
+      description={t("apiKeysDescription", { minutes: API_KEY_REVOCATION_MAX_MINUTES })}
       emptyMessage={t("apiKeysEmpty")}
       isEmpty={apiKeys.length === 0}
     >

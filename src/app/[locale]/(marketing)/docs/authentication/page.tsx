@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getTranslator } from "@/i18n/translator";
 
 import { DocsProsePage } from "@/app/[locale]/(marketing)/docs/_components/docs-prose-section";
-import { API_AUTH_DOCS_PATH, API_DOCS_PATH, MCP_DOCS_PATH } from "@/constants";
+import { API_AUTH_DOCS_PATH, API_DOCS_PATH, API_KEY_REVOCATION_MAX_MINUTES, MCP_DOCS_PATH } from "@/constants";
 import { API_SCOPES, type ApiScope } from "@/lib/api/scopes";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
@@ -84,7 +84,7 @@ export default async function AuthenticationDocsPage({
           body: t("scopesBody"),
           children: <ScopeTable locale={locale} caption={t("scopesTitle")} />,
         },
-        { id: "revocation", title: t("revocationTitle"), body: t("revocationBody") },
+        { id: "revocation", title: t("revocationTitle"), body: t("revocationBody", { minutes: API_KEY_REVOCATION_MAX_MINUTES }) },
         {
           id: "rate-limits",
           title: t("limitsTitle"),

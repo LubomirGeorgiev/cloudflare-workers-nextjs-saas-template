@@ -13,7 +13,7 @@ import { ConfirmDestructiveDialog } from "@/components/confirm-destructive-dialo
 import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { Button } from "@/components/ui/button";
-import { API_DOCS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
+import { API_DOCS_PATH, API_KEY_REVOCATION_MAX_MINUTES } from "@/constants";
 // The reference lives under `app/[locale]`, so it needs the locale-prefixing Link.
 import { Link } from "@/i18n/navigation";
 import type { PublicApiKeySummary } from "@/lib/api-keys/api-keys";
@@ -106,7 +106,7 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
                     }
                     triggerLabel={t("revoke")}
                     title={t("revokeConfirmTitle")}
-                    description={t("revokeConfirmDescription")}
+                    description={t("revokeConfirmDescription", { minutes: API_KEY_REVOCATION_MAX_MINUTES })}
                     confirmLabel={t("revoke")}
                     pendingLabel={t("revoking")}
                     onConfirm={() => revokeKey({ keyId: apiKey.id })}
@@ -121,7 +121,7 @@ export function ApiKeysManager({ apiKeys, teamId }: ApiKeysManagerProps) {
       )}
 
       <p className="text-xs text-muted-foreground">
-        {t("revocationDelayNote", { minutes: Math.ceil(API_KEY_CACHE_TTL_SECONDS / 60) })}
+        {t("revocationDelayNote", { minutes: API_KEY_REVOCATION_MAX_MINUTES })}
       </p>
     </div>
   );

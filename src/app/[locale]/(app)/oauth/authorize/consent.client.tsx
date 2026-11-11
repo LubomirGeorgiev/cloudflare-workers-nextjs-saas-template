@@ -315,10 +315,12 @@ function ConsentPermissions({
         ) : null}
       </div>
 
+      {/* A warning, not muted text: the app gets less than it asked for, and only this line says so. */}
       {droppedScopes.length > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("clampedScopes", { scopes: droppedScopes.join(", ") })}
-        </p>
+        <Alert variant="warning">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>{t("clampedScopes", { scopes: droppedScopes.join(", ") })}</AlertDescription>
+        </Alert>
       ) : null}
     </>
   );

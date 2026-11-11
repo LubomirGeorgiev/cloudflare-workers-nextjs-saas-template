@@ -11,6 +11,7 @@ import { ClientVerificationBadge } from "@/components/credentials/client-verific
 import { CredentialLedger, CredentialRow } from "@/components/credentials/credential-ledger";
 import { EmptyStateCard } from "@/components/empty-state-card";
 import { Button } from "@/components/ui/button";
+import { OAUTH_GRANT_REVOCATION_MAX_MINUTES } from "@/constants";
 import type { ConnectedApp } from "@/lib/oauth/connected-apps";
 import { formatDate } from "@/utils/format-date";
 import { revokeConnectedAppAction } from "./api-mcp.actions";
@@ -72,7 +73,7 @@ export function ConnectedAppsList({ apps }: { apps: ConnectedApp[] }) {
                   }
                   triggerLabel={t("revoke")}
                   title={t("revokeConfirmTitle")}
-                  description={t("revokeConfirmDescription")}
+                  description={t("revokeConfirmDescription", { minutes: OAUTH_GRANT_REVOCATION_MAX_MINUTES })}
                   confirmLabel={t("revoke")}
                   pendingLabel={t("revoking")}
                   onConfirm={() => revoke({ grantId: app.grantId })}

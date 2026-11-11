@@ -5,7 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-import { ADMIN_USERS_PATH, API_KEY_CACHE_TTL_SECONDS } from "@/constants";
+import { ADMIN_USERS_PATH, API_KEY_REVOCATION_MAX_MINUTES } from "@/constants";
 import { Link } from "@/i18n/navigation";
 import type { AdminTeamApiKey, AdminTeamSectionList } from "@/lib/admin/teams";
 import { revokeUserApiKeyAction } from "../../_actions/user-credentials-actions";
@@ -34,7 +34,7 @@ export function TeamApiKeys({
     },
   });
 
-  const revocationNotice = `A revoked key stops working everywhere within ${Math.ceil(API_KEY_CACHE_TTL_SECONDS / 60)} minutes.`;
+  const revocationNotice = `A revoked key stops working everywhere within ${API_KEY_REVOCATION_MAX_MINUTES} minutes.`;
   const description = hasMore
     ? `The first ${items.length} live keys scoped to this team. This team has more. ${revocationNotice}`
     : `Live keys scoped to this team. ${revocationNotice}`;
