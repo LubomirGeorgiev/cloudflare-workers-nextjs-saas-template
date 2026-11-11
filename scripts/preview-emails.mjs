@@ -20,6 +20,8 @@ import { fileURLToPath } from "node:url";
 
 import { createServer } from "vite";
 
+import { PREVIEW_DATA } from "./utils/email-preview-data.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
 
@@ -32,19 +34,6 @@ const CONTENT_TYPES = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
-};
-
-// Fixture data per template, keyed by the same `EMAIL_TEMPLATE_TYPES` values the queue sends.
-// Deliberately awkward strings: an accented name and an ampersand prove the escaping still holds
-// in the rendered page, which a preview of clean data would hide.
-const PREVIEW_DATA = {
-  PASSWORD_RESET: { resetToken: "preview-reset-token", username: "Ana Müller" },
-  EMAIL_VERIFICATION: { verificationToken: "preview-verification-token", username: "Ana Müller" },
-  TEAM_INVITATION: {
-    invitationToken: "preview-invitation-token",
-    inviterName: "Ana Müller",
-    teamName: "Acme & Co",
-  },
 };
 
 /**
