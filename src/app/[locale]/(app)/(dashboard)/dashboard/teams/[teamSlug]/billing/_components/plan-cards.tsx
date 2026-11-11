@@ -42,6 +42,7 @@ import {
 import { getStripeSubscriptionTransitionPolicy, mustPayOrCancel } from "@/constants/subscription-lifecycle";
 import { formatPrice } from "@/utils/format-price";
 import { useIntervalWhen } from "@/hooks/use-interval-when";
+import { useRefreshActionToasts } from "@/hooks/use-refresh-action-toasts";
 import {
   createSubscriptionAction,
   startTrialSetupAction,
@@ -49,6 +50,7 @@ import {
   changePlanAction,
   cancelSubscriptionAction,
   resumePaymentAction,
+  resumeSubscriptionAction,
   getTeamSubscriptionAction,
 } from "../billing.actions";
 import {
@@ -159,6 +161,15 @@ export function PlanCards({
     onError: ({ error }) => toast.error(error.serverError?.message ?? t("errorPaymentProvider")),
   });
 
+  const resumeToasts = useRefreshActionToasts({
+    successMessage: t("subscriptionResumed"),
+    errorMessage: t("errorPaymentProvider"),
+  });
+  const { execute: executeResumeSubscription, isExecuting: isResumingSubscription } = useAction(
+    resumeSubscriptionAction,
+    resumeToasts,
+  );
+
   const { executeAsync: subscribeAsync, isExecuting: isSubscribing } = useAction(createSubscriptionAction);
   const { executeAsync: startTrialSetupAsync, isExecuting: isStartingTrial } = useAction(startTrialSetupAction);
   const { executeAsync: completeTrialAsync, isExecuting: isCompletingTrial } = useAction(completeTrialAction);
@@ -167,7 +178,7 @@ export function PlanCards({
 
   const clearPaymentReturn = usePaymentReturn({ onReturn: handlePaymentReturn });
 
-  const busy = isChanging || isCanceling || isSubscribing || isStartingTrial || isCompletingTrial || isResuming || isActivating;
+  const busy = isChanging || isCanceling || isResumingSubscription || isSubscribing || isStartingTrial || isCompletingTrial || isResuming || isActivating;
 
   const stopActivationPolling = useIntervalWhen(
     () => {
@@ -448,6 +459,7 @@ export function PlanCards({
                   disabled={busy}
                   onChangePlan={() => executeChange({ teamId, planId, interval: billingInterval })}
                   onCancel={() => executeCancel({ teamId, atPeriodEnd: true })}
+                  onResume={() => executeResumeSubscription({ teamId })}
                   onSubscribe={() => handleSubscribe(planId)}
                   onStartTrial={() => handleStartTrial(planId)}
                 />
@@ -537,6 +549,7 @@ function PlanCardActionButton({
   disabled,
   onChangePlan,
   onCancel,
+  onResume,
   onSubscribe,
   onStartTrial,
 }: {
@@ -550,6 +563,7 @@ function PlanCardActionButton({
   disabled: boolean;
   onChangePlan: () => void;
   onCancel: () => void;
+  onResume: () => void;
   onSubscribe: () => void;
   onStartTrial: () => void;
 }) {
@@ -559,7 +573,14 @@ function PlanCardActionButton({
     return null;
   }
   if (action === "cancelScheduled") {
-    return <p className="pt-2 text-xs text-muted-foreground">{t("cancelScheduled")}</p>;
+    return (
+      <div className="space-y-2 pt-2">
+        <p className="text-xs text-muted-foreground">{t("cancelScheduled")}</p>
+        <Button variant="outline" className="w-full" disabled={disabled} onClick={onResume}>
+          {t("resumeSubscription")}
+        </Button>
+      </div>
+    );
   }
   if (action === "cancelAtPeriodEnd") {
     return (

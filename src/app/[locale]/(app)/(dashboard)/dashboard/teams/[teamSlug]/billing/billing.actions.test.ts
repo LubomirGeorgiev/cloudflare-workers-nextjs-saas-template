@@ -19,6 +19,12 @@ const SUBSCRIPTION_POLICY_ENTRIES = Object.entries(STRIPE_SUBSCRIPTION_TRANSITIO
 const CLEARED_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
   .filter(([, policy]) => policy.subscription === "clear")
   .map(([status]) => status);
+const NO_PAID_ACCESS_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
+  .filter(([, policy]) => !policy.grantsPaidAccess)
+  .map(([status]) => status);
+const PAID_ACCESS_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
+  .filter(([, policy]) => policy.grantsPaidAccess)
+  .map(([status]) => status);
 const RETAINED_NO_ACCESS_STATUSES = SUBSCRIPTION_POLICY_ENTRIES
   .filter(([, policy]) => policy.subscription === "retain" && !policy.grantsPaidAccess)
   .map(([status]) => status);
@@ -112,6 +118,7 @@ const {
   createBillingPortalSessionAction,
   createSubscriptionAction,
   resumePaymentAction,
+  resumeSubscriptionAction,
   startTrialSetupAction,
 } = await import("./billing.actions");
 const { reconcileTeamFromSubscription } = await import("@/utils/team-subscription");
@@ -320,6 +327,51 @@ describe("cancelSubscriptionAction", () => {
 
     expect(result).toEqual({ success: true, canceledNow: true });
     expect(cancelSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, cancelParamsForStatus(status));
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
+  });
+});
+
+// The plan card shows resume only for a scheduled cancel (see selectPlanCardAction).
+describe("resumeSubscriptionAction", () => {
+  beforeEach(() => {
+    findTeamMock.mockResolvedValue(TEAM);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // cancelSubscriptionAction schedules the cancel with `cancel_at_period_end: true`.
+  test.each(PAID_ACCESS_STATUSES)("clears the scheduled cancel of a %s subscription", async (status) => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status, cancel_at_period_end: true });
+    const updated = { id: TEAM.stripeSubscriptionId, status, cancel_at_period_end: false };
+    updateSubscriptionMock.mockResolvedValueOnce(updated);
+
+    await expect(resumeSubscriptionAction({ teamId: TEAM.id })).resolves.toEqual({ success: true });
+
+    expect(updateSubscriptionMock).toHaveBeenCalledWith(TEAM.stripeSubscriptionId, { cancel_at_period_end: false });
+    expect(reconcileTeamFromSubscription).toHaveBeenCalledWith({ subscription: updated });
+  });
+
+  test("saves the live state and refuses when no cancel is scheduled", async () => {
+    const current = { id: TEAM.stripeSubscriptionId, status: PAID_ACCESS_STATUSES[0], cancel_at_period_end: false };
+    retrieveSubscriptionMock.mockResolvedValue(current);
+
+    await expect(resumeSubscriptionAction({ teamId: TEAM.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      messageKey: "Client.Dashboard.Billing.errorNothingToResume",
+    });
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
+    expect(reconcileTeamFromSubscription).toHaveBeenCalledWith({ subscription: current });
+  });
+
+  test.each(NO_PAID_ACCESS_STATUSES)("refuses without a Stripe write when Stripe says %s", async (status) => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status, cancel_at_period_end: true });
+
+    await expect(resumeSubscriptionAction({ teamId: TEAM.id })).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      messageKey: "Client.Dashboard.Billing.errorNothingToResume",
+    });
     expect(updateSubscriptionMock).not.toHaveBeenCalled();
   });
 });

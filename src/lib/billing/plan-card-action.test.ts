@@ -42,6 +42,22 @@ describe("selectPlanCardAction", () => {
       .toBe("cancelScheduled");
   });
 
+  // `cancelScheduled` shows the resume button. resumeSubscriptionAction accepts only a status with
+  // paid access and a scheduled cancel, so the button shows for exactly that pair.
+  test.each(Object.entries(STRIPE_SUBSCRIPTION_TRANSITION_POLICY))(
+    "a scheduled cancel on a %s subscription offers resume only with paid access",
+    (status, policy) => {
+      const scheduled = { ...BASE, status, cancelAtPeriodEnd: true, hasActiveSubscription: policy.grantsPaidAccess };
+      const offersResume = policy.grantsPaidAccess;
+
+      expect(selectPlanCardAction(scheduled) === "cancelScheduled").toBe(offersResume);
+      expect(selectPlanCardAction({ ...scheduled, matchesCurrentInterval: false }) === "cancelScheduled").toBe(offersResume);
+      expect(selectPlanCardAction({ ...scheduled, isCurrent: false })).not.toBe("cancelScheduled");
+      expect(selectPlanCardAction({ ...scheduled, cancelAtPeriodEnd: false })).not.toBe("cancelScheduled");
+      expect(selectPlanCardAction({ ...scheduled, canManage: false })).toBe("none");
+    },
+  );
+
   test("the other interval on the current plan switches the interval", () => {
     expect(selectPlanCardAction({ ...BASE, status: "active", hasActiveSubscription: true, matchesCurrentInterval: false }))
       .toBe("switchInterval");

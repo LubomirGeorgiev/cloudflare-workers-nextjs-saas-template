@@ -485,6 +485,39 @@ export const cancelSubscriptionAction = actionClient
     }, RATE_LIMITS.BILLING);
   });
 
+// Undoes a scheduled cancel. The cancel above sets `cancel_at_period_end`, so resume clears it.
+export const resumeSubscriptionAction = actionClient
+  .metadata({ actionName: "resumeSubscriptionAction" })
+  .inputSchema(teamBillingSchema)
+  .action(async ({ parsedInput: { teamId } }) => {
+    return withRateLimit(async () => {
+      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
+
+      try {
+        // The page can show a stale row after a lost webhook, so save the live state before the refusal.
+        const current = await retrieveSubscription({ stripe, subscriptionId });
+        if (!getStripeSubscriptionTransitionPolicy(current.status)?.grantsPaidAccess || !current.cancel_at_period_end) {
+          await reconcileTeamFromSubscription({ subscription: current });
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorNothingToResume" });
+        }
+
+        const updated = await callStripe({
+          operation: STRIPE_OPERATIONS.subscriptionsUpdate,
+          run: () => stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: false }),
+        });
+        await reconcileTeamFromSubscription({ subscription: updated });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw error;
+        }
+        console.error("resumeSubscriptionAction failed", error);
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
+      }
+    }, RATE_LIMITS.BILLING);
+  });
+
 // Fetches the open invoice's confirmation_secret so the client can re-confirm a
 // past_due / incomplete payment (SCA) via the Payment Element.
 export const resumePaymentAction = actionClient
