@@ -1,14 +1,23 @@
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { SITE_NAME, SITE_URL } from "@/constants";
+import {
+  EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
+  PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS,
+  SITE_DOMAIN,
+  SITE_NAME,
+  SITE_URL,
+  TEAM_INVITATION_EXPIRY_DAYS,
+} from "@/constants";
 import { EMAIL_LOGO } from "@/constants/logo";
 import { LOGO_VERSION } from "@/constants/logo-version";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import { CATALOG_LOADERS, loadCatalog } from "@/i18n/message-catalogs";
+import { getTranslator } from "@/i18n/translator";
+import { escapeHtml } from "@/utils/escape-html";
 import { EMAIL_TEMPLATE_TYPES, type EmailSendJobPayload } from "@/lib/scheduler/jobs";
 
 /** One payload per template, so the shared header is covered for every email the app sends. */
-const LOGO_HEADER_PAYLOADS: EmailSendJobPayload[] = [
+const LOGO_HEADER_PAYLOADS: Extract<EmailSendJobPayload, { locale: string }>[] = [
   {
     to: "user@example.com",
     template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
@@ -29,6 +38,30 @@ const LOGO_HEADER_PAYLOADS: EmailSendJobPayload[] = [
   },
 ];
 
+const HOUR_SECONDS = 60 * 60;
+
+// Each expiry the copy states, paired with the constant the token or invitation row uses.
+const EXPIRY_COPY_CASES = [
+  {
+    template: EMAIL_TEMPLATE_TYPES.PASSWORD_RESET,
+    catalogKey: "PasswordReset.intro",
+    placeholder: "{expirationHours",
+    amount: PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS / HOUR_SECONDS,
+  },
+  {
+    template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+    catalogKey: "EmailVerification.secondaryText",
+    placeholder: "{expirationHours",
+    amount: EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / HOUR_SECONDS,
+  },
+  {
+    template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+    catalogKey: "TeamInvitation.secondaryText",
+    placeholder: "{expirationDays",
+    amount: TEAM_INVITATION_EXPIRY_DAYS,
+  },
+] as const;
+
 const { getCloudflareContextMock } = vi.hoisted(() => ({
   getCloudflareContextMock: vi.fn(),
 }));
@@ -45,8 +78,70 @@ const {
 } = await import("@/utils/email");
 
 describe("transactional email", () => {
+  beforeEach(() => {
+    getCloudflareContextMock.mockResolvedValue({ env: {} });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  // A hard-coded duration drifts from the constant; the placeholder makes the copy follow it.
+  describe.each(LOCALES)("expiry copy in %s", (locale) => {
+    test.each(EXPIRY_COPY_CASES)(
+      "states the $template expiry from its constant",
+      async ({ template, catalogKey, placeholder, amount }) => {
+        const catalog = await loadCatalog(locale);
+        const [section, key] = catalogKey.split(".") as [keyof typeof catalog.Emails, string];
+        const payload = LOGO_HEADER_PAYLOADS.find((candidate) => candidate.template === template);
+        if (!payload) {
+          throw new Error(`No payload for ${template}`);
+        }
+
+        const renderedEmail = await renderTransactionalEmail({ ...payload, locale });
+
+        expect((catalog.Emails[section] as Record<string, string>)[key]).toContain(placeholder);
+        expect(renderedEmail.text).toContain(new Intl.NumberFormat(locale).format(amount));
+      },
+    );
+  });
+
+  test("names the inviter and the team in the invitation subject", async () => {
+    const renderedEmail = await renderTransactionalEmail({
+      to: "invitee@example.com",
+      template: EMAIL_TEMPLATE_TYPES.TEAM_INVITATION,
+      locale: DEFAULT_LOCALE,
+      data: { invitationToken: "invite-token", inviterName: "Inviter Person", teamName: "Team Name" },
+    });
+
+    expect(renderedEmail.subject).toContain("Inviter Person");
+    expect(renderedEmail.subject).toContain("Team Name");
+  });
+
+  // The "ignore this email" line once sat in the fallback slot, above the raw URL.
+  test.each(LOGO_HEADER_PAYLOADS)("puts the copy-the-link line above the raw URL in $template", async (payload) => {
+    const t = await getTranslator({ locale: DEFAULT_LOCALE, namespace: "Emails" });
+    const renderedEmail = await renderTransactionalEmail(payload);
+    const lines = renderedEmail.text?.split("\n") ?? [];
+
+    expect(lines).toContain(t("Common.fallbackText"));
+    expect(renderedEmail.html).toContain(`${escapeHtml(t("Common.fallbackText"))}</p>`);
+  });
+
+  test.each([
+    { replyTo: "support@example.com", footerKey: "Common.footerTextWithReplyTo" },
+    { replyTo: undefined, footerKey: "Common.footerText" },
+  ] as const)("matches the footer to the Reply-To header ($footerKey)", async ({ replyTo, footerKey }) => {
+    getCloudflareContextMock.mockResolvedValue({ env: { EMAIL_REPLY_TO: replyTo } });
+    const t = await getTranslator({ locale: DEFAULT_LOCALE, namespace: "Emails" });
+    const renderedEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
+      locale: DEFAULT_LOCALE,
+      data: { verificationToken: "verify-token", username: "Ana" },
+    });
+
+    expect(renderedEmail.text?.endsWith(t(footerKey, { siteDomain: SITE_DOMAIN }))).toBe(true);
   });
 
   test("registers an email message catalog for every configured locale", async () => {

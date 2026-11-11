@@ -2,8 +2,10 @@ import "server-only";
 
 import {
   EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS,
+  PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS,
   SITE_DOMAIN,
   SITE_NAME,
+  TEAM_INVITATION_EXPIRY_DAYS,
 } from "@/constants";
 import { EMAIL_LOGO_IMAGE } from "@/constants/logo-url";
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
@@ -93,6 +95,16 @@ async function getEmailEnv() {
     emailFromName: env.EMAIL_FROM_NAME,
     emailReplyTo: env.EMAIL_REPLY_TO,
   };
+}
+
+// "Do not reply" is only true without EMAIL_REPLY_TO: `sendTransactionalEmailNow` sets the
+// Reply-To header from the same value, so the footer and the header always agree.
+async function getCommonFooterText(t: Awaited<ReturnType<typeof getEmailTranslator>>["t"]) {
+  const { emailReplyTo } = await getEmailEnv();
+
+  return emailReplyTo
+    ? t("Common.footerTextWithReplyTo", { siteDomain: SITE_DOMAIN })
+    : t("Common.footerText", { siteDomain: SITE_DOMAIN });
 }
 
 export async function sendTransactionalEmailNow({
@@ -276,7 +288,10 @@ export async function renderTransactionalEmail(
         locale,
         title: t("PasswordReset.title", { siteDomain: SITE_DOMAIN }),
         greeting: t("Common.greeting", { username: payload.data.username }),
-        intro: t("PasswordReset.intro", { siteDomain: SITE_DOMAIN }),
+        intro: t("PasswordReset.intro", {
+          siteDomain: SITE_DOMAIN,
+          expirationHours: PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS / 60 / 60,
+        }),
         cta: {
           label: t("PasswordReset.buttonLabel"),
           url: resetUrl,
@@ -306,10 +321,13 @@ export async function renderTransactionalEmail(
         cta: {
           label: t("EmailVerification.buttonLabel"),
           url: verificationUrl,
-          fallbackText: t("EmailVerification.fallbackText", { siteDomain: SITE_DOMAIN }),
+          fallbackText: t("Common.fallbackText"),
         },
-        secondaryText: t("EmailVerification.secondaryText", { expirationHours }),
-        footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
+        secondaryText: t("EmailVerification.secondaryText", {
+          expirationHours,
+          siteDomain: SITE_DOMAIN,
+        }),
+        footerText: await getCommonFooterText(t),
       });
 
       return {
@@ -335,15 +353,22 @@ export async function renderTransactionalEmail(
         cta: {
           label: t("TeamInvitation.buttonLabel"),
           url: inviteUrl,
-          fallbackText: t("TeamInvitation.fallbackText"),
+          fallbackText: t("Common.fallbackText"),
         },
-        secondaryText: t("TeamInvitation.secondaryText", { recipientEmail: payload.to }),
-        footerText: t("Common.footerText", { siteDomain: SITE_DOMAIN }),
+        secondaryText: t("TeamInvitation.secondaryText", {
+          recipientEmail: payload.to,
+          expirationDays: TEAM_INVITATION_EXPIRY_DAYS,
+        }),
+        footerText: await getCommonFooterText(t),
       });
 
       return {
         to: payload.to,
-        subject: t("TeamInvitation.subject", { siteDomain: SITE_DOMAIN }),
+        subject: t("TeamInvitation.subject", {
+          inviterName: payload.data.inviterName,
+          teamName: payload.data.teamName,
+          siteDomain: SITE_DOMAIN,
+        }),
         html: emailTemplate.html,
         text: emailTemplate.text,
         type: payload.template,
@@ -455,8 +480,7 @@ export async function sendTeamInvitationEmail({
   invitationToken,
   teamName,
   inviterName,
-  // The recipient may not be a user yet (non-user invite), so we use the
-  // inviter's locale instead, resolved by the caller via getUserLocale().
+  // The recipient may not be a user yet, so the caller resolves it (see `inviteUserToTeam`).
   locale = DEFAULT_LOCALE,
 }: {
   email: string;

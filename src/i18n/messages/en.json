@@ -1416,12 +1416,13 @@
     "Common": {
       "greeting": "Hi {username},",
       "fallbackText": "If you're having trouble with the button above, copy and paste this URL into your browser:",
-      "footerText": "This is an automated message from {siteDomain}. Please do not reply to this email."
+      "footerText": "This is an automated message from {siteDomain}. Please do not reply to this email.",
+      "footerTextWithReplyTo": "This is an automated message from {siteDomain}. If you have questions, reply to this email."
     },
     "PasswordReset": {
       "subject": "Reset your password for {siteDomain}",
       "title": "Reset your {siteDomain} password",
-      "intro": "We received a request to reset your password for your {siteDomain} account. Click the button below to choose a new password. For security reasons, this link will expire in 1 hour.",
+      "intro": "We received a request to reset the password for your {siteDomain} account. Click the button below to choose a new password. For security reasons, this link expires in {expirationHours, plural, =1 {1 hour} other {# hours}}.",
       "buttonLabel": "Reset Password",
       "secondaryText": "If you didn't request this password reset, you can safely ignore this email. Your {siteDomain} account password will remain unchanged.",
       "footerText": "This is an automated message from {siteDomain}. If you did not request this email, please ignore it or contact support if you have concerns."
@@ -1431,17 +1432,15 @@
       "title": "Verify your {siteDomain} email",
       "intro": "Thanks for signing up for {siteDomain}! We need to verify your email address to complete your registration. Please click the button below to verify your email address.",
       "buttonLabel": "Verify Email Address",
-      "secondaryText": "This verification link will expire in {expirationHours, plural, =1 {1 hour} other {# hours}}. After that, you'll need to request a new verification email.",
-      "fallbackText": "If you didn't create an account on {siteDomain}, you can safely ignore this email."
+      "secondaryText": "This verification link expires in {expirationHours, plural, =1 {1 hour} other {# hours}}. After that, you must request a new verification email. If you did not create an account on {siteDomain}, you can safely ignore this email."
     },
     "TeamInvitation": {
-      "subject": "You've been invited to join a team on {siteDomain}",
+      "subject": "{inviterName} invited you to join \"{teamName}\" on {siteDomain}",
       "title": "You've been invited to join a team on {siteDomain}",
       "greeting": "Hello,",
       "intro": "{inviterName} has invited you to join the \"{teamName}\" team on {siteDomain}.",
       "buttonLabel": "Accept Invitation",
-      "secondaryText": "This invitation was sent to {recipientEmail}. If you don't have an account yet, you'll be able to create one when you accept the invitation.",
-      "fallbackText": "If you didn't expect to receive an invitation to this team, you can safely ignore this email."
+      "secondaryText": "This invitation was sent to {recipientEmail} and expires in {expirationDays, plural, =1 {1 day} other {# days}}. If you do not have an account yet, you can create one when you accept the invitation. If you did not expect this invitation, you can safely ignore this email."
     }
   }
 }

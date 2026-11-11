@@ -1416,12 +1416,13 @@
     "Common": {
       "greeting": "Hola {username},",
       "fallbackText": "Si tienes problemas con el botón de arriba, copia y pega esta URL en tu navegador:",
-      "footerText": "Este es un mensaje automático de {siteDomain}. Por favor, no respondas a este correo electrónico."
+      "footerText": "Este es un mensaje automático de {siteDomain}. Por favor, no respondas a este correo electrónico.",
+      "footerTextWithReplyTo": "Este es un mensaje automático de {siteDomain}. Si tienes preguntas, responde a este correo electrónico."
     },
     "PasswordReset": {
       "subject": "Restablece tu contraseña de {siteDomain}",
       "title": "Restablece tu contraseña de {siteDomain}",
-      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {siteDomain}. Haz clic en el botón de abajo para elegir una nueva contraseña. Por razones de seguridad, este enlace caducará en 1 hora.",
+      "intro": "Recibimos una solicitud para restablecer la contraseña de tu cuenta de {siteDomain}. Haz clic en el botón de abajo para elegir una nueva contraseña. Por razones de seguridad, este enlace caducará en {expirationHours, plural, =1 {1 hora} other {# horas}}.",
       "buttonLabel": "Restablecer Contraseña",
       "secondaryText": "Si no solicitaste este restablecimiento de contraseña, puedes ignorar este correo electrónico de forma segura. La contraseña de tu cuenta de {siteDomain} permanecerá sin cambios.",
       "footerText": "Este es un mensaje automático de {siteDomain}. Si no solicitaste este correo electrónico, ignóralo o ponte en contacto con soporte si tienes alguna duda."
@@ -1431,17 +1432,15 @@
       "title": "Verifica tu correo electrónico de {siteDomain}",
       "intro": "¡Gracias por registrarte en {siteDomain}! Necesitamos verificar tu dirección de correo electrónico para completar tu registro. Haz clic en el botón de abajo para verificar tu dirección de correo electrónico.",
       "buttonLabel": "Verificar Correo Electrónico",
-      "secondaryText": "Este enlace de verificación caducará en {expirationHours, plural, =1 {1 hora} other {# horas}}. Después de eso, deberás solicitar un nuevo correo electrónico de verificación.",
-      "fallbackText": "Si no creaste una cuenta en {siteDomain}, puedes ignorar este correo electrónico de forma segura."
+      "secondaryText": "Este enlace de verificación caducará en {expirationHours, plural, =1 {1 hora} other {# horas}}. Después de eso, deberás solicitar un nuevo correo electrónico de verificación. Si no creaste una cuenta en {siteDomain}, puedes ignorar este correo electrónico de forma segura."
     },
     "TeamInvitation": {
-      "subject": "Has sido invitado a unirte a un equipo en {siteDomain}",
+      "subject": "{inviterName} te invitó a unirte a \"{teamName}\" en {siteDomain}",
       "title": "Has sido invitado a unirte a un equipo en {siteDomain}",
       "greeting": "Hola,",
       "intro": "{inviterName} te ha invitado a unirte al equipo \"{teamName}\" en {siteDomain}.",
       "buttonLabel": "Aceptar Invitación",
-      "secondaryText": "Esta invitación se envió a {recipientEmail}. Si aún no tienes una cuenta, podrás crear una al aceptar la invitación.",
-      "fallbackText": "Si no esperabas recibir una invitación a este equipo, puedes ignorar este correo electrónico de forma segura."
+      "secondaryText": "Esta invitación se envió a {recipientEmail} y caduca en {expirationDays, plural, =1 {1 día} other {# días}}. Si aún no tienes una cuenta, podrás crear una al aceptar la invitación. Si no esperabas esta invitación, puedes ignorar este correo electrónico de forma segura."
     }
   }
 }
