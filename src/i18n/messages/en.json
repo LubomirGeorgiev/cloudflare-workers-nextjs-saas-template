@@ -1410,6 +1410,13 @@
       "empty": "No blog posts found with this tag."
     }
   },
+  "NotFound": {
+    "title": "We could not find this page",
+    "description": "The link is wrong, or the page moved or was deleted.",
+    "appDescription": "The page does not exist, was deleted, or you do not have access to it.",
+    "goHome": "Go to the home page",
+    "goToDashboard": "Go to the dashboard"
+  },
   "Breadcrumb": {
     "home": "Home",
     "blog": "Blog"

@@ -41,6 +41,14 @@ describe("proxy pass-through exits", () => {
     expect(overridden).not.toContain(LOCALE_HEADER_NAME);
     expect(proxied.headers.get(`x-middleware-request-${LOCALE_HEADER_NAME}`)).toBeNull();
   });
+
+  // A dotted path skips locale routing but can still render the `[locale]` 404 page.
+  test.runIf(ALTERNATE_LOCALE !== undefined)("forwards the URL prefix locale, not a client-sent one", () => {
+    const pathname = localizedPathname({ pathname: "/missing.html", locale: ALTERNATE_LOCALE! });
+    const proxied = proxyWithSpoofedLocale(pathname);
+
+    expect(proxied.headers.get(`x-middleware-request-${LOCALE_HEADER_NAME}`)).toBe(ALTERNATE_LOCALE);
+  });
 });
 
 function proxyDocument({

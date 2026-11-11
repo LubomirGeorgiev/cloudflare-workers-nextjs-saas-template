@@ -72,6 +72,10 @@ export const CLIENT_MESSAGE_SCOPES = {
     entryPaths: ["app/[locale]/(legal)"],
     namespaces: ["LocaleSwitcher", "Nav", "ThemeSwitch"],
   },
+  notFound: {
+    entryPaths: ["app/[locale]/not-found.tsx"],
+    namespaces: ["LocaleSwitcher", "Nav", "ThemeSwitch"],
+  },
   app: {
     entryPaths: ["app/[locale]/(app)"],
     namespaces: [

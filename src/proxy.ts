@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { LOCALE_COOKIE_NAME, LOCALE_HEADER_NAME } from "@/i18n/config";
+import { matchLocalePrefix } from "@/i18n/locale-prefix";
 import { shouldLocalizePathname } from "@/i18n/localized-paths";
 import { decideLocaleRoute, type LocaleRouteDecision } from "@/i18n/middleware";
 
@@ -35,9 +36,15 @@ export default function proxy(request: NextRequest) {
 }
 
 // `getLocale()` trusts the forwarded locale header, so a client must not be able to send its own.
+// A skipped path can still render in `[locale]` (its 404 page), so forward the URL prefix locale.
 function passThrough(request: NextRequest): NextResponse {
   const headers = new Headers(request.headers);
   headers.delete(LOCALE_HEADER_NAME);
+  const prefix = matchLocalePrefix(request.nextUrl.pathname);
+
+  if (prefix) {
+    headers.set(LOCALE_HEADER_NAME, prefix.locale);
+  }
 
   return NextResponse.next({ request: { headers } });
 }

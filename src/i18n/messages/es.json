@@ -1410,6 +1410,13 @@
       "empty": "No se encontraron entradas del blog con esta etiqueta."
     }
   },
+  "NotFound": {
+    "title": "No encontramos esta página",
+    "description": "El enlace es incorrecto, o la página se movió o se eliminó.",
+    "appDescription": "La página no existe, se eliminó o no tienes acceso a ella.",
+    "goHome": "Ir a la página de inicio",
+    "goToDashboard": "Ir al panel"
+  },
   "Breadcrumb": {
     "home": "Inicio",
     "blog": "Blog"
