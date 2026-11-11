@@ -6,7 +6,7 @@ import { env } from "cloudflare:workers";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
 import { formatDate } from "@/utils/format-date";
-import { buildPageGraph, JsonLd } from "@/lib/seo/json-ld";
+import { LegalPageHeader } from "../_components/legal-page-header";
 
 export async function generateMetadata({
   params,
@@ -34,26 +34,20 @@ export default async function PrivacyPage({
   const t = await getTranslator({ locale, namespace: "Legal.Privacy" });
   const tMeta = await getTranslator({ locale, namespace: "Legal.Privacy.meta" });
 
-  // `dateModified` is the one signal that matters on a policy page: it tells a crawler, and a
-  // model summarising the terms, which revision it is reading.
-  const graph = await buildPageGraph({
-    locale,
-    pathname: "/privacy",
-    name: tMeta("title"),
-    description: tMeta("description"),
-    dateModified: lastUpdated,
-  });
-
   // Binding read directly: `getCloudflareContext` resolves request `cf` metadata, which reads
   // `headers()` and would make this page dynamic. Only the binding is needed here.
   const email = env?.EMAIL_REPLY_TO
 
   return (
     <>
-      <JsonLd graph={graph} />
-      <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
-
-      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: formatDate(lastUpdated, locale) })}</p>
+      <LegalPageHeader
+        locale={locale}
+        pathname="/privacy"
+        title={t("title")}
+        description={tMeta("description")}
+        lastUpdated={lastUpdated}
+        lastUpdatedText={t("lastUpdated", { date: formatDate(lastUpdated, locale) })}
+      />
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">{t("informationWeCollect.heading")}</h2>

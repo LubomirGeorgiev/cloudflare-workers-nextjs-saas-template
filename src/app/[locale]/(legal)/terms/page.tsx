@@ -5,7 +5,7 @@ import { getTranslator } from "@/i18n/translator";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { buildAlternates } from "@/utils/i18n-metadata";
 import { formatDate } from "@/utils/format-date";
-import { buildPageGraph, JsonLd } from "@/lib/seo/json-ld";
+import { LegalPageHeader } from "../_components/legal-page-header";
 
 export async function generateMetadata({
   params,
@@ -33,22 +33,16 @@ export default async function TermsPage({
   const t = await getTranslator({ locale, namespace: "Legal.Terms" });
   const tMeta = await getTranslator({ locale, namespace: "Legal.Terms.meta" });
 
-  // `dateModified` is the one signal that matters on a policy page: it tells a crawler, and a
-  // model summarising the terms, which revision it is reading.
-  const graph = await buildPageGraph({
-    locale,
-    pathname: "/terms",
-    name: tMeta("title"),
-    description: tMeta("description"),
-    dateModified: lastUpdated,
-  });
-
   return (
     <>
-      <JsonLd graph={graph} />
-      <h1 className="text-4xl font-bold text-foreground mb-8">{t("title")}</h1>
-
-      <p className="text-muted-foreground mb-6">{t("lastUpdated", { date: formatDate(lastUpdated, locale) })}</p>
+      <LegalPageHeader
+        locale={locale}
+        pathname="/terms"
+        title={t("title")}
+        description={tMeta("description")}
+        lastUpdated={lastUpdated}
+        lastUpdatedText={t("lastUpdated", { date: formatDate(lastUpdated, locale) })}
+      />
 
       <section className="mb-8">
         <h2 className="text-2xl font-semibold text-foreground mb-4">{t("acceptanceOfTerms.heading")}</h2>
