@@ -39,6 +39,7 @@ export interface TeamSummary {
   role: {
     id: string;
     name: string;
+    isSystemRole: boolean;
   };
 }
 
@@ -210,7 +211,7 @@ export async function createTeam({
     slug,
     description: description ?? null,
     avatarUrl: avatarUrl ?? null,
-    role: { id: SYSTEM_ROLES_ENUM.OWNER, name: SYSTEM_ROLES_ENUM.OWNER },
+    role: { id: SYSTEM_ROLES_ENUM.OWNER, name: SYSTEM_ROLES_ENUM.OWNER, isSystemRole: true },
   };
 }
 
@@ -304,7 +305,11 @@ export async function renameTeam(
     slug: renamedTeam.slug,
     description: renamedTeam.description,
     avatarUrl: renamedTeam.avatarUrl,
-    role: { id: membership?.roleId ?? "", name: membership?.roleName ?? "" },
+    role: {
+      id: membership?.roleId ?? "",
+      name: membership?.roleName ?? "",
+      isSystemRole: membership?.isSystemRole ?? false,
+    },
   };
 }
 
@@ -398,6 +403,7 @@ export const getUserTeams = cache(async (): Promise<TeamSummary[]> => {
       name: membership.isSystemRole
         ? membership.roleId
         : (customRoleNameByTeamAndId.get(`${membership.teamId}:${membership.roleId}`) ?? ""),
+      isSystemRole: Boolean(membership.isSystemRole),
     },
   }));
 });

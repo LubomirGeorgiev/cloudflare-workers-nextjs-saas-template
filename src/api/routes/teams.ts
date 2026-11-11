@@ -7,7 +7,8 @@ import { apiOperation } from "@/api/operation";
 import { API_TAGS } from "@/api/openapi-document";
 import { jsonResponse } from "@/api/openapi";
 import type { ApiEnv } from "@/api/types";
-import { createTeam, getTeamForCaller, getUserTeams, renameTeam } from "@/lib/teams/teams";
+import { createTeam, getTeamForCaller, getUserTeams, renameTeam, type TeamSummary } from "@/lib/teams/teams";
+import type { v } from "@/lib/validation";
 
 import { teamListSchema, teamSchema, updateTeamSchema } from "@/schemas/api/teams.schema";
 import { createTeamSchema } from "@/schemas/team.schema";
@@ -30,7 +31,7 @@ export const teamRoutes = new Hono<ApiEnv>()
       },
     }),
     async (c) => {
-      return c.json(await getUserTeams());
+      return c.json((await getUserTeams()).map(toTeamDto));
     },
   )
   .post(
@@ -51,7 +52,7 @@ export const teamRoutes = new Hono<ApiEnv>()
     }),
     apiValidator("json", createTeamSchema),
     async (c) => {
-      return c.json(await createTeam(c.req.valid("json")), 201);
+      return c.json(toTeamDto(await createTeam(c.req.valid("json"))), 201);
     },
   )
   .get(
@@ -71,7 +72,7 @@ export const teamRoutes = new Hono<ApiEnv>()
     }),
     teamIdParam(),
     async (c) => {
-      return c.json(await getTeamForCaller(c.req.valid("param").teamId));
+      return c.json(toTeamDto(await getTeamForCaller(c.req.valid("param").teamId)));
     },
   )
   .patch(
@@ -95,6 +96,18 @@ export const teamRoutes = new Hono<ApiEnv>()
       const { teamId } = c.req.valid("param");
       const { name } = c.req.valid("json");
 
-      return c.json(await renameTeam({ teamId, name }));
+      return c.json(toTeamDto(await renameTeam({ teamId, name })));
     },
   );
+
+// Picks each field, so a field added to TeamSummary for the app never leaks into the public contract.
+function toTeamDto(team: TeamSummary): v.InferOutput<typeof teamSchema> {
+  return {
+    id: team.id,
+    name: team.name,
+    slug: team.slug,
+    description: team.description,
+    avatarUrl: team.avatarUrl,
+    role: { id: team.role.id, name: team.role.name },
+  };
+}

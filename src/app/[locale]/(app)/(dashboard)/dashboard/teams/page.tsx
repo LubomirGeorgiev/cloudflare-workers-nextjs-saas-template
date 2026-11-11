@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { PendingInvitations } from "./pending-invitations";
 import { getTranslations } from "@/i18n/server";
 import type { TeamSummary } from "@/lib/teams/teams";
+import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 
 export async function generateMetadata() {
   const t = await getTranslations("Client.Dashboard.Teams");
@@ -113,7 +114,10 @@ export default async function TeamsIndexPage() {
                       <CardTitle>{team.name}</CardTitle>
                       {team.role && (
                         <CardDescription>
-                          {t("yourRole")} <span className="capitalize">{team.role.name}</span>
+                          {t("yourRole")} {formatTeamRoleLabel({
+                            member: { roleId: team.role.id, isSystemRole: team.role.isSystemRole, roleName: team.role.name || null },
+                            translate: t,
+                          })}
                         </CardDescription>
                       )}
                     </div>

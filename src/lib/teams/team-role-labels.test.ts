@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { SYSTEM_ROLES_ENUM } from "@/constants/team-roles";
-import { formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
+import { formatSessionTeamRoleLabel, formatTeamRoleLabel } from "@/lib/teams/team-role-labels";
 
 // Stands in for the `Client.Dashboard.Teams` namespace: the key itself is the assertion, so the
 // test stays valid in a fork that rewrites the copy.
@@ -48,5 +48,25 @@ describe("formatTeamRoleLabel", () => {
         translate,
       }),
     ).toBe("translated:roleCustom");
+  });
+});
+
+describe("formatSessionTeamRoleLabel", () => {
+  it("translates a system role from the session", () => {
+    expect(
+      formatSessionTeamRoleLabel({
+        role: { id: SYSTEM_ROLES_ENUM.OWNER, name: SYSTEM_ROLES_ENUM.OWNER, isSystemRole: true },
+        translate,
+      }),
+    ).toBe("translated:roleOwner");
+  });
+
+  it("keeps the stored name of a custom role from the session", () => {
+    expect(
+      formatSessionTeamRoleLabel({
+        role: { id: "trole_1", name: "Billing", isSystemRole: false },
+        translate,
+      }),
+    ).toBe("Billing");
   });
 });

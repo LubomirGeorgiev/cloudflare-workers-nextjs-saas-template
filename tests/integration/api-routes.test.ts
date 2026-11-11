@@ -446,6 +446,8 @@ test("teams are listed and created", async () => {
     name: "Created By Api",
     role: { id: SYSTEM_ROLES_ENUM.OWNER },
   });
+  // The public role keeps its documented shape; app-only fields on TeamSummary stay out.
+  expect(Object.keys((created.body as { role: object }).role).toSorted()).toEqual(["id", "name"]);
 });
 
 test("a team the credential is not a member of is not found", async () => {

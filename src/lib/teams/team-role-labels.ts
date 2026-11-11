@@ -38,3 +38,24 @@ export function formatTeamRoleLabel({
 
   return labelKey ? translate(labelKey) : member.roleId;
 }
+
+/** The role shape a session team carries (`KVSession.teams[].role`). */
+export interface SessionTeamRole {
+  id: string;
+  name: string;
+  isSystemRole: boolean;
+}
+
+// A session role keeps the custom role's name in `name`, so it maps to a membership one to one.
+export function formatSessionTeamRoleLabel({
+  role,
+  translate,
+}: {
+  role: SessionTeamRole;
+  translate: (key: TeamRoleLabelKey) => string;
+}): string {
+  return formatTeamRoleLabel({
+    member: { roleId: role.id, isSystemRole: role.isSystemRole, roleName: role.name },
+    translate,
+  });
+}
