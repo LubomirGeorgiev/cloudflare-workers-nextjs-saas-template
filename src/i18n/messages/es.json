@@ -825,6 +825,7 @@
         "emailDescription": "Este es el correo que usas para iniciar sesión.",
         "emailChangeContact": "Para cambiarlo, escribe a <link>{email}</link>.",
         "emailChangeSupport": "Para cambiarlo, contacta con el soporte.",
+        "copyEmailLabel": "Copiar la dirección de correo",
         "saveButton": "Guardar cambios",
         "toastUpdating": "Actualizando el perfil...",
         "toastUpdateSuccess": "Perfil actualizado correctamente",

@@ -23,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/i18n/client";
+import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button";
 
 type UserSettingsFormValues = UserSettingsSchema;
 
@@ -158,7 +159,10 @@ export function SettingsForm({ supportEmail }: SettingsFormProps) {
                   ? t.rich("emailChangeContact", {
                     email: supportEmail,
                     link: (chunks) => (
-                      <a href={`mailto:${supportEmail}`} className="underline underline-offset-4">{chunks}</a>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="font-medium text-foreground">{chunks}</span>
+                        <CopyToClipboardButton value={supportEmail} label={t("copyEmailLabel")} className="h-6 px-1.5" />
+                      </span>
                     ),
                   })
                   : t("emailChangeSupport")}

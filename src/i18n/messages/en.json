@@ -825,6 +825,7 @@
         "emailDescription": "This is the email you use to sign in.",
         "emailChangeContact": "To change it, send an email to <link>{email}</link>.",
         "emailChangeSupport": "To change it, contact support.",
+        "copyEmailLabel": "Copy the email address",
         "saveButton": "Save changes",
         "toastUpdating": "Updating profile...",
         "toastUpdateSuccess": "Profile updated successfully",
