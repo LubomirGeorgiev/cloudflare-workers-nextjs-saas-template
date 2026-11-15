@@ -13,10 +13,10 @@ export function CmsEntryStatusBadge({ status, className, title }: CmsEntryStatus
 
   return (
     <Badge variant={getStatusBadgeVariant(status)} className={className} title={title}>
-      <div className="flex items-center gap-2">
-        {statusConfig && <div className={`h-2 w-2 rounded-full ${statusConfig.color}`} />}
+      <span className="flex items-center gap-2">
+        {statusConfig && <span className={`h-2 w-2 rounded-full ${statusConfig.color}`} />}
         <span>{statusConfig?.label || status}</span>
-      </div>
+      </span>
     </Badge>
   );
 }

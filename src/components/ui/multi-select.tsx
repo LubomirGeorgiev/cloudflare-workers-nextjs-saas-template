@@ -905,7 +905,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                               )}>
                               {option.label}
                             </span>
-                            <div
+                            <span
                               role="button"
                               tabIndex={0}
                               onClick={(event) => {
@@ -931,7 +931,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                   "h-2.5 w-2.5"
                                 )}
                               />
-                            </div>
+                            </span>
                           </Badge>
                         );
                       })
