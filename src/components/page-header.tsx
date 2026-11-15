@@ -8,6 +8,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Link } from "@/i18n/navigation"
+import { getTranslations } from "@/i18n/server"
 import type { Route } from "next"
 import React from "react"
 
@@ -20,13 +21,14 @@ interface PageHeaderProps {
   items: PageHeaderCrumb[]
 }
 
-export function PageHeader({ items }: PageHeaderProps) {
+export async function PageHeader({ items }: PageHeaderProps) {
+  const t = await getTranslations("Client.Common")
   return (
     <header className="hidden h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 md:flex">
       <div className="flex items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
-        <Breadcrumb>
+        <Breadcrumb ariaLabel={t("breadcrumb")}>
           <BreadcrumbList>
             {items.map((item, index) => (
               // Two crumbs can share an href (`/admin` is both "Admin" and the users list).

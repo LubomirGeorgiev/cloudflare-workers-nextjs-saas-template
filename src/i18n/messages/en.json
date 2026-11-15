@@ -3,7 +3,9 @@
     "Common": {
       "cancel": "Cancel",
       "copied": "Copied",
-      "copyFailed": "Could not copy to the clipboard"
+      "copyFailed": "Could not copy to the clipboard",
+      "close": "Close",
+      "breadcrumb": "Breadcrumb"
     },
     "ApiScopes": {
       "profile:read": "Read your account profile, sessions, and preferences.",
@@ -507,7 +509,30 @@
       }
     },
     "MultiSelect": {
-      "noResults": "No results found."
+      "noResults": "No results found.",
+      "placeholder": "Select options",
+      "searchPlaceholder": "Search options...",
+      "searchAria": "Search through available options",
+      "searchHelp": "Type to filter options. Use arrow keys to navigate results.",
+      "triggerHelp": "Multi-select dropdown. Use arrow keys to navigate, Enter to select, and Escape to close.",
+      "triggerAria": "Multi-select: {selected} of {total} options selected. {placeholder}",
+      "noneSelected": "No options selected",
+      "selectedSummary": "{count, plural, one {# option} other {# options}} selected: {labels}",
+      "removeOptionAria": "Remove {label} from selection",
+      "clearAllAria": "Clear all {count} selected options",
+      "moreCount": "+ {count} more",
+      "listboxAria": "Available options",
+      "selectAll": "(Select All)",
+      "selectAllWithCount": "(Select All - {count} options)",
+      "selectAllAria": "Select all {count} options",
+      "optionAria": "{label}, {selected, select, yes {selected} other {not selected}}{disabled, select, yes {, disabled} other {}}",
+      "clear": "Clear",
+      "announceOneSelected": "{label} selected. {selected} of {total} options selected.",
+      "announceManySelected": "{count} options selected. {selected} of {total} total selected.",
+      "announceRemoved": "Option removed. {selected} of {total} options selected.",
+      "announceOpened": "Dropdown opened. {total} options available. Use arrow keys to navigate.",
+      "announceClosed": "Dropdown closed.",
+      "announceFound": "{count, plural, one {# option} other {# options}} found for \"{query}\""
     },
     "Dashboard": {
       "Home": {

@@ -5,12 +5,15 @@ import { ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Labels are required (no English defaults) so callers must supply localized copy,
+// as in `pagination.tsx`.
 const Breadcrumb = React.forwardRef<
   HTMLElement,
   React.ComponentPropsWithoutRef<"nav"> & {
+    ariaLabel: string
     separator?: React.ReactNode
   }
->(({ ...props }, ref) => <nav ref={ref} aria-label="breadcrumb" {...props} />)
+>(({ ariaLabel, ...props }, ref) => <nav ref={ref} aria-label={ariaLabel} {...props} />)
 Breadcrumb.displayName = "Breadcrumb"
 
 const BreadcrumbList = React.forwardRef<
@@ -91,8 +94,9 @@ BreadcrumbSeparator.displayName = "BreadcrumbSeparator"
 
 const BreadcrumbEllipsis = ({
   className,
+  label,
   ...props
-}: React.ComponentProps<"span">) => (
+}: React.ComponentProps<"span"> & { label: string }) => (
   <span
     role="presentation"
     aria-hidden="true"
@@ -100,7 +104,7 @@ const BreadcrumbEllipsis = ({
     {...props}
   >
     <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More</span>
+    <span className="sr-only">{label}</span>
   </span>
 )
 BreadcrumbEllipsis.displayName = "BreadcrumbElipssis"

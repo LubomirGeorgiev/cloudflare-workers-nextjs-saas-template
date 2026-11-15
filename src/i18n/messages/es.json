@@ -3,7 +3,9 @@
     "Common": {
       "cancel": "Cancelar",
       "copied": "Copiado",
-      "copyFailed": "No se pudo copiar al portapapeles"
+      "copyFailed": "No se pudo copiar al portapapeles",
+      "close": "Cerrar",
+      "breadcrumb": "Ruta de navegación"
     },
     "ApiScopes": {
       "profile:read": "Leer el perfil, las sesiones y las preferencias de tu cuenta.",
@@ -507,7 +509,30 @@
       }
     },
     "MultiSelect": {
-      "noResults": "No se encontraron resultados."
+      "noResults": "No se encontraron resultados.",
+      "placeholder": "Selecciona opciones",
+      "searchPlaceholder": "Buscar opciones...",
+      "searchAria": "Buscar entre las opciones disponibles",
+      "searchHelp": "Escribe para filtrar las opciones. Usa las flechas para recorrer los resultados.",
+      "triggerHelp": "Lista de selección múltiple. Usa las flechas para moverte, Intro para seleccionar y Escape para cerrar.",
+      "triggerAria": "Selección múltiple: {selected} de {total} opciones seleccionadas. {placeholder}",
+      "noneSelected": "No hay opciones seleccionadas",
+      "selectedSummary": "{count, plural, one {# opción seleccionada} other {# opciones seleccionadas}}: {labels}",
+      "removeOptionAria": "Quitar {label} de la selección",
+      "clearAllAria": "Quitar las {count} opciones seleccionadas",
+      "moreCount": "+ {count} más",
+      "listboxAria": "Opciones disponibles",
+      "selectAll": "(Seleccionar todo)",
+      "selectAllWithCount": "(Seleccionar todo - {count} opciones)",
+      "selectAllAria": "Seleccionar las {count} opciones",
+      "optionAria": "{label}, {selected, select, yes {seleccionada} other {no seleccionada}}{disabled, select, yes {, deshabilitada} other {}}",
+      "clear": "Borrar",
+      "announceOneSelected": "{label} seleccionada. {selected} de {total} opciones seleccionadas.",
+      "announceManySelected": "{count} opciones seleccionadas. {selected} de {total} en total.",
+      "announceRemoved": "Opción quitada. {selected} de {total} opciones seleccionadas.",
+      "announceOpened": "Lista abierta. {total} opciones disponibles. Usa las flechas para moverte.",
+      "announceClosed": "Lista cerrada.",
+      "announceFound": "{count, plural, one {# opción encontrada} other {# opciones encontradas}} para \"{query}\""
     },
     "Dashboard": {
       "Home": {

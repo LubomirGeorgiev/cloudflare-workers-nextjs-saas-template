@@ -23,6 +23,7 @@ const SEGMENT_TITLE_KEYS: Record<string, "security" | "sessions" | "apiMcp"> = {
 export function SettingsBreadcrumbs() {
   const segment = useSelectedLayoutSegment();
   const t = useTranslations("Client.Settings.Nav");
+  const tCommon = useTranslations("Client.Common");
 
   let pageTitle: string;
   if (!segment) {
@@ -35,7 +36,7 @@ export function SettingsBreadcrumbs() {
   }
 
   return (
-    <Breadcrumb>
+    <Breadcrumb ariaLabel={tCommon("breadcrumb")}>
       <BreadcrumbList>
         <BreadcrumbItem className="hidden md:block">
           {/* `render` swaps the default bare `<a>` for the localized `Link`, so this is a soft

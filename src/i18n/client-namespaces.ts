@@ -60,6 +60,7 @@ export const CLIENT_MESSAGE_SCOPES = {
       "Auth.SignUp",
       "Auth.TeamInvite",
       "Auth.VerifyEmail",
+      "Common",
       "LocaleSwitcher",
       "Nav",
       // `useSignOut` toasts: the team invite page signs out a wrong account.
@@ -70,11 +71,11 @@ export const CLIENT_MESSAGE_SCOPES = {
   },
   legal: {
     entryPaths: ["app/[locale]/(legal)"],
-    namespaces: ["LocaleSwitcher", "Nav", "ThemeSwitch"],
+    namespaces: ["Common", "LocaleSwitcher", "Nav", "ThemeSwitch"],
   },
   notFound: {
     entryPaths: ["app/[locale]/not-found.tsx"],
-    namespaces: ["LocaleSwitcher", "Nav", "ThemeSwitch"],
+    namespaces: ["Common", "LocaleSwitcher", "Nav", "ThemeSwitch"],
   },
   app: {
     entryPaths: ["app/[locale]/(app)"],

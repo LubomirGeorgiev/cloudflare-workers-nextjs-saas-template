@@ -193,6 +193,25 @@ describe("message catalogs", () => {
   });
 });
 
+// Shared `src/components/ui/` controls read these screen-reader labels on every locale route.
+const SHARED_UI_LABEL_KEYS = ["Client.Common.close", "Client.Common.breadcrumb"] as const;
+
+describe("shared UI labels", () => {
+  test.each(LOCALES)("%s.json defines every shared UI screen-reader label", async (locale) => {
+    const missing: string[] = [];
+    const t = createTranslator({
+      locale,
+      messages: (await loadCatalog(locale)) as Messages,
+      onError: (error) => missing.push(error.message),
+    });
+
+    const labels = SHARED_UI_LABEL_KEYS.map((key) => t(key));
+
+    expect(missing).toEqual([]);
+    expect(labels.every((label) => label.trim().length > 0)).toBe(true);
+  });
+});
+
 // These messages describe state; each branch must exist in every locale, or the copy states a wrong fact.
 describe("state-dependent copy", () => {
   test.each(LOCALES)("%s.json mentions pending invitations only when there are some", async (locale) => {
@@ -213,5 +232,14 @@ describe("state-dependent copy", () => {
 
     expect(withoutDate("active")).not.toBe(withoutDate("none"));
     expect(withDate("active")).not.toBe(withDate("none"));
+  });
+
+  test.each(LOCALES)("%s.json states each multi-select option state", async (locale) => {
+    const t = createTranslator({ locale, messages: (await loadCatalog(locale)) as Messages });
+    const optionAria = (selected: string, disabled: string) =>
+      t("Client.MultiSelect.optionAria", { label: "A", selected, disabled });
+
+    expect(optionAria("yes", "no")).not.toBe(optionAria("no", "no"));
+    expect(optionAria("yes", "yes")).not.toBe(optionAria("yes", "no"));
   });
 });
