@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import { globSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { INTEGRATION_SHARD_ENV, INTEGRATION_TEST_FILES, selectShardPlan } from "./utils/integration-shards.mjs";
+import { PREGENERATED_OPENAPI_ENV, runOpenApiGenerator } from "./utils/openapi-generator.mjs";
 
 const CONFIG_FILE = "vitest.integration.config.ts";
 const VITEST_BIN = join(dirname(createRequire(import.meta.url).resolve("vitest/package.json")), "vitest.mjs");
@@ -27,8 +28,14 @@ if (passedArgs.length > 0 || shardCount === 1) {
 // at about two busy cores. Separate processes each bring their own main thread.
 async function runShards() {
   const reportsDir = await mkdtemp(join(tmpdir(), "integration-reports-"));
+  // Not in `reportsDir`: the merge reads each file there as a blob report.
+  const openApiDir = await mkdtemp(join(tmpdir(), "integration-openapi-"));
 
   try {
+    // One generator run for all shards. Each shard would otherwise start its own, while its tests run.
+    const openApiEnvelopeFile = join(openApiDir, "envelope.json");
+    await writeFile(openApiEnvelopeFile, await runOpenApiGenerator());
+
     const shardExitCodes = await Promise.all(
       Array.from({ length: shardCount }, (_, index) => runVitest({
         args: [
@@ -40,7 +47,11 @@ async function runShards() {
           "--reporter=blob",
           `--outputFile=${join(reportsDir, `blob-${index + 1}.json`)}`,
         ],
-        env: { ...process.env, [INTEGRATION_SHARD_ENV]: String(index + 1) },
+        env: {
+          ...process.env,
+          [INTEGRATION_SHARD_ENV]: String(index + 1),
+          [PREGENERATED_OPENAPI_ENV]: openApiEnvelopeFile,
+        },
       })),
     );
     const mergeExitCode = await runVitest({
@@ -50,7 +61,7 @@ async function runShards() {
     // A shard that crashed writes no blob, so the merged report alone would not show it.
     return [...shardExitCodes, mergeExitCode].every((code) => code === 0) ? 0 : 1;
   } finally {
-    await rm(reportsDir, { recursive: true, force: true });
+    await Promise.all([reportsDir, openApiDir].map((dir) => rm(dir, { recursive: true, force: true })));
   }
 }
 

@@ -63,6 +63,7 @@ function operations(): { path: string; method: string; operation: SpecOperation 
   );
 }
 
+// A run without the runner's envelope file starts the generator here: about 6 s, more under load.
 beforeAll(async () => {
   const response = await apiApp.fetch(
     new Request(`https://example.com${API_OPENAPI_SPEC_PATH}`),
@@ -72,7 +73,7 @@ beforeAll(async () => {
 
   specStatus = response.status;
   spec = await response.json();
-});
+}, 30_000);
 
 // The document is the discovery entry point, so it must answer without a credential — every
 // other route on the app requires one.

@@ -1,7 +1,8 @@
-import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
 import type { Plugin } from "vite";
+
+import { PREGENERATED_OPENAPI_ENV, runOpenApiGenerator } from "../scripts/utils/openapi-generator.mjs";
 
 // Serves the OpenAPI document as a virtual module built during the build, so no isolate ever runs
 // the Valibot -> JSON Schema conversion at runtime. Regeneration needs no trigger of its own: any
@@ -36,7 +37,6 @@ function halfForResolvedId(id: string): DocumentHalf | null {
 
   return MODULE_IDS[id.slice(RESOLVED_PREFIX.length) as keyof typeof MODULE_IDS] ?? null;
 }
-const GENERATOR = "scripts/generate-openapi.mjs";
 // Project-relative sources that can change the document, so a dev server regenerates instead of
 // serving a stale one. Much wider than `src/api/`: the generator evaluates the whole API app, so
 // routes drag in feature schemas, service code, i18n, and the constants the info block reads.
@@ -44,12 +44,6 @@ const GENERATOR = "scripts/generate-openapi.mjs";
 // that set changes.
 const DOCUMENT_SOURCES =
   /^(?:cms\.config\.ts|src\/app\/enums\.ts|src\/(?:api|constants|db|i18n|lib|mcp|schemas|types|utils)(?:\.ts$|\/))/;
-/** The document is small and generation is ~1s; anything slower means the generator is stuck. */
-const GENERATE_TIMEOUT_MS = 60_000;
-const MAX_DOCUMENT_BYTES = 32 * 1024 * 1024;
-
-const run = promisify(execFile);
-
 /**
  * Whether editing this file can change the document. Kept in step with the generator's real import
  * graph by `tools/openapi-document.test.ts`, which walks it and fails on anything not covered.
@@ -63,6 +57,8 @@ type DocumentTexts = Record<DocumentHalf, string>;
 
 export function openApiDocument(): Plugin {
   let documents: Promise<DocumentTexts> | null = null;
+  // The runner wrote the file before this process started, so a source edit makes it stale.
+  let pregeneratedFile = process.env[PREGENERATED_OPENAPI_ENV];
 
   return {
     name: "api-openapi-document",
@@ -71,6 +67,7 @@ export function openApiDocument(): Plugin {
         if (!isDocumentSource(path.relative(server.config.root, file))) return;
 
         documents = null;
+        pregeneratedFile = undefined;
         for (const environment of Object.values(server.environments)) {
           for (const moduleId of Object.keys(MODULE_IDS)) {
             const module = environment.moduleGraph.getModuleById(resolvedId(moduleId));
@@ -88,10 +85,7 @@ export function openApiDocument(): Plugin {
 
       // The generator spawns its own Vite server, so it runs out-of-process: doing it inline would
       // nest a module graph inside this one and inherit these plugins, including this one.
-      documents ??= run(process.execPath, [GENERATOR], {
-        maxBuffer: MAX_DOCUMENT_BYTES,
-        timeout: GENERATE_TIMEOUT_MS,
-      }).then(({ stdout }) => {
+      documents ??= (pregeneratedFile ? readFile(pregeneratedFile, "utf8") : runOpenApiGenerator()).then((stdout) => {
         const envelope = JSON.parse(stdout) as Record<DocumentHalf, unknown>;
 
         // Re-serialized per half rather than sliced out of `stdout`: each module exports the exact

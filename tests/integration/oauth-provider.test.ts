@@ -322,6 +322,8 @@ test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
     // The API is never served by the Next app, whichever credential got it there.
     expect(innerFetchMock).not.toHaveBeenCalled();
   },
+  // The first `/api/v1` call loads the API app on demand: over 11 s under shard load.
+  30_000,
 );
 
 test.skipIf(!OAUTH_OPEN_DCR_ENABLED)(
