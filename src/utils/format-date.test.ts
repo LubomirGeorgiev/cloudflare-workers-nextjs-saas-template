@@ -47,7 +47,7 @@ describe("formatLongDateTime", () => {
       .find((part) => part.type === "timeZoneName")?.value;
 
     expect(zoneName).toBeTruthy();
-    expect(formatLongDateTime(DATE, locale)).toContain(zoneName);
-    expect(formatLongDateTime(DATE, locale)).toContain("2024");
+    expect(formatLongDateTime({ date: DATE, locale })).toContain(zoneName);
+    expect(formatLongDateTime({ date: DATE, locale })).toContain("2024");
   });
 });

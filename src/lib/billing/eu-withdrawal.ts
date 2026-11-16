@@ -14,8 +14,12 @@ import { getStripeSubscriptionTransitionPolicy, WITHDRAWAL_CANCEL_PARAMS } from 
 import { getDB } from "@/db";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { ActionError } from "@/lib/action-error";
-import { readContractStart } from "@/lib/billing/contract-start";
-import { getWithdrawalExtraCharges, isConsumerCustomer } from "@/lib/billing/eu-withdrawal-seams";
+import {
+  isWithdrawalConsumer,
+  readContractStart,
+  retrieveWithdrawalSubscription,
+} from "@/lib/billing/eu-withdrawal-reads";
+import { getWithdrawalExtraCharges } from "@/lib/billing/eu-withdrawal-seams";
 import {
   readWithdrawalMetadata,
   selectWithdrawalCredits,
@@ -92,7 +96,7 @@ export const getWithdrawalOffer = cache(async (teamId: string): Promise<Withdraw
 
       try {
         const client = await getStripe();
-        const subscription = await retrieveWithCustomer({ stripe: client, subscriptionId });
+        const subscription = await retrieveWithdrawalSubscription({ stripe: client, subscriptionId });
         const startedAt = await readContractStart({ stripe: client, subscription });
         const { eligibility } = assessWithdrawal({ subscription, startedAt, now: new Date() });
         if (!eligibility.eligible) {
@@ -145,7 +149,7 @@ export async function withdrawFromContract({
     isExpected: (error) => error instanceof ActionError,
     run: async (span) => {
       const client = stripe ?? (await getStripe());
-      let subscription = await retrieveWithCustomer({ stripe: client, subscriptionId });
+      let subscription = await retrieveWithdrawalSubscription({ stripe: client, subscriptionId });
       const startedAt = await readContractStart({ stripe: client, subscription });
       const { record: before, eligibility } = assessWithdrawal({ subscription, startedAt, now });
       if (!eligibility.eligible) {
@@ -333,7 +337,7 @@ async function claimWithdrawal({
 }
 
 // Steps 4 to 8. The receipt goes before the cancel, so a Stripe failure after the claim cannot
-// delay it. Neither step fails the caller: the resume job tries both again.
+// delay it. The steps do not wait on each other, but a missing receipt keeps the chain going.
 async function receiptThenFinish({
   stripe,
   subscription,
@@ -350,19 +354,24 @@ async function receiptThenFinish({
   receipt: ReceiptSources;
 }): Promise<FinishResult> {
   const subscriptionId = subscription.id;
-  await ensureReceipt({ stripe, subscription, record, startedAt, ...receipt })
-    .catch((error: unknown) => logStepFailure({ step: "receipt", subscriptionId, error }));
+  const receiptSent = await ensureReceipt({ stripe, subscription, record, startedAt, ...receipt })
+    .catch((error: unknown) => {
+      logStepFailure({ step: "receipt", subscriptionId, error });
+      return false;
+    });
 
-  return finishWithdrawal({ stripe, subscription, record, startedAt, withdrawnAt }).catch((error: unknown): FinishResult => {
+  const result = await finishWithdrawal({ stripe, subscription, record, startedAt, withdrawnAt }).catch((error: unknown): FinishResult => {
     logStepFailure({ step: "finish", subscriptionId, error });
     // A refused 4xx (a refunded charge, a dispute, a missing object) fails the same way every hour.
     return classifyStripeError(error) === "refused" ? { status: "needs_staff", reason: "stripe_refused" } : { status: "retry" };
   });
+
+  return result.status === "done" && !receiptSent ? { status: "retry" } : result;
 }
 
 /**
- * Step 4: send the receipt when a withdrawal is recorded and no receipt is marked as sent, then
- * mark it. A failure between the two sends a second receipt later; that is better than none.
+ * Step 4: send the receipt when a withdrawal is recorded and none is marked as sent, then mark it.
+ * Returns whether a receipt is now marked. A second receipt after a failed mark beats none.
  */
 async function ensureReceipt({
   stripe,
@@ -375,15 +384,18 @@ async function ensureReceipt({
   subscription: Stripe.Subscription;
   record: WithdrawalMetadata;
   startedAt: Date;
-}): Promise<void> {
+}): Promise<boolean> {
   const { withdrawnAt, withdrawnByUserId } = record;
-  if (!withdrawnAt || !withdrawnByUserId || record.receiptSentAt) {
-    return;
+  if (record.receiptSentAt) {
+    return true;
+  }
+  if (!withdrawnAt || !withdrawnByUserId) {
+    return false;
   }
   const parties = await readReceiptParties({ ...sources, withdrawnByUserId });
   if (!parties) {
     console.error(JSON.stringify({ event: "eu_withdrawal_receipt_no_recipient", subscriptionId: subscription.id }));
-    return;
+    return false;
   }
   const refund = sources.refund ?? await computeRefund({
     subscription,
@@ -409,6 +421,7 @@ async function ensureReceipt({
     subscriptionId: subscription.id,
     metadata: { [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: new Date().toISOString() },
   });
+  return true;
 }
 
 // The user who withdrew and the team. The action passes what it read; the resume job reads D1.
@@ -694,20 +707,6 @@ async function updateWithdrawalMetadata({
   });
 }
 
-// `isConsumerCustomer` needs the customer's tax IDs, and `readContractStart` the first invoice.
-function retrieveWithCustomer({
-  stripe,
-  subscriptionId,
-}: {
-  stripe: WithdrawalStripe;
-  subscriptionId: string;
-}): Promise<Stripe.Subscription> {
-  return callStripe({
-    operation: STRIPE_OPERATIONS.subscriptionsRetrieve,
-    run: () => stripe.subscriptions.retrieve(subscriptionId, { expand: ["customer.tax_ids", "latest_invoice"] }),
-  });
-}
-
 // The page and the action decide with the same selector, so the button and the action agree.
 function assessWithdrawal({
   subscription,
@@ -718,9 +717,6 @@ function assessWithdrawal({
   startedAt: Date;
   now: Date;
 }): { record: WithdrawalMetadata; eligibility: WithdrawalEligibility } {
-  if (typeof subscription.customer === "string") {
-    throw new TypeError("The withdrawal needs the subscription with its customer expanded");
-  }
   const record = readWithdrawalMetadata(subscription.metadata);
 
   return {
@@ -728,7 +724,7 @@ function assessWithdrawal({
     eligibility: selectWithdrawalEligibility({
       status: subscription.status,
       startedAt,
-      isConsumer: isConsumerCustomer(subscription.customer),
+      isConsumer: isWithdrawalConsumer(subscription),
       withdrawnAt: record.withdrawnAt,
       now,
     }),

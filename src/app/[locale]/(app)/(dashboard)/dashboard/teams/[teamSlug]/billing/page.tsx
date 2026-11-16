@@ -101,8 +101,8 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
             })}
             email={session.user.email}
             planName={withdrawalOffer.planName}
-            startedAtLabel={formatLongDateTime(withdrawalOffer.startedAt, locale)}
-            windowEndsAtLabel={formatLongDateTime(withdrawalOffer.windowEndsAt, locale)}
+            startedAtLabel={formatLongDateTime({ date: withdrawalOffer.startedAt, locale })}
+            windowEndsAtLabel={formatLongDateTime({ date: withdrawalOffer.windowEndsAt, locale })}
             pending={withdrawalOffer.pending}
           />
         )}

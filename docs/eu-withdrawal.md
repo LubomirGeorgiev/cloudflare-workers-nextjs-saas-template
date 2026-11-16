@@ -11,9 +11,9 @@ switch. It is `false` in the template. When it is `false`, checkout and billing 
 | Rules: window, eligibility, refund, metadata | `src/lib/billing/eu-withdrawal-selectors.ts` |
 | Fork decisions: who is a consumer, extra charges | `src/lib/billing/eu-withdrawal-seams.ts` |
 | Checkout consent to an immediate start | `src/lib/billing/checkout-consent.ts` |
-| Order confirmation email | `src/lib/billing/order-confirmation.ts` |
+| Order confirmation email (sent durably: a D1 job row first, so a queue outage cannot lose it) | `src/lib/billing/order-confirmation.ts` |
 | Offer, withdrawal, and resume job | `src/lib/billing/eu-withdrawal.ts` |
-| When the contract started | `src/lib/billing/contract-start.ts` |
+| Shared Stripe reads: the subscription, the consumer check, the contract start | `src/lib/billing/eu-withdrawal-reads.ts` |
 | Button and confirm dialog | `billing/_components/withdrawal-card.tsx` |
 | Server action | `billing/withdrawal.actions.ts` |
 
@@ -24,11 +24,25 @@ the action accepts the withdrawal.
 
 A fork edits `src/lib/billing/eu-withdrawal-seams.ts` and no other file of the flow.
 
-- `isConsumerCustomer(customer)`: the default treats a customer with a tax ID as a business. The
-  caller expands `customer.tax_ids`. Without the expand, the function throws. **This signal is
-  weak.** The default trusts the tax ID, and the Stripe Customer Portal lets a customer remove
-  their tax ID, so a business can make itself a consumer before it withdraws. A fork that sells to
+- `isConsumerCustomer({ customer, paymentMethod })`: whether the customer is a consumer in the
+  EU or EEA. Only they have the right of withdrawal. The default needs both:
+  - **No tax ID.** A customer with a tax ID is a business. The caller expands `customer.tax_ids`;
+    without the expand, the function throws.
+  - **A country in `EU_EEA_COUNTRY_CODES`** (`src/constants/eu-withdrawal.ts`): the 27 EU members,
+    plus Iceland, Liechtenstein, and Norway, which the EEA Agreement binds to the same directive.
+    The first country found wins: the customer's `address.country`, then the payment method's
+    `billing_details.address.country`, then the card's issuing `card.country`. The payment method
+    is the subscription's `default_payment_method`, else the customer's
+    `invoice_settings.default_payment_method`.
+  - **No known country counts as the EU.** A missed EU consumer is a legal risk; an extra refund is
+    only a cost.
+
+  **These signals are weak.** The Stripe Customer Portal lets a customer remove a tax ID or change
+  the address, so a business can make itself a consumer before it withdraws. A fork that sells to
   businesses must use a stronger signal, for example a business flag that only staff can set.
+
+  One subscription read (`retrieveWithdrawalSubscription`) expands everything this check and the
+  contract start need, so the check costs no extra Stripe call.
 - `getWithdrawalExtraCharges({ subscription, withdrawnAt })`: what the consumer owes on top of the
   used days, in minor units. The flow calls it only when the consumer gave consent. The default is 0.
   Read only `withdrawnAt`, never the current time: the resume job calls the seam again and must get
@@ -42,6 +56,12 @@ The contract starts when the consumer pays the subscription's first invoice
 opens and keeps the incomplete subscription up to 23 hours, so a window from `start_date` can end a
 day early. A trial is the exception: its subscription is made after the card is confirmed, so its
 `start_date` is the order.
+
+The checkout consent box shows for every buyer, because the country is not known before the
+payment. The order confirmation email states the consent and the last day to withdraw only when
+`isConsumerCustomer` says EU consumer. A business or a customer outside the EU/EEA gets the plain
+confirmation. The email reads the subscription once at the first activation. When that read fails,
+the email uses the send time as the start and counts the customer as an EU consumer.
 
 `readContractStart` reads this with the least work. The subscription read expands
 `latest_invoice`, which in the window is almost always the first invoice, so it costs no call. Only
@@ -105,11 +125,13 @@ withdrawal is recorded and that the refund follows.
 `billing.eu-withdrawal-resume` repeats steps 4 to 8 with the recorded `eu_withdrawn_at`. It runs
 every hour until it ends:
 
-- **One chain per withdrawal.** A job continues only when its run time equals `eu_resume_at`. A
+- **One chain per withdrawal.** Each saved run time has its own job row, so a second save never
+  replaces the job that `eu_resume_at` names. A job continues only when its run time equals `eu_resume_at`. A
   job from a failed request, or one that a later job replaced, stops at once. To reschedule, the
   job saves the next job first and then writes the next `eu_resume_at`. When that write fails, the
   queue retries the same message, which still owns the chain.
-- **Done.** Every refund is issued.
+- **Done.** Every refund is issued, and `eu_receipt_sent_at` is set. A missing receipt keeps the
+  chain going, but it does not hold back the refunds.
 - **Staff.** An invoice with no charge, or a Stripe refusal that fails the same way on every try
   (a refunded charge, a dispute, a missing object), writes `eu_withdrawal_needs_staff_at`, logs one
   `eu_withdrawal_refund_needs_staff` line, and ends the chain.
@@ -139,7 +161,7 @@ the contract. It has no field for reasons and no offers. Do not add a step betwe
 
 Before you set `EU_WITHDRAWAL_ENABLED` to `true`:
 
-- Replace the default `isConsumerCustomer` with a signal that the customer cannot change.
+- Replace the default `isConsumerCustomer` with a business signal that the customer cannot change.
 - Add an alert on each of these log events:
 
 | Event | Means |
@@ -150,4 +172,4 @@ Before you set `EU_WITHDRAWAL_ENABLED` to `true`:
 | `eu_withdrawal_receipt_no_recipient` | The user who withdrew has no email address; send the receipt by hand |
 | `eu_withdrawal_step_failed` | A step failed; the resume job tries again |
 | `eu_withdrawal_offer_failed` | The billing page hid the button because Stripe failed |
-| `eu_order_confirmation_start_read_failed` | The order confirmation used the send time as the start; its window ends a little late |
+| `eu_order_confirmation_read_failed` | The order confirmation used the send time as the start and counted the customer as an EU consumer |

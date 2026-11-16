@@ -54,7 +54,7 @@ describe("enqueueEuWithdrawalResume", () => {
   });
 
   // The withdrawal is recorded on Stripe, and nothing else finishes its refund.
-  test("schedules a durable job at the given time, one per subscription", async () => {
+  test("schedules a durable job at the given time", async () => {
     const runAt = new Date("2026-03-04T10:00:00.000Z");
 
     await enqueueEuWithdrawalResume({ teamId: "team_1", subscriptionId: "sub_1", runAt });
@@ -66,6 +66,19 @@ describe("enqueueEuWithdrawalResume", () => {
       runAt,
       durable: true,
     }));
+  });
+
+  // Two overlapping withdrawals in a queue outage: the second save must not replace the first job,
+  // which may be the one that `eu_resume_at` names.
+  test("gives each run time of one subscription its own job key", async () => {
+    const first = new Date("2026-03-04T10:00:00.000Z");
+    const second = new Date("2026-03-04T10:00:05.000Z");
+
+    await enqueueEuWithdrawalResume({ teamId: "team_1", subscriptionId: "sub_1", runAt: first });
+    await enqueueEuWithdrawalResume({ teamId: "team_1", subscriptionId: "sub_1", runAt: second });
+
+    const keys = scheduleJobMock.mock.calls.map((call) => (call as unknown as [{ dedupeKey: string }])[0].dedupeKey);
+    expect(new Set(keys).size).toBe(2);
   });
 });
 

@@ -7,7 +7,11 @@ import { getPlan } from "@/constants/plans";
 import { getDB } from "@/db";
 import type { Team } from "@/db/schema";
 import type { Locale } from "@/i18n/config";
-import { readContractStart } from "@/lib/billing/contract-start";
+import {
+  isWithdrawalConsumer,
+  readContractStart,
+  retrieveWithdrawalSubscription,
+} from "@/lib/billing/eu-withdrawal-reads";
 import { stripeErrorName } from "@/lib/billing/stripe-call";
 import {
   isFirstActivation,
@@ -41,7 +45,7 @@ export async function notifyOrderConfirmation({
   }
 
   const record = readWithdrawalMetadata(subscription.metadata);
-  const startedAt = await readStartOrNow(subscription);
+  const { startedAt, euConsumer } = await readWithdrawalTerms(subscription);
   const recipients = await listRecipients({ teamId: team.id, orderUserId: record.orderUserId }).catch((error: unknown) => {
     console.error("notifyOrderConfirmation: recipient read failed", { teamId: team.id, subscriptionId: subscription.id, error });
     return [];
@@ -54,27 +58,35 @@ export async function notifyOrderConfirmation({
     teamSlug: team.slug,
     planName: getPlan(classifySubscriptionItems(subscription).planId ?? team.subscriptionPlanId).name,
     startedAt,
-    windowEndsAt: selectWithdrawalWindowEnd(startedAt),
-    consent: record.consent ? { at: record.consent.at, text: record.consent.text } : null,
+    withdrawal: euConsumer
+      ? {
+        windowEndsAt: selectWithdrawalWindowEnd(startedAt),
+        consent: record.consent ? { at: record.consent.at, text: record.consent.text } : null,
+      }
+      : null,
     locale: recipient.locale ?? undefined,
   }).catch((error: unknown) => {
     console.error("notifyOrderConfirmation: email enqueue failed", { teamId: team.id, subscriptionId: subscription.id, error });
   })));
 }
 
-// This runs after the payment, so "now" is never before the order: on a failed read the email
-// states a window that may end a little late, never early.
-async function readStartOrNow(subscription: Stripe.Subscription): Promise<Date> {
+// One read at the first activation: the webhook's subscription has no customer data. On a failure,
+// "now" (after the payment) ends the window late, never early, and the customer counts as an EU
+// consumer, like a customer with no known country (`isConsumerCustomer`).
+async function readWithdrawalTerms(subscription: Stripe.Subscription): Promise<{ startedAt: Date; euConsumer: boolean }> {
   try {
-    return await readContractStart({ stripe: await getStripe(), subscription });
+    const stripe = await getStripe();
+    const full = await retrieveWithdrawalSubscription({ stripe, subscriptionId: subscription.id });
+
+    return { startedAt: await readContractStart({ stripe, subscription: full }), euConsumer: isWithdrawalConsumer(full) };
   } catch (error) {
     console.error(JSON.stringify({
-      event: "eu_order_confirmation_start_read_failed",
+      event: "eu_order_confirmation_read_failed",
       provider: "stripe",
       subscriptionId: subscription.id,
       errorName: stripeErrorName(error),
     }));
-    return new Date();
+    return { startedAt: new Date(), euConsumer: true };
   }
 }
 

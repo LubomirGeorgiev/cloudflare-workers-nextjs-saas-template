@@ -175,7 +175,9 @@ describe("withdrawFromContract", () => {
       "creditNotes.list",
       "creditNotes.create",
     ]);
-    expect(argsOf("subscriptions.retrieve")).toEqual([SUBSCRIPTION_ID, { expand: ["customer.tax_ids", "latest_invoice"] }]);
+    expect(argsOf("subscriptions.retrieve")).toEqual([SUBSCRIPTION_ID, {
+      expand: ["customer.tax_ids", "customer.invoice_settings.default_payment_method", "default_payment_method", "latest_invoice"],
+    }]);
     expect(argsOf("invoices.voidInvoice")).toEqual(["in_open", {}, { idempotencyKey: "eu-withdrawal-void:in_open" }]);
     expect(argsOf("invoices.del")).toEqual(["in_draft"]);
     expect(argsOf("invoiceItems.list")).toEqual([expect.objectContaining({ customer: CUSTOMER_ID, pending: true })]);
@@ -268,6 +270,21 @@ describe("withdrawFromContract", () => {
     expect(methods()).toEqual(["subscriptions.retrieve"]);
   });
 
+  // The right of withdrawal is EU/EEA law: a US consumer without a tax ID does not have it.
+  test("refuses a customer outside the EU/EEA and writes nothing", async () => {
+    subscription = makeSubscription({ customer: customerIn("US") });
+
+    await expect(withdraw()).rejects.toBeInstanceOf(ActionError);
+
+    expect(methods()).toEqual(["subscriptions.retrieve"]);
+  });
+
+  test("a consumer in the EU withdraws", async () => {
+    subscription = makeSubscription({ customer: customerIn("BG") });
+
+    await expect(withdraw()).resolves.toEqual({ completed: true });
+  });
+
   test("refuses after the window closes", async () => {
     await expect(withdraw({ now: selectWithdrawalWindowEnd(STARTED_AT) })).rejects.toBeInstanceOf(ActionError);
 
@@ -351,10 +368,11 @@ describe("withdrawFromContract", () => {
     expect(fakeStripe.creditNotes.create).not.toHaveBeenCalled();
   });
 
-  test("a failed receipt is not marked as sent and does not stop the refund", async () => {
+  // The refund does not wait for the receipt, but the withdrawal is not complete without it.
+  test("a failed receipt is not marked as sent, does not stop the refund, and leaves the withdrawal pending", async () => {
     sendReceiptMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
 
-    await expect(withdraw()).resolves.toEqual({ completed: true });
+    await expect(withdraw()).resolves.toEqual({ completed: false });
 
     expect(subscription.metadata[M.receiptSentAt]).toBeUndefined();
     expect(fakeStripe.creditNotes.create).toHaveBeenCalledTimes(1);
@@ -469,6 +487,36 @@ describe("resumeWithdrawal", () => {
     expect(methods()).toEqual(["subscriptions.retrieve"]);
   });
 
+  test.each([
+    ["the receipt send fails", () => sendReceiptMock.mockRejectedValueOnce(new Error("Queue is unavailable"))],
+    ["the user who withdrew has no email address", () => findUserMock.mockResolvedValueOnce({ id: ACTING_USER.id, email: null })],
+  ])("keeps the chain going after the refunds when %s", async (__case, arrange) => {
+    arrange();
+
+    await expect(resume()).resolves.toEqual({ completed: false });
+
+    expect(fakeStripe.creditNotes.create).toHaveBeenCalledTimes(1);
+    expect(subscription.metadata[M.receiptSentAt]).toBeUndefined();
+    expect(enqueueResumeMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("a later run sends the missing receipt and completes", async () => {
+    sendReceiptMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
+    await resume();
+    const [{ runAt }] = argsOf("enqueue") as [{ runAt: Date }];
+
+    await expect(resumeWithdrawal({
+      teamId: TEAM.id,
+      subscriptionId: SUBSCRIPTION_ID,
+      scheduledFor: runAt.toISOString(),
+      now: runAt,
+      stripe: fakeStripe,
+    })).resolves.toEqual({ completed: true });
+
+    expect(sendReceiptMock).toHaveBeenCalledTimes(2);
+    expect(fakeStripe.creditNotes.create).toHaveBeenCalledTimes(1);
+  });
+
   test("a Stripe server error schedules the next job, then hands the chain to it", async () => {
     subscription = makeSubscription({ metadata: { ...subscription.metadata, [M.receiptSentAt]: NOW.toISOString() } });
     failures.set("creditNotes.create", stripeError({ type: "StripeAPIError", statusCode: 500 }));
@@ -544,6 +592,20 @@ describe("getWithdrawalOffer", () => {
       windowEndsAt: selectWithdrawalWindowEnd(STARTED_AT),
       pending: false,
     });
+    vi.useRealTimers();
+  });
+
+  test.each([
+    ["US", null],
+    ["DE", false],
+  ])("a consumer in %s gets the card: %s", async (country, pending) => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+    subscription = makeSubscription({ customer: customerIn(country) });
+    getTeamSubscriptionMock.mockResolvedValue(teamRow({ status: "active" }));
+
+    const offer = await getWithdrawalOffer(`team-${country}`);
+
+    expect(offer?.pending ?? null).toBe(pending);
     vi.useRealTimers();
   });
 
@@ -689,4 +751,8 @@ function pendingItem({ id, subscriptionId }: { id: string; subscriptionId: strin
 
 function creditNote(fields: Record<string, unknown>): Stripe.CreditNote {
   return { object: "credit_note", status: "issued", ...fields } as unknown as Stripe.CreditNote;
+}
+
+function customerIn(country: string) {
+  return { id: CUSTOMER_ID, object: "customer", address: { country }, tax_ids: { data: [] } };
 }

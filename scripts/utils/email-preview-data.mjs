@@ -27,10 +27,12 @@ export const PREVIEW_DATA = {
     ...TEAM_OWNER_NOTICE,
     planName: "Pro",
     startedAt: "2026-03-01T09:30:00.000Z",
-    windowEndsAt: "2026-03-16T01:00:00.000Z",
-    consent: {
-      at: "2026-03-01T09:29:00.000Z",
-      text: "Start my subscription now. I understand that if I withdraw within 14 days, I pay for the days I have used.",
+    withdrawal: {
+      windowEndsAt: "2026-03-16T01:00:00.000Z",
+      consent: {
+        at: "2026-03-01T09:29:00.000Z",
+        text: "Start my subscription now. I understand that if I withdraw within 14 days, I pay for the days I have used.",
+      },
     },
   },
   WITHDRAWAL_RECEIPT: {

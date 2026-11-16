@@ -14,6 +14,14 @@ export const CONSENT_TEXT_VERSION = 1;
 // The longest consent text one catalog may hold. Stripe caps a metadata value at 500 characters.
 export const CONSENT_TEXT_MAX_LENGTH = 500;
 
+// Where the right of withdrawal applies, as ISO 3166-1 alpha-2 codes (Stripe's form; Greece is GR).
+// The EEA Agreement extends Directive 2011/83/EU to Iceland, Liechtenstein, and Norway.
+export const EU_EEA_COUNTRY_CODES = [
+  "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU",
+  "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK",
+  "IS", "LI", "NO",
+] as const;
+
 // Stripe metadata is the record of the order and the withdrawal; there is no D1 table.
 export const SUBSCRIPTION_WITHDRAWAL_METADATA = {
   orderUserId: "eu_order_user_id",

@@ -4,8 +4,29 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type Stripe from "stripe";
 
-const { queueSendMock } = vi.hoisted(() => ({
-  queueSendMock: vi.fn(),
+const { queueSendMock, stripeState } = vi.hoisted(() => {
+  // What the order confirmation's one Stripe read returns: the delivered subscription, expanded.
+  const state: { subscription: unknown; customerCountry: string | null } = { subscription: null, customerCountry: "DE" };
+
+  return { queueSendMock: vi.fn(), stripeState: state };
+});
+
+vi.mock("@/lib/stripe", () => ({
+  getStripe: async () => ({
+    subscriptions: {
+      retrieve: async () => ({
+        ...(stripeState.subscription as object),
+        customer: {
+          id: "cus_order",
+          object: "customer",
+          address: stripeState.customerCountry ? { country: stripeState.customerCountry } : null,
+          tax_ids: { object: "list", data: [] },
+          invoice_settings: { default_payment_method: null },
+        },
+        default_payment_method: null,
+      }),
+    },
+  }),
 }));
 
 vi.mock("@/utils/is-local", () => ({ isLocalMode: false }));
@@ -34,6 +55,7 @@ import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { buildCheckoutConsentMetadata, selectWithdrawalWindowEnd } from "@/lib/billing/eu-withdrawal-selectors";
 import { EMAIL_TEMPLATE_TYPES, SCHEDULED_JOB_TYPES, type EmailSendJobPayload } from "@/lib/scheduler/jobs";
+import { sendOrderConfirmationEmail } from "@/utils/email";
 import { handleStripeEvent, type StripeSubscriptionFetcher } from "@/utils/stripe-webhook-handler";
 import { claimTeamSubscription } from "@/utils/team-subscription";
 
@@ -56,6 +78,7 @@ async function clearRows(): Promise<void> {
     env.D1_DB.prepare("DELETE FROM team_membership"),
     env.D1_DB.prepare("DELETE FROM team"),
     env.D1_DB.prepare("DELETE FROM user"),
+    env.D1_DB.prepare("DELETE FROM scheduled_job"),
   ]);
 }
 
@@ -126,10 +149,19 @@ async function deliver({
       }],
     },
   } as unknown as Stripe.Subscription;
+  stripeState.subscription = subscription;
   const stripe: StripeSubscriptionFetcher = { subscriptions: { retrieve: async () => subscription } };
   const event = { type: "customer.subscription.updated", data: { object: subscription } } as unknown as Stripe.Event;
 
   await handleStripeEvent(event, { stripe });
+}
+
+async function orderConfirmationRows(): Promise<OrderConfirmationPayload[]> {
+  const rows = await db.query.scheduledJobTable.findMany({ where: { type: SCHEDULED_JOB_TYPES.EMAIL_SEND } });
+
+  return rows
+    .map((row) => row.payload as EmailSendJobPayload)
+    .filter((payload): payload is OrderConfirmationPayload => payload.template === EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION);
 }
 
 function orderConfirmations(): OrderConfirmationPayload[] {
@@ -144,6 +176,7 @@ describe("EU order confirmation emails", () => {
   beforeEach(async () => {
     await clearRows();
     queueSendMock.mockReset();
+    stripeState.customerCountry = "DE";
     await seedTeam();
   });
 
@@ -170,16 +203,38 @@ describe("EU order confirmation emails", () => {
           teamSlug: TEAM_ID,
           planName: TEAM_PLANS[PAID_PLAN_ID].name,
           startedAt: STARTED_AT.toISOString(),
-          windowEndsAt: selectWithdrawalWindowEnd(STARTED_AT).toISOString(),
-          consent: { at: CONSENT_AT.toISOString(), text: "Start now" },
+          withdrawal: {
+            windowEndsAt: selectWithdrawalWindowEnd(STARTED_AT).toISOString(),
+            consent: { at: CONSENT_AT.toISOString(), text: "Start now" },
+          },
         },
       }]);
+    });
+
+    // The right of withdrawal is EU/EEA law, so a US consumer gets the plain confirmation.
+    test("a customer outside the EU/EEA gets the order confirmation without the withdrawal part", async () => {
+      stripeState.customerCountry = "US";
+
+      await deliver({ status: "active", metadata: checkoutMetadata({ immediateStart: true }) });
+
+      expect(orderConfirmations()).toEqual([expect.objectContaining({
+        data: expect.objectContaining({ startedAt: STARTED_AT.toISOString(), withdrawal: null }),
+      })]);
+    });
+
+    test("a customer with no known country gets the withdrawal part", async () => {
+      stripeState.customerCountry = null;
+
+      await deliver({ status: "active", metadata: checkoutMetadata({ immediateStart: false }) });
+
+      expect(orderConfirmations().map((email) => email.data.withdrawal?.windowEndsAt))
+        .toEqual([selectWithdrawalWindowEnd(STARTED_AT).toISOString()]);
     });
 
     test("an unticked box confirms the order without a consent", async () => {
       await deliver({ status: "active", metadata: checkoutMetadata({ immediateStart: false }) });
 
-      expect(orderConfirmations().map((email) => email.data.consent)).toEqual([null]);
+      expect(orderConfirmations().map((email) => email.data.withdrawal?.consent)).toEqual([null]);
     });
 
     // A subscription made in the Stripe dashboard names no buyer.
@@ -204,7 +259,8 @@ describe("EU order confirmation emails", () => {
       expect(orderConfirmations()).toHaveLength(1);
     });
 
-    test("a failed enqueue logs one line and leaves a correct snapshot", async () => {
+    // Later webhooks are no first activation, so the D1 row is the only way the email still goes out.
+    test("a failed queue send keeps the email as a job row and leaves a correct snapshot", async () => {
       const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
       queueSendMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
 
@@ -212,8 +268,43 @@ describe("EU order confirmation emails", () => {
 
       const team = await db.query.teamTable.findFirst({ where: { id: TEAM_ID } });
       expect(team?.subscriptionStatus).toBe("active");
-      expect(log.mock.calls.filter(([text]) => String(text).startsWith("notifyOrderConfirmation"))).toHaveLength(1);
+      expect((await orderConfirmationRows()).map((payload) => payload.to)).toEqual(["buyer@example.com"]);
       log.mockRestore();
     });
+  });
+});
+
+// The durable send does not depend on the flag: `sendOrderConfirmationEmail` always saves the row first.
+describe("the durable order confirmation send", () => {
+  const email = {
+    email: "buyer@example.com",
+    username: "buyer",
+    teamName: "Acme",
+    teamSlug: TEAM_ID,
+    planName: TEAM_PLANS[PAID_PLAN_ID].name,
+    startedAt: STARTED_AT,
+    withdrawal: { windowEndsAt: selectWithdrawalWindowEnd(STARTED_AT), consent: null },
+  };
+
+  beforeEach(async () => {
+    await clearRows();
+    queueSendMock.mockReset();
+  });
+
+  test("sends once and leaves no job row in the normal path", async () => {
+    await sendOrderConfirmationEmail(email);
+
+    expect(orderConfirmations()).toHaveLength(1);
+    expect(await orderConfirmationRows()).toEqual([]);
+  });
+
+  test("keeps a job row for the cron when the queue send fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    queueSendMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
+
+    await expect(sendOrderConfirmationEmail(email)).resolves.toBeUndefined();
+
+    expect((await orderConfirmationRows()).map((payload) => payload.to)).toEqual([email.email]);
+    log.mockRestore();
   });
 });

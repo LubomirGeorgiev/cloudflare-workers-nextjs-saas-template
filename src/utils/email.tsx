@@ -24,6 +24,7 @@ import {
   type EmailSendJobPayload,
   type PaymentStatusEmailTemplate,
 } from "@/lib/scheduler/jobs";
+import { scheduleJob } from "@/lib/scheduler/scheduler";
 import { isLocalMode } from "./is-local";
 
 // The ban and unban notices are deliberately English only, and are the one documented exception
@@ -173,7 +174,21 @@ function logTransactionalEmail({ to, subject, text, html, type }: TransactionalE
   ].join("\n"));
 }
 
-async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
+function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
+  return enqueueTransactionalEmail({ payload, durable: false });
+}
+
+/**
+ * `durable` saves a D1 job row before the send, so a queue outage cannot lose an email that
+ * nothing asks for again; the cron sends the row (`scheduleJob`). The normal path sends once.
+ */
+async function enqueueTransactionalEmail({
+  payload,
+  durable,
+}: {
+  payload: EmailSendJobPayload;
+  durable: boolean;
+}): Promise<void> {
   // The one gate every sender below passes through, so no template can miss it.
   if (isLocalMode) {
     logTransactionalEmail(await renderTransactionalEmail(payload));
@@ -182,6 +197,17 @@ async function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<vo
   }
 
   const { env } = await getCloudflareContext();
+  if (durable) {
+    await scheduleJob({
+      queue: env.SCHEDULER_QUEUE,
+      type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
+      payload,
+      runAt: new Date(),
+      durable: true,
+    });
+
+    return;
+  }
 
   await env.SCHEDULER_QUEUE.send(createScheduledQueueMessage({
     type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
@@ -220,32 +246,26 @@ function buildEmailTemplate({
   detailsKeepLineBreaks?: boolean;
   /** Omitted for a notice with no action — no button, no fallback line, no raw URL. */
   cta?: EmailCallToAction;
-  secondaryText: string;
+  /** Omitted when the email has nothing after the button, like the plain order confirmation. */
+  secondaryText?: string;
   footerText: string;
 }): EmailTemplate {
   const escapedTitle = escapeHtml(title);
   const escapedGreeting = escapeHtml(greeting);
   const escapedIntro = escapeHtml(intro);
-  const escapedSecondaryText = escapeHtml(secondaryText);
   const escapedFooterText = escapeHtml(footerText);
   // Alt text, not a translated string: the product name is the same in every locale, so it needs
   // no catalog row, and it is what the reader sees while remote images are still blocked.
   const escapedSiteName = escapeHtml(SITE_NAME);
 
-  // Every field goes through `escapeHtml` here and nowhere else, which is what makes an
-  // admin-typed reason safe to render: there is one place that builds the markup.
-  const detailsHtml = details
-    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;${detailsKeepLineBreaks ? "white-space:pre-line;" : ""}border-left:3px solid #e6ebf1;background-color:#f6f9fc;font-size:16px;line-height:24px;">${escapeHtml(details)}</blockquote>`
-    : "";
-  const ctaHtml = cta
-    ? `<div style="margin:30px 0;text-align:center;">
-        <a href="${escapeHtml(cta.url)}" style="display:inline-block;padding:13px 40px;border-radius:5px;background-color:#000000;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${escapeHtml(cta.label)}</a>
-      </div>`
-    : "";
-  const ctaFallbackHtml = cta
-    ? `<p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapeHtml(cta.fallbackText)}</p>
-      <p style="margin:16px 0 30px;font-size:14px;line-height:22px;text-align:center;word-break:break-all;color:#556cd6;text-decoration:underline;">${escapeHtml(cta.url)}</p>`
-    : "";
+  // Every field goes through `escapeHtml` here and in `optionalBlocksHtml` only, which is what makes
+  // an admin-typed reason safe to render: this module is the one place that builds the markup.
+  const { detailsHtml, ctaHtml, ctaFallbackHtml, secondaryHtml } = optionalBlocksHtml({
+    details,
+    detailsKeepLineBreaks,
+    cta,
+    secondaryText,
+  });
 
   return {
     html: `<!DOCTYPE html>
@@ -265,7 +285,7 @@ function buildEmailTemplate({
       <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedIntro}</p>
       ${detailsHtml}
       ${ctaHtml}
-      <p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapedSecondaryText}</p>
+      ${secondaryHtml}
       ${ctaFallbackHtml}
     </div>
     <p style="margin:20px auto 0;max-width:600px;font-size:12px;line-height:16px;text-align:center;color:#8898aa;">${escapedFooterText}</p>
@@ -279,13 +299,43 @@ function buildEmailTemplate({
       intro,
       ...(details ? ["", details] : []),
       ...(cta ? ["", `${cta.label}: ${cta.url}`] : []),
-      "",
-      secondaryText,
+      ...(secondaryText ? ["", secondaryText] : []),
       ...(cta ? ["", cta.fallbackText, cta.url] : []),
       "",
       footerText,
     ].join("\n"),
   };
+}
+
+// The blocks an email may omit. Each one is empty when its field is absent.
+function optionalBlocksHtml({
+  details,
+  detailsKeepLineBreaks,
+  cta,
+  secondaryText,
+}: {
+  details?: string;
+  detailsKeepLineBreaks: boolean;
+  cta?: EmailCallToAction;
+  secondaryText?: string;
+}): { detailsHtml: string; ctaHtml: string; ctaFallbackHtml: string; secondaryHtml: string } {
+  const detailsHtml = details
+    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;${detailsKeepLineBreaks ? "white-space:pre-line;" : ""}border-left:3px solid #e6ebf1;background-color:#f6f9fc;font-size:16px;line-height:24px;">${escapeHtml(details)}</blockquote>`
+    : "";
+  const ctaHtml = cta
+    ? `<div style="margin:30px 0;text-align:center;">
+        <a href="${escapeHtml(cta.url)}" style="display:inline-block;padding:13px 40px;border-radius:5px;background-color:#000000;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;">${escapeHtml(cta.label)}</a>
+      </div>`
+    : "";
+  const ctaFallbackHtml = cta
+    ? `<p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapeHtml(cta.fallbackText)}</p>
+      <p style="margin:16px 0 30px;font-size:14px;line-height:22px;text-align:center;word-break:break-all;color:#556cd6;text-decoration:underline;">${escapeHtml(cta.url)}</p>`
+    : "";
+  const secondaryHtml = secondaryText
+    ? `<p style="margin:0 0 16px;font-size:16px;line-height:24px;">${escapeHtml(secondaryText)}</p>`
+    : "";
+
+  return { detailsHtml, ctaHtml, ctaFallbackHtml, secondaryHtml };
 }
 
 export async function renderTransactionalEmail(
@@ -488,9 +538,7 @@ async function renderPaymentStatusEmail(
  * The EU order confirmation on a durable medium (art. 8(7)): the contract, the consent to an
  * immediate start in the words the buyer saw, and the last day to withdraw.
  */
-async function renderOrderConfirmationEmail(
-  payload: Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION }>,
-): Promise<TransactionalEmailOptions> {
+async function renderOrderConfirmationEmail(payload: OrderConfirmationPayload): Promise<TransactionalEmailOptions> {
   const { locale, t } = await getEmailTranslator(payload.locale);
   const { data } = payload;
   const names = { plan: data.planName, teamName: data.teamName };
@@ -498,19 +546,13 @@ async function renderOrderConfirmationEmail(
     locale,
     title: t("OrderConfirmation.title", names),
     greeting: t("Common.greeting", { username: data.username }),
-    intro: t("OrderConfirmation.intro", { ...names, startedAt: formatLongDateTime(data.startedAt, locale) }),
-    details: data.consent
-      ? t("OrderConfirmation.consentGiven", {
-        consentAt: formatLongDateTime(data.consent.at, locale),
-        consentText: data.consent.text,
-      })
-      : t("OrderConfirmation.consentNotGiven"),
+    intro: t("OrderConfirmation.intro", { ...names, startedAt: formatLongDateTime({ date: data.startedAt, locale }) }),
+    ...withdrawalParagraphs({ withdrawal: data.withdrawal, locale, t }),
     cta: {
       label: t("OrderConfirmation.buttonLabel"),
       url: absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${data.teamSlug}/billing`, locale }),
       fallbackText: t("Common.fallbackText"),
     },
-    secondaryText: t("OrderConfirmation.secondaryText", { windowEndsAt: formatLongDateTime(data.windowEndsAt, locale) }),
     footerText: await getCommonFooterText(t),
   });
 
@@ -523,13 +565,40 @@ async function renderOrderConfirmationEmail(
   };
 }
 
+// The consent sentence and the last day to withdraw. Only an EU/EEA consumer has the right.
+function withdrawalParagraphs({
+  withdrawal,
+  locale,
+  t,
+}: {
+  withdrawal: OrderConfirmationPayload["data"]["withdrawal"];
+  locale: Locale;
+  t: EmailTranslator;
+}): { details?: string; secondaryText?: string } {
+  if (!withdrawal) {
+    return {};
+  }
+
+  return {
+    details: withdrawal.consent
+      ? t("OrderConfirmation.consentGiven", {
+        consentAt: formatLongDateTime({ date: withdrawal.consent.at, locale }),
+        consentText: withdrawal.consent.text,
+      })
+      : t("OrderConfirmation.consentNotGiven"),
+    secondaryText: t("OrderConfirmation.secondaryText", {
+      windowEndsAt: formatLongDateTime({ date: withdrawal.windowEndsAt, locale }),
+    }),
+  };
+}
+
 /** The EU withdrawal receipt (art. 11(3)): what we received, when, and what we refund. */
 async function renderWithdrawalReceiptEmail(
   payload: Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT }>,
 ): Promise<TransactionalEmailOptions> {
   const { locale, t } = await getEmailTranslator(payload.locale);
   const { data } = payload;
-  const withdrawnAt = formatLongDateTime(data.withdrawnAt, locale);
+  const withdrawnAt = formatLongDateTime({ date: data.withdrawnAt, locale });
   const emailTemplate = buildEmailTemplate({
     locale,
     title: t("WithdrawalReceipt.title"),
@@ -538,7 +607,7 @@ async function renderWithdrawalReceiptEmail(
     details: [
       t("WithdrawalReceipt.detailName", { name: data.name }),
       t("WithdrawalReceipt.detailEmail", { email: payload.to }),
-      t("WithdrawalReceipt.detailContract", { plan: data.planName, startedAt: formatLongDateTime(data.startedAt, locale) }),
+      t("WithdrawalReceipt.detailContract", { plan: data.planName, startedAt: formatLongDateTime({ date: data.startedAt, locale }) }),
       t("WithdrawalReceipt.detailWithdrawal", { withdrawnAt }),
     ].join("\n"),
     detailsKeepLineBreaks: true,
@@ -702,8 +771,7 @@ export async function sendOrderConfirmationEmail({
   teamSlug,
   planName,
   startedAt,
-  windowEndsAt,
-  consent,
+  withdrawal,
   locale = DEFAULT_LOCALE,
 }: {
   email: string;
@@ -712,23 +780,30 @@ export async function sendOrderConfirmationEmail({
   teamSlug: string;
   planName: string;
   startedAt: Date;
-  windowEndsAt: Date;
-  /** Null when the buyer did not ask for an immediate start. */
-  consent: { at: Date; text: string } | null;
+  /** Null for a business or a customer outside the EU/EEA. `consent` is null without an immediate start. */
+  withdrawal: { windowEndsAt: Date; consent: { at: Date; text: string } | null } | null;
   locale?: Locale;
 }): Promise<void> {
-  await queueTransactionalEmail({
-    to: email,
-    template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
-    locale,
-    data: {
-      username,
-      teamName,
-      teamSlug,
-      planName,
-      startedAt: startedAt.toISOString(),
-      windowEndsAt: windowEndsAt.toISOString(),
-      consent: consent ? { at: consent.at.toISOString(), text: consent.text } : null,
+  // The first activation is the only trigger, so a lost send is never retried: send durably.
+  await enqueueTransactionalEmail({
+    durable: true,
+    payload: {
+      to: email,
+      template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+      locale,
+      data: {
+        username,
+        teamName,
+        teamSlug,
+        planName,
+        startedAt: startedAt.toISOString(),
+        withdrawal: withdrawal
+          ? {
+            windowEndsAt: withdrawal.windowEndsAt.toISOString(),
+            consent: withdrawal.consent ? { at: withdrawal.consent.at.toISOString(), text: withdrawal.consent.text } : null,
+          }
+          : null,
+      },
     },
   });
 }
@@ -767,3 +842,7 @@ export async function sendWithdrawalReceiptEmail({
     },
   });
 }
+
+type EmailTranslator = Awaited<ReturnType<typeof getEmailTranslator>>["t"];
+
+type OrderConfirmationPayload = Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION }>;

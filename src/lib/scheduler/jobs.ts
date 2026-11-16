@@ -216,11 +216,14 @@ const orderConfirmationEmailJobPayloadSchema = v.object({
     ...teamOwnerNoticeFields,
     planName: planNameSchema,
     startedAt: isoInstantSchema,
-    windowEndsAt: isoInstantSchema,
-    // Null when the buyer did not ask for an immediate start.
-    consent: v.nullable(v.object({
-      at: isoInstantSchema,
-      text: v.pipe(nonEmptyString, v.maxLength(CONSENT_TEXT_MAX_LENGTH)),
+    // Null for a business or a customer outside the EU/EEA: they get the plain confirmation.
+    withdrawal: v.nullable(v.object({
+      windowEndsAt: isoInstantSchema,
+      // Null when the buyer did not ask for an immediate start.
+      consent: v.nullable(v.object({
+        at: isoInstantSchema,
+        text: v.pipe(nonEmptyString, v.maxLength(CONSENT_TEXT_MAX_LENGTH)),
+      })),
     })),
   }),
 });

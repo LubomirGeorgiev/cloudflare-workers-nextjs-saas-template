@@ -31,6 +31,7 @@ import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { DEFAULT_LOCALE } from "@/i18n/config";
 import { resumeWithdrawal, withdrawFromContract, type WithdrawalStripe } from "@/lib/billing/eu-withdrawal";
+import { enqueueEuWithdrawalResume } from "@/lib/scheduler/enqueue";
 import {
   emailSendJobPayloadSchema,
   EMAIL_TEMPLATE_TYPES,
@@ -132,6 +133,23 @@ describe("EU withdrawal", () => {
     expect(state.creditNotes).toHaveLength(1);
     // Only the request that recorded the withdrawal sends the receipt.
     expect(queuedEmails().filter((email) => email.template === EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT)).toHaveLength(1);
+  });
+
+  // Two overlapping withdrawals in a queue outage save two run times. Whichever one the claim kept
+  // in `eu_resume_at`, its job row must still exist.
+  test("overlapping saves in a queue outage keep a job row for each run time", async () => {
+    vi.spyOn(env.SCHEDULER_QUEUE, "send").mockRejectedValue(new Error("Queue is unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const first = new Date(Math.ceil(Date.now() / 1000) * 1000 + 60 * 60 * 1000);
+    const second = new Date(first.getTime() + 1000);
+
+    await enqueueEuWithdrawalResume({ teamId: TEAM_ID, subscriptionId: SUBSCRIPTION_ID, runAt: first });
+    await enqueueEuWithdrawalResume({ teamId: TEAM_ID, subscriptionId: SUBSCRIPTION_ID, runAt: second });
+
+    const jobs = await db.query.scheduledJobTable.findMany({
+      where: { type: SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME },
+    });
+    expect(jobs.map((job) => job.runAt.toISOString()).toSorted()).toEqual([first.toISOString(), second.toISOString()]);
   });
 
   test("a second withdrawal neither records again nor refunds twice", async () => {

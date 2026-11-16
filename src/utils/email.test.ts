@@ -66,8 +66,7 @@ const LOGO_HEADER_PAYLOADS: Extract<EmailSendJobPayload, { locale: string }>[] =
       teamSlug: "acme",
       planName: "Pro",
       startedAt: "2026-03-01T09:30:00.000Z",
-      windowEndsAt: "2026-03-16T01:00:00.000Z",
-      consent: null,
+      withdrawal: { windowEndsAt: "2026-03-16T01:00:00.000Z", consent: null },
     },
   },
 ];
@@ -249,22 +248,22 @@ describe("transactional email", () => {
       teamSlug: "acme",
       planName: "Pro",
       startedAt: "2026-03-01T09:30:00.000Z",
-      windowEndsAt: "2026-03-16T01:00:00.000Z",
     };
+    const windowEndsAt = "2026-03-16T01:00:00.000Z";
 
     test("states the plan, the team, the start, and the last day to withdraw", async () => {
       const renderedEmail = await renderTransactionalEmail({
         to: "owner@example.com",
         template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
         locale,
-        data: { ...data, consent: null },
+        data: { ...data, withdrawal: { windowEndsAt, consent: null } },
       });
       const t = await getTranslator({ locale, namespace: "Emails" });
 
       expect(renderedEmail.subject).toContain(data.planName);
       expect(renderedEmail.subject).toContain(data.teamName);
-      expect(renderedEmail.text).toContain(formatLongDateTime(data.startedAt, locale));
-      expect(renderedEmail.text).toContain(formatLongDateTime(data.windowEndsAt, locale));
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.startedAt, locale }));
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: windowEndsAt, locale }));
       expect(renderedEmail.text).toContain(timeZoneName(locale));
       expect(renderedEmail.text).toContain(t("OrderConfirmation.consentNotGiven"));
       expect(renderedEmail.html).not.toContain("A&B Team");
@@ -276,12 +275,28 @@ describe("transactional email", () => {
         to: "owner@example.com",
         template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
         locale,
-        data: { ...data, consent },
+        data: { ...data, withdrawal: { windowEndsAt, consent } },
       });
 
       expect(renderedEmail.text).toContain(consent.text);
-      expect(renderedEmail.text).toContain(formatLongDateTime(consent.at, locale));
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: consent.at, locale }));
       expect(renderedEmail.html).toContain(escapeHtml(consent.text));
+    });
+
+    // A business or a customer outside the EU/EEA has no right of withdrawal.
+    test("without the withdrawal part it is a plain order confirmation", async () => {
+      const renderedEmail = await renderTransactionalEmail({
+        to: "owner@example.com",
+        template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+        locale,
+        data: { ...data, withdrawal: null },
+      });
+      const t = await getTranslator({ locale, namespace: "Emails" });
+
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.startedAt, locale }));
+      expect(renderedEmail.text).not.toContain(formatLongDateTime({ date: windowEndsAt, locale }));
+      expect(renderedEmail.text).not.toContain(t("OrderConfirmation.consentNotGiven"));
+      expect(renderedEmail.html).not.toContain("<blockquote");
     });
   });
 
@@ -303,12 +318,12 @@ describe("transactional email", () => {
         data: { ...data, refund },
       });
       const lines = renderedEmail.text?.split("\n") ?? [];
-      const detailLines = [data.name, "ana@example.com", formatLongDateTime(data.startedAt, locale)]
+      const detailLines = [data.name, "ana@example.com", formatLongDateTime({ date: data.startedAt, locale })]
         .map((value) => lines.find((line) => line.includes(value)));
 
       expect(new Set(detailLines).size).toBe(3);
       expect(detailLines).not.toContain(undefined);
-      expect(renderedEmail.text).toContain(formatLongDateTime(data.withdrawnAt, locale));
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.withdrawnAt, locale }));
       expect(renderedEmail.text).toContain(timeZoneName(locale));
       expect(renderedEmail.html).toContain("white-space:pre-line");
       if (kind === "none") {
