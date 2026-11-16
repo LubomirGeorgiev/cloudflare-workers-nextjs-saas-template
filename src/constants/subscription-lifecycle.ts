@@ -23,6 +23,9 @@ interface StripeSubscriptionTransitionPolicy {
   // owed. Required on every status, so a status added later cannot default silently into
   // discarding revenue. Every cancel path reads it through `cancelParamsForStatus`.
   invoiceOnCancel: boolean;
+  // Whether a consumer may withdraw from this subscription under EU law (`eu-withdrawal-selectors.ts`).
+  // Required, so a new status must decide it.
+  euWithdrawable: boolean;
   // Whether the paid plan's entitlements are unlocked.
   grantsPaidAccess: boolean;
   needsPaymentAction: boolean;
@@ -40,6 +43,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "block",
     // The subscription ran. Any proration or usage on it is owed to us.
     invoiceOnCancel: true,
+    euWithdrawable: true,
     grantsPaidAccess: true,
     needsPaymentAction: false,
     statusKey: "statusActive",
@@ -51,6 +55,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "block",
     // The subscription ran. Any proration or usage on it is owed to us.
     invoiceOnCancel: true,
+    euWithdrawable: true,
     grantsPaidAccess: true,
     needsPaymentAction: false,
     statusKey: "statusTrialing",
@@ -62,6 +67,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "block",
     // The subscription ran. Any proration or usage on it is owed to us.
     invoiceOnCancel: true,
+    euWithdrawable: true,
     grantsPaidAccess: false,
     needsPaymentAction: true,
     statusKey: "statusPastDue",
@@ -73,6 +79,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "cancel",
     // Nothing was ever collected, so there is nothing owed to invoice.
     invoiceOnCancel: false,
+    euWithdrawable: false,
     grantsPaidAccess: false,
     needsPaymentAction: true,
     statusKey: "statusIncomplete",
@@ -84,6 +91,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "allow",
     // Terminal: Stripe has nothing left to cancel or to bill.
     invoiceOnCancel: false,
+    euWithdrawable: false,
     grantsPaidAccess: false,
     needsPaymentAction: false,
     statusKey: "statusIncomplete",
@@ -95,6 +103,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "allow",
     // Terminal: Stripe has nothing left to cancel or to bill.
     invoiceOnCancel: false,
+    euWithdrawable: false,
     grantsPaidAccess: false,
     needsPaymentAction: false,
     statusKey: "statusCanceled",
@@ -106,6 +115,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "cancel",
     // The subscription ran. Any proration or usage on it is owed to us.
     invoiceOnCancel: true,
+    euWithdrawable: false,
     grantsPaidAccess: false,
     needsPaymentAction: false,
     statusKey: "statusUnpaid",
@@ -117,6 +127,7 @@ export const STRIPE_SUBSCRIPTION_TRANSITION_POLICY = {
     subscribe: "cancel",
     // The subscription ran. Any proration or usage on it is owed to us.
     invoiceOnCancel: true,
+    euWithdrawable: false,
     grantsPaidAccess: false,
     needsPaymentAction: false,
     statusKey: "statusPaused",
@@ -143,6 +154,7 @@ export function mustPayOrCancel(status: string | null | undefined): boolean {
 /**
  * The parameters for an immediate cancel of a subscription in `status`. The user, staff, ban, and
  * settle paths all pass these, so the per-status `invoiceOnCancel` decision lives in one place.
+ * The EU withdrawal is the one cancel that does not: it passes `WITHDRAWAL_CANCEL_PARAMS`.
  *
  * Both Stripe defaults are wrong for a subscription that ran, so both are stated:
  * - `invoice_now: true` raises a final invoice covering pending proration items and any
@@ -165,6 +177,13 @@ export function cancelParamsForStatus(status: string | null | undefined): Stripe
     prorate: false,
   };
 }
+
+// The EU withdrawal refunds from the paid invoices it read before the cancel. A final invoice
+// would bill the consumer after that sum, and a proration credit would pay them twice.
+export const WITHDRAWAL_CANCEL_PARAMS = {
+  invoice_now: false,
+  prorate: false,
+} as const satisfies StripeCancelParams;
 
 interface StripeCancelParams {
   invoice_now: boolean;

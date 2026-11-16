@@ -1,6 +1,7 @@
 import { maxString, trimmedString, v } from "@/lib/validation";
 import { cmsNavigationKeys } from "@/../cms.config";
 import { BAN_REASON_MAX_LENGTH, NAME_MAX_LENGTH, SLUG_MAX_LENGTH, TEAM_NAME_MAX_LENGTH } from "@/constants";
+import { CONSENT_TEXT_MAX_LENGTH, WITHDRAWAL_REFUND_KINDS } from "@/constants/eu-withdrawal";
 import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
 import {
   CMS_ENTRY_CHANGE_VALUES,
@@ -10,6 +11,7 @@ import {
 
 export const SCHEDULED_JOB_TYPES = {
   BILLING_CANCEL_SUBSCRIPTION: "billing.cancel-subscription",
+  BILLING_EU_WITHDRAWAL_RESUME: "billing.eu-withdrawal-resume",
   CMS_PUBLISH_ENTRY: "cms.publish-entry",
   // The value keeps its first name, so a message queued by the previous deploy still routes here.
   CMS_REPURGE: "cms.repurge-entries",
@@ -29,6 +31,10 @@ export const EMAIL_TEMPLATE_TYPES = {
   // Sent to every team owner once per change of the subscription status.
   PAYMENT_PAST_DUE: "payment-past-due",
   PAYMENT_UNPAID: "payment-unpaid",
+  // The EU order confirmation, sent once when a subscription first becomes active or trialing.
+  ORDER_CONFIRMATION: "order-confirmation",
+  // The EU withdrawal receipt, sent to the user who withdrew.
+  WITHDRAWAL_RECEIPT: "withdrawal-receipt",
 } as const;
 
 const nonEmptyString = v.pipe(v.string(), v.minLength(1));
@@ -106,6 +112,14 @@ export const billingCancelSubscriptionJobPayloadSchema = v.object({
 });
 type BillingCancelSubscriptionJobPayload =
   v.InferOutput<typeof billingCancelSubscriptionJobPayloadSchema>;
+
+// Finishes an EU withdrawal that Stripe interrupted after the withdrawal was recorded.
+export const billingEuWithdrawalResumeJobPayloadSchema = v.object({
+  teamId: nonEmptyString,
+  subscriptionId: nonEmptyString,
+});
+type BillingEuWithdrawalResumeJobPayload =
+  v.InferOutput<typeof billingEuWithdrawalResumeJobPayloadSchema>;
 
 const passwordResetEmailJobPayloadSchema = v.object({
   to: nonEmptyString,
@@ -190,6 +204,47 @@ const paymentStatusEmailJobPayloadSchema = v.object({
   data: v.object(teamOwnerNoticeFields),
 });
 
+// An instant as `Date.toISOString()` writes it; the renderer formats it in the recipient's locale.
+const isoInstantSchema = v.pipe(nonEmptyString, v.maxLength(32), v.isoTimestamp());
+const planNameSchema = trimmedString({ min: 1, max: NAME_MAX_LENGTH });
+
+const orderConfirmationEmailJobPayloadSchema = v.object({
+  to: nonEmptyString,
+  template: v.literal(EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION),
+  locale: emailLocaleSchema,
+  data: v.object({
+    ...teamOwnerNoticeFields,
+    planName: planNameSchema,
+    startedAt: isoInstantSchema,
+    windowEndsAt: isoInstantSchema,
+    // Null when the buyer did not ask for an immediate start.
+    consent: v.nullable(v.object({
+      at: isoInstantSchema,
+      text: v.pipe(nonEmptyString, v.maxLength(CONSENT_TEXT_MAX_LENGTH)),
+    })),
+  }),
+});
+
+const withdrawalReceiptEmailJobPayloadSchema = v.object({
+  to: nonEmptyString,
+  template: v.literal(EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT),
+  locale: emailLocaleSchema,
+  data: v.object({
+    // The name the user confirmed in the withdrawal dialog. The receipt states it.
+    name: trimmedString({ min: 1, max: NAME_MAX_LENGTH }),
+    teamName: teamOwnerNoticeFields.teamName,
+    planName: planNameSchema,
+    startedAt: isoInstantSchema,
+    withdrawnAt: isoInstantSchema,
+    refund: v.object({
+      kind: v.picklist(WITHDRAWAL_REFUND_KINDS),
+      // Minor units, as Stripe counts them.
+      amount: v.pipe(v.number(), v.integer(), v.minValue(0)),
+      currency: v.pipe(v.string(), v.regex(/^[a-z]{3}$/i)),
+    }),
+  }),
+});
+
 export const emailSendJobPayloadSchema = v.union([
   passwordResetEmailJobPayloadSchema,
   emailVerificationJobPayloadSchema,
@@ -197,12 +252,15 @@ export const emailSendJobPayloadSchema = v.union([
   banNoticeEmailJobPayloadSchema,
   unbanNoticeEmailJobPayloadSchema,
   paymentStatusEmailJobPayloadSchema,
+  orderConfirmationEmailJobPayloadSchema,
+  withdrawalReceiptEmailJobPayloadSchema,
 ]);
 
 export type EmailSendJobPayload = v.InferOutput<typeof emailSendJobPayloadSchema>;
 
 interface ScheduledJobPayloadByType {
   [SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION]: BillingCancelSubscriptionJobPayload;
+  [SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME]: BillingEuWithdrawalResumeJobPayload;
   [SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY]: CmsPublishEntryJobPayload;
   [SCHEDULED_JOB_TYPES.CMS_REPURGE]: CmsRepurgeJobPayload;
   [SCHEDULED_JOB_TYPES.EMAIL_SEND]: EmailSendJobPayload;

@@ -32,7 +32,9 @@ import { eq } from "drizzle-orm";
 import { getDB } from "@/db";
 import { teamTable } from "@/db/schema";
 import { DEFAULT_PLAN_ID } from "@/constants/plans";
-import { cancelParamsForStatus } from "@/constants/subscription-lifecycle";
+import { cancelParamsForStatus, WITHDRAWAL_CANCEL_PARAMS } from "@/constants/subscription-lifecycle";
+import { DEFAULT_LOCALE } from "@/i18n/config";
+import { withdrawFromContract, type WithdrawalStripe } from "@/lib/billing/eu-withdrawal";
 import { cancelTeamSubscriptionAsAdmin } from "@/lib/admin/team-billing-admin";
 import { settleRecordedSubscription } from "@/utils/team-subscription";
 
@@ -151,3 +153,55 @@ test.each(["incomplete", "active", "past_due"] as const)(
     });
   },
 );
+
+// The EU withdrawal is the one cancel of a running subscription that must not invoice: the refund
+// was computed from the paid invoices, and a final invoice would bill the consumer after it.
+test("the EU withdrawal cancels an active subscription without a final invoice", async () => {
+  const subscriptionId = uid("sub");
+  const teamId = await seedTeamWithSubscription(subscriptionId);
+  const subscription = {
+    ...makeSubscription({ id: subscriptionId, status: "active" }),
+    start_date: Math.floor(Date.now() / 1000),
+    currency: "eur",
+    customer: { id: `cus_${subscriptionId}`, object: "customer", tax_ids: { data: [] } },
+  } as unknown as Stripe.Subscription;
+  const stripe: WithdrawalStripe = {
+    subscriptions: {
+      retrieve: async () => subscription,
+      update: async () => subscription,
+      cancel: async (id, params) => {
+        stripeState.cancelCalls.push({ id, params });
+        return makeSubscription({ id, status: "canceled" });
+      },
+    },
+    invoices: {
+      list: async () => ({ data: [] }),
+      retrieve: async () => ({}) as Stripe.Invoice,
+      listLineItems: async () => ({ data: [], has_more: false }),
+      voidInvoice: async () => ({}) as Stripe.Invoice,
+      del: async () => ({}) as Stripe.DeletedInvoice,
+    },
+    invoiceItems: {
+      list: async () => ({ data: [] }),
+      del: async () => ({}) as Stripe.DeletedInvoiceItem,
+    },
+    creditNotes: {
+      create: async () => ({}) as Stripe.CreditNote,
+      list: async () => ({ data: [] }),
+    },
+  };
+
+  await withdrawFromContract({
+    team: { id: teamId, name: "Acme", subscriptionPlanId: DEFAULT_PLAN_ID },
+    subscriptionId,
+    actingUser: { id: "usr_1", name: "Ana", email: "ana@example.com", locale: DEFAULT_LOCALE },
+    now: new Date(),
+    stripe,
+  });
+
+  expect(cancelParamsForStatus("active").invoice_now).toBe(true);
+  expect(stripeState.cancelCalls).toEqual([{
+    id: subscriptionId,
+    params: { ...WITHDRAWAL_CANCEL_PARAMS, invoice_now: false, cancellation_details: { comment: expect.any(String) } },
+  }]);
+});

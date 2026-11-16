@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
-import { formatDate, formatDateTime } from "./format-date";
+import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, LOCALES } from "@/i18n/config";
+import { formatDate, formatDateTime, formatLongDateTime } from "./format-date";
 
 // Locale-specific wording is Intl's job, so assert the parts every locale must render rather
 // than one locale's exact copy. The comparison locale is derived, so a renamed or removed
@@ -36,5 +36,18 @@ describe("formatDateTime", () => {
 
     expect(alternate).toContain("2024");
     expect(alternate).not.toBe(formatDateTime(DATE, DEFAULT_LOCALE));
+  });
+});
+
+// A legal notice states a time, so the reader must see which zone it is in.
+describe("formatLongDateTime", () => {
+  test.each(LOCALES)("names the time zone in %s", (locale) => {
+    const zoneName = new Intl.DateTimeFormat(locale, { timeZone: DEFAULT_TIME_ZONE, timeZoneName: "short" })
+      .formatToParts(DATE)
+      .find((part) => part.type === "timeZoneName")?.value;
+
+    expect(zoneName).toBeTruthy();
+    expect(formatLongDateTime(DATE, locale)).toContain(zoneName);
+    expect(formatLongDateTime(DATE, locale)).toContain("2024");
   });
 });

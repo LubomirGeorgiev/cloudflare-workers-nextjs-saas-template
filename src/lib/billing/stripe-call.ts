@@ -27,11 +27,21 @@ export const STRIPE_OPERATIONS = {
   subscriptionsRetrieve: "subscriptions.retrieve",
   subscriptionsUpdate: "subscriptions.update",
   subscriptionsCancel: "subscriptions.cancel",
+  paymentIntentsRetrieve: "paymentIntents.retrieve",
   setupIntentsCreate: "setupIntents.create",
   setupIntentsRetrieve: "setupIntents.retrieve",
+  setupIntentsUpdate: "setupIntents.update",
   customersCreate: "customers.create",
   customersUpdate: "customers.update",
   invoicesList: "invoices.list",
+  invoicesRetrieve: "invoices.retrieve",
+  invoicesListLineItems: "invoices.listLineItems",
+  invoicesVoid: "invoices.voidInvoice",
+  invoicesDelete: "invoices.del",
+  invoiceItemsList: "invoiceItems.list",
+  invoiceItemsDelete: "invoiceItems.del",
+  creditNotesCreate: "creditNotes.create",
+  creditNotesList: "creditNotes.list",
   billingPortalSessionsCreate: "billingPortal.sessions.create",
 } as const;
 
@@ -64,6 +74,11 @@ export function classifyStripeError(error: unknown): StripeCallOutcome {
   }
 
   return STRIPE_CALL_OUTCOMES.upstreamError;
+}
+
+/** A short, safe label of a failed call for a stored `lastError`: the error class, never its message. */
+export function stripeErrorName(error: unknown): string {
+  return error instanceof Error ? error.name : "UnknownError";
 }
 
 export function callStripe<T>({

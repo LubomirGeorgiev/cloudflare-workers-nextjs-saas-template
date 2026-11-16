@@ -24,7 +24,7 @@ vi.mock("cloudflare:workers", () => ({
 
 vi.mock("@/lib/scheduler/scheduler", () => ({ scheduleJob: scheduleJobMock }));
 
-const { enqueueBillingCancelSubscription, enqueueCmsRepurge } = await import("./enqueue");
+const { enqueueBillingCancelSubscription, enqueueCmsRepurge, enqueueEuWithdrawalResume } = await import("./enqueue");
 
 function sentPayloads() {
   return sendBatchMock.mock.calls.flatMap(([messages]) => messages.map(({ body }) => body.payload));
@@ -43,6 +43,27 @@ describe("enqueueBillingCancelSubscription", () => {
       type: SCHEDULED_JOB_TYPES.BILLING_CANCEL_SUBSCRIPTION,
       dedupeKey: expect.stringContaining("sub_1"),
       payload: { teamId: "team_1", subscriptionId: "sub_1" },
+      durable: true,
+    }));
+  });
+});
+
+describe("enqueueEuWithdrawalResume", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // The withdrawal is recorded on Stripe, and nothing else finishes its refund.
+  test("schedules a durable job at the given time, one per subscription", async () => {
+    const runAt = new Date("2026-03-04T10:00:00.000Z");
+
+    await enqueueEuWithdrawalResume({ teamId: "team_1", subscriptionId: "sub_1", runAt });
+
+    expect(scheduleJobMock).toHaveBeenCalledWith(expect.objectContaining({
+      type: SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME,
+      dedupeKey: expect.stringContaining("sub_1"),
+      payload: { teamId: "team_1", subscriptionId: "sub_1" },
+      runAt,
       durable: true,
     }));
   });

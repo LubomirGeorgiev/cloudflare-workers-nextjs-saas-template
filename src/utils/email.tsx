@@ -8,12 +8,15 @@ import {
   TEAM_INVITATION_EXPIRY_DAYS,
   TEAMS_DASHBOARD_PATH,
 } from "@/constants";
+import { REFUND_DEADLINE_DAYS, type WithdrawalRefundKind } from "@/constants/eu-withdrawal";
 import { EMAIL_LOGO_IMAGE } from "@/constants/logo-url";
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
 import { getTranslator } from "@/i18n/translator";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
 import { escapeHtml } from "@/utils/escape-html";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+import { formatLongDateTime } from "@/utils/format-date";
+import { formatPrice } from "@/utils/format-price";
 import {
   createScheduledQueueMessage,
   EMAIL_TEMPLATE_TYPES,
@@ -201,6 +204,7 @@ function buildEmailTemplate({
   greeting,
   intro,
   details,
+  detailsKeepLineBreaks = false,
   cta,
   secondaryText,
   footerText,
@@ -212,6 +216,8 @@ function buildEmailTemplate({
   intro: string;
   /** An indented quoted block between the intro and the secondary text; omitted when absent. */
   details?: string;
+  /** Shows each line of `details` on its own line in the HTML. Only for a block of one-line fields. */
+  detailsKeepLineBreaks?: boolean;
   /** Omitted for a notice with no action — no button, no fallback line, no raw URL. */
   cta?: EmailCallToAction;
   secondaryText: string;
@@ -229,7 +235,7 @@ function buildEmailTemplate({
   // Every field goes through `escapeHtml` here and nowhere else, which is what makes an
   // admin-typed reason safe to render: there is one place that builds the markup.
   const detailsHtml = details
-    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;border-left:3px solid #e6ebf1;background-color:#f6f9fc;font-size:16px;line-height:24px;">${escapeHtml(details)}</blockquote>`
+    ? `<blockquote style="margin:0 0 16px;padding:12px 16px;${detailsKeepLineBreaks ? "white-space:pre-line;" : ""}border-left:3px solid #e6ebf1;background-color:#f6f9fc;font-size:16px;line-height:24px;">${escapeHtml(details)}</blockquote>`
     : "";
   const ctaHtml = cta
     ? `<div style="margin:30px 0;text-align:center;">
@@ -435,6 +441,10 @@ export async function renderTransactionalEmail(
     case EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE:
     case EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID:
       return renderPaymentStatusEmail(payload);
+    case EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION:
+      return renderOrderConfirmationEmail(payload);
+    case EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT:
+      return renderWithdrawalReceiptEmail(payload);
   }
 }
 
@@ -468,6 +478,81 @@ async function renderPaymentStatusEmail(
   return {
     to: payload.to,
     subject: t(`${copy}.subject`, { teamName: payload.data.teamName }),
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: payload.template,
+  };
+}
+
+/**
+ * The EU order confirmation on a durable medium (art. 8(7)): the contract, the consent to an
+ * immediate start in the words the buyer saw, and the last day to withdraw.
+ */
+async function renderOrderConfirmationEmail(
+  payload: Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION }>,
+): Promise<TransactionalEmailOptions> {
+  const { locale, t } = await getEmailTranslator(payload.locale);
+  const { data } = payload;
+  const names = { plan: data.planName, teamName: data.teamName };
+  const emailTemplate = buildEmailTemplate({
+    locale,
+    title: t("OrderConfirmation.title", names),
+    greeting: t("Common.greeting", { username: data.username }),
+    intro: t("OrderConfirmation.intro", { ...names, startedAt: formatLongDateTime(data.startedAt, locale) }),
+    details: data.consent
+      ? t("OrderConfirmation.consentGiven", {
+        consentAt: formatLongDateTime(data.consent.at, locale),
+        consentText: data.consent.text,
+      })
+      : t("OrderConfirmation.consentNotGiven"),
+    cta: {
+      label: t("OrderConfirmation.buttonLabel"),
+      url: absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${data.teamSlug}/billing`, locale }),
+      fallbackText: t("Common.fallbackText"),
+    },
+    secondaryText: t("OrderConfirmation.secondaryText", { windowEndsAt: formatLongDateTime(data.windowEndsAt, locale) }),
+    footerText: await getCommonFooterText(t),
+  });
+
+  return {
+    to: payload.to,
+    subject: t("OrderConfirmation.subject", names),
+    html: emailTemplate.html,
+    text: emailTemplate.text,
+    type: payload.template,
+  };
+}
+
+/** The EU withdrawal receipt (art. 11(3)): what we received, when, and what we refund. */
+async function renderWithdrawalReceiptEmail(
+  payload: Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT }>,
+): Promise<TransactionalEmailOptions> {
+  const { locale, t } = await getEmailTranslator(payload.locale);
+  const { data } = payload;
+  const withdrawnAt = formatLongDateTime(data.withdrawnAt, locale);
+  const emailTemplate = buildEmailTemplate({
+    locale,
+    title: t("WithdrawalReceipt.title"),
+    greeting: t("Common.greeting", { username: data.name }),
+    intro: t("WithdrawalReceipt.intro", { plan: data.planName, teamName: data.teamName, withdrawnAt }),
+    details: [
+      t("WithdrawalReceipt.detailName", { name: data.name }),
+      t("WithdrawalReceipt.detailEmail", { email: payload.to }),
+      t("WithdrawalReceipt.detailContract", { plan: data.planName, startedAt: formatLongDateTime(data.startedAt, locale) }),
+      t("WithdrawalReceipt.detailWithdrawal", { withdrawnAt }),
+    ].join("\n"),
+    detailsKeepLineBreaks: true,
+    secondaryText: t("WithdrawalReceipt.refund", {
+      kind: data.refund.kind,
+      amount: formatPrice({ amount: data.refund.amount, currency: data.refund.currency, locale }),
+      days: REFUND_DEADLINE_DAYS,
+    }),
+    footerText: await getCommonFooterText(t),
+  });
+
+  return {
+    to: payload.to,
+    subject: t("WithdrawalReceipt.subject"),
     html: emailTemplate.html,
     text: emailTemplate.text,
     type: payload.template,
@@ -606,5 +691,79 @@ export async function sendPaymentStatusEmail({
     template,
     locale,
     data: { username, teamName, teamSlug },
+  });
+}
+
+/** The EU order confirmation to the user who ordered, in that user's language. */
+export async function sendOrderConfirmationEmail({
+  email,
+  username,
+  teamName,
+  teamSlug,
+  planName,
+  startedAt,
+  windowEndsAt,
+  consent,
+  locale = DEFAULT_LOCALE,
+}: {
+  email: string;
+  username: string;
+  teamName: string;
+  teamSlug: string;
+  planName: string;
+  startedAt: Date;
+  windowEndsAt: Date;
+  /** Null when the buyer did not ask for an immediate start. */
+  consent: { at: Date; text: string } | null;
+  locale?: Locale;
+}): Promise<void> {
+  await queueTransactionalEmail({
+    to: email,
+    template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+    locale,
+    data: {
+      username,
+      teamName,
+      teamSlug,
+      planName,
+      startedAt: startedAt.toISOString(),
+      windowEndsAt: windowEndsAt.toISOString(),
+      consent: consent ? { at: consent.at.toISOString(), text: consent.text } : null,
+    },
+  });
+}
+
+/** The EU withdrawal receipt to the user who withdrew. `refund.amount` is in minor units. */
+export async function sendWithdrawalReceiptEmail({
+  email,
+  name,
+  teamName,
+  planName,
+  startedAt,
+  withdrawnAt,
+  refund,
+  locale = DEFAULT_LOCALE,
+}: {
+  email: string;
+  name: string;
+  teamName: string;
+  planName: string;
+  startedAt: Date;
+  withdrawnAt: Date;
+  refund: { kind: WithdrawalRefundKind; amount: number; currency: string };
+  locale?: Locale;
+}): Promise<void> {
+  await queueTransactionalEmail({
+    to: email,
+    template: EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT,
+    locale,
+    data: {
+      name,
+      teamName,
+      planName,
+      startedAt: startedAt.toISOString(),
+      withdrawnAt: withdrawnAt.toISOString(),
+      refund,
+    },
   });
 }

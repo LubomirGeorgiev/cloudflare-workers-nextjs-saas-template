@@ -20,6 +20,7 @@ const {
   sendTransactionalEmailNowMock,
   refreshTeamMemberSessionsMock,
   cancelTeamSubscriptionAsAdminMock,
+  resumeWithdrawalMock,
 } = vi.hoisted(() => ({
   publishScheduledCmsEntryIfDueMock: vi.fn(),
   // Both purges went through, unless a test says otherwise.
@@ -28,6 +29,7 @@ const {
   sendTransactionalEmailNowMock: vi.fn(),
   refreshTeamMemberSessionsMock: vi.fn(),
   cancelTeamSubscriptionAsAdminMock: vi.fn(),
+  resumeWithdrawalMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -54,6 +56,10 @@ vi.mock("@/lib/admin/team-billing-admin", () => ({
   cancelTeamSubscriptionAsAdmin: cancelTeamSubscriptionAsAdminMock,
 }));
 
+vi.mock("@/lib/billing/eu-withdrawal", () => ({
+  resumeWithdrawal: resumeWithdrawalMock,
+}));
+
 const { runScheduledJob } = await import("@/lib/scheduler/job-handlers");
 
 describe("scheduled job handlers", () => {
@@ -70,6 +76,24 @@ describe("scheduled job handlers", () => {
 
     expect(cancelTeamSubscriptionAsAdminMock).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: "team-1", subscriptionId: "sub_1" }),
+    );
+  });
+
+  test("routes an EU withdrawal resume to the withdrawal service", async () => {
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME,
+      payload: { teamId: "team-1", subscriptionId: "sub_1" },
+      runAt: "2026-05-29T10:00:00.000Z",
+    });
+
+    expect(resumeWithdrawalMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: "team-1",
+        subscriptionId: "sub_1",
+        // The job's own run time decides whether it still owns the resume chain.
+        scheduledFor: "2026-05-29T10:00:00.000Z",
+        now: expect.any(Date),
+      }),
     );
   });
 

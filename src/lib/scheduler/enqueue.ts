@@ -48,6 +48,27 @@ export async function enqueueBillingCancelSubscription({
   });
 }
 
+// Durable: the withdrawal is recorded on Stripe, and nothing else ever finishes its cancel and refund.
+// One job per subscription; the job schedules itself again until the refund is done.
+export async function enqueueEuWithdrawalResume({
+  teamId,
+  subscriptionId,
+  runAt,
+}: {
+  teamId: string;
+  subscriptionId: string;
+  runAt: Date;
+}): Promise<void> {
+  await scheduleJob({
+    queue: env.SCHEDULER_QUEUE,
+    type: SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME,
+    dedupeKey: `eu-withdrawal-resume:${subscriptionId}`,
+    payload: { teamId, subscriptionId },
+    runAt,
+    durable: true,
+  });
+}
+
 // Fire-once by design: the job handler runs the purge without a warm and without this enqueue, so a
 // delayed purge never schedules another one. The navigations and scopes ride on the first message.
 export async function enqueueCmsRepurge({

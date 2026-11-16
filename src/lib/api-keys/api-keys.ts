@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import {
   API_KEY_PREFIX_LIVE,
+  DAY_IN_MS,
   MAX_API_KEYS_PER_TEAM,
   MAX_API_KEYS_PER_USER,
 } from "@/constants";
@@ -24,7 +25,6 @@ import { deleteApiKeyCache } from "@/utils/kv-api-key";
 import { createRandomId } from "@/utils/random-token";
 import { requireTeamPermission } from "@/utils/team-auth";
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 // Prose, not a catalog key: only a machine caller can ever hit this refusal, and it reaches one
 // verbatim as the RFC 9457 `detail`.

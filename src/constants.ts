@@ -169,6 +169,12 @@ export const GOOGLE_OAUTH_LOCALE_COOKIE_NAME = "google-oauth-locale";
 // and Accept-Language locale detection are all disabled. The translation layer still powers UI strings from the default catalog, so single-language sites keep working.
 export const I18N_ENABLED = true;
 
+// Master switch for the EU consumer right of withdrawal: the checkout consent box, the order
+// confirmation email, and the withdrawal button on the billing page. When false, checkout and
+// billing behave as before. The rules and the fork seams are in `src/lib/billing/eu-withdrawal-seams.ts`.
+export const EU_WITHDRAWAL_ENABLED = false;
+
+export const DAY_IN_MS = 24 * 60 * 60 * 1000;
 export const BLOG_POSTS_PER_PAGE = 12;
 export const REDIRECT_AFTER_SIGN_IN = "/dashboard" as Route;
 // App routes that more than one server action revalidates. API keys render on both surfaces, so a

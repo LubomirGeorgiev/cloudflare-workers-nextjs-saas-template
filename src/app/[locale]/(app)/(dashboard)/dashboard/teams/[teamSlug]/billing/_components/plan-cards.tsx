@@ -484,6 +484,8 @@ export function PlanCards({
           </DialogHeader>
           {paymentDialog && (
             <StripePaymentForm
+              teamId={teamId}
+              collectsConsent={collectsCheckoutConsent({ titleKey: paymentDialog.titleKey, status })}
               clientSecret={paymentDialog.clientSecret}
               currency={paymentDialog.currency}
               planName={paymentDialog.planName}
@@ -726,4 +728,16 @@ function ConfirmButton({
 
 function hasPaidAccess(status: string | null | undefined): boolean {
   return Boolean(getStripeSubscriptionTransitionPolicy(status)?.grantsPaidAccess);
+}
+
+// A new checkout, or an unpaid first one, asks for the EU consent. A past_due invoice of a
+// running contract does not: that contract already has its consent.
+function collectsCheckoutConsent({
+  titleKey,
+  status,
+}: {
+  titleKey: PaymentDialogState["titleKey"];
+  status: string | null;
+}): boolean {
+  return titleKey === "paymentDialogTitle" || status === "incomplete";
 }
