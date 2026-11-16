@@ -24,11 +24,13 @@ import {
   settleRecordedSubscription,
 } from "@/utils/team-subscription";
 import { completeTrialSubscription } from "@/lib/teams/trial-subscription";
+import { recordCheckoutConsent } from "@/lib/billing/checkout-consent";
 import {
   createSubscriptionSchema,
   changePlanSchema,
   completeTrialSchema,
   cancelSubscriptionSchema,
+  recordCheckoutConsentSchema,
   teamBillingSchema,
   updateAddonQuantitySchema,
   type TrialSetupMetadata,
@@ -38,7 +40,7 @@ import {
   cancelParamsForStatus,
   getStripeSubscriptionTransitionPolicy,
 } from "@/constants/subscription-lifecycle";
-import { TEAMS_DASHBOARD_PATH } from "@/constants";
+import { EU_WITHDRAWAL_ENABLED, TEAMS_DASHBOARD_PATH } from "@/constants";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import { getRequestSiteUrl } from "@/utils/request-site-url";
 
@@ -310,6 +312,40 @@ export const completeTrialAction = actionClient
           throw error;
         }
         console.error("completeTrialAction failed", error);
+        throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
+      }
+    }, RATE_LIMITS.BILLING);
+  });
+
+// The EU immediate-start consent. The payment form calls it after `elements.submit()` and before
+// the confirm, so a failure here stops the payment.
+export const recordCheckoutConsentAction = actionClient
+  .metadata({ actionName: "recordCheckoutConsentAction" })
+  .inputSchema(recordCheckoutConsentSchema)
+  .action(async ({ parsedInput: { teamId, immediateStart, setupIntentId } }) => {
+    return withRateLimit(async () => {
+      if (!EU_WITHDRAWAL_ENABLED) {
+        throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorStartCheckout" });
+      }
+      await assertBillingEnabled();
+
+      const session = await requireTeamPermission(teamId, TEAM_PERMISSIONS.ACCESS_BILLING);
+
+      try {
+        await recordCheckoutConsent({
+          teamId,
+          userId: session.user.id,
+          immediateStart,
+          setupIntentId,
+          locale: await getLocale(),
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof ActionError) {
+          throw error;
+        }
+        console.error("recordCheckoutConsentAction failed", error);
         throw new ActionError("INTERNAL_SERVER_ERROR", { key: "Client.Dashboard.Billing.errorPaymentProvider" });
       }
     }, RATE_LIMITS.BILLING);

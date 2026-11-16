@@ -29,8 +29,10 @@ import { and, eq } from "drizzle-orm";
 import { getDB } from "@/db";
 import { teamTable, teamTrialReservationTable, userTable } from "@/db/schema";
 import { PAID_PLAN_IDS, TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { isTrialEligible } from "@/utils/team-subscription";
 import { TRIAL_SETUP_PENDING_REASON } from "@/lib/billing/payment-return";
+import { buildCheckoutConsentMetadata } from "@/lib/billing/eu-withdrawal-selectors";
 import {
   completeTrialSubscription,
   settleStaleTrialReservations,
@@ -124,6 +126,7 @@ interface FakeStripeCalls {
   created: Array<{ params: Stripe.SubscriptionCreateParams; idempotencyKey?: string }>;
   retrieved: string[];
   canceled: string[];
+  setupIntentsRetrieved: string[];
 }
 
 function makeFakeStripe(handlers: {
@@ -132,7 +135,7 @@ function makeFakeStripe(handlers: {
   cancel?: (id: string) => Promise<Stripe.Subscription>;
   setupIntent?: Stripe.SetupIntent;
 }): { client: TrialSubscriptionStripe & { setupIntents: unknown }; calls: FakeStripeCalls } {
-  const calls: FakeStripeCalls = { created: [], retrieved: [], canceled: [] };
+  const calls: FakeStripeCalls = { created: [], retrieved: [], canceled: [], setupIntentsRetrieved: [] };
 
   const client = {
     subscriptions: {
@@ -159,7 +162,8 @@ function makeFakeStripe(handlers: {
       },
     },
     setupIntents: {
-      retrieve: async () => {
+      retrieve: async (id: string) => {
+        calls.setupIntentsRetrieved.push(id);
         if (!handlers.setupIntent) {
           throw new Error("unexpected setupIntents.retrieve");
         }
@@ -177,12 +181,14 @@ function makeSetupIntent({
   planId,
   interval,
   paymentMethodId = uid("pm"),
+  consentMetadata = {},
 }: {
   customerId: string;
   teamId: string;
   planId: string;
   interval: string;
   paymentMethodId?: string;
+  consentMetadata?: Record<string, string>;
 }): Stripe.SetupIntent {
   return {
     id: uid("seti"),
@@ -190,8 +196,19 @@ function makeSetupIntent({
     status: "succeeded",
     customer: customerId,
     payment_method: paymentMethodId,
-    metadata: { teamId, planId, interval },
+    metadata: { ...consentMetadata, teamId, planId, interval },
   } as unknown as Stripe.SetupIntent;
+}
+
+// What recordCheckoutConsent stamps on the SetupIntent before the client confirms it.
+function makeConsentMetadata(userId: string): Record<string, string> {
+  return buildCheckoutConsentMetadata({
+    immediateStart: true,
+    userId,
+    at: new Date("2026-03-01T10:00:00.000Z"),
+    locale: "en",
+    text: "Start now",
+  });
 }
 
 async function findReservation(teamId: string, userId: string) {
@@ -240,6 +257,39 @@ test.skipIf(!HAS_TRIAL_PLAN)("completeTrialSubscription releases the reservation
   expect(user?.trialUsedAt).toBeTruthy();
   // Both stamps set → the released reservation leaves the user/team ineligible.
   expect(await isTrialEligible({ teamId, userId })).toBe(false);
+});
+
+// The EU consent is recorded on the SetupIntent; the trial subscription is the contract that keeps it.
+test.skipIf(!HAS_TRIAL_PLAN || !EU_WITHDRAWAL_ENABLED)("completeTrialSubscription copies only the checkout consent from the SetupIntent", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+  const consentMetadata = makeConsentMetadata(userId);
+
+  const { client, calls } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month", consentMetadata }),
+    create: async () => makeSubscription({ id: uid("sub"), status: "trialing", teamId, customerId }),
+  });
+  stripeState.client = client;
+
+  await completeTrialSubscription({ teamId, userId, actingUserEmail: "owner@example.com", setupIntentId: "seti_x" });
+
+  expect(calls.created[0]?.params.metadata).toEqual({ ...consentMetadata, teamId });
+});
+
+// A consent left on a SetupIntent while the flag was on does not reach a trial created with it off.
+test.skipIf(!HAS_TRIAL_PLAN || EU_WITHDRAWAL_ENABLED)("with the EU flow disabled, completeTrialSubscription copies no consent", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+
+  const { client, calls } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month", consentMetadata: makeConsentMetadata(userId) }),
+    create: async () => makeSubscription({ id: uid("sub"), status: "trialing", teamId, customerId }),
+  });
+  stripeState.client = client;
+
+  await completeTrialSubscription({ teamId, userId, actingUserEmail: "owner@example.com", setupIntentId: "seti_x" });
+
+  expect(calls.created[0]?.params.metadata).toEqual({ teamId });
 });
 
 test.skipIf(!HAS_TRIAL_PLAN)("completeTrialSubscription RETAINS the reservation on an ambiguous Stripe failure", async () => {
@@ -485,6 +535,7 @@ test("recovery re-drives creation (same idempotency key) for a reservation with 
   const subId = uid("sub");
 
   const { client, calls } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" }),
     create: async () => makeSubscription({ id: subId, status: "trialing", teamId, customerId }),
   });
 
@@ -500,12 +551,45 @@ test("recovery re-drives creation (same idempotency key) for a reservation with 
   expect(team?.trialUsedAt).toBeTruthy();
 });
 
+// The same key needs the same parameters, so the re-drive re-reads the consent the first attempt sent.
+test.skipIf(!EU_WITHDRAWAL_ENABLED)("recovery re-drives a trial with the consent from its SetupIntent", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+  await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: null });
+  const reservation = await findReservation(teamId, userId);
+  const consentMetadata = makeConsentMetadata(userId);
+  const { client, calls } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month", consentMetadata }),
+    create: async () => makeSubscription({ id: uid("sub"), status: "trialing", teamId, customerId }),
+  });
+
+  await settleStaleTrialReservations({ now: new Date(Date.now() + HOUR_MS), stripe: client });
+
+  expect(calls.setupIntentsRetrieved).toEqual([reservation?.setupIntentId]);
+  expect(calls.created[0]?.params.metadata).toEqual({ ...consentMetadata, teamId });
+});
+
+test.skipIf(EU_WITHDRAWAL_ENABLED)("with the EU flow disabled, recovery re-drives without a SetupIntent read", async () => {
+  const customerId = uid("cus");
+  const { teamId, userId } = await seedTeamAndUser({ customerId });
+  await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: null });
+  const { client, calls } = makeFakeStripe({
+    create: async () => makeSubscription({ id: uid("sub"), status: "trialing", teamId, customerId }),
+  });
+
+  await settleStaleTrialReservations({ now: new Date(Date.now() + HOUR_MS), stripe: client });
+
+  expect(calls.setupIntentsRetrieved).toEqual([]);
+  expect(calls.created[0]?.params.metadata).toEqual({ teamId });
+});
+
 test("recovery releases when a re-driven creation is definitely rejected", async () => {
   const customerId = uid("cus");
   const { teamId, userId } = await seedTeamAndUser({ customerId });
   await insertReservation({ teamId, userId, customerId, stripeSubscriptionId: null });
 
   const { client } = makeFakeStripe({
+    setupIntent: makeSetupIntent({ customerId, teamId, planId: PAID_PLAN_ID, interval: "month" }),
     create: async () => {
       throw new Stripe.errors.StripeInvalidRequestError({ message: "payment method detached" });
     },

@@ -4,14 +4,16 @@ import type Stripe from "stripe";
 
 import { ActionError } from "@/lib/action-error";
 import { getStripe } from "@/lib/stripe";
-import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
+import { callStripe, STRIPE_OPERATIONS, stripeErrorName } from "@/lib/billing/stripe-call";
 import { getStripeId } from "@/utils/stripe-id";
 import { getDB } from "@/db";
 import { getPlanPriceId } from "@/utils/plan-prices";
 import { getPlan } from "@/constants/plans";
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { v } from "@/lib/validation";
 import { trialSetupMetadataSchema } from "@/schemas/billing.schema";
 import { TRIAL_SETUP_PENDING_REASON } from "@/lib/billing/payment-return";
+import { pickCheckoutConsentMetadata } from "@/lib/billing/eu-withdrawal-selectors";
 import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 import {
   claimTeamSubscription,
@@ -55,6 +57,9 @@ interface TrialSubscriptionInputs {
   priceId: string;
   paymentMethodId: string;
   trialDays: number;
+  // The EU checkout consent recorded on the SetupIntent. Read from Stripe on every attempt, so a
+  // retry sends the same parameters under the same idempotency key.
+  consentMetadata: Record<string, string>;
 }
 
 // The subset of the Stripe client the trial-subscription flow drives directly. Narrowed so
@@ -67,6 +72,9 @@ export interface TrialSubscriptionStripe {
     ) => Promise<Stripe.Subscription>;
     retrieve: (id: string) => Promise<Stripe.Subscription>;
     cancel: (id: string) => Promise<Stripe.Subscription>;
+  };
+  setupIntents: {
+    retrieve: (id: string) => Promise<Stripe.SetupIntent>;
   };
 }
 
@@ -92,15 +100,11 @@ function createTrialSubscription(
       trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
       default_payment_method: inputs.paymentMethodId,
       payment_settings: { save_default_payment_method: "on_subscription" },
-      metadata: { teamId: inputs.teamId },
+      metadata: { ...inputs.consentMetadata, teamId: inputs.teamId },
     }, {
       idempotencyKey: `team-trial:${inputs.id}`,
     }),
   });
-}
-
-function stripeErrorName(error: unknown): string {
-  return error instanceof Error ? error.name : "UnknownError";
 }
 
 // Card-first trial flow, step 2 (service): the full attempt lifecycle behind
@@ -172,7 +176,10 @@ export async function completeTrialSubscription(params: CompleteTrialSubscriptio
 
   let subscription: Stripe.Subscription;
   try {
-    subscription = await createTrialSubscription(stripe, trialAttempt);
+    subscription = await createTrialSubscription(stripe, {
+      ...trialAttempt,
+      consentMetadata: trialConsentMetadata(setupIntent),
+    });
   } catch (stripeError) {
     // Release ONLY when Stripe definitely created nothing (a rejected request), so the user
     // can retry. On an ambiguous failure keep the reservation — a second trial must stay
@@ -287,6 +294,12 @@ export async function settleStaleTrialReservations({
   return settledCount;
 }
 
+// The EU checkout consent the trial copies from its SetupIntent. With the flag off it is always
+// empty, so the first attempt and the recovery send the parameters they sent before the flow.
+function trialConsentMetadata(setupIntent: Stripe.SetupIntent): Record<string, string> {
+  return EU_WITHDRAWAL_ENABLED ? pickCheckoutConsentMetadata(setupIntent.metadata) : {};
+}
+
 function hasEnded(subscription: Stripe.Subscription): boolean {
   return getStripeSubscriptionTransitionPolicy(subscription.status)?.subscription === "clear";
 }
@@ -350,9 +363,16 @@ async function settleReservation({
     return;
   }
 
-  // Case 2: no recorded subscription — re-drive creation with the SAME idempotency key. This
-  // returns the subscription Stripe already created (ambiguous failure) or creates it now
-  // (crash before creation). Either way we observe the real outcome.
+  // Case 2: no recorded subscription — re-drive creation with the SAME idempotency key and the
+  // same parameters. This returns the subscription Stripe already created (ambiguous failure) or
+  // creates it now (crash before creation). Either way we observe the real outcome.
+  const consentMetadata = EU_WITHDRAWAL_ENABLED
+    ? trialConsentMetadata(await callStripe({
+      operation: STRIPE_OPERATIONS.setupIntentsRetrieve,
+      run: () => stripe.setupIntents.retrieve(reservation.setupIntentId),
+    }))
+    : {};
+
   let subscription: Stripe.Subscription;
   try {
     subscription = await createTrialSubscription(stripe, {
@@ -362,6 +382,7 @@ async function settleReservation({
       priceId: reservation.priceId,
       paymentMethodId: reservation.paymentMethodId,
       trialDays: reservation.trialDays,
+      consentMetadata,
     });
   } catch (error) {
     if (isDefiniteStripeFailure(error)) {

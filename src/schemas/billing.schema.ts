@@ -52,6 +52,14 @@ export const paymentReturnSchema = v.object({
   redirectStatus: v.nullish(redirectStatus),
 });
 
+// The EU immediate-start consent, recorded on the checkout just before the client confirms it.
+// A trial names its SetupIntent; a paid plan uses the team's incomplete subscription.
+export const recordCheckoutConsentSchema = v.object({
+  teamId: teamIdField(),
+  immediateStart: v.boolean(),
+  setupIntentId: v.optional(idField()),
+});
+
 export const cancelSubscriptionSchema = v.object({
   teamId: teamIdField(),
   atPeriodEnd: v.optional(v.boolean(), true),
