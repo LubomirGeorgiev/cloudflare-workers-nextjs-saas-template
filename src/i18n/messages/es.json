@@ -831,7 +831,7 @@
         "withdrawalContractLabel": "Contrato",
         "withdrawalContractValue": "{plan}, contratado el {date}",
         "withdrawalReceiptNote": "Te enviaremos el justificante a {email}.",
-        "confirmWithdrawal": "Confirmar el desistimiento",
+        "confirmWithdrawal": "Confirmar desistimiento",
         "withdrawalDone": "Tu desistimiento está confirmado. Te hemos enviado un justificante por correo electrónico.",
         "withdrawalPending": "Hemos registrado tu desistimiento y te hemos enviado un justificante. La cancelación y el reembolso se completarán en breve.",
         "errorWithdrawalUnavailable": "El desistimiento no está disponible para esta suscripción.",
