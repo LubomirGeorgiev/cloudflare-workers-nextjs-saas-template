@@ -17,6 +17,8 @@ const DEFERRED_ATTRIBUTE = "app.ratelimit.deferred";
 const CHARGE_OUTCOME = {
   ALLOWED: "allowed",
   LIMITED: "limited",
+  // KV refused the counter write (one key, about 1 write per second). The caller still gets a 429.
+  STORE_RATE_LIMITED: "store_rate_limited",
 } as const;
 
 const KEY_KIND = {
@@ -271,10 +273,7 @@ async function chargeBucket(
         },
       });
 
-      span.setAttribute(
-        OUTCOME_ATTRIBUTE,
-        rateLimitResult.success ? CHARGE_OUTCOME.ALLOWED : CHARGE_OUTCOME.LIMITED
-      );
+      span.setAttribute(OUTCOME_ATTRIBUTE, selectChargeOutcome(rateLimitResult));
 
       const quota: RateLimitSnapshot = {
         limit: rateLimitResult.limit,
@@ -290,6 +289,20 @@ async function chargeBucket(
       return { key, quota };
     },
   });
+}
+
+function selectChargeOutcome({
+  success,
+  isStoreRateLimited,
+}: {
+  success: boolean;
+  isStoreRateLimited?: boolean;
+}): (typeof CHARGE_OUTCOME)[keyof typeof CHARGE_OUTCOME] {
+  if (success) {
+    return CHARGE_OUTCOME.ALLOWED;
+  }
+
+  return isStoreRateLimited ? CHARGE_OUTCOME.STORE_RATE_LIMITED : CHARGE_OUTCOME.LIMITED;
 }
 
 // The one key order: the caller's identifier, then the trusted client IP, then one shared bucket.
@@ -325,6 +338,31 @@ export async function consumeRateLimit(
   }
 
   return (await chargeBucket(config)).quota;
+}
+
+/**
+ * Like `consumeRateLimit`, but a limiter fault (for example a KV error) logs and lets the request
+ * through. Use only for soft public limits. An exhausted bucket still throws `RateLimitError`.
+ */
+export async function consumeRateLimitOrSkip(
+  config: RateLimitConfig
+): Promise<RateLimitSnapshot | null> {
+  try {
+    return await consumeRateLimit(config);
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      throw error;
+    }
+
+    // The charge span already holds the exception. A KV error message can name the per-IP key.
+    console.error(JSON.stringify({
+      message: "Rate limit check failed; request allowed",
+      provider: "kv",
+      bucket: config.identifier,
+      errorName: error instanceof Error ? error.name : "unknown",
+    }));
+    return null;
+  }
 }
 
 export async function withRateLimit<T>(

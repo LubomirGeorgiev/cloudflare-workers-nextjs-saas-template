@@ -12,7 +12,7 @@ vi.mock("@/lib/cms/cms-search", () => ({ searchDocs: searchDocsMock }));
 vi.mock("@/utils/with-rate-limit", () => ({
   RATE_LIMITS: { DOCS_SEARCH: {} },
   RateLimitError: class extends Error {},
-  withRateLimit: (action: () => Promise<unknown>) => action(),
+  consumeRateLimitOrSkip: async () => null,
 }));
 
 const { GET } = await import("./route");

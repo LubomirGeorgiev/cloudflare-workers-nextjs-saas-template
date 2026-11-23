@@ -15,8 +15,8 @@ const QUOTA = {
 const REDIRECT_FROM_SLUG = "old-page";
 const REDIRECT_TO_PATH = "/docs/new-page";
 
-const { consumeRateLimitMock } = vi.hoisted(() => ({
-  consumeRateLimitMock: vi.fn(),
+const { consumeRateLimitOrSkipMock } = vi.hoisted(() => ({
+  consumeRateLimitOrSkipMock: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -40,7 +40,7 @@ vi.mock("@/utils/with-rate-limit", () => {
   }
 
   return {
-    consumeRateLimit: consumeRateLimitMock,
+    consumeRateLimitOrSkip: consumeRateLimitOrSkipMock,
     RATE_LIMITS: {
       CMS_MARKDOWN_API: {
         identifier: "cms-markdown-api",
@@ -124,7 +124,7 @@ describe("CMS Markdown route", () => {
   });
 
   test("returns a problem+json 429 with the exhausted quota", async () => {
-    consumeRateLimitMock.mockRejectedValueOnce(
+    consumeRateLimitOrSkipMock.mockRejectedValueOnce(
       new RateLimitError(12, {
         limit: 5,
         remaining: 0,
@@ -157,7 +157,7 @@ describe("CMS Markdown route", () => {
   });
 
   test("adds quota headers to a non-rate-limited response", async () => {
-    consumeRateLimitMock.mockResolvedValueOnce({
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce({
       limit: 5,
       remaining: 4,
       resetSeconds: 60,
@@ -183,7 +183,7 @@ describe("CMS Markdown route", () => {
   // A quota is only non-null in production, so this pairs a CMS redirect with one: the headers of a
   // `Response.redirect` are immutable, which made every redirect throw there and return a 500.
   test("adds quota headers to a permanent CMS redirect", async () => {
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
     mockDocsRedirect({ statusCode: 301 });
 
     const response = await GET(
@@ -204,7 +204,7 @@ describe("CMS Markdown route", () => {
   });
 
   test("keeps the temporary status and forwards ?download on a CMS redirect", async () => {
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
     mockDocsRedirect({ statusCode: 302 });
 
     const response = await GET(
@@ -226,7 +226,7 @@ describe("CMS Markdown route", () => {
   // A build-time absolute URL would send every preview deployment's redirect to production, so the
   // whole header, not just its path, has to stay relative to the requested origin.
   test("redirects to a relative location, never to the configured site URL", async () => {
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
     mockDocsRedirect({ statusCode: 301 });
 
     const response = await GET(
@@ -249,7 +249,7 @@ describe("CMS Markdown route", () => {
   test.each(["constructor", "toString"])("rejects the inherited name %s as a collection", async (
     collection,
   ) => {
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
 
     const response = await GET(
       new Request(`https://example.com/markdown/${collection}/entry`),
@@ -264,7 +264,7 @@ describe("CMS Markdown route", () => {
   // The docs navigation tree is the authority: an entry it does not list stays unreachable, exactly
   // as it is for a reader, instead of falling back to a bare slug lookup.
   test("returns 404 for a docs slug the navigation tree does not list", async () => {
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
     mockDocsNotFound();
 
     const response = await GET(
@@ -282,7 +282,7 @@ describe("CMS Markdown route", () => {
     const slug = "introduction";
     const markdown = "# Introduction\n";
 
-    consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+    consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
     vi.mocked(navigationRepository.getCmsNavigationTree).mockResolvedValue(DOCS_TREE);
     vi.mocked(navigationRepository.getCmsNavigationNodeByResolvedPath).mockReturnValue({
       nodeType: "page",
@@ -323,7 +323,7 @@ describe("CMS Markdown route", () => {
       const slug = "launch";
       const markdown = "# Launch\n";
 
-      consumeRateLimitMock.mockResolvedValueOnce(QUOTA);
+      consumeRateLimitOrSkipMock.mockResolvedValueOnce(QUOTA);
       vi.mocked(entryRepository.getCmsEntryBySlug).mockResolvedValue({
         collection,
         locale: DEFAULT_LOCALE,

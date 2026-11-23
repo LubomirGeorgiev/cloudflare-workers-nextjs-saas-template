@@ -8,7 +8,7 @@ import { searchDocs } from "@/lib/cms/cms-search";
 import { DOCS_SLUG } from "@/lib/cms/docs-config";
 import { docsSearchQuerySchema } from "@/schemas/docs-search.schema";
 import { v } from "@/lib/validation";
-import { RateLimitError, RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+import { consumeRateLimitOrSkip, RateLimitError, RATE_LIMITS } from "@/utils/with-rate-limit";
 
 // `searchDocs` reads the docs collection only. The route-search half changes on deploy alone.
 const DOCS_SEARCH_CACHE_TAGS = [CACHE_TAGS.cmsSearchCollection(DOCS_SLUG)];
@@ -41,15 +41,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await withRateLimit(async () => {
-      const docsResults = await searchDocs({
-        query: parseResult.output.q,
-        limit: parseResult.output.limit,
-        locale: parseResult.output.locale,
-      });
-
-      return docsResults.map(withAbsoluteResolvedPath);
-    }, RATE_LIMITS.DOCS_SEARCH);
+    // A limiter fault must not take down a public read, so it skips the charge.
+    await consumeRateLimitOrSkip(RATE_LIMITS.DOCS_SEARCH);
+    const docsResults = await searchDocs({
+      query: parseResult.output.q,
+      limit: parseResult.output.limit,
+      locale: parseResult.output.locale,
+    });
+    const results = docsResults.map(withAbsoluteResolvedPath);
 
     return NextResponse.json(
       {

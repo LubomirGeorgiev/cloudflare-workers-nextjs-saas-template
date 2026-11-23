@@ -1,8 +1,11 @@
 import "server-only";
 import { getCloudflareContext } from "@/utils/cloudflare-context";
-import { waitUntil } from "cloudflare:workers";
 import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 import { normalizeRateLimitIp } from "@/utils/rate-limit-ip";
+import { isKvRateLimitError, writeKvInBackground } from "@/utils/background-kv-write";
+
+// A KV 429 means one key got more than about 1 write per second. The caller can retry soon.
+const KV_WRITE_RETRY_SECONDS = 1;
 
 interface RateLimitOptions {
   // Maximum number of requests allowed within the window
@@ -20,6 +23,8 @@ interface RateLimitResult {
   remaining: number;
   reset: number; // Timestamp when the rate limit resets
   limit: number;
+  // True when KV refused the counter write, not when the count reached the limit.
+  isStoreRateLimited?: boolean;
 }
 
 // This limiter is an abuse-resistance signal, not an accounting or authorization boundary. KV
@@ -74,14 +79,37 @@ export async function checkRateLimit({
     };
   }
 
-  const writeCountPromise = env.KV_STORE.put(windowKey, (currentCount + 1).toString(), {
+  const writeCount = () => env.KV_STORE.put(windowKey, (currentCount + 1).toString(), {
     expirationTtl: options.windowInSeconds,
   });
 
+  // A lost deferred write only undercounts a soft limit, so it must not fail the request.
   if (options.deferWrite) {
-    waitUntil(writeCountPromise);
+    writeKvInBackground({ operation: `rate_limit.${options.identifier}`, write: writeCount });
   } else {
-    await writeCountPromise;
+    try {
+      await writeCount();
+    } catch (error) {
+      if (!isKvRateLimitError(error)) {
+        throw error;
+      }
+      // A refusal, not a server error: the caller gets a 429 with Retry-After and can try again.
+      console.error(JSON.stringify({
+        message: "KV write rate limited",
+        provider: "kv",
+        operation: `rate_limit.${options.identifier}`,
+        outcome: "rate_limited",
+        statusCode: "429",
+      }));
+
+      return {
+        success: false,
+        remaining: Math.max(0, options.limit - currentCount),
+        reset: now + KV_WRITE_RETRY_SECONDS,
+        limit: options.limit,
+        isStoreRateLimited: true,
+      };
+    }
   }
 
   return {

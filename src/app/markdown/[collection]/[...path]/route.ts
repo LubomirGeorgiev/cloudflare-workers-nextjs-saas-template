@@ -23,7 +23,7 @@ import { CACHE_TAGS, setCacheScope } from "@/utils/cache";
 import { localizedPathname } from "@/i18n/localized-pathname";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import { DEFAULT_LOCALE, isKnownLocale, type Locale } from "@/i18n/config";
-import { consumeRateLimit, RATE_LIMITS, RateLimitError } from "@/utils/with-rate-limit";
+import { consumeRateLimitOrSkip, RATE_LIMITS, RateLimitError } from "@/utils/with-rate-limit";
 
 interface CachedMarkdownEntry {
   collection: string;
@@ -63,7 +63,8 @@ export async function GET(
   try {
     // Charged because the caller picks the path here: a novel slug always misses, so it costs a D1
     // read and a cache write. The Worker's page branch is exempt; its paths are a fixed allowlist.
-    const quota = await consumeRateLimit(RATE_LIMITS.CMS_MARKDOWN_API);
+    // A limiter fault must not take down a public read, so it skips the charge.
+    const quota = await consumeRateLimitOrSkip(RATE_LIMITS.CMS_MARKDOWN_API);
     const response = await handleMarkdownRouteRequest({ request, ...(await params) });
     applyRateLimitHeaders({ headers: response.headers, quota });
     return response;

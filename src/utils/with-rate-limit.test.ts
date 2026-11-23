@@ -67,7 +67,7 @@ vi.mock("cloudflare:workers", async (importOriginal) => ({
   },
 }));
 
-const { RATE_LIMITS, RateLimitError, consumeRateLimit, withRateLimit } = await import(
+const { RATE_LIMITS, RateLimitError, consumeRateLimit, consumeRateLimitOrSkip, withRateLimit } = await import(
   "@/utils/with-rate-limit"
 );
 
@@ -304,6 +304,23 @@ describe("withRateLimit", () => {
     expect(fakeSpan.recordException).not.toHaveBeenCalled();
   });
 
+  test("tags a KV write refusal as store_rate_limited and throws a retryable refusal", async () => {
+    checkRateLimitMock.mockResolvedValue({
+      success: false,
+      remaining: RATE_LIMITS.SIGN_IN_ACCOUNT.limit,
+      reset: Date.now() / 1000 + 1,
+      limit: RATE_LIMITS.SIGN_IN_ACCOUNT.limit,
+      isStoreRateLimited: true,
+    });
+
+    const refusal = consumeRateLimit({ ...RATE_LIMITS.SIGN_IN_ACCOUNT, userIdentifier: "account:digest" });
+
+    await expect(refusal).rejects.toBeInstanceOf(RateLimitError);
+    await expect(refusal).rejects.toMatchObject({ retryAfterSeconds: 1 });
+    expect(spanAttributes.get("app.ratelimit.outcome")).toBe("store_rate_limited");
+    expect(fakeSpan.recordException).not.toHaveBeenCalled();
+  });
+
   test("tags a charge without a trusted client IP as unknown_ip", async () => {
     const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     getIPMock.mockResolvedValue(null);
@@ -320,5 +337,46 @@ describe("withRateLimit", () => {
     expect(spanAttributes.get("app.ratelimit.outcome")).toBe("allowed");
     expect(consoleWarn).toHaveBeenCalledOnce();
     consoleWarn.mockRestore();
+  });
+});
+
+describe("consumeRateLimitOrSkip", () => {
+  afterEach(() => {
+    spanAttributes.clear();
+    vi.clearAllMocks();
+  });
+
+  test("logs a limiter fault and lets the request through", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const secretText = "KV GET failed: 503 key rate-limit:docs-search:203.0.113.10";
+    getIPMock.mockResolvedValue("203.0.113.10");
+    checkRateLimitMock.mockRejectedValue(new Error(secretText));
+
+    await expect(consumeRateLimitOrSkip(RATE_LIMITS.DOCS_SEARCH)).resolves.toBeNull();
+
+    expect(fakeSpan.recordException).toHaveBeenCalledOnce();
+    expect(consoleError).toHaveBeenCalledOnce();
+    const line = String(consoleError.mock.calls[0][0]);
+    expect(JSON.parse(line)).toMatchObject({
+      provider: "kv",
+      bucket: RATE_LIMITS.DOCS_SEARCH.identifier,
+      errorName: "Error",
+    });
+    expect(line).not.toContain(secretText);
+    consoleError.mockRestore();
+  });
+
+  test("still refuses an exhausted bucket", async () => {
+    getIPMock.mockResolvedValue("203.0.113.10");
+    checkRateLimitMock.mockResolvedValue({
+      success: false,
+      remaining: 0,
+      reset: Date.now() / 1000 + 60,
+      limit: RATE_LIMITS.DOCS_SEARCH.limit,
+    });
+
+    await expect(consumeRateLimitOrSkip(RATE_LIMITS.DOCS_SEARCH)).rejects.toBeInstanceOf(
+      RateLimitError
+    );
   });
 });
