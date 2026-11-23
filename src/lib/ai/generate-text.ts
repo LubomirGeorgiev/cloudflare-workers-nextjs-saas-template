@@ -10,7 +10,7 @@ interface RunAiTextParams {
   AI: AiBinding;
   prompt: string;
   maxTokens?: number;
-  // Defaults to the model's own setting (on). Reasoning tokens count against maxTokens.
+  // Defaults to off: reasoning is slow, and its tokens count against maxTokens. Pass true to opt in.
   reasoning?: boolean;
 }
 
@@ -21,7 +21,7 @@ export async function runAiText({
   AI,
   prompt,
   maxTokens,
-  reasoning = true,
+  reasoning = false,
 }: RunAiTextParams): Promise<string | null> {
   const messages = [{ role: "user" as const, content: prompt }];
 
