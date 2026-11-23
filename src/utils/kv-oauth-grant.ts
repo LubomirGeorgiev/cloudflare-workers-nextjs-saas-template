@@ -8,6 +8,7 @@ import { isBanned } from "@/lib/account/ban";
 import { PERSONAL_AUDIENCE, type ApiPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes, type GrantedScope } from "@/lib/api/admin-scopes";
 import type { OAuthBearerProps } from "@/lib/oauth/bearer-props";
+import { writeKvInBackground } from "@/utils/background-kv-write";
 import {
   deleteGrantSnapshot,
   getGrantGenerationKey,
@@ -100,8 +101,14 @@ async function resolveOAuthGrantPrincipal(props: OAuthBearerProps): Promise<OAut
     teams: identity.teams,
   };
 
+  // Safe to defer: the provider rejects a revoked grant's token before this runs, and a late put
+  // carries the generation read above, so a purge that lands first still makes it stale.
   if (props.grantId) {
-    await putGrantSnapshot({ grantId: props.grantId, snapshot, generation });
+    const grantId = props.grantId;
+    writeKvInBackground({
+      operation: "principal_cache.oauth_grant",
+      write: () => putGrantSnapshot({ grantId, snapshot, generation }),
+    });
   }
 
   return { principal: toPrincipal({ cached: snapshot, props, scopes }), cache, outcome: "ok" };

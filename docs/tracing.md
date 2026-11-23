@@ -66,6 +66,10 @@ Attribute values never hold error text, but a recorded exception carries the ful
 `String(error)`. The full error is the purpose of an exception event: it tells you what failed and
 where.
 
+Do not call `recordSpanException` when the error text can hold personal data. For example, a KV
+error names its key, and a rate-limit key can hold an IP. `src/utils/background-kv-write.ts`
+records only the error name and a fixed message.
+
 ## Parent and child spans
 
 A parent span that dispatches child tasks reports only its own step. Each child span reports `ok`

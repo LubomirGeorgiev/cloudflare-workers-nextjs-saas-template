@@ -11,6 +11,7 @@ import { toApiAudience, type ApiPrincipal } from "@/lib/api/principal";
 import { toGrantedScopes } from "@/lib/api/admin-scopes";
 import { scopesForAudience } from "@/lib/api/scopes";
 import { looksLikeApiKey } from "@/utils/api-key-format";
+import { writeKvOrLog } from "@/utils/background-kv-write";
 import {
   deleteApiKeySnapshot,
   loadPrincipalIdentity,
@@ -174,7 +175,12 @@ async function resolveApiKeyPrincipal(secret: string): Promise<ApiKeyResolution>
     lastUsedAt: key.lastUsedAt ? key.lastUsedAt.getTime() : null,
   };
 
-  await putApiKeySnapshot({ keyHash, snapshot });
+  // Awaited: a revoke the caller makes after this answer must delete a snapshot that already
+  // exists, or a late put could bring the revoked key back. Only a failed put is soft.
+  await writeKvOrLog({
+    operation: "principal_cache.api_key",
+    write: () => putApiKeySnapshot({ keyHash, snapshot }),
+  });
   touchLastUsedAt({ keyId: key.id, lastUsedAt: snapshot.lastUsedAt });
 
   return { principal: toPrincipal(snapshot), cache: "miss", outcome: "ok" };

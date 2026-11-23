@@ -279,6 +279,26 @@ describe("API key principal resolve span", () => {
     expect(spanAttributes.get(CACHE_ATTRIBUTE)).toBe("miss");
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("ok");
   });
+
+  test("answers a rebuilt key when the snapshot put fails, and logs the failure", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { secret } = await generateApiKey({ prefix: API_KEY_PREFIX_LIVE });
+    findFirst.mockResolvedValue(keyRow());
+    getUserFromDBMock.mockResolvedValue(buildSnapshot({ scopes: [], lastUsedAt: null }).user);
+    kv.put.mockRejectedValueOnce(new Error("KV PUT failed: 429 Too Many Requests"));
+
+    const principal = await getApiKeyPrincipal(secret);
+
+    expect(principal?.userId).toBe(USER_ID);
+    expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("ok");
+    expect(consoleError).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(consoleError.mock.calls[0][0]))).toMatchObject({
+      provider: "kv",
+      operation: "principal_cache.api_key",
+      outcome: "rate_limited",
+    });
+    consoleError.mockRestore();
+  });
 });
 
 // Recent enough by default that the usage touch short-circuits before it reaches D1.

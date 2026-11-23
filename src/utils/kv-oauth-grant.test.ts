@@ -97,6 +97,28 @@ describe("OAuth grant principal resolve span", () => {
     expect(spanAttributes.get(OUTCOME_ATTRIBUTE)).toBe("ok");
   });
 
+  test("answers before the snapshot put lands, and logs a failed put", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let rejectPut: (error: Error) => void = () => undefined;
+    putGrantSnapshotMock.mockReturnValue(new Promise<void>((_resolve, reject) => {
+      rejectPut = reject;
+    }));
+
+    const principal = await getOAuthGrantPrincipal(props({ grantId: GRANT_ID }));
+
+    expect(principal?.userId).toBe(USER_ID);
+    expect(consoleError).not.toHaveBeenCalled();
+
+    rejectPut(new Error("KV PUT failed: 503 Service Unavailable"));
+    await vi.waitFor(() => expect(consoleError).toHaveBeenCalledOnce());
+    expect(JSON.parse(String(consoleError.mock.calls[0][0]))).toMatchObject({
+      provider: "kv",
+      operation: "principal_cache.oauth_grant",
+      outcome: "upstream_error",
+    });
+    consoleError.mockRestore();
+  });
+
   test("tags a token without a grant id as a cache bypass", async () => {
     await getOAuthGrantPrincipal(props({}));
 
