@@ -14,7 +14,7 @@
 
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeAll, beforeEach, expect, test, vi } from "vitest";
 
 import { API_V1_BASE_PATH, MCP_PATH } from "@/constants";
 import { getDB } from "@/db";
@@ -59,6 +59,12 @@ function uniqueClientIp(): string {
 function callWorker(path: string, init?: RequestInit): Promise<Response> {
   return worker.fetch(new Request(`${ORIGIN}${path}`, init), env, createExecutionContext());
 }
+
+// The entrypoint imports the API app on the first authenticated /api request, and that cold import
+// can take longer than one test's timeout. Pay it here, as `mcp-server.test.ts` does for `@/mcp`.
+beforeAll(async () => {
+  await import("@/api");
+}, 60_000);
 
 beforeEach(() => {
   innerFetchMock.mockReset();

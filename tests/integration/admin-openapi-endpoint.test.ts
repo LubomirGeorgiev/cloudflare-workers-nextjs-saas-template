@@ -9,7 +9,7 @@
 
 import { env } from "cloudflare:workers";
 import { createExecutionContext } from "cloudflare:test";
-import { expect, test, vi } from "vitest";
+import { beforeAll, expect, test, vi } from "vitest";
 
 import { ROLES_ENUM, type UserRole } from "@/app/enums";
 import { adminApiDocument } from "@/api/admin/generated-document";
@@ -30,6 +30,12 @@ vi.mock("vinext/server/fetch-handler", () => ({
 }));
 
 const { default: worker } = await import("../../worker-entrypoint");
+
+// An unsafe method falls through to the admin app, which the entrypoint imports on first use. That
+// cold import can take longer than one test's timeout, so pay it here.
+beforeAll(async () => {
+  await import("@/api/admin");
+}, 60_000);
 
 const db = getDB();
 const ORIGIN = "https://example.com";

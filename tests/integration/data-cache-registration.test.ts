@@ -3,7 +3,7 @@
 import { env } from "cloudflare:workers";
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { createKvKeySpace } from "@vinext/cloudflare/cache/kv-key";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { VINEXT_CACHE_PREFIX } from "@/constants/kv-prefixes";
 import {
@@ -79,6 +79,12 @@ function queueBatch(body: ScheduledQueueMessage) {
 
 describe("the KV data cache outside a page request", () => {
   let fresh: Awaited<ReturnType<typeof loadFreshWorker>>;
+
+  // The queue handler imports the job graph on first use, and that cold import can take longer than
+  // one test's timeout. `vi.resetModules` keeps the transformed modules, so a later import is fast.
+  beforeAll(async () => {
+    await import("@/lib/scheduler/worker");
+  }, 60_000);
 
   beforeEach(async () => {
     fresh = await loadFreshWorker();
