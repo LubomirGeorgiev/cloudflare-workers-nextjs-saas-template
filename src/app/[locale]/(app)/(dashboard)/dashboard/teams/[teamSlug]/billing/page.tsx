@@ -6,11 +6,15 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getTeamSubscription, isTrialEligible } from "@/utils/team-subscription";
 import { requireTeamAccess } from "../team-page-guard";
 import { isBillingEnabled } from "@/flags";
-import { getTranslations } from "@/i18n/server";
+import { getLocale, getTranslations } from "@/i18n/server";
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
+import { getWithdrawalOffer, withdrawalSignerName } from "@/lib/billing/eu-withdrawal";
+import { formatLongDateTime } from "@/utils/format-date";
 import { PlanCards } from "./_components/plan-cards";
 import { AddonCards } from "./_components/addon-cards";
 import { CustomerPortalButton } from "./_components/customer-portal-button";
 import { CustomLimitsCard } from "./_components/custom-limits-card";
+import { WithdrawalCard } from "./_components/withdrawal-card";
 import { getTeamEntitlements } from "@/utils/entitlements";
 
 interface BillingPageProps {
@@ -66,6 +70,12 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
     );
   }
 
+  // One live Stripe read, only for a user who may withdraw. It needs `canManage`, so it follows the reads above.
+  const [withdrawalOffer, locale] = await Promise.all([
+    EU_WITHDRAWAL_ENABLED && canManage ? getWithdrawalOffer(team.id) : null,
+    getLocale(),
+  ]);
+
   return (
     <>
       {header}
@@ -79,6 +89,22 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
           <Alert>
             <AlertDescription>{t("readOnlyNotice")}</AlertDescription>
           </Alert>
+        )}
+
+        {withdrawalOffer && session.user.email && (
+          <WithdrawalCard
+            teamId={team.id}
+            name={withdrawalSignerName({
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+              email: session.user.email,
+            })}
+            email={session.user.email}
+            planName={withdrawalOffer.planName}
+            startedAtLabel={formatLongDateTime({ date: withdrawalOffer.startedAt, locale })}
+            windowEndsAtLabel={formatLongDateTime({ date: withdrawalOffer.windowEndsAt, locale })}
+            pending={withdrawalOffer.pending}
+          />
         )}
 
         {/* PlanCards reads the query Stripe appends when a payment method redirects back here. */}

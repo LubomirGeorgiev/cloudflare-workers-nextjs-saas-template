@@ -165,6 +165,10 @@ The race and orphan cleanups (`convergeOnWinningCheckout`, `discardLosingTrial`,
 `cancelOrphanIfPresent`) deliberately pass **no** flags: they cancel an `incomplete` subscription
 the customer never used, and invoicing one would bill them for something that never existed.
 `settleRecordedSubscription`, the user cancel action, and the staff path use `cancelParamsForStatus`.
+The EU withdrawal (`src/lib/billing/eu-withdrawal.ts`) is the one cancel of a running subscription
+that passes `WITHDRAWAL_CANCEL_PARAMS` (`invoice_now: false`): it refunds from the invoices it read
+before the cancel, so a final invoice would bill the consumer after the refund. See
+`docs/eu-withdrawal.md`.
 
 Consequences the ban form must state in plain words:
 

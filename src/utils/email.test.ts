@@ -10,11 +10,19 @@ import {
   TEAMS_DASHBOARD_PATH,
 } from "@/constants";
 import { EMAIL_LOGO } from "@/constants/logo";
+import {
+  CONSENT_TEXT_MAX_LENGTH,
+  REFUND_DEADLINE_DAYS,
+  WITHDRAWAL_PERIOD_DAYS,
+  WITHDRAWAL_REFUND_KINDS,
+} from "@/constants/eu-withdrawal";
 import { LOGO_VERSION } from "@/constants/logo-version";
-import { DEFAULT_LOCALE, LOCALES } from "@/i18n/config";
+import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, LOCALES } from "@/i18n/config";
 import { CATALOG_LOADERS, loadCatalog } from "@/i18n/message-catalogs";
 import { getTranslator } from "@/i18n/translator";
 import { escapeHtml } from "@/utils/escape-html";
+import { formatLongDateTime } from "@/utils/format-date";
+import { formatPrice } from "@/utils/format-price";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
 import {
   EMAIL_TEMPLATE_TYPES,
@@ -48,6 +56,19 @@ const LOGO_HEADER_PAYLOADS: Extract<EmailSendJobPayload, { locale: string }>[] =
     locale: DEFAULT_LOCALE,
     data: { username: "Ana", teamName: "Acme", teamSlug: "acme" },
   })),
+  {
+    to: "owner@example.com",
+    template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+    locale: DEFAULT_LOCALE,
+    data: {
+      username: "Ana",
+      teamName: "Acme",
+      teamSlug: "acme",
+      planName: "Pro",
+      startedAt: "2026-03-01T09:30:00.000Z",
+      withdrawal: { windowEndsAt: "2026-03-16T01:00:00.000Z", consent: null },
+    },
+  },
 ];
 
 const HOUR_SECONDS = 60 * 60;
@@ -220,6 +241,119 @@ describe("transactional email", () => {
     });
   });
 
+  describe.each(LOCALES)("EU order confirmation in %s", (locale) => {
+    const data = {
+      username: "Ana",
+      teamName: "A&B Team",
+      teamSlug: "acme",
+      planName: "Pro",
+      startedAt: "2026-03-01T09:30:00.000Z",
+    };
+    const windowEndsAt = "2026-03-16T01:00:00.000Z";
+
+    test("states the plan, the team, the start, and the last day to withdraw", async () => {
+      const renderedEmail = await renderTransactionalEmail({
+        to: "owner@example.com",
+        template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+        locale,
+        data: { ...data, withdrawal: { windowEndsAt, consent: null } },
+      });
+      const t = await getTranslator({ locale, namespace: "Emails" });
+
+      expect(renderedEmail.subject).toContain(data.planName);
+      expect(renderedEmail.subject).toContain(data.teamName);
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.startedAt, locale }));
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: windowEndsAt, locale }));
+      expect(renderedEmail.text).toContain(timeZoneName(locale));
+      expect(renderedEmail.text).toContain(t("OrderConfirmation.consentNotGiven"));
+      expect(renderedEmail.html).not.toContain("A&B Team");
+    });
+
+    test("quotes the consent in the words the buyer saw, with its time", async () => {
+      const consent = { at: "2026-03-01T09:29:00.000Z", text: "Start <now>" };
+      const renderedEmail = await renderTransactionalEmail({
+        to: "owner@example.com",
+        template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+        locale,
+        data: { ...data, withdrawal: { windowEndsAt, consent } },
+      });
+
+      expect(renderedEmail.text).toContain(consent.text);
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: consent.at, locale }));
+      expect(renderedEmail.html).toContain(escapeHtml(consent.text));
+    });
+
+    // A business or a customer outside the EU/EEA has no right of withdrawal.
+    test("without the withdrawal part it is a plain order confirmation", async () => {
+      const renderedEmail = await renderTransactionalEmail({
+        to: "owner@example.com",
+        template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
+        locale,
+        data: { ...data, withdrawal: null },
+      });
+      const t = await getTranslator({ locale, namespace: "Emails" });
+
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.startedAt, locale }));
+      expect(renderedEmail.text).not.toContain(formatLongDateTime({ date: windowEndsAt, locale }));
+      expect(renderedEmail.text).not.toContain(t("OrderConfirmation.consentNotGiven"));
+      expect(renderedEmail.html).not.toContain("<blockquote");
+    });
+  });
+
+  describe.each(LOCALES)("EU withdrawal receipt in %s", (locale) => {
+    const data = {
+      name: "Ana García",
+      teamName: "Acme",
+      planName: "Pro",
+      startedAt: "2026-03-01T09:30:00.000Z",
+      withdrawnAt: "2026-03-04T15:45:00.000Z",
+    };
+
+    test.each(WITHDRAWAL_REFUND_KINDS)("states the %s refund and every detail on its own line", async (kind) => {
+      const refund = { kind, amount: kind === "none" ? 0 : 1234, currency: "eur" };
+      const renderedEmail = await renderTransactionalEmail({
+        to: "ana@example.com",
+        template: EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT,
+        locale,
+        data: { ...data, refund },
+      });
+      const lines = renderedEmail.text?.split("\n") ?? [];
+      const detailLines = [data.name, "ana@example.com", formatLongDateTime({ date: data.startedAt, locale })]
+        .map((value) => lines.find((line) => line.includes(value)));
+
+      expect(new Set(detailLines).size).toBe(3);
+      expect(detailLines).not.toContain(undefined);
+      expect(renderedEmail.text).toContain(formatLongDateTime({ date: data.withdrawnAt, locale }));
+      expect(renderedEmail.text).toContain(timeZoneName(locale));
+      expect(renderedEmail.html).toContain("white-space:pre-line");
+      if (kind === "none") {
+        expect(renderedEmail.text).not.toContain(formatPrice({ amount: refund.amount, currency: refund.currency, locale }));
+      } else {
+        expect(renderedEmail.text).toContain(formatPrice({ amount: refund.amount, currency: refund.currency, locale }));
+        expect(renderedEmail.text).toContain(new Intl.NumberFormat(locale).format(REFUND_DEADLINE_DAYS));
+      }
+    });
+  });
+
+  // Only the receipt's one-line fields keep their breaks; a staff-written reason wraps as before.
+  test("keeps the default wrapping of a details block in other emails", async () => {
+    const renderedEmail = await renderTransactionalEmail({
+      to: "user@example.com",
+      template: EMAIL_TEMPLATE_TYPES.BAN_NOTICE,
+      data: { username: "Ana", externalReason: "Line one\nLine two", subscriptionCancelled: false },
+    });
+
+    expect(renderedEmail.html).toContain("<blockquote");
+    expect(renderedEmail.html).not.toContain("white-space:pre-line");
+  });
+
+  // Stripe caps a metadata value at 500 characters, and the consent text is stored there verbatim.
+  test.each(LOCALES)("keeps the %s immediate-start consent within the Stripe metadata limit", async (locale) => {
+    const t = await getTranslator({ locale, namespace: "Client.Dashboard.Billing" });
+
+    expect(t("immediateStartConsent", { days: WITHDRAWAL_PERIOD_DAYS }).length).toBeLessThanOrEqual(CONSENT_TEXT_MAX_LENGTH);
+  });
+
   test("renders the password reset email in Spanish when the payload locale is es", async () => {
     const renderedEmail = await renderTransactionalEmail({
       to: "user@example.com",
@@ -334,8 +468,15 @@ describe("transactional email", () => {
   });
 });
 
+/** The zone name the long date format prints, so the email names the zone of every time it states. */
+function timeZoneName(locale: string): string {
+  return new Intl.DateTimeFormat(locale, { timeZone: DEFAULT_TIME_ZONE, timeZoneName: "short" })
+    .formatToParts(new Date())
+    .find((part) => part.type === "timeZoneName")?.value ?? "";
+}
+
 /** The button URL each template must carry, built from the payload so a fork's copy does not matter. */
-function expectedCtaUrl(payload: (typeof LOGO_HEADER_PAYLOADS)[number]) {
+function expectedCtaUrl(payload: (typeof LOGO_HEADER_PAYLOADS)[number]): string {
   const { locale } = payload;
   switch (payload.template) {
     case EMAIL_TEMPLATE_TYPES.PASSWORD_RESET:
@@ -346,6 +487,9 @@ function expectedCtaUrl(payload: (typeof LOGO_HEADER_PAYLOADS)[number]) {
       return `${absoluteLocalizedUrl({ pathname: "/team-invite", locale })}?token=${payload.data.invitationToken}`;
     case EMAIL_TEMPLATE_TYPES.PAYMENT_PAST_DUE:
     case EMAIL_TEMPLATE_TYPES.PAYMENT_UNPAID:
+    case EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION:
       return absoluteLocalizedUrl({ pathname: `${TEAMS_DASHBOARD_PATH}/${payload.data.teamSlug}/billing`, locale });
+    case EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT:
+      throw new Error("The withdrawal receipt has no button");
   }
 }

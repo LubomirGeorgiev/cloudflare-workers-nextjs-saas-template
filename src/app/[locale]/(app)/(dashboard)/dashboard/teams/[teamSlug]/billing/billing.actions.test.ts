@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import Stripe from "stripe";
 
-import { TEAMS_DASHBOARD_PATH } from "@/constants";
+import { EU_WITHDRAWAL_ENABLED, TEAMS_DASHBOARD_PATH } from "@/constants";
 import { AVAILABLE_BILLING_INTERVALS, PAID_PLAN_IDS, TEAM_PLANS } from "@/constants/plans";
 import {
   cancelParamsForStatus,
@@ -44,6 +44,7 @@ const {
   getLocaleMock,
   headersMock,
   isBillingEnabledMock,
+  recordCheckoutConsentMock,
   retrieveSubscriptionMock,
   updateSubscriptionMock,
 } = vi.hoisted(() => ({
@@ -56,6 +57,7 @@ const {
   getLocaleMock: vi.fn(),
   headersMock: vi.fn(async () => new Headers()),
   isBillingEnabledMock: vi.fn(() => true),
+  recordCheckoutConsentMock: vi.fn(async () => undefined),
   retrieveSubscriptionMock: vi.fn(),
   updateSubscriptionMock: vi.fn(async (id: string) => ({ id, status: "active", cancel_at_period_end: true })),
 }));
@@ -104,6 +106,7 @@ vi.mock("@/utils/team-subscription", () => ({
   settleRecordedSubscription: vi.fn(),
 }));
 vi.mock("@/lib/teams/trial-subscription", () => ({ completeTrialSubscription: completeTrialSubscriptionMock }));
+vi.mock("@/lib/billing/checkout-consent", () => ({ recordCheckoutConsent: recordCheckoutConsentMock }));
 
 // The real module reads Worker bindings at import time; only the pass-through matters here.
 vi.mock("@/utils/with-rate-limit", () => ({
@@ -117,6 +120,7 @@ const {
   completeTrialAction,
   createBillingPortalSessionAction,
   createSubscriptionAction,
+  recordCheckoutConsentAction,
   resumePaymentAction,
   resumeSubscriptionAction,
   startTrialSetupAction,
@@ -414,5 +418,48 @@ describe("completeTrialAction", () => {
       code: "INTERNAL_SERVER_ERROR",
       messageKey: "Client.Dashboard.Billing.errorPaymentProvider",
     });
+  });
+});
+
+describe("recordCheckoutConsentAction", () => {
+  beforeEach(() => {
+    getLocaleMock.mockResolvedValue(ENABLED_LOCALES[0]);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    isBillingEnabledMock.mockReturnValue(true);
+  });
+
+  test.skipIf(!EU_WITHDRAWAL_ENABLED)("records the consent for the acting user in the request locale", async () => {
+    const result = await recordCheckoutConsentAction({ teamId: TEAM.id, immediateStart: true, setupIntentId: "seti_123" });
+
+    expect(result).toEqual({ success: true });
+    expect(recordCheckoutConsentMock).toHaveBeenCalledWith({
+      teamId: TEAM.id,
+      userId: "user-1",
+      immediateStart: true,
+      setupIntentId: "seti_123",
+      locale: ENABLED_LOCALES[0],
+    });
+  });
+
+  test.skipIf(!EU_WITHDRAWAL_ENABLED)("refuses when billing is disabled", async () => {
+    isBillingEnabledMock.mockReturnValue(false);
+
+    await expect(recordCheckoutConsentAction({ teamId: TEAM.id, immediateStart: true })).rejects.toThrow();
+    expect(recordCheckoutConsentMock).not.toHaveBeenCalled();
+  });
+
+  test.skipIf(!EU_WITHDRAWAL_ENABLED)("hides a provider failure behind a stable error", async () => {
+    recordCheckoutConsentMock.mockRejectedValueOnce(new Error("network"));
+
+    await expect(recordCheckoutConsentAction({ teamId: TEAM.id, immediateStart: false })).rejects.toBeInstanceOf(ActionError);
+  });
+
+  // With the flag off the form never calls it; a direct call writes nothing to Stripe.
+  test.skipIf(EU_WITHDRAWAL_ENABLED)("refuses while the EU withdrawal flow is disabled", async () => {
+    await expect(recordCheckoutConsentAction({ teamId: TEAM.id, immediateStart: true })).rejects.toBeInstanceOf(ActionError);
+    expect(recordCheckoutConsentMock).not.toHaveBeenCalled();
   });
 });

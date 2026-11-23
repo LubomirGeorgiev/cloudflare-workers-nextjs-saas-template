@@ -1,6 +1,7 @@
 import {
   SCHEDULED_JOB_TYPES,
   billingCancelSubscriptionJobPayloadSchema,
+  billingEuWithdrawalResumeJobPayloadSchema,
   cmsPublishEntryJobPayloadSchema,
   cmsRepurgeJobPayloadSchema,
   emailSendJobPayloadSchema,
@@ -8,6 +9,7 @@ import {
   type ScheduledQueueMessage,
 } from "@/lib/scheduler/jobs";
 import { cancelTeamSubscriptionAsAdmin } from "@/lib/admin/team-billing-admin";
+import { resumeWithdrawal } from "@/lib/billing/eu-withdrawal";
 import { getKnownCmsCollectionSlug, repurgeCmsCaches } from "@/lib/cms/cms-cache-invalidation";
 import { hasCmsCachePurgeFailed } from "@/lib/cms/cms-cache-purge-report";
 import { publishScheduledCmsEntryIfDue } from "@/lib/cms/cms-scheduled-publishing";
@@ -28,6 +30,17 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
         teamId: payload.teamId,
         subscriptionId: payload.subscriptionId,
         reason: BAN_CANCEL_RETRY_REASON,
+      });
+      return;
+    }
+    case SCHEDULED_JOB_TYPES.BILLING_EU_WITHDRAWAL_RESUME: {
+      const payload = v.parse(billingEuWithdrawalResumeJobPayloadSchema, message.payload);
+
+      await resumeWithdrawal({
+        teamId: payload.teamId,
+        subscriptionId: payload.subscriptionId,
+        scheduledFor: message.runAt,
+        now: new Date(),
       });
       return;
     }

@@ -822,6 +822,20 @@
         "addonUpdated": "Complementos actualizados.",
         "errorAddonUnavailable": "Este complemento no está disponible.",
         "errorAddonMaxQuantity": "Puedes tener como máximo {max} de este complemento.",
+        "withdrawalTitle": "Derecho de desistimiento",
+        "withdrawalDescription": "Puedes desistir de este contrato hasta el {date}.",
+        "withdrawButton": "Desistir del contrato aquí",
+        "withdrawalDialogTitle": "Desistir de tu contrato",
+        "withdrawalNameLabel": "Nombre",
+        "withdrawalEmailLabel": "Correo electrónico",
+        "withdrawalContractLabel": "Contrato",
+        "withdrawalContractValue": "{plan}, contratado el {date}",
+        "withdrawalReceiptNote": "Te enviaremos el justificante a {email}.",
+        "confirmWithdrawal": "Confirmar desistimiento",
+        "withdrawalDone": "Tu desistimiento está confirmado. Te hemos enviado un justificante por correo electrónico.",
+        "withdrawalPending": "Hemos registrado tu desistimiento y te hemos enviado un justificante. La cancelación y el reembolso se completarán en breve.",
+        "errorWithdrawalUnavailable": "El desistimiento no está disponible para esta suscripción.",
+        "immediateStartConsent": "Quiero que mi suscripción empiece ahora. Entiendo que, si desisto en un plazo de {days} días, pagaré los días que haya usado.",
         "CustomLimits": {
           "title": "Límites personalizados",
           "description": "Nuestro equipo definió estos límites para tu equipo. Se aplican en lugar de los valores de tu plan.",
@@ -1510,6 +1524,25 @@
       "intro": "No pudimos cobrar el pago de {teamName}, así que el equipo pasó al plan Gratis. El equipo y sus datos se conservan.",
       "buttonLabel": "Abrir facturación",
       "secondaryText": "Para volver a un plan de pago, elige un plan en la página de facturación."
+    },
+    "OrderConfirmation": {
+      "subject": "Tu suscripción {plan} para {teamName}",
+      "title": "Tu suscripción {plan} para {teamName}",
+      "intro": "Tu suscripción {plan} para {teamName} empezó el {startedAt}.",
+      "consentGiven": "El {consentAt} nos pediste empezar de inmediato y aceptaste: «{consentText}»",
+      "consentNotGiven": "No nos pediste empezar de inmediato. Si desistes, te devolvemos todo lo que hayas pagado.",
+      "secondaryText": "Si eres consumidor, puedes desistir de este contrato hasta el {windowEndsAt} con el botón de la página de facturación de tu equipo.",
+      "buttonLabel": "Abrir facturación"
+    },
+    "WithdrawalReceipt": {
+      "subject": "Hemos recibido tu desistimiento",
+      "title": "Hemos recibido tu desistimiento",
+      "intro": "Hemos recibido tu desistimiento del contrato {plan} de {teamName} el {withdrawnAt}.",
+      "detailName": "Nombre: {name}",
+      "detailEmail": "Correo electrónico: {email}",
+      "detailContract": "Contrato: {plan}, contratado el {startedAt}",
+      "detailWithdrawal": "Desistimiento: {withdrawnAt}",
+      "refund": "{kind, select, full {Cancelamos tu suscripción ahora. Te devolveremos {amount} a tu método de pago original en un plazo de {days} días.} prorated {Cancelamos tu suscripción ahora. Como nos pediste empezar de inmediato, te devolveremos {amount} (lo pagado menos los días que usaste) a tu método de pago original en un plazo de {days} días.} other {Cancelamos tu suscripción ahora. No has pagado nada, así que no hay nada que devolver.}}"
     }
   }
 }

@@ -33,6 +33,20 @@ export function formatDateTime(date: string | Date | number, locale: Locale): st
   });
 }
 
+// The long form that a legal notice states: a full month name, the time, and the time zone name.
+// Components, not `dateStyle`: Intl refuses `timeZoneName` next to a date or time style.
+export function formatLongDateTime({ date, locale }: { date: string | Date; locale: Locale }): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+    timeZone: DEFAULT_TIME_ZONE,
+  }).format(new Date(date));
+}
+
 export function formatRelativeDateTime(date: string | Date | number, locale: Locale): string {
   return formatDistanceToNow(new Date(date), {
     addSuffix: true,

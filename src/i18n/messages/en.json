@@ -822,6 +822,20 @@
         "addonUpdated": "Add-ons updated.",
         "errorAddonUnavailable": "This add-on is not available.",
         "errorAddonMaxQuantity": "You can have at most {max} of this add-on.",
+        "withdrawalTitle": "Right of withdrawal",
+        "withdrawalDescription": "You can withdraw from this contract until {date}.",
+        "withdrawButton": "Withdraw from contract here",
+        "withdrawalDialogTitle": "Withdraw from your contract",
+        "withdrawalNameLabel": "Name",
+        "withdrawalEmailLabel": "Email",
+        "withdrawalContractLabel": "Contract",
+        "withdrawalContractValue": "{plan}, started on {date}",
+        "withdrawalReceiptNote": "We will send the receipt to {email}.",
+        "confirmWithdrawal": "Confirm withdrawal",
+        "withdrawalDone": "Your withdrawal is confirmed. We sent you a receipt by email.",
+        "withdrawalPending": "We recorded your withdrawal and sent you a receipt. The cancellation and refund will follow shortly.",
+        "errorWithdrawalUnavailable": "Withdrawal is not available for this subscription.",
+        "immediateStartConsent": "Start my subscription now. I understand that if I withdraw within {days} days, I pay for the days I have used.",
         "CustomLimits": {
           "title": "Custom limits",
           "description": "Our team set these limits for your team. They apply in place of the values of your plan.",
@@ -1510,6 +1524,25 @@
       "intro": "We could not collect the payment for {teamName}, so the team moved to the Free plan. The team and its data stay.",
       "buttonLabel": "Open billing",
       "secondaryText": "To get a paid plan again, choose a plan on the billing page."
+    },
+    "OrderConfirmation": {
+      "subject": "Your {plan} subscription for {teamName}",
+      "title": "Your {plan} subscription for {teamName}",
+      "intro": "Your {plan} subscription for {teamName} started on {startedAt}.",
+      "consentGiven": "On {consentAt} you asked us to start at once and agreed: “{consentText}”",
+      "consentNotGiven": "You did not ask us to start at once. If you withdraw, you get back all you paid.",
+      "secondaryText": "If you are a consumer, you can withdraw from this contract until {windowEndsAt} with the button on your team billing page.",
+      "buttonLabel": "Open billing"
+    },
+    "WithdrawalReceipt": {
+      "subject": "We received your withdrawal",
+      "title": "We received your withdrawal",
+      "intro": "We received your withdrawal from your {plan} contract for {teamName} on {withdrawnAt}.",
+      "detailName": "Name: {name}",
+      "detailEmail": "Email: {email}",
+      "detailContract": "Contract: {plan}, started on {startedAt}",
+      "detailWithdrawal": "Withdrawal: {withdrawnAt}",
+      "refund": "{kind, select, full {We are cancelling your subscription now. We will refund {amount} to your original payment method within {days} days.} prorated {We are cancelling your subscription now. You asked us to start at once, so we will refund {amount}, the amount paid minus the days you used, to your original payment method within {days} days.} other {We are cancelling your subscription now. You have not paid anything, so there is nothing to refund.}}"
     }
   }
 }

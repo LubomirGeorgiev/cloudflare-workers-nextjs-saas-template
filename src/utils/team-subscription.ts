@@ -12,6 +12,7 @@ import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { EMAIL_TEMPLATE_TYPES, type PaymentStatusEmailTemplate } from "@/lib/scheduler/jobs";
 import { sendPaymentStatusEmail } from "@/utils/email";
 import { listTeamOwnerRecipients } from "@/lib/teams/team-owners";
+import { notifyOrderConfirmation } from "@/lib/billing/order-confirmation";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
 import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
@@ -472,6 +473,7 @@ export async function reconcileTeamFromSubscription({
     : await writePaidSnapshot({ team, subscription, cancelAtPeriodEnd });
   if (previous) {
     await notifyPaymentStatusChange({ team, subscription, previous });
+    await notifyOrderConfirmation({ team, subscription, previous });
   }
 
   await enqueueTeamSessionsRefresh(team.id);

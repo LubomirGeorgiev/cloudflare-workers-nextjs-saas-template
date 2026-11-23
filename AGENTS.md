@@ -11,6 +11,7 @@ This file holds repo-specific rules only. `README.md` has setup and deployment. 
 | [docs/database-and-migrations.md](docs/database-and-migrations.md) | Changing `src/db/schema.ts`, generating a migration, or merging upstream ones |
 | [docs/i18n-and-locale-routing.md](docs/i18n-and-locale-routing.md) | Touching `src/i18n/`, `src/proxy.ts`, the root layout, or a route outside `app/[locale]/` |
 | [docs/account-suspension-and-blocklist.md](docs/account-suspension-and-blocklist.md) | Touching the ban path, the registration blocklist, or a staff Stripe cancellation |
+| [docs/eu-withdrawal.md](docs/eu-withdrawal.md) | Touching the EU withdrawal flow, its checkout consent, its emails, or `src/lib/billing/eu-withdrawal*.ts` |
 | [docs/worker-hot-path-and-bundle-size.md](docs/worker-hot-path-and-bundle-size.md) | Adding imports to the Worker entrypoint or another hot path |
 | [docs/tracing.md](docs/tracing.md) | Adding a span, a span attribute, or an outcome value, or changing `src/utils/trace.ts` |
 | [docs/edge-caching.md](docs/edge-caching.md) | Adding a `revalidate` or `dynamic` export to a page, or changing any `Cache-Control`, `Vary`, or `Cache-Tag` header the Worker sets |
