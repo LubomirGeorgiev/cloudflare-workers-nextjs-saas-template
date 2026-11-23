@@ -135,11 +135,6 @@ export const RATE_LIMITS = {
     windowInSeconds: Math.floor(ms("1 minute") / 1000),
     deferWrite: true,
   },
-  CMS_IMAGES_API: {
-    identifier: "cms-images-api",
-    limit: 300,
-    windowInSeconds: Math.floor(ms("1 minute") / 1000),
-  },
   DOCS_SEARCH: {
     identifier: "docs-search",
     limit: 20,

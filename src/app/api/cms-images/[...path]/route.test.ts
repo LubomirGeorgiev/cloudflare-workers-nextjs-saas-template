@@ -10,10 +10,6 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/cloudflare-context", () => ({
   getCloudflareContext: async () => ({ env: { R2_BUCKET: { get: r2GetMock } } }),
 }));
-vi.mock("@/utils/with-rate-limit", () => ({
-  RATE_LIMITS: { CMS_IMAGES_API: {} },
-  withRateLimit: (action: () => Promise<unknown>) => action(),
-}));
 
 const { GET } = await import("./route");
 
