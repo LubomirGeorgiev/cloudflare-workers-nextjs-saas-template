@@ -20,6 +20,7 @@ import { normalizeEmail } from "@/lib/validation";
 import { isEmailBlocked } from "@/lib/auth/blocked-email-guard";
 import { createRandomId } from "@/utils/random-token";
 import {
+  buildInvitationDelete,
   buildInvitationInsert,
   didInsert,
   isInvitationPending,
@@ -146,11 +147,6 @@ export async function inviteUserToTeam({
       await sendInvitationEmail();
       return INVITE_SUCCESS;
     }
-
-    // Expired (acceptedAt IS NULL, past expiry): it no longer consumes a seat, so delete it
-    // and re-invite through the atomic capacity-checked insert below.
-    await db.delete(teamInvitationTable)
-      .where(eq(teamInvitationTable.id, existingInvitation.id));
   }
 
   // Atomic seat-cap enforcement: the conditional insert recomputes seat usage (members +
@@ -160,24 +156,29 @@ export async function inviteUserToTeam({
   const nowSec = toUnixSeconds(now);
   const expSec = toUnixSeconds(expiresAt);
   const d1 = db.$client;
+  const insertInvitation = buildInvitationInsert(
+    d1,
+    {
+      id: invitationId,
+      teamId,
+      email,
+      roleId: invitationRole.roleId,
+      isSystemRole: invitationRole.isSystemRole,
+      tokenHash,
+      invitedBy: session.userId,
+      expiresAtSec: expSec,
+      nowSec,
+    },
+    withinSeatCap({ teamId, seats: limits.seats, nowSec }),
+  );
 
-  let insertResult: { meta?: { changes?: number } };
+  let insertResult: { meta?: { changes?: number } } | undefined;
   try {
-    insertResult = await buildInvitationInsert(
-      d1,
-      {
-        id: invitationId,
-        teamId,
-        email,
-        roleId: invitationRole.roleId,
-        isSystemRole: invitationRole.isSystemRole,
-        tokenHash,
-        invitedBy: session.userId,
-        expiresAtSec: expSec,
-        nowSec,
-      },
-      withinSeatCap({ teamId, seats: limits.seats, nowSec }),
-    ).run();
+    // An expired row holds no seat but still blocks the unique (team, email) index. Delete it in
+    // the same batch: an insert that throws then also rolls back the delete.
+    insertResult = existingInvitation
+      ? (await d1.batch([buildInvitationDelete(d1, existingInvitation.id), insertInvitation]))[1]
+      : await insertInvitation.run();
   } catch (error) {
     // A concurrent invite created the (teamId, email) row between our lookup and insert. The
     // recipient already has a pending invitation, but it carries the *other* request's token, so

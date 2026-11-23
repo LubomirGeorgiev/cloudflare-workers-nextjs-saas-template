@@ -340,6 +340,11 @@ export function buildInvitationInsert(
     );
 }
 
+// Deletes one invitation row by id. Raw, so it can share a native D1 batch with the insert above.
+export function buildInvitationDelete(d1: D1Client, invitationId: string): D1PreparedStatement {
+  return d1.prepare(`DELETE FROM team_invitation WHERE "id" = ?`).bind(invitationId);
+}
+
 // Whether a native D1 statement/batch result inserted a row. A conditional INSERT ... SELECT that
 // fails its capacity guard commits successfully with zero changes, so callers distinguish
 // "blocked by capacity" from "written" via this rather than via an exception.

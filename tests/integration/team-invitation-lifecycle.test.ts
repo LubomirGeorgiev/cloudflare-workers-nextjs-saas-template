@@ -48,7 +48,7 @@ import { getDB } from "@/db";
 import { eq } from "drizzle-orm";
 import { ENABLED_LOCALES } from "@/i18n/config";
 import { getUserLocale } from "@/i18n/locale";
-import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
+import { teamInvitationTable, teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import type Stripe from "stripe";
 import { TEAM_PLANS, type TeamPlanId } from "@/constants/plans";
 import { STRIPE_SUBSCRIPTION_TRANSITION_POLICY } from "@/constants/subscription-lifecycle";
@@ -295,6 +295,24 @@ test("a second invite while one is pending resends without creating a duplicate 
   expect(afterSecond[0].id).toBe(invitationId);
   const stillPending = afterSecond.filter((row) => row.acceptedAt === null);
   expect(stillPending).toHaveLength(1);
+});
+
+test("an invite after the pending one expired replaces it with one new pending row", async () => {
+  const f = await seedFixture();
+
+  await inviteAsOwner(f);
+  const [expired] = await invitationsFor(f.teamId, f.inviteeEmail);
+  await db.update(teamInvitationTable)
+    .set({ expiresAt: new Date(Date.now() - 60_000) })
+    .where(eq(teamInvitationTable.id, expired.id));
+
+  await inviteAsOwner(f);
+
+  const rows = await invitationsFor(f.teamId, f.inviteeEmail);
+  expect(rows).toHaveLength(1);
+  expect(rows[0].id).not.toBe(expired.id);
+  expect(rows[0].expiresAt.getTime()).toBeGreaterThan(Date.now());
+  expect(sendInvitationEmailMock).toHaveBeenCalledTimes(2);
 });
 
 test("only the team owner can revoke a pending invitation and invalidate its token", async () => {
