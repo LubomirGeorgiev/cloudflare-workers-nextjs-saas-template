@@ -79,6 +79,10 @@ The database runs its primary in one region. Read replication puts read-only cop
 regions. A replica answers a read only through the D1 Sessions API, so `getDB` in `src/db/index.ts`
 wraps the binding in `D1_DB.withSession(...)`. React `cache` gives one session for each request.
 
+Replicas serve reads only when read replication is on for the D1 database. It is off by default.
+With it off, the Sessions API still works, and both clients below read the primary. To turn it on,
+open the database in the Cloudflare dashboard and select **Settings > Enable Read Replication**.
+
 Two clients come from that file:
 
 - `getDB()` starts the session with `first-primary`. The first query of the request goes to the

@@ -6,9 +6,9 @@ import { env as workerEnv } from "cloudflare:workers";
 
 import { relations } from "./schema";
 
-// Every query runs inside a D1 session, so read replication can serve the reads. `first-primary`
-// sends the first query of the session to the primary; the rest may use a replica that is already
-// caught up. This keeps read-your-writes correct across requests (form post -> redirect -> read).
+// Every query runs inside a D1 session, so replicas can serve reads once read replication is on for
+// the database (it is off by default; then both clients read the primary). `first-primary` sends
+// the first query to the primary, so read-your-writes holds across requests (post -> redirect).
 const PRIMARY_SESSION_CONSTRAINT = "first-primary" satisfies D1SessionConstraint;
 
 // The first query may go to any replica, which can be a moment behind the primary. Only for reads
