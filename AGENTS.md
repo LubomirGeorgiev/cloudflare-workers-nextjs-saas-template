@@ -107,7 +107,7 @@ One declaration becomes a REST operation at `/api/v1`, an entry in `/docs/api`, 
 ## Database and Migrations
 
 - D1 has no transactions. For writes that must land together, use one D1 batch: Drizzle `db.batch([...])`, or `db.$client.batch([...])` for raw statements.
-- Do not pass `id` on insert or update. Do not write SQL migrations by hand; run `pnpm db:generate [MIGRATION_NAME]`.
+- Do not pass `id` on insert or update.
 - Add one new migration per commit unless a human permits more. Otherwise delete the incremental files, regenerate one migration, and reset the local dev DB.
 - No database-level defaults (`.default(...)`, SQL `DEFAULT`), also on new tables; `$defaultFn()` is fine. New columns are nullable and unconstrained. Prefer `index()`/`uniqueIndex()` over `.unique()`. Treat `DROP COLUMN` and generated-column changes as destructive.
 - **The tripwire:** after `pnpm db:generate`, read the full SQL and snapshot diff. `CREATE TABLE __new_*`, `INSERT INTO __new_* ... SELECT`, `DROP TABLE`, `PRAGMA foreign_keys=OFF`, or a `DROP COLUMN`/`ADD COLUMN` pair means a table rebuild. Stop, do not apply or deploy, and fix the drift. Never hand-edit those statements out or force them through with `PRAGMA legacy_alter_table` or `defer_foreign_keys`.
