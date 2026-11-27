@@ -233,10 +233,10 @@ Happy path:
 
 1. Create a Stripe account and copy `sk_test_...` / `pk_test_...` into `.env` (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`).
 2. Run `pnpm stripe:setup` — this idempotently creates the products + recurring prices for the paid plans and, by default, upserts the resolved `STRIPE_PRICE_PRO` / `STRIPE_PRICE_ENTERPRISE` values into `.env` (replacing existing keys in place, never duplicating). When yearly billing is enabled (see below) it also creates the yearly prices and writes `STRIPE_PRICE_PRO_YEAR` / `STRIPE_PRICE_ENTERPRISE_YEAR`. It refuses to run against a live key unless you pass `--live`. Use `--dry-run` to preview without changing anything, or `--no-write` to create the Stripe resources but only print the values instead of touching `.env`.
-3. Local webhooks: run the command below, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`. The command forwards all events, and the webhook ignores the events it does not handle. For `pnpm preview`, use port 8787.
+3. Local webhooks: run the command below, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`. The command uses `STRIPE_SECRET_KEY` from `.env`, so you do not need `stripe login`. It forwards all events, and the webhook ignores the events it does not handle. For `pnpm preview`, run `STRIPE_LISTEN_PORT=8787 pnpm stripe:listen`.
 
    ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook --all-snapshot
+   pnpm stripe:listen
    ```
 4. Production: `pnpm stripe:setup --with-webhook https://<domain>/api/stripe/webhook`, then set the secrets via `wrangler secret put STRIPE_SECRET_KEY` and `wrangler secret put STRIPE_WEBHOOK_SECRET`.
 5. Manual Dashboard alternative: create the Products + recurring Prices yourself, add a webhook endpoint for the subscription/invoice events to `/api/stripe/webhook`, and copy the price IDs + signing secret into your env.
