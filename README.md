@@ -233,7 +233,7 @@ Happy path:
 
 1. Create a Stripe account and copy `sk_test_...` / `pk_test_...` into `.env` (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`).
 2. Run `pnpm stripe:setup` — this idempotently creates the products + recurring prices for the paid plans and, by default, upserts the resolved `STRIPE_PRICE_PRO` / `STRIPE_PRICE_ENTERPRISE` values into `.env` (replacing existing keys in place, never duplicating). When yearly billing is enabled (see below) it also creates the yearly prices and writes `STRIPE_PRICE_PRO_YEAR` / `STRIPE_PRICE_ENTERPRISE_YEAR`. It refuses to run against a live key unless you pass `--live`. Use `--dry-run` to preview without changing anything, or `--no-write` to create the Stripe resources but only print the values instead of touching `.env`.
-3. Local webhooks: run the command below, then copy the printed `whsec_...` into `.env` as `STRIPE_WEBHOOK_SECRET`. The command uses `STRIPE_SECRET_KEY` from `.env`, so you do not need `stripe login`. It forwards all events, and the webhook ignores the events it does not handle. For `pnpm preview`, run `STRIPE_LISTEN_PORT=8787 pnpm stripe:listen`.
+3. Local webhooks: run the command below. It uses `STRIPE_SECRET_KEY` from `.env`, so you do not need `stripe login`. Before it listens, it writes the CLI's signing secret to `.env` as `STRIPE_WEBHOOK_SECRET` when the value is different. After it writes a new value, restart the dev server. It forwards all events, and the webhook ignores the events it does not handle. For `pnpm preview`, run `STRIPE_LISTEN_PORT=8787 pnpm stripe:listen`.
 
    ```bash
    pnpm stripe:listen

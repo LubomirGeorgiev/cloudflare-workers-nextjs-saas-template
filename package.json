@@ -32,7 +32,7 @@
     "reset": "rm -rf .wrangler && pnpm db:migrate:dev && pnpm db:seed",
     "db:seed": "wrangler d1 execute $(node scripts/get-db-name.mjs) --local --file=./src/db/seed.sql",
     "stripe:setup": "node --env-file-if-exists=.env scripts/stripe-setup.mjs",
-    "stripe:listen": "stripe listen --api-key \"$(grep '^STRIPE_SECRET_KEY=' .env | cut -d= -f2- | tr -d '\\\"')\" --forward-to localhost:${STRIPE_LISTEN_PORT:-3000}/api/stripe/webhook --all-snapshot",
+    "stripe:listen": "node --env-file-if-exists=.env scripts/stripe-listen.mjs",
     "postinstall": "pnpm run cf-typegen"
   },
   "engines": {
