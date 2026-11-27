@@ -132,11 +132,14 @@ export const googleSSOCallbackAction = actionClient
 
           // The link can give an author their first avatar, which public CMS pages render. The
           // sign-in does not wait for the purge chain.
-          runInBackground(invalidateCmsAuthorAfterUserWrite({
-            userId: updatedUser.id,
-            before: existingUserWithEmail,
-            after: updatedUser,
-          }));
+          runInBackground({
+            operation: "cms.invalidate_author_after_google_link",
+            promise: invalidateCmsAuthorAfterUserWrite({
+              userId: updatedUser.id,
+              before: existingUserWithEmail,
+              after: updatedUser,
+            }),
+          });
 
           const { preferredLocale } = await createSessionUnlessBanned({
             userId: updatedUser.id,

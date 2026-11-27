@@ -26,9 +26,11 @@ vi.mock("@/lib/oauth/oauth-apps", () => ({
   upsertOAuthApp: mocks.upsertOAuthApp,
 }));
 
-const { ensureOAuthAppRecord, persistApprovedOAuthApp, resolveConsentRequest } = await import(
+const { ensureOAuthAppRecord, groupDroppedScopes, persistApprovedOAuthApp, resolveConsentRequest } = await import(
   "@/lib/oauth/consent"
 );
+const { ADMIN_SCOPE_NAMES } = await import("@/lib/api/admin-scopes");
+const { API_SCOPE_NAMES, DCR_ALLOWED_SCOPES } = await import("@/lib/api/scopes");
 
 const REDIRECT_URI = "https://client.example/callback";
 
@@ -139,6 +141,50 @@ describe("offering inline verification", () => {
 
     expect(consent.adminScopesToVerify).toBeNull();
     expect(consent.grantedScopes).toContain("admin:read");
+  });
+});
+
+// The consent copy offers an API key only for scopes that `createApiKey` accepts, and names the
+// real reason for each dropped scope.
+describe("grouping dropped scopes by reason", () => {
+  const publicScope = API_SCOPE_NAMES.find((scope) => !DCR_ALLOWED_SCOPES.includes(scope));
+  const adminScope = ADMIN_SCOPE_NAMES[0];
+  const unknownScope = "no-such:scope";
+
+  test("puts internal scopes for a non-admin in the admin-only group", () => {
+    expect(groupDroppedScopes({ droppedScopes: [adminScope], isAdmin: false })).toEqual({
+      unverifiedPublic: [],
+      unverifiedAdmin: [],
+      adminOnly: [adminScope],
+      unknown: [],
+    });
+  });
+
+  test("puts internal scopes for an admin in the needs-verification group", () => {
+    expect(groupDroppedScopes({ droppedScopes: [adminScope], isAdmin: true }).unverifiedAdmin).toEqual([adminScope]);
+  });
+
+  test.skipIf(!publicScope)("keeps public scopes apart from internal and unknown ones", () => {
+    const groups = groupDroppedScopes({
+      droppedScopes: [publicScope ?? "", adminScope, unknownScope],
+      isAdmin: false,
+    });
+
+    expect(groups.unverifiedPublic).toEqual([publicScope]);
+    expect(groups.adminOnly).toEqual([adminScope]);
+    expect(groups.unknown).toEqual([unknownScope]);
+  });
+
+  test("gives a verified app with a non-admin user no public group for internal scopes", async () => {
+    const clientId = "dcr-client-id";
+    mocks.parseAuthRequest.mockResolvedValue({ ...buildAuthRequest(clientId), scope: [adminScope] });
+    mocks.lookupClient.mockResolvedValue(buildClientInfo(clientId));
+    mocks.getOAuthAppByClientId.mockResolvedValue({ verifiedAt: new Date() });
+
+    const consent = await resolveConsentRequest({ authQuery: "q" });
+
+    expect(consent.droppedScopeGroups.adminOnly).toEqual([adminScope]);
+    expect(consent.droppedScopeGroups.unverifiedPublic).toEqual([]);
   });
 });
 

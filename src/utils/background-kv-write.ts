@@ -23,7 +23,7 @@ const SOFT_WRITE_OUTCOME = {
  * but it logs one line and sets the span outcome. `operation` must be a fixed name, never user data.
  */
 export function writeKvInBackground(args: SoftKvWrite): void {
-  runInBackground(writeKvOrLog(args));
+  runInBackground({ operation: args.operation, promise: writeKvOrLog(args) });
 }
 
 /** Like `writeKvInBackground`, but the caller waits until the write lands or fails. */

@@ -74,7 +74,7 @@ const WARMABLE_COLLECTION = collectionSlugs.find(
 const SLUG = "launch-notes";
 
 async function flushWarms(): Promise<void> {
-  for (const [promise] of runInBackgroundMock.mock.calls) {
+  for (const [{ promise }] of runInBackgroundMock.mock.calls) {
     await promise;
   }
 }

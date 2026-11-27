@@ -104,29 +104,54 @@ export async function scheduleJob<T extends ScheduledJobType>({
     }
 
     await persistScheduledJob({ type, dedupeKey, payload, runAt });
-    // The saved row is the job now, so a failed send or delete only leaves it for the cron.
-    // A send that lands before a failed delete dispatches twice: the job handler must be idempotent.
-    let step: "send" | "delete" = "send";
-    try {
-      await queue.send(createScheduledQueueMessage({ type, payload, runAt }), { delaySeconds });
-      step = "delete";
-      await deleteScheduledJobs({ type, dedupeKey });
-      return "queued";
-    } catch (error) {
-      console.error(JSON.stringify({
-        event: "scheduled_job_durable_step_failed",
-        provider: step === "send" ? "cloudflare_queues" : "d1",
-        operation: step,
-        jobType: type,
-        errorName: error instanceof Error ? error.name : "unknown",
-      }));
-      return "persisted";
-    }
+
+    return sendPersistedJob({ queue, type, dedupeKey, payload, runAt });
   }
 
   await persistScheduledJob({ type, dedupeKey, payload, runAt });
 
   return "persisted";
+}
+
+/**
+ * Sends a saved job row to the queue now, then removes the row. Never rejects: a failed send or
+ * delete resolves `"persisted"`, and `dispatchScheduledJobsToQueue` sends the row on the next cron.
+ */
+export async function sendPersistedJob<T extends ScheduledJobType>({
+  queue,
+  type,
+  dedupeKey,
+  payload,
+  runAt,
+}: {
+  queue: SchedulerQueue;
+  type: T;
+  dedupeKey: string;
+  payload: ScheduledJobPayload<T>;
+  runAt: Date;
+}): Promise<"queued" | "persisted"> {
+  const delaySeconds = getDelaySeconds(runAt);
+  if (delaySeconds > QUEUE_DELAY_LIMIT_SECONDS) {
+    return "persisted";
+  }
+
+  // A send that lands before a failed delete dispatches twice: the job handler must be idempotent.
+  let step: "send" | "delete" = "send";
+  try {
+    await queue.send(createScheduledQueueMessage({ type, payload, runAt, dedupeKey }), { delaySeconds });
+    step = "delete";
+    await deleteScheduledJobs({ type, dedupeKey });
+    return "queued";
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: "scheduled_job_durable_step_failed",
+      provider: step === "send" ? "cloudflare_queues" : "d1",
+      operation: step,
+      jobType: type,
+      errorName: error instanceof Error ? error.name : "unknown",
+    }));
+    return "persisted";
+  }
 }
 
 export async function dispatchScheduledJobsToQueue({
@@ -151,6 +176,7 @@ export async function dispatchScheduledJobsToQueue({
         type: job.type,
         payload: job.payload,
         runAt: job.runAt,
+        dedupeKey: job.dedupeKey,
       }),
       { delaySeconds },
     );

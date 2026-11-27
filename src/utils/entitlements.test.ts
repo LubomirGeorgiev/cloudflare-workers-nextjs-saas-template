@@ -13,7 +13,7 @@ vi.mock("@/constants/addons", () => ({
   },
 }));
 
-import { getTeamEntitlements, selectLimitOverridesReset } from "./entitlements";
+import { getTeamEntitlements, isAddonIncreaseBlocked, selectLimitOverridesReset } from "./entitlements";
 import { TEAM_PLANS, PAID_PLAN_IDS, DEFAULT_PLAN_ID, TEAM_PLAN_LIMIT_KEYS, type TeamPlanLimits } from "@/constants/plans";
 import { TEAM_LIMIT_OVERRIDE_BOUNDS, type TeamLimitOverrides } from "@/constants/limit-overrides";
 import { STRIPE_SUBSCRIPTION_TRANSITION_POLICY } from "@/constants/subscription-lifecycle";
@@ -357,3 +357,32 @@ describe("the reset of the limit overrides when paid access ends", () => {
 function stored(limits: TeamLimitOverrides, { hideFromCustomer = false }: { hideFromCustomer?: boolean } = {}): string | null {
   return toStoredLimitOverrides({ limits, hideFromCustomer });
 }
+
+describe("isAddonIncreaseBlocked", () => {
+  test("blocks an add-on when an override sets every limit it grants", () => {
+    expect(isAddonIncreaseBlocked({ addonId: "extra-seats", appliedLimitOverrides: { seats: 3 } })).toBe(true);
+  });
+
+  test("allows an add-on whose limit has no override", () => {
+    expect(isAddonIncreaseBlocked({ addonId: "extra-seats", appliedLimitOverrides: { projects: 3 } })).toBe(false);
+    expect(isAddonIncreaseBlocked({ addonId: "extra-seats", appliedLimitOverrides: {} })).toBe(false);
+  });
+
+  // An add-on with no limit grant sells something else, which an override cannot replace.
+  test("allows an add-on without grants and an unknown add-on", () => {
+    expect(isAddonIncreaseBlocked({ addonId: "no-grants", appliedLimitOverrides: { seats: 3, projects: 3 } })).toBe(false);
+    expect(isAddonIncreaseBlocked({ addonId: "gone", appliedLimitOverrides: { seats: 3 } })).toBe(false);
+  });
+
+  // The rule reads the applied overrides, so a hidden override blocks as well.
+  test("a hidden override blocks, though the customer view names no override", () => {
+    const entitlements = getTeamEntitlements({
+      planId: somePaidPlanId,
+      subscriptionStatus: "active",
+      limitOverrides: toStoredLimitOverrides({ limits: { seats: TEAM_PLANS[somePaidPlanId].limits.seats }, hideFromCustomer: true }),
+    });
+
+    expect(entitlements.customerLimitOverrides).toEqual({});
+    expect(isAddonIncreaseBlocked({ addonId: "extra-seats", appliedLimitOverrides: entitlements.appliedLimitOverrides })).toBe(true);
+  });
+});

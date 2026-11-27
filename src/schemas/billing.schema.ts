@@ -69,6 +69,12 @@ export const teamBillingSchema = v.object({
   teamId: teamIdField(),
 });
 
+// The subscription the withdrawal dialog showed. The action refuses it when another one replaced it.
+export const withdrawFromContractSchema = v.object({
+  teamId: teamIdField(),
+  subscriptionId: idField(),
+});
+
 // Sets the ABSOLUTE quantity of one add-on on the team's subscription (0 removes it).
 // addonId is a plain string here — the catalog is data downstream projects edit, so
 // membership (and the per-addon maxQuantity cap) is validated in the action.

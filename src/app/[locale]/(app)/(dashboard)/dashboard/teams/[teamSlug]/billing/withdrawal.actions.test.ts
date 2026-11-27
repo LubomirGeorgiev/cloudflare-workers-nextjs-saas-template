@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { DEFAULT_LOCALE } from "@/i18n/config";
+import { WITHDRAWAL_STALE_MESSAGE_KEY } from "@/constants/eu-withdrawal";
 import { ActionError } from "@/lib/action-error";
 
 const TEAM = { id: "team-1", name: "Acme", subscriptionPlanId: null, stripeSubscriptionId: "sub_123" };
 const SESSION_USER = { id: "user-1", email: "ana@example.com", firstName: "Ana", lastName: "Ruiz" };
+const INPUT = { teamId: TEAM.id, subscriptionId: TEAM.stripeSubscriptionId };
 
 const { findTeamMock, isBillingEnabledMock, requireTeamPermissionMock, withdrawFromContractMock } = vi.hoisted(() => ({
   findTeamMock: vi.fn(),
@@ -58,7 +60,7 @@ describe("withdrawFromContractAction", () => {
   });
 
   test.skipIf(!EU_WITHDRAWAL_ENABLED)("withdraws the team's subscription as the signed-in user", async () => {
-    await expect(withdrawFromContractAction({ teamId: TEAM.id })).resolves.toEqual({ completed: true });
+    await expect(withdrawFromContractAction(INPUT)).resolves.toEqual({ completed: true });
 
     expect(requireTeamPermissionMock).toHaveBeenCalledWith(TEAM.id, expect.any(String));
     expect(withdrawFromContractMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -76,14 +78,25 @@ describe("withdrawFromContractAction", () => {
   test.skipIf(!EU_WITHDRAWAL_ENABLED)("refuses a team with no subscription", async () => {
     findTeamMock.mockResolvedValue({ ...TEAM, stripeSubscriptionId: null });
 
-    await expect(withdrawFromContractAction({ teamId: TEAM.id })).rejects.toBeInstanceOf(ActionError);
+    await expect(withdrawFromContractAction(INPUT)).rejects.toBeInstanceOf(ActionError);
+    expect(withdrawFromContractMock).not.toHaveBeenCalled();
+  });
+
+  // The owner withdrew in another tab and subscribed again: the old dialog must not end the new contract.
+  test.skipIf(!EU_WITHDRAWAL_ENABLED)("refuses a dialog that showed a subscription that another one replaced", async () => {
+    findTeamMock.mockResolvedValue({ ...TEAM, stripeSubscriptionId: "sub_new" });
+
+    await expect(withdrawFromContractAction(INPUT)).rejects.toMatchObject({
+      code: "CONFLICT",
+      messageKey: WITHDRAWAL_STALE_MESSAGE_KEY,
+    });
     expect(withdrawFromContractMock).not.toHaveBeenCalled();
   });
 
   test.skipIf(!EU_WITHDRAWAL_ENABLED)("refuses while billing is off", async () => {
     isBillingEnabledMock.mockReturnValue(false);
 
-    await expect(withdrawFromContractAction({ teamId: TEAM.id })).rejects.toBeInstanceOf(ActionError);
+    await expect(withdrawFromContractAction(INPUT)).rejects.toBeInstanceOf(ActionError);
     expect(withdrawFromContractMock).not.toHaveBeenCalled();
   });
 
@@ -91,11 +104,11 @@ describe("withdrawFromContractAction", () => {
     withdrawFromContractMock.mockRejectedValueOnce(new Error("Stripe is unavailable"));
     vi.spyOn(console, "error").mockImplementationOnce(() => undefined);
 
-    await expect(withdrawFromContractAction({ teamId: TEAM.id })).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+    await expect(withdrawFromContractAction(INPUT)).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
   });
 
   test.skipIf(EU_WITHDRAWAL_ENABLED)("refuses before any check while the feature is off", async () => {
-    await expect(withdrawFromContractAction({ teamId: TEAM.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(withdrawFromContractAction(INPUT)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
     expect(requireTeamPermissionMock).not.toHaveBeenCalled();
     expect(withdrawFromContractMock).not.toHaveBeenCalled();

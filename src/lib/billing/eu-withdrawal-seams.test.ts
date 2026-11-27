@@ -8,7 +8,8 @@ vi.mock("server-only", () => ({}));
 const { getWithdrawalExtraCharges, isConsumerCustomer } = await import("./eu-withdrawal-seams");
 
 describe("isConsumerCustomer", () => {
-  test.each(["BG", "DE", "NO"])("a customer in %s without a tax ID is an EU consumer", (country) => {
+  // GP, GF, MQ, RE, YT, and MF are French outermost regions: EU territory with their own ISO codes.
+  test.each(["BG", "DE", "NO", "GP", "GF", "MQ", "RE", "YT", "MF"])("a customer in %s without a tax ID is an EU consumer", (country) => {
     expect(isConsumerCustomer({ customer: customer({ country }), paymentMethod: null })).toBe(true);
   });
 
@@ -42,8 +43,8 @@ describe("isConsumerCustomer", () => {
     expect(isConsumerCustomer({ customer: customer({}), paymentMethod: paymentMethod({}) })).toBe(true);
   });
 
-  test("the list holds the 27 EU members and the 3 EEA states", () => {
-    expect(new Set(EU_EEA_COUNTRY_CODES).size).toBe(30);
+  test("the list holds the 27 EU members, the 3 EEA states, and the 6 French outermost regions", () => {
+    expect(new Set(EU_EEA_COUNTRY_CODES).size).toBe(36);
   });
 
   test("a deleted customer is not a consumer", () => {

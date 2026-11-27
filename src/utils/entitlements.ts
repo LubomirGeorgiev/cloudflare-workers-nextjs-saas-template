@@ -20,7 +20,7 @@ import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-
 // subscription never comes near this window.
 const EXPIRY_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 
-interface TeamEntitlements {
+export interface TeamEntitlements {
   plan: TeamPlan;
   // Whether the plan's paid features are currently unlocked. The Free plan is always
   // active; paid plans require a status with paid access in the lifecycle policy.
@@ -170,6 +170,23 @@ export function selectLimitSource({
     : LIMIT_SOURCES.CUSTOM;
 }
 
+/**
+ * True when staff overrides set every limit that the add-on grants: more units would add nothing,
+ * because an override replaces the final value. Pass `appliedLimitOverrides`, hidden ones included.
+ */
+export function isAddonIncreaseBlocked({
+  addonId,
+  appliedLimitOverrides,
+}: {
+  addonId: string;
+  appliedLimitOverrides: TeamLimitOverrides;
+}): boolean {
+  const grants = getAddon(addonId)?.limits ?? {};
+  const grantedKeys = TEAM_PLAN_LIMIT_KEYS.filter((key) => (grants[key] ?? 0) > 0);
+
+  return grantedKeys.length > 0 && grantedKeys.every((key) => appliedLimitOverrides[key] !== undefined);
+}
+
 export interface LimitOverridesReset {
   /** The new column value: only the restrictions below the Free values, or null. */
   limitOverrides: string | null;
@@ -209,6 +226,6 @@ export function selectLimitOverridesReset({
 }
 
 // A Free plan has no payment that can fail, so the lifecycle status never gates it.
-function isFreePlan(plan: TeamPlan): boolean {
+export function isFreePlan(plan: Pick<TeamPlan, "amount">): boolean {
   return plan.amount === 0;
 }

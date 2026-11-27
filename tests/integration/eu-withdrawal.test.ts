@@ -58,7 +58,7 @@ interface FakeStripeState {
   subscription: Stripe.Subscription;
   creditNotes: Stripe.CreditNoteCreateParams[];
   failCancel: boolean;
-  deletedDrafts: string[];
+  voidedDrafts: string[];
 }
 
 describe("EU withdrawal", () => {
@@ -80,7 +80,7 @@ describe("EU withdrawal", () => {
       stripeCustomerId: CUSTOMER_ID,
     });
     await claimTeamSubscription({ teamId: TEAM_ID, subscriptionId: SUBSCRIPTION_ID });
-    state = { subscription: makeSubscription(), creditNotes: [], failCancel: false, deletedDrafts: [] };
+    state = { subscription: makeSubscription(), creditNotes: [], failCancel: false, voidedDrafts: [] };
     stripe = makeFakeStripe(state);
   });
 
@@ -95,7 +95,7 @@ describe("EU withdrawal", () => {
     expect(team?.subscriptionPlanId).toBe(DEFAULT_PLAN_ID);
     expect(team?.stripeSubscriptionId).toBeNull();
     expect(state.creditNotes).toEqual([expect.objectContaining({ amount: AMOUNT_PAID, refund_amount: AMOUNT_PAID })]);
-    expect(state.deletedDrafts).toEqual(["in_draft"]);
+    expect(state.voidedDrafts).toEqual(["in_draft"]);
 
     const receipts = queuedEmails().filter((payload) => payload.template === EMAIL_TEMPLATE_TYPES.WITHDRAWAL_RECEIPT);
     expect(receipts).toHaveLength(1);
@@ -199,16 +199,18 @@ function makeFakeStripe(state: FakeStripeState): WithdrawalStripe {
       },
     },
     invoices: {
-      // The draft stays after the cancel until the flow deletes it.
-      list: async () => ({ data: [makeInvoice(), ...(state.deletedDrafts.length > 0 ? [] : [makeDraft()])] }),
+      // The draft stays after the cancel until the flow finalizes and voids it.
+      list: async () => ({ data: [makeInvoice(), ...(state.voidedDrafts.length > 0 ? [] : [makeDraft()])] }),
       retrieve: async () => makeInvoice(),
       listLineItems: async () => ({ data: [], has_more: false }),
-      voidInvoice: async () => ({}) as Stripe.Invoice,
-      del: async (id) => {
-        state.deletedDrafts.push(id);
-        return {} as Stripe.DeletedInvoice;
+      finalizeInvoice: async (id) => ({ ...makeDraft(), id, status: "open" }),
+      voidInvoice: async (id) => {
+        state.voidedDrafts.push(id);
+        return {} as Stripe.Invoice;
       },
     },
+    paymentIntents: { retrieve: async () => ({ latest_charge: null }) as unknown as Stripe.PaymentIntent },
+    charges: { retrieve: async () => ({ amount_refunded: 0 }) as Stripe.Charge },
     invoiceItems: {
       list: async () => ({ data: [] }),
       del: async () => ({}) as Stripe.DeletedInvoiceItem,

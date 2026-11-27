@@ -146,16 +146,18 @@ jobs:
         with:
           name: vinext-build
 
-      - name: Deploy
-        run: |
-          set -o pipefail
-          pnpm run deploy --skip-build 2>&1 | tee deploy-output.log
+      # Migrate before the deploy, so the new Worker never runs on the old schema.
+      # Migrations must stay additive, because the old Worker serves until the deploy.
+      - name: Run DB migrations
+        run: pnpm wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
-      - name: Run DB migrations
-        run: pnpm wrangler d1 migrations apply "$D1_DATABASE_NAME" --remote
+      - name: Deploy
+        run: |
+          set -o pipefail
+          pnpm run deploy --skip-build 2>&1 | tee deploy-output.log
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

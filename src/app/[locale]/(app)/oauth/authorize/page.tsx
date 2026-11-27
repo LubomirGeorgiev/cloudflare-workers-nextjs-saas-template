@@ -83,6 +83,7 @@ export default async function AuthorizePage({
         isVerified={consent.isVerified}
         grantedScopes={consent.grantedScopes}
         droppedScopes={consent.droppedScopes}
+        droppedScopeGroups={consent.droppedScopeGroups}
         adminScopeDescriptions={consent.adminScopeDescriptions}
         adminScopesToVerify={consent.adminScopesToVerify}
         redirectHost={consent.redirectHost}

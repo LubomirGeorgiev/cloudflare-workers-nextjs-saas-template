@@ -2,6 +2,7 @@ import "server-only";
 
 import type Stripe from "stripe";
 
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { getStripe } from "@/lib/stripe";
 import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import { reconcileTeamFromSubscription } from "@/utils/team-subscription";
@@ -67,6 +68,10 @@ export async function handleStripeEvent(
   event: Stripe.Event,
   { stripe }: HandleStripeEventOptions = {},
 ): Promise<StripeEventResult> {
+  // A refund that fails after its credit note leaves an EU withdrawal without its money back.
+  if (event.type === "refund.failed") {
+    return handleRefundFailed(event.data.object);
+  }
   if (!HANDLED_EVENTS.has(event.type)) {
     return STRIPE_EVENT_RESULT.IGNORED;
   }
@@ -93,6 +98,16 @@ export async function handleStripeEvent(
   await reconcileTeamFromSubscription({ subscription });
 
   return STRIPE_EVENT_RESULT.OK;
+}
+
+// Imported only here, so the withdrawal graph stays off the webhook path of every other event.
+async function handleRefundFailed(refund: Stripe.Refund): Promise<StripeEventResult> {
+  if (!EU_WITHDRAWAL_ENABLED) {
+    return STRIPE_EVENT_RESULT.IGNORED;
+  }
+  const { flagFailedWithdrawalRefund } = await import("@/lib/billing/eu-withdrawal-recovery");
+
+  return (await flagFailedWithdrawalRefund({ refund })) ? STRIPE_EVENT_RESULT.OK : STRIPE_EVENT_RESULT.IGNORED;
 }
 
 // Keep these low-cardinality: `src/app/api/stripe/webhook/route.ts` puts them on a trace span.

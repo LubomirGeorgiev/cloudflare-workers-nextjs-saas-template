@@ -6,11 +6,12 @@ import { OAUTH_AUTHORIZE_PATH, SITE_URL } from "@/constants";
 import {
   clampAdminScopesForConsent,
   describeAdminScopes,
+  isAdminScope,
   requestedAdminScopes,
   type AdminScope,
   type GrantedScope,
 } from "@/lib/api/admin-scopes";
-import { clampScopesForClient } from "@/lib/api/scopes";
+import { clampScopesForClient, isApiScope } from "@/lib/api/scopes";
 import {
   getDiscoveredOAuthAppRegistrationSource,
   isCimdClientId,
@@ -33,6 +34,8 @@ interface ConsentRequest {
   grantedScopes: GrantedScope[];
   /** Requested scopes the clamp (or an unknown name) removed; shown so consent stays honest. */
   droppedScopes: string[];
+  /** The same scopes, grouped by reason, so the screen names the true reason and remedy. */
+  droppedScopeGroups: DroppedScopeGroups;
   /** Copy for every internal scope this request names: the consent screen cannot read the catalog. */
   adminScopeDescriptions: Record<string, string>;
   /**
@@ -117,6 +120,10 @@ export async function resolveConsentRequest({
     }),
   ];
 
+  const droppedScopes = authRequest.scope.filter(
+    (scope) => !grantedScopes.includes(scope as GrantedScope),
+  );
+
   return {
     authRequest,
     clientInfo,
@@ -124,9 +131,8 @@ export async function resolveConsentRequest({
     logoUri: app?.logoUri ?? clientInfo.logoUri ?? null,
     isVerified,
     grantedScopes,
-    droppedScopes: authRequest.scope.filter(
-      (scope) => !grantedScopes.includes(scope as GrantedScope),
-    ),
+    droppedScopes,
+    droppedScopeGroups: groupDroppedScopes({ droppedScopes, isAdmin }),
     adminScopeDescriptions: describeAdminScopes(askedForAdminScopes),
     adminScopesToVerify:
       isAdmin && !isVerified && askedForAdminScopes.length > 0 ? askedForAdminScopes : null,
@@ -135,6 +141,30 @@ export async function resolveConsentRequest({
     clientId: authRequest.clientId,
     isLoopbackRedirect: isLoopbackHost(redirectUrl?.hostname ?? ""),
   };
+}
+
+// The clamps above drop a public scope only for an unverified app, and an internal scope for a
+// non-admin user or an unverified app. Only a public scope fits in an API key (`createApiKey`).
+export function groupDroppedScopes({
+  droppedScopes,
+  isAdmin,
+}: {
+  droppedScopes: string[];
+  isAdmin: boolean;
+}): DroppedScopeGroups {
+  const groups: DroppedScopeGroups = { unverifiedPublic: [], unverifiedAdmin: [], adminOnly: [], unknown: [] };
+
+  for (const scope of droppedScopes) {
+    if (isApiScope(scope)) {
+      groups.unverifiedPublic.push(scope);
+    } else if (isAdminScope(scope)) {
+      (isAdmin ? groups.unverifiedAdmin : groups.adminOnly).push(scope);
+    } else {
+      groups.unknown.push(scope);
+    }
+  }
+
+  return groups;
 }
 
 // The only write on the consent path: resolving a request stays a pure query, so rendering the
@@ -189,4 +219,15 @@ export function buildDenialRedirect(authRequest: AuthRequest): string | null {
   }
 
   return url.toString();
+}
+
+export interface DroppedScopeGroups {
+  /** Public scopes that an unverified app cannot get. An API key can hold them. */
+  unverifiedPublic: string[];
+  /** Internal scopes that an admin can unlock only when the app is verified. */
+  unverifiedAdmin: string[];
+  /** Internal scopes that only an admin can grant. No API key can hold them. */
+  adminOnly: string[];
+  /** Names that no scope catalog knows. */
+  unknown: string[];
 }

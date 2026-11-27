@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { APP_KV_PREFIXES } from "@/constants/kv-prefixes";
 import { OAUTH_MAINTENANCE_INTERVAL_MINUTES } from "@/constants/oauth";
 import {
@@ -12,10 +13,12 @@ const {
   dispatchScheduledJobsToQueueMock,
   pruneExpiredUnverifiedCimdOAuthAppsMock,
   purgeExpiredOAuthDataMock,
+  recoverStalledWithdrawalsMock,
   renewVerifiedOAuthClientsMock,
   runScheduledJobMock,
   settleStaleTrialReservationsMock,
 } = vi.hoisted(() => ({
+  recoverStalledWithdrawalsMock: vi.fn(),
   dispatchScheduledJobsToQueueMock: vi.fn(),
   pruneExpiredUnverifiedCimdOAuthAppsMock: vi.fn(),
   purgeExpiredOAuthDataMock: vi.fn(),
@@ -77,6 +80,10 @@ vi.mock("@/lib/oauth/oauth-maintenance", () => ({
 
 vi.mock("@/lib/teams/trial-subscription", () => ({
   settleStaleTrialReservations: settleStaleTrialReservationsMock,
+}));
+
+vi.mock("@/lib/billing/eu-withdrawal-recovery", () => ({
+  recoverStalledWithdrawals: recoverStalledWithdrawalsMock,
 }));
 
 const BILLING_ENV_KEYS = [
@@ -312,6 +319,30 @@ describe("scheduler worker", () => {
 
     expect(settleStaleTrialReservationsMock).toHaveBeenCalledWith({ now });
     expect(purgeExpiredOAuthDataMock).toHaveBeenCalledWith(now);
+  });
+
+  // The queue drops a resume job after its last retry; the daily scan enqueues the stopped chain again.
+  test.skipIf(!EU_WITHDRAWAL_ENABLED)("cron runs the EU withdrawal recovery once a day", async () => {
+    stubBillingConfigured(true);
+    const now = new Date("2026-05-29T10:00:00.000Z");
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+    const kv = createPacingKV();
+
+    await runCron(now, kv).result;
+    await runCron(new Date(now.getTime() + 60 * 60_000), kv).result;
+
+    expect(recoverStalledWithdrawalsMock).toHaveBeenCalledTimes(1);
+    expect(recoverStalledWithdrawalsMock).toHaveBeenCalledWith({ now });
+    expect(maintenanceSpan("eu_withdrawal_resume_recovery")?.attributes[OUTCOME_ATTRIBUTE]).toBe("ok");
+  });
+
+  test.skipIf(EU_WITHDRAWAL_ENABLED)("cron skips the EU withdrawal recovery while the feature is off", async () => {
+    stubBillingConfigured(true);
+    dispatchScheduledJobsToQueueMock.mockResolvedValue(0);
+
+    await runCron(new Date("2026-05-29T10:00:00.000Z")).result;
+
+    expect(recoverStalledWithdrawalsMock).not.toHaveBeenCalled();
   });
 
   test("a failing billing sweep still lets every OAuth sweep settle", async () => {

@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import Stripe from "stripe";
 
 import { EU_WITHDRAWAL_ENABLED, TEAMS_DASHBOARD_PATH } from "@/constants";
-import { AVAILABLE_BILLING_INTERVALS, PAID_PLAN_IDS, TEAM_PLANS } from "@/constants/plans";
+import { TEAM_ADDON_IDS, TEAM_ADDONS } from "@/constants/addons";
+import { AVAILABLE_BILLING_INTERVALS, PAID_PLAN_IDS, TEAM_PLAN_LIMIT_KEYS, TEAM_PLANS } from "@/constants/plans";
 import {
   cancelParamsForStatus,
   STRIPE_SUBSCRIPTION_TRANSITION_POLICY,
@@ -10,6 +11,7 @@ import {
 import { ENABLED_LOCALES, type Locale } from "@/i18n/config";
 import { ActionError } from "@/lib/action-error";
 import { absoluteLocalizedUrl } from "@/utils/i18n-urls";
+import { toStoredLimitOverrides } from "@/schemas/limit-overrides.schema";
 
 const TEAM = { id: "team-1", slug: "acme", stripeCustomerId: "cus_123", stripeSubscriptionId: "sub_123" };
 const [PLAN_ID] = PAID_PLAN_IDS;
@@ -45,6 +47,7 @@ const {
   headersMock,
   isBillingEnabledMock,
   recordCheckoutConsentMock,
+  resolveSubscriptionPriceMock,
   retrieveSubscriptionMock,
   updateSubscriptionMock,
 } = vi.hoisted(() => ({
@@ -58,6 +61,7 @@ const {
   headersMock: vi.fn(async () => new Headers()),
   isBillingEnabledMock: vi.fn(() => true),
   recordCheckoutConsentMock: vi.fn(async () => undefined),
+  resolveSubscriptionPriceMock: vi.fn((): unknown => null),
   retrieveSubscriptionMock: vi.fn(),
   updateSubscriptionMock: vi.fn(async (id: string) => ({ id, status: "active", cancel_at_period_end: true })),
 }));
@@ -97,7 +101,11 @@ vi.mock("@/lib/stripe", () => ({
 }));
 vi.mock("@/flags", () => ({ isBillingEnabled: isBillingEnabledMock }));
 vi.mock("@/i18n/server", () => ({ getLocale: getLocaleMock }));
-vi.mock("@/utils/plan-prices", () => ({ getAddonPriceId: vi.fn(), getPlanPriceId: vi.fn(() => "price_123") }));
+vi.mock("@/utils/plan-prices", () => ({
+  getAddonPriceId: vi.fn(() => "price_addon"),
+  getPlanPriceId: vi.fn(() => "price_123"),
+  resolveSubscriptionPrice: resolveSubscriptionPriceMock,
+}));
 vi.mock("@/utils/team-subscription", () => ({
   claimTeamSubscription: vi.fn(async () => true),
   ensureStripeCustomer: vi.fn(async () => TEAM.stripeCustomerId),
@@ -124,6 +132,7 @@ const {
   resumePaymentAction,
   resumeSubscriptionAction,
   startTrialSetupAction,
+  updateAddonQuantityAction,
 } = await import("./billing.actions");
 const { reconcileTeamFromSubscription } = await import("@/utils/team-subscription");
 
@@ -278,6 +287,89 @@ describe("changePlanAction", () => {
       TEAM.stripeSubscriptionId,
       expect.objectContaining({ proration_behavior: "create_prorations" }),
     );
+  });
+});
+
+// From the catalog, so a fork passes: an add-on that grants a limit, and an override on each such limit.
+const GRANTING_ADDON_ID = TEAM_ADDON_IDS.find((addonId) => TEAM_PLAN_LIMIT_KEYS.some((key) => (TEAM_ADDONS[addonId].limits?.[key] ?? 0) > 0));
+
+describe.skipIf(!GRANTING_ADDON_ID)("updateAddonQuantityAction", () => {
+  const addonId = GRANTING_ADDON_ID ?? "";
+  const grantedKeys = TEAM_PLAN_LIMIT_KEYS.filter((key) => (TEAM_ADDONS[addonId]?.limits?.[key] ?? 0) > 0);
+  // Hidden from the customer: the refusal must hold, and its copy must not name the override.
+  const overridingTeam = {
+    ...TEAM,
+    subscriptionPlanId: PLAN_ID,
+    subscriptionStatus: "active",
+    planExpiresAt: null,
+    subscriptionAddonIds: null,
+    limitOverrides: toStoredLimitOverrides({
+      limits: Object.fromEntries(grantedKeys.map((key) => [key, TEAM_PLANS[PLAN_ID].limits[key]])),
+      hideFromCustomer: true,
+    }),
+  };
+
+  beforeEach(() => {
+    findTeamMock.mockResolvedValue(overridingTeam);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  test("refuses more units when staff overrides set every limit the add-on grants", async () => {
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status: "active", items: { data: [] } });
+
+    await expect(updateAddonQuantityAction({ teamId: TEAM.id, addonId, quantity: 1 }))
+      .rejects.toMatchObject({ code: "PRECONDITION_FAILED", messageKey: "Client.Dashboard.Billing.errorAddonIncreaseUnavailable" });
+    expect(updateSubscriptionMock).not.toHaveBeenCalled();
+  });
+
+  test("still lets the team remove units that add nothing", async () => {
+    resolveSubscriptionPriceMock.mockReturnValue({ kind: "addon", addonId });
+    retrieveSubscriptionMock.mockResolvedValue({
+      id: TEAM.stripeSubscriptionId,
+      status: "active",
+      items: { data: [{ id: "si_addon", price: { id: "price_addon" }, quantity: 2 }] },
+    });
+
+    await updateAddonQuantityAction({ teamId: TEAM.id, addonId, quantity: 1 });
+
+    expect(updateSubscriptionMock).toHaveBeenCalledWith(
+      TEAM.stripeSubscriptionId,
+      expect.objectContaining({ items: [{ id: "si_addon", quantity: 1 }] }),
+    );
+  });
+
+  // One item holds 1 unit and a duplicate holds 2: a change to 2 units is a decrease from 3.
+  test("counts duplicate items, so a decrease below their sum is no blocked increase", async () => {
+    resolveSubscriptionPriceMock.mockReturnValue({ kind: "addon", addonId });
+    retrieveSubscriptionMock.mockResolvedValue({
+      id: TEAM.stripeSubscriptionId,
+      status: "active",
+      items: {
+        data: [
+          { id: "si_addon", price: { id: "price_addon" }, quantity: 1 },
+          { id: "si_addon_duplicate", price: { id: "price_addon_duplicate" }, quantity: 2 },
+        ],
+      },
+    });
+
+    await updateAddonQuantityAction({ teamId: TEAM.id, addonId, quantity: 2 });
+
+    expect(updateSubscriptionMock).toHaveBeenCalledWith(
+      TEAM.stripeSubscriptionId,
+      expect.objectContaining({ items: [{ id: "si_addon", quantity: 2 }, { id: "si_addon_duplicate", deleted: true }] }),
+    );
+  });
+
+  test("allows more units when no override sets the add-on's limits", async () => {
+    findTeamMock.mockResolvedValue({ ...overridingTeam, limitOverrides: null });
+    retrieveSubscriptionMock.mockResolvedValue({ id: TEAM.stripeSubscriptionId, status: "active", items: { data: [] } });
+
+    await updateAddonQuantityAction({ teamId: TEAM.id, addonId, quantity: 1 });
+
+    expect(updateSubscriptionMock).toHaveBeenCalledOnce();
   });
 });
 

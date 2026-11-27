@@ -38,6 +38,11 @@ export const PROBLEM_DETAIL_BY_MESSAGE_KEY: Partial<
     `This team's plan includes ${seats} seat${seats === 1 ? "" : "s"}, all taken by members or ` +
     "pending invitations. Remove a member, revoke a pending invitation, or upgrade the team's " +
     "plan before inviting again.",
+  // No plan has more seats, so this row sends the caller to the seat add-on instead.
+  "Client.Dashboard.Teams.seatLimitReachedExtraSeats": ({ seats }) =>
+    `This team has ${seats} seat${seats === 1 ? "" : "s"}, all taken by members or pending ` +
+    "invitations, and no plan has more seats. Remove a member, revoke a pending invitation, buy " +
+    "extra seats on the team's billing page, or contact support before inviting again.",
   // A staff override does not grow with the plan, so these two do not tell the caller to upgrade.
   "Client.Dashboard.Teams.seatLimitReachedCustom": ({ seats }) =>
     `This team has a custom limit of ${seats} seat${seats === 1 ? "" : "s"}, all taken by members ` +

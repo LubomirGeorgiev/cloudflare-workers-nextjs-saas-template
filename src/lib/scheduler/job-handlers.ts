@@ -13,7 +13,7 @@ import { resumeWithdrawal } from "@/lib/billing/eu-withdrawal";
 import { getKnownCmsCollectionSlug, repurgeCmsCaches } from "@/lib/cms/cms-cache-invalidation";
 import { hasCmsCachePurgeFailed } from "@/lib/cms/cms-cache-purge-report";
 import { publishScheduledCmsEntryIfDue } from "@/lib/cms/cms-scheduled-publishing";
-import { renderTransactionalEmail, sendTransactionalEmailNow } from "@/utils/email";
+import { sendEmailJob } from "@/utils/email";
 import { refreshTeamMemberSessions } from "@/utils/kv-session";
 import { v } from "@/lib/validation";
 
@@ -76,7 +76,7 @@ export async function runScheduledJob(message: ScheduledQueueMessage): Promise<v
     case SCHEDULED_JOB_TYPES.EMAIL_SEND: {
       const payload = v.parse(emailSendJobPayloadSchema, message.payload);
 
-      await sendTransactionalEmailNow(await renderTransactionalEmail(payload));
+      await sendEmailJob({ payload, dedupeKey: message.dedupeKey });
       return;
     }
     case SCHEDULED_JOB_TYPES.TEAM_SESSIONS_REFRESH: {

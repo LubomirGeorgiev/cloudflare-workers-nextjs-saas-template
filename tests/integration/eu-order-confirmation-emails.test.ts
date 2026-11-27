@@ -55,7 +55,7 @@ import { teamMembershipTable, teamTable, userTable } from "@/db/schema";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "@/i18n/config";
 import { buildCheckoutConsentMetadata, selectWithdrawalWindowEnd } from "@/lib/billing/eu-withdrawal-selectors";
 import { EMAIL_TEMPLATE_TYPES, SCHEDULED_JOB_TYPES, type EmailSendJobPayload } from "@/lib/scheduler/jobs";
-import { sendOrderConfirmationEmail } from "@/utils/email";
+import { saveOrderConfirmationEmail, sendSavedEmail } from "@/utils/email";
 import { handleStripeEvent, type StripeSubscriptionFetcher } from "@/utils/stripe-webhook-handler";
 import { claimTeamSubscription } from "@/utils/team-subscription";
 
@@ -274,9 +274,10 @@ describe("EU order confirmation emails", () => {
   });
 });
 
-// The durable send does not depend on the flag: `sendOrderConfirmationEmail` always saves the row first.
+// The durable send does not depend on the flag: `saveOrderConfirmationEmail` always saves the row first.
 describe("the durable order confirmation send", () => {
   const email = {
+    dedupeKey: `order-confirmation:${SUBSCRIPTION_ID}:buyer`,
     email: "buyer@example.com",
     username: "buyer",
     teamName: "Acme",
@@ -291,10 +292,20 @@ describe("the durable order confirmation send", () => {
     queueSendMock.mockReset();
   });
 
+  test("a save alone keeps the row for the cron, and a second save of the same key keeps one row", async () => {
+    await saveOrderConfirmationEmail(email);
+    await saveOrderConfirmationEmail(email);
+
+    expect(orderConfirmations()).toEqual([]);
+    expect((await orderConfirmationRows()).map((payload) => payload.to)).toEqual([email.email]);
+  });
+
   test("sends once and leaves no job row in the normal path", async () => {
-    await sendOrderConfirmationEmail(email);
+    await sendSavedEmail(await saveOrderConfirmationEmail(email));
 
     expect(orderConfirmations()).toHaveLength(1);
+    // The message names its row, so `sendEmailJob` can skip a second dispatch of it.
+    expect(queueSendMock).toHaveBeenCalledWith(expect.objectContaining({ dedupeKey: email.dedupeKey }), expect.anything());
     expect(await orderConfirmationRows()).toEqual([]);
   });
 
@@ -302,7 +313,7 @@ describe("the durable order confirmation send", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
     queueSendMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
 
-    await expect(sendOrderConfirmationEmail(email)).resolves.toBeUndefined();
+    await expect(sendSavedEmail(await saveOrderConfirmationEmail(email))).resolves.toBeUndefined();
 
     expect((await orderConfirmationRows()).map((payload) => payload.to)).toEqual([email.email]);
     log.mockRestore();

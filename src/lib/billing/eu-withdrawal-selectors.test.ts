@@ -5,6 +5,9 @@ import { DAY_IN_MS as DAY_MS } from "@/constants";
 import {
   CONSENT_TEXT_VERSION,
   CREDIT_NOTE_WITHDRAWAL_METADATA,
+  REFUND_DEADLINE_DAYS,
+  RESUME_MAX_AGE_DAYS,
+  RESUME_STALL_AFTER_MS,
   SUBSCRIPTION_WITHDRAWAL_METADATA,
   WITHDRAWAL_PERIOD_DAYS,
   WITHDRAWAL_WINDOW_GRACE_MS,
@@ -17,6 +20,13 @@ import {
   pickCheckoutConsentMetadata,
   selectContractStart,
   readWithdrawalMetadata,
+  selectChainEnd,
+  selectInvoiceCreditable,
+  selectRefundWithdrawal,
+  selectResumeNext,
+  selectResumeStop,
+  selectStalledWithdrawal,
+  selectStoredChainEnd,
   selectWithdrawalCredits,
   selectWithdrawalEligibility,
   selectWithdrawalRefund,
@@ -190,17 +200,16 @@ describe("selectWithdrawalRefund", () => {
     expect(refund.totalRefund).toBe(3000 - Math.round(3000 / PERIOD_DAYS));
   });
 
-  test("weights the used share by line amount and ignores credit lines", () => {
+  test("weights the used share by line amount", () => {
     // An add-on line that started a day after the contract.
     const shortStart = new Date(STARTED_AT.getTime() + DAY_MS);
     const refund = selectWithdrawalRefund({
       invoices: [invoice({
         invoiceId: "in_1",
-        amountPaid: 2000,
+        amountPaid: 2500,
         lines: [
           { amount: 1500, periodStart: STARTED_AT, periodEnd: new Date(STARTED_AT.getTime() + PERIOD_DAYS * DAY_MS) },
           { amount: 1000, periodStart: shortStart, periodEnd: new Date(shortStart.getTime() + 10 * DAY_MS) },
-          { amount: -500, periodStart: STARTED_AT, periodEnd: withdrawnAt },
         ],
       })],
       startedAt: STARTED_AT,
@@ -210,7 +219,40 @@ describe("selectWithdrawalRefund", () => {
     });
     const share = (1500 / 2500) * (3 / PERIOD_DAYS) + (1000 / 2500) * (2 / 10);
 
-    expect(refund.totalRefund).toBe(2000 - Math.round(2000 * share));
+    expect(refund.totalRefund).toBe(2500 - Math.round(2500 * share));
+  });
+
+  // Monthly on day 0, then yearly on day 1 with a credit for the unused monthly days. The days
+  // after the change are in the yearly line, so the credit line gives them back from the monthly invoice.
+  test("counts the days after an interval change once", () => {
+    const changedAt = new Date(STARTED_AT.getTime() + DAY_MS);
+    const monthEnd = new Date(STARTED_AT.getTime() + PERIOD_DAYS * DAY_MS);
+    const refund = selectWithdrawalRefund({
+      invoices: [
+        invoice({ invoiceId: "in_month", amountPaid: 3000, paidAt: STARTED_AT }),
+        invoice({
+          invoiceId: "in_year",
+          amountPaid: 27100,
+          paidAt: changedAt,
+          lines: [
+            { amount: 30000, periodStart: changedAt, periodEnd: new Date(changedAt.getTime() + 365 * DAY_MS) },
+            { amount: -2900, periodStart: changedAt, periodEnd: monthEnd },
+          ],
+        }),
+      ],
+      startedAt: STARTED_AT,
+      withdrawnAt: new Date(STARTED_AT.getTime() + 13 * DAY_MS),
+      consent: true,
+      extraCharges: 0,
+    });
+    const usedMonthly = Math.round(3000 * (13 / PERIOD_DAYS));
+    const usedYearlyNet = Math.round(30000 * (12 / 365) - 2900 * (12 / 29));
+
+    expect(3000 + 27100 - refund.totalRefund).toBe(usedMonthly + usedYearlyNet);
+    expect(refund.perInvoice).toEqual([
+      { invoiceId: "in_year", refund: 27100, refundNow: 27100 },
+      { invoiceId: "in_month", refund: 3000 - (usedMonthly + usedYearlyNet), refundNow: 3000 - (usedMonthly + usedYearlyNet) },
+    ]);
   });
 
   test("takes the extra charges from the newest invoice first and never goes below zero", () => {
@@ -311,6 +353,170 @@ describe("selectWithdrawalCredits", () => {
   });
 });
 
+describe("selectInvoiceCreditable", () => {
+  test("subtracts every earlier credit note and every direct refund", () => {
+    expect(selectInvoiceCreditable({
+      amountPaid: 3000,
+      postPaymentCreditNotesAmount: 1000,
+      chargeAmountRefunded: 500,
+      creditNotes: [creditNote({ amount: 1000, refunds: [] })],
+    })).toBe(1500);
+  });
+
+  // The charge also counts the refunds of credit notes. Those are in the credit note sum already.
+  test("does not count the refund of a credit note twice", () => {
+    expect(selectInvoiceCreditable({
+      amountPaid: 3000,
+      postPaymentCreditNotesAmount: 400,
+      chargeAmountRefunded: 400,
+      creditNotes: [
+        creditNote({ amount: 400, refunds: [{ amount_refunded: 400, refund: "re_1" }] }),
+        creditNote({ amount: 900, status: "void", refunds: [{ amount_refunded: 900, refund: "re_void" }] }),
+      ],
+    })).toBe(2600);
+  });
+
+  test("is never below zero", () => {
+    expect(selectInvoiceCreditable({ amountPaid: 1000, postPaymentCreditNotesAmount: 1000, chargeAmountRefunded: 300, creditNotes: [] })).toBe(0);
+  });
+});
+
+describe("selectRefundWithdrawal", () => {
+  const ours = { [CREDIT_NOTE_WITHDRAWAL_METADATA.subscriptionId]: "sub_1" };
+
+  test("names the subscription of our credit note that holds the refund", () => {
+    expect(selectRefundWithdrawal({
+      refundId: "re_2",
+      creditNotes: [
+        creditNote({ metadata: ours, refunds: [{ amount_refunded: 100, refund: "re_1" }] }),
+        creditNote({ metadata: ours, refunds: [{ amount_refunded: 100, refund: { id: "re_2" } }] }),
+      ],
+    })).toBe("sub_1");
+  });
+
+  test("is null for a staff credit note or an unknown refund", () => {
+    const staffNote = creditNote({ metadata: {}, refunds: [{ amount_refunded: 100, refund: "re_staff" }] });
+
+    expect(selectRefundWithdrawal({ refundId: "re_staff", creditNotes: [staffNote] })).toBeNull();
+    expect(selectRefundWithdrawal({ refundId: "re_other", creditNotes: [staffNote] })).toBeNull();
+  });
+});
+
+describe("selectResumeStop", () => {
+  const runAt = "2026-03-04T10:00:00.000Z";
+  const recordOf = (extra: Record<string, string>) => readWithdrawalMetadata({
+    [SUBSCRIPTION_WITHDRAWAL_METADATA.withdrawnAt]: STARTED_AT.toISOString(),
+    [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: runAt,
+    ...extra,
+  });
+
+  test.each([
+    ["no withdrawal", readWithdrawalMetadata({}), "notRecorded"],
+    ["another run time", recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: "2026-03-04T11:00:00.000Z" }), "superseded"],
+    ["staff marked and the receipt sent", recordOf({
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: runAt,
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: runAt,
+    }), "needsStaff"],
+    ["staff marked and no receipt", recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: runAt }), null],
+    ["the withdrawal is complete", recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt]: runAt }), "completed"],
+    ["the job that owns the chain", recordOf({}), null],
+  ])("%s: %s", (__case, record, expected) => {
+    expect(selectResumeStop({ record, scheduledFor: runAt })).toBe(expected);
+  });
+});
+
+// One rule for a run's result and for the stored record, so the job, the action, and the scan agree.
+describe("selectChainEnd", () => {
+  test.each([
+    ["done", true, "completed"],
+    ["needs_staff", true, "needsStaff"],
+    ["retry", true, null],
+    // The receipt is a legal duty, so a missing one never ends the chain.
+    ["done", false, null],
+    ["needs_staff", false, null],
+    ["retry", false, null],
+  ] as const)("refunds %s, receipt sent %s: %s", (refunds, receiptSent, expected) => {
+    expect(selectChainEnd({ refunds, receiptSent })).toBe(expected);
+  });
+
+  const at = STARTED_AT.toISOString();
+  test.each([
+    ["no mark", {}, null],
+    ["only the receipt", { [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: at }, null],
+    ["staff marked without a receipt", { [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: at }, null],
+    ["staff marked with a receipt", {
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: at,
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: at,
+    }, "needsStaff"],
+    ["complete", { [SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt]: at }, "completed"],
+    // A failed card refund is for staff, but the chain still owes the other refunds.
+    ["a failed refund with a receipt", {
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.refundFailedAt]: at,
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: at,
+    }, null],
+  ])("stored record, %s: %s", (__case, metadata, expected) => {
+    expect(selectStoredChainEnd(readWithdrawalMetadata(metadata))).toBe(expected);
+  });
+});
+
+describe("selectResumeNext", () => {
+  const withdrawnAt = STARTED_AT;
+  const after = (days: number) => new Date(withdrawnAt.getTime() + days * DAY_MS);
+
+  test.each([
+    ["done", true, 1, { next: "completed", overdue: false }],
+    ["needs_staff", true, 1, { next: "needsStaff", overdue: false }],
+    // The receipt is a legal duty, so a missing one keeps the chain going.
+    ["needs_staff", false, 1, { next: "reschedule", overdue: false }],
+    ["done", false, REFUND_DEADLINE_DAYS, { next: "reschedule", overdue: false }],
+    ["retry", true, 1, { next: "reschedule", overdue: false }],
+    ["retry", true, REFUND_DEADLINE_DAYS, { next: "reschedule", overdue: true }],
+    ["needs_staff", false, RESUME_MAX_AGE_DAYS, { next: "gaveUp", overdue: false }],
+    ["retry", true, RESUME_MAX_AGE_DAYS, { next: "gaveUp", overdue: false }],
+  ] as const)("%s, receipt sent %s, day %s", (status, receiptSent, day, expected) => {
+    expect(selectResumeNext({ status, receiptSent, withdrawnAt, now: after(day) })).toEqual(expected);
+  });
+});
+
+describe("selectStalledWithdrawal", () => {
+  const resumeAt = new Date(STARTED_AT.getTime() + 2 * DAY_MS);
+  const now = new Date(resumeAt.getTime() + RESUME_STALL_AFTER_MS);
+  const recordOf = (extra: Record<string, string>) => readWithdrawalMetadata({
+    [SUBSCRIPTION_WITHDRAWAL_METADATA.withdrawnAt]: STARTED_AT.toISOString(),
+    [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: resumeAt.toISOString(),
+    ...extra,
+  });
+
+  test("finds a chain whose run time is long past", () => {
+    expect(selectStalledWithdrawal({ record: recordOf({}), now })).toBe(true);
+    expect(selectStalledWithdrawal({
+      record: recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: STARTED_AT.toISOString() }),
+      now,
+    })).toBe(true);
+  });
+
+  // The receipt is still the chain's job after staff take over the refund.
+  test("finds a chain marked for staff that still owes the receipt", () => {
+    expect(selectStalledWithdrawal({
+      record: recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: STARTED_AT.toISOString() }),
+      now,
+    })).toBe(true);
+  });
+
+  test.each([
+    ["a live chain", recordOf({}), new Date(now.getTime() - 1)],
+    ["a complete withdrawal", recordOf({ [SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt]: now.toISOString() }), now],
+    ["a staff case with a receipt", recordOf({
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: now.toISOString(),
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: now.toISOString(),
+    }), now],
+    ["a withdrawal past the maximum age", recordOf({}), new Date(STARTED_AT.getTime() + RESUME_MAX_AGE_DAYS * DAY_MS)],
+    ["no withdrawal", readWithdrawalMetadata({}), now],
+  ])("skips %s", (__case, record, at) => {
+    expect(selectStalledWithdrawal({ record, now: at })).toBe(false);
+  });
+});
+
 describe("checkout consent metadata", () => {
   const at = new Date("2026-03-01T10:00:00.000Z");
 
@@ -325,6 +531,7 @@ describe("checkout consent metadata", () => {
       receiptSentAt: null,
       resumeAt: null,
       needsStaffAt: null,
+      completedAt: null,
     });
     expect(pickCheckoutConsentMetadata(metadata)).toEqual(metadata);
   });
@@ -358,6 +565,7 @@ describe("checkout consent metadata", () => {
       [SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt]: at.toISOString(),
       [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: at.toISOString(),
       [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: at.toISOString(),
+      [SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt]: at.toISOString(),
     })).toEqual({
       orderUserId: null,
       consent: null,
@@ -366,6 +574,7 @@ describe("checkout consent metadata", () => {
       receiptSentAt: at,
       resumeAt: at.toISOString(),
       needsStaffAt: at,
+      completedAt: at,
     });
     expect(readWithdrawalMetadata(null).withdrawnAt).toBeNull();
   });

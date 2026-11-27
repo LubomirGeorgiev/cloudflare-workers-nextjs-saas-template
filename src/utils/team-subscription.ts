@@ -12,7 +12,7 @@ import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { EMAIL_TEMPLATE_TYPES, type PaymentStatusEmailTemplate } from "@/lib/scheduler/jobs";
 import { sendPaymentStatusEmail } from "@/utils/email";
 import { listTeamOwnerRecipients } from "@/lib/teams/team-owners";
-import { notifyOrderConfirmation } from "@/lib/billing/order-confirmation";
+import { saveOrderConfirmation, sendOrderConfirmation } from "@/lib/billing/order-confirmation";
 import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem, type ClassifiedSubscriptionItems } from "@/utils/subscription-items";
 import { DEFAULT_PLAN_ID, getPlan, type BillingInterval, type TeamPlan, type TeamPlanId } from "@/constants/plans";
 import { fromStoredAddonQuantities, toStoredAddonQuantities, type TeamAddonQuantities } from "@/constants/addons";
@@ -48,6 +48,9 @@ function getSubscriptionInterval(anchorItem: Stripe.SubscriptionItem | null): Bi
   const interval: string | undefined = anchorItem?.price?.recurring?.interval;
   return interval === "month" || interval === "year" ? interval : null;
 }
+
+// The customer metadata key that holds the current team name. Stripe merges metadata keys on update.
+const CUSTOMER_TEAM_NAME_METADATA_KEY = "teamName";
 
 // The `reason` of the `team_limit_overrides_reset` log line: which write ended paid access.
 const LIMIT_OVERRIDES_RESET_REASONS = {
@@ -323,7 +326,7 @@ export async function ensureStripeCustomer({
     run: () => stripe.customers.create({
       email: team.billingEmail ?? actingUserEmail ?? undefined,
       name: team.name,
-      metadata: { teamId },
+      metadata: { teamId, [CUSTOMER_TEAM_NAME_METADATA_KEY]: team.name },
     }),
   });
 
@@ -346,10 +349,10 @@ export async function ensureStripeCustomer({
   return canonicalTeam.stripeCustomerId;
 }
 
-// Keeps the Stripe customer's display name in step with the team name; a team without a
-// customer yet is a no-op. Callers run it as a post-commit follow-up, so every failure —
-// including a missing-key config error — has to surface as a rejection they can catch.
-export async function syncStripeCustomerName({
+// Writes the team name to customer metadata only. The customer owns `customer.name` in the
+// portal, and Stripe prints it on invoices, so a rename must not overwrite it. Callers run
+// this post-commit, so every failure (also a missing-key config error) is a rejection.
+export async function syncStripeCustomerTeamName({
   stripeCustomerId,
   name,
 }: {
@@ -363,7 +366,7 @@ export async function syncStripeCustomerName({
   const stripe = await getStripe();
   await callStripe({
     operation: STRIPE_OPERATIONS.customersUpdate,
-    run: () => stripe.customers.update(stripeCustomerId, { name }),
+    run: () => stripe.customers.update(stripeCustomerId, { metadata: { [CUSTOMER_TEAM_NAME_METADATA_KEY]: name } }),
   });
 }
 
@@ -468,12 +471,15 @@ export async function reconcileTeamFromSubscription({
 
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ? 1 : 0;
 
+  // Before the snapshot write, which claims the first activation: a failed save must fail this
+  // reconcile while the stored status still lets a retry save the email again.
+  const orderConfirmation = await saveOrderConfirmation({ team, subscription });
   const previous = policy.plan === "free"
     ? await writeFreeSnapshot({ team, subscription, policy, cancelAtPeriodEnd })
     : await writePaidSnapshot({ team, subscription, cancelAtPeriodEnd });
   if (previous) {
     await notifyPaymentStatusChange({ team, subscription, previous });
-    await notifyOrderConfirmation({ team, subscription, previous });
+    await sendOrderConfirmation({ saved: orderConfirmation, subscription, previous });
   }
 
   await enqueueTeamSessionsRefresh(team.id);

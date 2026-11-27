@@ -3,14 +3,10 @@ import "server-only";
 import { cache } from "react";
 import type Stripe from "stripe";
 
-import { DAY_IN_MS, NAME_MAX_LENGTH } from "@/constants";
-import {
-  CREDIT_NOTE_WITHDRAWAL_METADATA,
-  REFUND_DEADLINE_DAYS,
-  SUBSCRIPTION_WITHDRAWAL_METADATA,
-} from "@/constants/eu-withdrawal";
+import { NAME_MAX_LENGTH } from "@/constants";
+import { SUBSCRIPTION_WITHDRAWAL_METADATA } from "@/constants/eu-withdrawal";
 import { getPlan } from "@/constants/plans";
-import { getStripeSubscriptionTransitionPolicy, WITHDRAWAL_CANCEL_PARAMS } from "@/constants/subscription-lifecycle";
+import { getStripeSubscriptionTransitionPolicy } from "@/constants/subscription-lifecycle";
 import { getDB } from "@/db";
 import { DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 import { ActionError } from "@/lib/action-error";
@@ -18,40 +14,40 @@ import {
   isWithdrawalConsumer,
   readContractStart,
   retrieveWithdrawalSubscription,
+  type WithdrawalReadStripe,
 } from "@/lib/billing/eu-withdrawal-reads";
-import { getWithdrawalExtraCharges } from "@/lib/billing/eu-withdrawal-seams";
+import { logStepFailure, updateWithdrawalMetadata, type WithdrawalRecordStripe } from "@/lib/billing/eu-withdrawal-record";
+import {
+  computeRefund,
+  issueWithdrawalRefunds,
+  listSubscriptionInvoices,
+  prepareRefunds,
+  type FinishResult,
+  type WithdrawalRefundsStripe,
+} from "@/lib/billing/eu-withdrawal-refunds";
 import {
   readWithdrawalMetadata,
-  selectWithdrawalCredits,
+  selectChainEnd,
+  selectResumeNext,
+  selectResumeStop,
   selectWithdrawalEligibility,
-  selectWithdrawalRefund,
-  toWithdrawalInvoice,
   type WithdrawalEligibility,
   type WithdrawalMetadata,
   type WithdrawalRefund,
 } from "@/lib/billing/eu-withdrawal-selectors";
-import { callStripe, classifyStripeError, STRIPE_OPERATIONS, stripeErrorName } from "@/lib/billing/stripe-call";
+import { callStripe, STRIPE_OPERATIONS, stripeErrorName } from "@/lib/billing/stripe-call";
 import { enqueueEuWithdrawalResume } from "@/lib/scheduler/enqueue";
 import { getStripe } from "@/lib/stripe";
 import { sendWithdrawalReceiptEmail } from "@/utils/email";
-import { getStripeId } from "@/utils/stripe-id";
 import { classifySubscriptionItems } from "@/utils/subscription-items";
-import { getTeamSubscription, reconcileTeamFromSubscription } from "@/utils/team-subscription";
+import { getTeamSubscription } from "@/utils/team-subscription";
 import { withSpan } from "@/utils/trace";
 
 // The EU consumer withdrawal: the billing page offer, the withdrawal itself, and the resume job
-// that finishes it. The rules live in `eu-withdrawal-selectors.ts`; `docs/eu-withdrawal.md` has the steps.
+// that finishes it. The rules live in `eu-withdrawal-selectors.ts`, the Stripe writes of the refund
+// in `eu-withdrawal-refunds.ts`, and the repairs in `eu-withdrawal-recovery.ts`.
 
-// Invoices of one subscription since its start. A withdrawal happens within weeks of the start.
-const INVOICE_LIST_LIMIT = 100;
-const INVOICE_LINE_PAGE_LIMIT = 100;
-const CREDIT_NOTE_LIST_LIMIT = 100;
-const PENDING_ITEM_LIST_LIMIT = 100;
 const RESUME_INTERVAL_MS = 60 * 60 * 1000;
-// After this, the resume job stops with one last log line. Staff take over.
-const RESUME_MAX_AGE_DAYS = 30;
-// Stripe records this as `cancellation_details.comment`, so the billing record names the reason.
-const WITHDRAWAL_CANCEL_COMMENT = "EU right of withdrawal: the consumer withdrew from the contract";
 
 const OFFER_SPAN_NAME = "app.billing.eu_withdrawal.offer";
 const WITHDRAW_SPAN_NAME = "app.billing.eu_withdrawal";
@@ -75,8 +71,8 @@ const WITHDRAWAL_OUTCOMES = {
   gaveUp: "gave_up",
 } as const;
 
-// A refund needs a card or bank charge to go back to. Balance and out-of-band payments have none.
-const REFUNDABLE_PAYMENT_TYPES: ReadonlySet<string> = new Set(["payment_intent", "charge"]);
+// A marked withdrawal: staff own every refund, and the chain owes only the receipt.
+const STAFF_OWNS_REFUNDS: FinishResult = { status: "needs_staff", reason: "already_marked", invoiceIds: [] };
 
 /**
  * The withdrawal card of the billing page, or null when there is nothing to offer. One live Stripe
@@ -106,6 +102,7 @@ export const getWithdrawalOffer = cache(async (teamId: string): Promise<Withdraw
 
         span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.offered);
         return {
+          subscriptionId,
           planName: withdrawalPlanName({ subscription, fallbackPlanId: row.planId }),
           startedAt,
           windowEndsAt: eligibility.windowEndsAt,
@@ -167,7 +164,7 @@ export async function withdrawFromContract({
       const record = readWithdrawalMetadata(subscription.metadata);
       const withdrawnAt = record.withdrawnAt ?? now;
 
-      const result = await receiptThenFinish({
+      const { result, receiptSent } = await receiptThenFinish({
         stripe: client,
         subscription,
         record,
@@ -176,7 +173,7 @@ export async function withdrawFromContract({
         receipt: { teamId: team.id, team, recipient: actingUser, refund: receiptRefund },
       });
 
-      const completed = result.status === "done";
+      const completed = selectChainEnd({ refunds: result.status, receiptSent }) === "completed";
       span.setAttribute(OUTCOME_ATTRIBUTE, completed ? WITHDRAWAL_OUTCOMES.completed : WITHDRAWAL_OUTCOMES.resumeScheduled);
       return { completed };
     },
@@ -185,7 +182,8 @@ export async function withdrawFromContract({
 
 /**
  * The resume job. Only the job whose run time matches `eu_resume_at` continues, so one chain runs
- * per withdrawal. It stops when all is done, when staff must act, or after the maximum age.
+ * per withdrawal. It stops when all is done, when staff must act and the receipt is sent, or after
+ * the maximum age.
  * A failed reschedule throws, so the queue retries the same message, which still owns the chain.
  */
 export async function resumeWithdrawal({
@@ -216,44 +214,55 @@ export async function resumeWithdrawal({
       const stop = selectResumeStop({ record, scheduledFor });
       if (stop || !withdrawnAt) {
         span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES[stop ?? "notRecorded"]);
-        return { completed: false };
+        return { completed: stop === "completed" };
       }
 
       const startedAt = await readContractStart({ stripe: client, subscription });
-      const result = await receiptThenFinish({ stripe: client, subscription, record, startedAt, withdrawnAt, receipt: { teamId } });
+      const { result, receiptSent } = record.needsStaffAt
+        ? { result: STAFF_OWNS_REFUNDS, receiptSent: await sendReceipt({ stripe: client, subscription, record, startedAt, receipt: { teamId } }) }
+        : await receiptThenFinish({ stripe: client, subscription, record, startedAt, withdrawnAt, receipt: { teamId } });
 
-      if (result.status === "done") {
-        span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.completed);
-        return { completed: true };
-      }
-      if (result.status === "needs_staff") {
+      // A marked withdrawal already has its mark and its alert.
+      if (result.status === "needs_staff" && !record.needsStaffAt) {
         await updateWithdrawalMetadata({
           stripe: client,
           subscriptionId,
           metadata: { [SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt]: now.toISOString() },
         });
-        console.error(JSON.stringify({ event: "eu_withdrawal_refund_needs_staff", subscriptionId, reason: result.reason }));
+        console.error(JSON.stringify({
+          event: "eu_withdrawal_refund_needs_staff",
+          subscriptionId,
+          reason: result.reason,
+          invoiceIds: result.invoiceIds,
+          receiptSent,
+        }));
+      }
+
+      const { next, overdue } = selectResumeNext({ status: result.status, receiptSent, withdrawnAt, now });
+      if (next === "completed") {
+        span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.completed);
+        return { completed: true };
+      }
+      if (next === "needsStaff") {
         span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.needsStaff);
         return { completed: false };
       }
-
-      const ageMs = now.getTime() - withdrawnAt.getTime();
-      if (ageMs >= RESUME_MAX_AGE_DAYS * DAY_IN_MS) {
-        console.error(JSON.stringify({ event: "eu_withdrawal_resume_gave_up", subscriptionId }));
+      if (next === "gaveUp") {
+        console.error(JSON.stringify({ event: "eu_withdrawal_resume_gave_up", subscriptionId, receiptSent }));
         span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.gaveUp);
         return { completed: false };
       }
-      if (ageMs >= REFUND_DEADLINE_DAYS * DAY_IN_MS) {
+      if (overdue) {
         console.error(JSON.stringify({ event: "eu_withdrawal_refund_overdue", subscriptionId }));
       }
 
       // Enqueue first: when the metadata write then fails, the retry of this message still owns the chain.
-      const next = nextResumeAt(now);
-      await enqueueEuWithdrawalResume({ teamId, subscriptionId, runAt: next });
+      const nextRunAt = nextResumeAt(now);
+      await enqueueEuWithdrawalResume({ teamId, subscriptionId, runAt: nextRunAt });
       await updateWithdrawalMetadata({
         stripe: client,
         subscriptionId,
-        metadata: { [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: next.toISOString() },
+        metadata: { [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: nextRunAt.toISOString() },
       });
       span.setAttribute(OUTCOME_ATTRIBUTE, WITHDRAWAL_OUTCOMES.rescheduled);
       return { completed: false };
@@ -274,25 +283,6 @@ export function withdrawalSignerName({
   const fullName = [firstName?.trim(), lastName?.trim()].filter(Boolean).join(" ");
 
   return (fullName || email).slice(0, NAME_MAX_LENGTH);
-}
-
-// Why a resume job stops before it does anything, or null when it continues.
-function selectResumeStop({
-  record,
-  scheduledFor,
-}: {
-  record: WithdrawalMetadata;
-  scheduledFor: string;
-}): "notRecorded" | "superseded" | "needsStaff" | null {
-  // The action saves the job before its claim; when the claim failed, there is nothing to resume.
-  if (!record.withdrawnAt) {
-    return "notRecorded";
-  }
-  if (record.resumeAt !== scheduledFor) {
-    return "superseded";
-  }
-
-  return record.needsStaffAt ? "needsStaff" : null;
 }
 
 // Step 3: save the resume job, then write the claim with that job's run time. A failed claim
@@ -318,6 +308,8 @@ async function claimWithdrawal({
       operation: STRIPE_OPERATIONS.subscriptionsUpdate,
       run: () => stripe.subscriptions.update(subscription.id, {
         metadata: {
+          // The recovery scan reads the team here; a reconcile may have matched it by customer only.
+          teamId: team.id,
           [SUBSCRIPTION_WITHDRAWAL_METADATA.withdrawnAt]: now.toISOString(),
           [SUBSCRIPTION_WITHDRAWAL_METADATA.withdrawnByUserId]: actingUserId,
           [SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt]: resumeAt.toISOString(),
@@ -336,8 +328,8 @@ async function claimWithdrawal({
   }
 }
 
-// Steps 4 to 8. The receipt goes before the cancel, so a Stripe failure after the claim cannot
-// delay it. The steps do not wait on each other, but a missing receipt keeps the chain going.
+// Steps 4 to 9 (`docs/eu-withdrawal.md`). The receipt goes after the refund sum and before the credit
+// notes, so it states the amount this run refunds. A failed step before it cannot hold it back.
 async function receiptThenFinish({
   stripe,
   subscription,
@@ -352,25 +344,55 @@ async function receiptThenFinish({
   startedAt: Date;
   withdrawnAt: Date;
   receipt: ReceiptSources;
-}): Promise<FinishResult> {
+}): Promise<{ result: FinishResult; receiptSent: boolean }> {
   const subscriptionId = subscription.id;
-  const receiptSent = await ensureReceipt({ stripe, subscription, record, startedAt, ...receipt })
-    .catch((error: unknown) => {
-      logStepFailure({ step: "receipt", subscriptionId, error });
-      return false;
-    });
+  const preparation = await prepareRefunds({ stripe, subscription, record, startedAt, withdrawnAt });
 
-  const result = await finishWithdrawal({ stripe, subscription, record, startedAt, withdrawnAt }).catch((error: unknown): FinishResult => {
-    logStepFailure({ step: "finish", subscriptionId, error });
-    // A refused 4xx (a refunded charge, a dispute, a missing object) fails the same way every hour.
-    return classifyStripeError(error) === "refused" ? { status: "needs_staff", reason: "stripe_refused" } : { status: "retry" };
+  const receiptSent = await sendReceipt({
+    stripe,
+    subscription,
+    record,
+    startedAt,
+    receipt: { ...receipt, refund: preparation.ok ? preparation.prepared.refund : receipt.refund },
   });
 
-  return result.status === "done" && !receiptSent ? { status: "retry" } : result;
+  const result = preparation.ok
+    ? await issueWithdrawalRefunds({ stripe, subscriptionId, prepared: preparation.prepared })
+    : preparation.result;
+
+  if (selectChainEnd({ refunds: result.status, receiptSent }) === "completed") {
+    await updateWithdrawalMetadata({
+      stripe,
+      subscriptionId,
+      metadata: { [SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt]: new Date().toISOString() },
+    }).catch((error: unknown) => {
+      // Without the mark, the recovery scan runs the job once more, and that run finds nothing to do.
+      logStepFailure({ step: "complete", subscriptionId, error });
+    });
+  }
+
+  return { result, receiptSent };
+}
+
+// Step 7, with its failure logged. Returns whether a receipt is now marked as sent.
+async function sendReceipt({
+  receipt,
+  ...params
+}: {
+  stripe: WithdrawalStripe;
+  subscription: Stripe.Subscription;
+  record: WithdrawalMetadata;
+  startedAt: Date;
+  receipt: ReceiptSources;
+}): Promise<boolean> {
+  return ensureReceipt({ ...params, ...receipt }).catch((error: unknown) => {
+    logStepFailure({ step: "receipt", subscriptionId: params.subscription.id, error });
+    return false;
+  });
 }
 
 /**
- * Step 4: send the receipt when a withdrawal is recorded and none is marked as sent, then mark it.
+ * Step 7: send the receipt when a withdrawal is recorded and none is marked as sent, then mark it.
  * Returns whether a receipt is now marked. A second receipt after a failed mark beats none.
  */
 async function ensureReceipt({
@@ -439,274 +461,6 @@ async function readReceiptParties({
   return to && teamRow ? { to, team: teamRow } : null;
 }
 
-// Steps 5 to 8: cancel, clear what could still bill, sync the team, refund. The invoice read comes
-// after the cancel, so it sees every payment that landed before Stripe stopped collecting.
-async function finishWithdrawal({
-  stripe,
-  subscription,
-  record,
-  startedAt,
-  withdrawnAt,
-}: {
-  stripe: WithdrawalStripe;
-  subscription: Stripe.Subscription;
-  record: WithdrawalMetadata;
-  startedAt: Date;
-  withdrawnAt: Date;
-}): Promise<FinishResult> {
-  const ended = await cancelUnlessEnded({ stripe, subscription });
-  const invoices = await listSubscriptionInvoices({ stripe, subscription });
-  await clearUnbilled({ stripe, subscription, invoices });
-  await reconcileAfterCancel(ended);
-
-  const creditNotes = await listCreditNotes({ stripe, invoices });
-  const refund = await computeRefund({
-    subscription,
-    invoices,
-    startedAt,
-    withdrawnAt,
-    record,
-    credits: selectWithdrawalCredits({ creditNotes, subscriptionId: subscription.id }),
-  });
-
-  return issueWithdrawalRefunds({ stripe, subscriptionId: subscription.id, invoices, refund });
-}
-
-// `WITHDRAWAL_CANCEL_PARAMS`, not `cancelParamsForStatus`: a final invoice would bill the consumer
-// after the refund was computed (`src/constants/subscription-lifecycle.ts`).
-async function cancelUnlessEnded({
-  stripe,
-  subscription,
-}: {
-  stripe: WithdrawalStripe;
-  subscription: Stripe.Subscription;
-}): Promise<Stripe.Subscription> {
-  if (getStripeSubscriptionTransitionPolicy(subscription.status)?.subscription === "clear") {
-    return subscription;
-  }
-
-  return callStripe({
-    operation: STRIPE_OPERATIONS.subscriptionsCancel,
-    run: () => stripe.subscriptions.cancel(subscription.id, {
-      ...WITHDRAWAL_CANCEL_PARAMS,
-      cancellation_details: { comment: WITHDRAWAL_CANCEL_COMMENT },
-    }, { idempotencyKey: `eu-withdrawal-cancel:${subscription.id}` }),
-  });
-}
-
-// After the cancel, nothing of this subscription may bill: a draft (a trial end) can finalize and
-// charge, an open invoice stays collectable, and pending items (prorations) join the next invoice.
-async function clearUnbilled({
-  stripe,
-  subscription,
-  invoices,
-}: {
-  stripe: WithdrawalStripe;
-  subscription: Stripe.Subscription;
-  invoices: Stripe.Invoice[];
-}): Promise<void> {
-  for (const invoice of invoices) {
-    if (invoice.status === "draft") {
-      await callStripe({
-        operation: STRIPE_OPERATIONS.invoicesDelete,
-        run: () => stripe.invoices.del(invoice.id),
-      });
-    } else if (invoice.status === "open") {
-      await callStripe({
-        operation: STRIPE_OPERATIONS.invoicesVoid,
-        run: () => stripe.invoices.voidInvoice(invoice.id, {}, { idempotencyKey: `eu-withdrawal-void:${invoice.id}` }),
-      });
-    }
-  }
-
-  const customerId = getStripeId(subscription.customer);
-  if (!customerId) {
-    return;
-  }
-  const { data: pendingItems } = await callStripe({
-    operation: STRIPE_OPERATIONS.invoiceItemsList,
-    run: () => stripe.invoiceItems.list({ customer: customerId, pending: true, limit: PENDING_ITEM_LIST_LIMIT }),
-  });
-  for (const item of pendingItems) {
-    if (item.parent?.subscription_details?.subscription === subscription.id) {
-      await callStripe({
-        operation: STRIPE_OPERATIONS.invoiceItemsDelete,
-        run: () => stripe.invoiceItems.del(item.id),
-      });
-    }
-  }
-}
-
-// The webhook syncs the team row too, so a failed write here only delays the page.
-async function reconcileAfterCancel(subscription: Stripe.Subscription): Promise<void> {
-  await reconcileTeamFromSubscription({ subscription }).catch((error: unknown) => {
-    logStepFailure({ step: "reconcile", subscriptionId: subscription.id, error });
-  });
-}
-
-/**
- * One credit note with a refund per invoice that still owes one. An invoice with no charge is
- * left to staff; the other refunds still go out. The caller logs and marks the staff case.
- */
-async function issueWithdrawalRefunds({
-  stripe,
-  subscriptionId,
-  invoices,
-  refund,
-}: {
-  stripe: WithdrawalStripe;
-  subscriptionId: string;
-  invoices: Stripe.Invoice[];
-  refund: WithdrawalRefund;
-}): Promise<FinishResult> {
-  let needsStaff = false;
-  for (const { invoiceId, refundNow } of refund.perInvoice) {
-    if (refundNow <= 0) {
-      continue;
-    }
-    const invoice = invoices.find(({ id }) => id === invoiceId);
-    if (!invoice || !hasRefundableCharge(invoice)) {
-      needsStaff = true;
-      continue;
-    }
-
-    await callStripe({
-      operation: STRIPE_OPERATIONS.creditNotesCreate,
-      run: () => stripe.creditNotes.create({
-        invoice: invoiceId,
-        amount: refundNow,
-        refund_amount: refundNow,
-        metadata: { [CREDIT_NOTE_WITHDRAWAL_METADATA.subscriptionId]: subscriptionId },
-      }, { idempotencyKey: `eu-withdrawal-refund:${invoiceId}` }),
-    });
-  }
-
-  return needsStaff ? { status: "needs_staff", reason: "no_charge" } : { status: "done" };
-}
-
-// The extra-charges seam runs only with consent: without it the consumer owes nothing (art. 14(4)).
-async function computeRefund({
-  subscription,
-  invoices,
-  startedAt,
-  withdrawnAt,
-  record,
-  credits,
-}: {
-  subscription: Stripe.Subscription;
-  invoices: Stripe.Invoice[];
-  startedAt: Date;
-  withdrawnAt: Date;
-  record: WithdrawalMetadata;
-  // Our earlier refunds per invoice. The receipt states the whole refund, so it passes none.
-  credits: ReadonlyMap<string, number>;
-}): Promise<WithdrawalRefund> {
-  const consent = record.consent !== null;
-  const extraCharges = consent ? await getWithdrawalExtraCharges({ subscription, withdrawnAt }) : 0;
-
-  return selectWithdrawalRefund({
-    invoices: invoices
-      .filter(({ status }) => status === "paid")
-      .map((invoice) => toWithdrawalInvoice({ invoice, alreadyCredited: credits.get(invoice.id) ?? 0 })),
-    startedAt,
-    withdrawnAt,
-    consent,
-    extraCharges,
-  });
-}
-
-// The invoices of every status since the start. `payments` tells a charge from a balance payment.
-async function listSubscriptionInvoices({
-  stripe,
-  subscription,
-}: {
-  stripe: WithdrawalStripe;
-  subscription: Stripe.Subscription;
-}): Promise<Stripe.Invoice[]> {
-  const { data } = await callStripe({
-    operation: STRIPE_OPERATIONS.invoicesList,
-    run: () => stripe.invoices.list({
-      subscription: subscription.id,
-      created: { gte: subscription.start_date },
-      limit: INVOICE_LIST_LIMIT,
-      expand: ["data.payments"],
-    }),
-  });
-
-  // Few invoices count toward a refund, and only a paid one needs every line for the used share.
-  const complete: Stripe.Invoice[] = [];
-  for (const invoice of data) {
-    complete.push(invoice.status === "paid" && invoice.lines?.has_more
-      ? { ...invoice, lines: { ...invoice.lines, data: await listAllLines({ stripe, invoice }), has_more: false } }
-      : invoice);
-  }
-
-  return complete;
-}
-
-// `invoices.list` returns only the first page of lines. The refund weighs every line.
-async function listAllLines({
-  stripe,
-  invoice,
-}: {
-  stripe: WithdrawalStripe;
-  invoice: Stripe.Invoice;
-}): Promise<Stripe.InvoiceLineItem[]> {
-  const lines: Stripe.InvoiceLineItem[] = [];
-  let startingAfter: string | undefined;
-  for (;;) {
-    const cursor = startingAfter;
-    const page = await callStripe({
-      operation: STRIPE_OPERATIONS.invoicesListLineItems,
-      run: () => stripe.invoices.listLineItems(invoice.id, {
-        limit: INVOICE_LINE_PAGE_LIMIT,
-        ...(cursor ? { starting_after: cursor } : {}),
-      }),
-    });
-    lines.push(...page.data);
-    startingAfter = page.data.at(-1)?.id;
-    if (!page.has_more || !startingAfter) {
-      return lines;
-    }
-  }
-}
-
-// The credit notes of each paid invoice. `selectWithdrawalCredits` keeps only ours.
-async function listCreditNotes({
-  stripe,
-  invoices,
-}: {
-  stripe: WithdrawalStripe;
-  invoices: Stripe.Invoice[];
-}): Promise<Stripe.CreditNote[]> {
-  const notes: Stripe.CreditNote[] = [];
-  for (const invoice of invoices.filter(({ status, amount_paid }) => status === "paid" && amount_paid > 0)) {
-    const { data } = await callStripe({
-      operation: STRIPE_OPERATIONS.creditNotesList,
-      run: () => stripe.creditNotes.list({ invoice: invoice.id, limit: CREDIT_NOTE_LIST_LIMIT }),
-    });
-    notes.push(...data);
-  }
-
-  return notes;
-}
-
-// No idempotency key: the values differ on each call, and writing the same keys twice is harmless.
-async function updateWithdrawalMetadata({
-  stripe,
-  subscriptionId,
-  metadata,
-}: {
-  stripe: WithdrawalStripe;
-  subscriptionId: string;
-  metadata: Record<string, string>;
-}): Promise<void> {
-  await callStripe({
-    operation: STRIPE_OPERATIONS.subscriptionsUpdate,
-    run: () => stripe.subscriptions.update(subscriptionId, { metadata }),
-  });
-}
-
 // The page and the action decide with the same selector, so the button and the action agree.
 function assessWithdrawal({
   subscription,
@@ -760,11 +514,6 @@ function nextResumeAt(now: Date): Date {
   return new Date(Math.ceil((now.getTime() + RESUME_INTERVAL_MS) / 1000) * 1000);
 }
 
-function hasRefundableCharge(invoice: Stripe.Invoice): boolean {
-  return (invoice.payments?.data ?? []).some((payment) => payment.status === "paid"
-    && REFUNDABLE_PAYMENT_TYPES.has(payment.payment.type));
-}
-
 function withdrawalPlanName({
   subscription,
   fallbackPlanId,
@@ -775,16 +524,9 @@ function withdrawalPlanName({
   return getPlan(classifySubscriptionItems(subscription).planId ?? fallbackPlanId).name;
 }
 
-function logStepFailure({ step, subscriptionId, error }: { step: string; subscriptionId: string; error: unknown }): void {
-  console.error(JSON.stringify({ event: "eu_withdrawal_step_failed", step, subscriptionId, errorName: stripeErrorName(error) }));
-}
-
-type FinishResult =
-  | { status: "done" }
-  | { status: "retry" }
-  | { status: "needs_staff"; reason: "no_charge" | "stripe_refused" };
-
 export interface WithdrawalOffer {
+  // The dialog sends it back, so the action refuses a subscription that replaced this one.
+  subscriptionId: string;
   planName: string;
   startedAt: Date;
   windowEndsAt: Date;
@@ -796,7 +538,8 @@ interface ReceiptSources {
   teamId: string;
   team?: WithdrawalTeam;
   recipient?: WithdrawingUser;
-  // The refund the action read before its claim; the resume job reads it again.
+  // The refund this run issues, else the one the action read before its claim. Without one, the
+  // receipt step reads the invoices itself.
   refund?: WithdrawalRefund;
 }
 
@@ -814,41 +557,6 @@ interface WithdrawingUser {
   locale: Locale;
 }
 
+
 // The subset of the Stripe client the withdrawal drives. Narrowed so tests can pass a fake.
-export interface WithdrawalStripe {
-  subscriptions: {
-    retrieve: (id: string, params?: Stripe.SubscriptionRetrieveParams) => Promise<Stripe.Subscription>;
-    update: (
-      id: string,
-      params: Stripe.SubscriptionUpdateParams,
-      options?: Stripe.RequestOptions,
-    ) => Promise<Stripe.Subscription>;
-    cancel: (
-      id: string,
-      params: Stripe.SubscriptionCancelParams,
-      options: Stripe.RequestOptions,
-    ) => Promise<Stripe.Subscription>;
-  };
-  invoices: {
-    list: (params: Stripe.InvoiceListParams) => Promise<{ data: Stripe.Invoice[] }>;
-    retrieve: (id: string) => Promise<Stripe.Invoice>;
-    listLineItems: (
-      id: string,
-      params: Stripe.InvoiceListLineItemsParams,
-    ) => Promise<{ data: Stripe.InvoiceLineItem[]; has_more: boolean }>;
-    voidInvoice: (
-      id: string,
-      params: Stripe.InvoiceVoidInvoiceParams,
-      options: Stripe.RequestOptions,
-    ) => Promise<Stripe.Invoice>;
-    del: (id: string) => Promise<Stripe.DeletedInvoice>;
-  };
-  invoiceItems: {
-    list: (params: Stripe.InvoiceItemListParams) => Promise<{ data: Stripe.InvoiceItem[] }>;
-    del: (id: string) => Promise<Stripe.DeletedInvoiceItem>;
-  };
-  creditNotes: {
-    create: (params: Stripe.CreditNoteCreateParams, options: Stripe.RequestOptions) => Promise<Stripe.CreditNote>;
-    list: (params: Stripe.CreditNoteListParams) => Promise<{ data: Stripe.CreditNote[] }>;
-  };
-}
+export type WithdrawalStripe = WithdrawalReadStripe & WithdrawalRefundsStripe & WithdrawalRecordStripe;

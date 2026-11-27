@@ -277,6 +277,9 @@ type ScheduledQueueMessageFor<T extends ScheduledJobType> = {
   type: T;
   payload: ScheduledJobPayload<T>;
   runAt: string;
+  // Set when the message comes from a D1 job row. A row can reach the queue twice (`sendPersistedJob`
+  // and the cron), so a handler that must not repeat its work keys on it (`sendEmailJob`).
+  dedupeKey?: string;
 };
 
 export type ScheduledQueueMessage = {
@@ -287,14 +290,17 @@ export function createScheduledQueueMessage<T extends ScheduledJobType>({
   payload,
   runAt,
   type,
+  dedupeKey,
 }: {
   payload: ScheduledJobPayload<T>;
   runAt: Date;
   type: T;
+  dedupeKey?: string;
 }): ScheduledQueueMessageFor<T> {
   return {
     type,
     payload,
     runAt: runAt.toISOString(),
+    ...(dedupeKey === undefined ? {} : { dedupeKey }),
   };
 }

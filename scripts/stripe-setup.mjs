@@ -78,6 +78,8 @@ const WEBHOOK_EVENTS = [
   "invoice.paid",
   "invoice.payment_failed",
   "invoice.payment_action_required",
+  // Only the EU withdrawal flow acts on it; the handler ignores it while that flag is off.
+  "refund.failed",
 ];
 
 function parseArgs(argv) {
@@ -179,7 +181,7 @@ async function ensureAddonProduct(stripe, addon, { dryRun }) {
     if (!dryRun) {
       await stripe.products.update(existing.id, {
         name: addon.name,
-        metadata: { template_addon_id: addon.id },
+        metadata: addonMetadata(addon),
       });
     }
     return existing;
@@ -187,12 +189,12 @@ async function ensureAddonProduct(stripe, addon, { dryRun }) {
 
   console.log(`  + create product "${addon.name}"`);
   if (dryRun) {
-    return { id: `(dry-run:addon-${addon.id})` };
+    return { id: `(dry-run:addon-${addon.id})`, dryRunPlaceholder: true };
   }
 
   return stripe.products.create({
     name: addon.name,
-    metadata: { template_addon_id: addon.id },
+    metadata: addonMetadata(addon),
   });
 }
 
@@ -203,7 +205,7 @@ async function ensureProduct(stripe, plan, { dryRun }) {
     if (!dryRun) {
       await stripe.products.update(existing.id, {
         name: plan.name,
-        metadata: { template_plan_id: plan.id },
+        metadata: planMetadata(plan),
       });
     }
     return existing;
@@ -211,16 +213,46 @@ async function ensureProduct(stripe, plan, { dryRun }) {
 
   console.log(`  + create product "${plan.name}"`);
   if (dryRun) {
-    return { id: `(dry-run:${plan.id})` };
+    return { id: `(dry-run:${plan.id})`, dryRunPlaceholder: true };
   }
 
   return stripe.products.create({
     name: plan.name,
-    metadata: { template_plan_id: plan.id },
+    metadata: planMetadata(plan),
   });
 }
 
-async function ensurePrice(stripe, { lookupKey, amount, currency, interval }, product, { dryRun }) {
+// Product and price metadata name the plan or add-on, so an item on a replaced price still
+// resolves. Must match PRICE_METADATA_KEYS in src/utils/plan-prices.ts (its test checks it).
+function planMetadata(plan) {
+  return { template_plan_id: plan.id };
+}
+
+function addonMetadata(addon) {
+  return { template_addon_id: addon.id };
+}
+
+// Live subscriptions can still hold a price that this script archived, also on an earlier run.
+// Without `active`, Stripe lists only active prices, so list each state on its own.
+async function ensurePriceMetadata(stripe, product, metadata, { dryRun }) {
+  if (product.dryRunPlaceholder) {
+    return;
+  }
+
+  for (const active of [true, false]) {
+    for await (const price of stripe.prices.list({ product: product.id, active, limit: 100 })) {
+      const missing = Object.entries(metadata).some(([key, value]) => price.metadata?.[key] !== value);
+      if (missing) {
+        console.log(`  ~ tag ${active ? "" : "archived "}price ${price.id} with ${JSON.stringify(metadata)}`);
+        if (!dryRun) {
+          await stripe.prices.update(price.id, { metadata });
+        }
+      }
+    }
+  }
+}
+
+async function ensurePrice(stripe, { lookupKey, amount, currency, interval, metadata }, product, { dryRun }) {
   const found = await stripe.prices.list({ lookup_keys: [lookupKey], limit: 1 });
   const existing = found.data[0];
 
@@ -245,6 +277,7 @@ async function ensurePrice(stripe, { lookupKey, amount, currency, interval }, pr
     unit_amount: amount,
     currency,
     recurring: { interval },
+    metadata,
     lookup_key: lookupKey,
     transfer_lookup_key: Boolean(existing),
   });
@@ -349,12 +382,13 @@ async function main() {
     for (const variant of priceVariantsForPlan(plan)) {
       const price = await ensurePrice(
         stripe,
-        { lookupKey: priceLookupKey(plan, variant), amount: variant.amount, currency: plan.currency, interval: variant.interval },
+        { lookupKey: priceLookupKey(plan, variant), amount: variant.amount, currency: plan.currency, interval: variant.interval, metadata: planMetadata(plan) },
         product,
         args,
       );
       envEntries.push([envVarForPlan(plan, variant), price.id]);
     }
+    await ensurePriceMetadata(stripe, product, planMetadata(plan), args);
   }
 
   for (const addon of Object.values(addons)) {
@@ -363,12 +397,13 @@ async function main() {
     for (const variant of priceVariantsForAddon(addon)) {
       const price = await ensurePrice(
         stripe,
-        { lookupKey: priceLookupKeyForAddon(addon, variant), amount: variant.amount, currency: addon.currency, interval: variant.interval },
+        { lookupKey: priceLookupKeyForAddon(addon, variant), amount: variant.amount, currency: addon.currency, interval: variant.interval, metadata: addonMetadata(addon) },
         product,
         args,
       );
       envEntries.push([envVarForAddon(addon, variant), price.id]);
     }
+    await ensurePriceMetadata(stripe, product, addonMetadata(addon), args);
   }
 
   console.log("Customer portal:");

@@ -1,3 +1,5 @@
+import type { ActionErrorMessageKey } from "@/lib/action-error";
+
 // The EU consumer right of withdrawal (Directive 2011/83/EU, art. 9 to 16). The master switch is
 // `EU_WITHDRAWAL_ENABLED` in `src/constants.ts`.
 
@@ -15,12 +17,20 @@ export const CONSENT_TEXT_VERSION = 1;
 export const CONSENT_TEXT_MAX_LENGTH = 500;
 
 // Where the right of withdrawal applies, as ISO 3166-1 alpha-2 codes (Stripe's form; Greece is GR).
-// The EEA Agreement extends Directive 2011/83/EU to Iceland, Liechtenstein, and Norway.
+// The EEA Agreement extends Directive 2011/83/EU to Iceland, Liechtenstein, and Norway. The French
+// outermost regions have their own codes; the Spanish and Portuguese ones use ES and PT.
 export const EU_EEA_COUNTRY_CODES = [
   "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI", "FR", "GR", "HR", "HU",
   "IE", "IT", "LT", "LU", "LV", "MT", "NL", "PL", "PT", "RO", "SE", "SI", "SK",
   "IS", "LI", "NO",
+  "GF", "GP", "MF", "MQ", "RE", "YT",
 ] as const;
+
+// After this, the resume job stops with one last log line, and the recovery scan skips the withdrawal.
+export const RESUME_MAX_AGE_DAYS = 30;
+// A live chain always names a run time in the future, or one that the queue still retries.
+// The recovery scan counts a run time older than this as a chain that the queue dropped.
+export const RESUME_STALL_AFTER_MS = 2 * 60 * 60 * 1000;
 
 // Stripe metadata is the record of the order and the withdrawal; there is no D1 table.
 export const SUBSCRIPTION_WITHDRAWAL_METADATA = {
@@ -35,11 +45,19 @@ export const SUBSCRIPTION_WITHDRAWAL_METADATA = {
   // The run time of the one resume job that may continue; a job with another run time stops.
   resumeAt: "eu_resume_at",
   needsStaffAt: "eu_withdrawal_needs_staff_at",
+  // A refund failed after its credit note (`refund.failed`). Staff pay that one by another path;
+  // the chain does not stop, so the other invoices still get their refunds.
+  refundFailedAt: "eu_withdrawal_refund_failed_at",
+  // Every refund is issued and the receipt is sent, so the recovery scan skips the withdrawal.
+  completedAt: "eu_withdrawal_completed_at",
 } as const;
 
 // What the withdrawal receipt says about the refund: all of it, the unused days, or nothing paid.
 export const WITHDRAWAL_REFUND_KINDS = ["full", "prorated", "none"] as const;
 export type WithdrawalRefundKind = (typeof WITHDRAWAL_REFUND_KINDS)[number];
+
+// The refusal when the dialog showed a subscription that another one replaced. The card reloads on it.
+export const WITHDRAWAL_STALE_MESSAGE_KEY = "Client.Dashboard.Billing.errorWithdrawalStale" satisfies ActionErrorMessageKey;
 
 export const CREDIT_NOTE_WITHDRAWAL_METADATA = {
   subscriptionId: "eu_withdrawal_subscription_id",

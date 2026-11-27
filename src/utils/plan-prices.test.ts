@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -105,18 +107,42 @@ describe("plan-prices", () => {
     expect(addonIdFromPriceId(null)).toBeNull();
   });
 
-  test("resolveSubscriptionPriceId classifies plan, add-on, and unknown prices", async () => {
+  test("resolveSubscriptionPrice classifies plan, add-on, and unknown prices", async () => {
     setPriceEnvVars();
     setAddonPriceEnvVars();
 
-    const { resolveSubscriptionPriceId } = await import("./plan-prices");
+    const { resolveSubscriptionPrice } = await import("./plan-prices");
 
-    expect(resolveSubscriptionPriceId(`price_${PAID_PLAN_IDS[0]}_test`))
+    expect(resolveSubscriptionPrice({ id: `price_${PAID_PLAN_IDS[0]}_test` }))
       .toEqual({ kind: "plan", planId: PAID_PLAN_IDS[0] });
-    expect(resolveSubscriptionPriceId(`price_addon_${SYNTHETIC_ADDON_IDS[0]}_test`))
+    expect(resolveSubscriptionPrice({ id: `price_addon_${SYNTHETIC_ADDON_IDS[0]}_test` }))
       .toEqual({ kind: "addon", addonId: SYNTHETIC_ADDON_IDS[0] });
-    expect(resolveSubscriptionPriceId("price_unknown")).toBeNull();
-    expect(resolveSubscriptionPriceId(undefined)).toBeNull();
+    expect(resolveSubscriptionPrice({ id: "price_unknown" })).toBeNull();
+    expect(resolveSubscriptionPrice(undefined)).toBeNull();
+  });
+
+  // stripe-setup moves the env to a new price; an item on the old price keeps the old id.
+  test("resolveSubscriptionPrice falls back to the metadata of a replaced price", async () => {
+    setPriceEnvVars();
+    setAddonPriceEnvVars();
+
+    const { resolveSubscriptionPrice } = await import("./plan-prices");
+
+    expect(resolveSubscriptionPrice({ id: "price_old", metadata: { template_addon_id: SYNTHETIC_ADDON_IDS[0] } }))
+      .toEqual({ kind: "addon", addonId: SYNTHETIC_ADDON_IDS[0] });
+    expect(resolveSubscriptionPrice({ id: "price_old", metadata: { template_plan_id: PAID_PLAN_IDS[0] } }))
+      .toEqual({ kind: "plan", planId: PAID_PLAN_IDS[0] });
+    // An id that the catalog no longer lists stays unknown.
+    expect(resolveSubscriptionPrice({ id: "price_old", metadata: { template_addon_id: "gone" } })).toBeNull();
+    expect(resolveSubscriptionPrice({ id: "price_old", metadata: { template_plan_id: "gone" } })).toBeNull();
+  });
+
+  test("the setup script writes the metadata keys that resolveSubscriptionPrice reads", async () => {
+    const { PRICE_METADATA_KEYS } = await import("./plan-prices");
+    const script = readFileSync(new URL("../../scripts/stripe-setup.mjs", import.meta.url), "utf8");
+
+    expect(script).toContain(`{ ${PRICE_METADATA_KEYS.plan}: plan.id }`);
+    expect(script).toContain(`{ ${PRICE_METADATA_KEYS.addon}: addon.id }`);
   });
 
   test("getPlanPriceId throws when the price env var is missing", async () => {

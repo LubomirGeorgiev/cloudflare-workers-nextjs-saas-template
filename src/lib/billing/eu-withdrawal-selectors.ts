@@ -4,6 +4,9 @@ import { DAY_IN_MS } from "@/constants";
 import {
   CONSENT_TEXT_VERSION,
   CREDIT_NOTE_WITHDRAWAL_METADATA,
+  REFUND_DEADLINE_DAYS,
+  RESUME_MAX_AGE_DAYS,
+  RESUME_STALL_AFTER_MS,
   SUBSCRIPTION_WITHDRAWAL_METADATA,
   WITHDRAWAL_PERIOD_DAYS,
   WITHDRAWAL_WINDOW_GRACE_MS,
@@ -145,10 +148,18 @@ export function selectWithdrawalRefund({
       && (paidAt.getTime() < windowEndsAt.getTime() || paidAt.getTime() >= withdrawnAt.getTime()))
     .toSorted((a, b) => (b.paidAt?.getTime() ?? 0) - (a.paidAt?.getTime() ?? 0));
 
+  const usedAmounts = counted.map((invoice) => consent
+    ? Math.round(invoice.amountPaid * usedShare({ lines: invoice.lines, startedAt, withdrawnAt }))
+    : 0);
+  // A proration credit gives back days that an earlier invoice charged. Its negative used amount
+  // lowers the used amount of the other invoices, so those days do not count twice.
+  let unusedCredit = usedAmounts.reduce((sum, used) => sum + Math.max(0, -used), 0);
   let remainingCharges = Math.max(0, extraCharges);
-  const perInvoice = counted.map((invoice) => {
-    const used = consent ? Math.round(invoice.amountPaid * usedShare({ lines: invoice.lines, startedAt, withdrawnAt })) : 0;
-    const beforeCharges = Math.max(0, invoice.amountPaid - used);
+  const perInvoice = counted.map((invoice, index) => {
+    const ownUsed = Math.max(0, usedAmounts[index] ?? 0);
+    const offset = Math.min(ownUsed, unusedCredit);
+    unusedCredit -= offset;
+    const beforeCharges = Math.max(0, invoice.amountPaid - (ownUsed - offset));
     const charged = Math.min(beforeCharges, remainingCharges);
     remainingCharges -= charged;
     const refund = beforeCharges - charged;
@@ -192,6 +203,134 @@ export function selectWithdrawalCredits({
   }
 
   return credits;
+}
+
+/**
+ * The most that a new credit note may refund on one invoice. Stripe subtracts every earlier
+ * post-payment credit note and every direct refund (a refund without a credit note) of the charge.
+ */
+export function selectInvoiceCreditable({
+  amountPaid,
+  postPaymentCreditNotesAmount,
+  chargeAmountRefunded,
+  creditNotes,
+}: {
+  amountPaid: number;
+  postPaymentCreditNotesAmount: number;
+  // The sum of `amount_refunded` of the invoice's charges, refunds of credit notes included.
+  chargeAmountRefunded: number;
+  // Every credit note of the invoice, ours and staff's.
+  creditNotes: readonly Stripe.CreditNote[];
+}): number {
+  const creditNoteRefunded = creditNotes
+    .filter(({ status }) => status !== "void")
+    .reduce((sum, note) => sum + (note.refunds ?? []).reduce((total, { amount_refunded }) => total + amount_refunded, 0), 0);
+  const directRefunds = Math.max(0, chargeAmountRefunded - creditNoteRefunded);
+
+  return Math.max(0, amountPaid - postPaymentCreditNotesAmount - directRefunds);
+}
+
+/** The subscription whose withdrawal issued this refund, from our credit note that holds it, or null. */
+export function selectRefundWithdrawal({
+  creditNotes,
+  refundId,
+}: {
+  creditNotes: readonly Stripe.CreditNote[];
+  refundId: string;
+}): string | null {
+  const note = creditNotes.find((candidate) => (candidate.refunds ?? [])
+    .some(({ refund }) => getStripeId(refund) === refundId));
+
+  return note?.metadata?.[CREDIT_NOTE_WITHDRAWAL_METADATA.subscriptionId] || null;
+}
+
+/** Why a resume job stops before it does anything, or null when it continues. */
+export function selectResumeStop({
+  record,
+  scheduledFor,
+}: {
+  record: WithdrawalMetadata;
+  scheduledFor: string;
+}): "notRecorded" | "superseded" | WithdrawalChainEnd | null {
+  // The action saves the job before its claim; when the claim failed, there is nothing to resume.
+  if (!record.withdrawnAt) {
+    return "notRecorded";
+  }
+  if (record.resumeAt !== scheduledFor) {
+    return "superseded";
+  }
+
+  return selectStoredChainEnd(record);
+}
+
+/**
+ * Whether the chain has ended: every refund is issued, or staff own the refunds, and the receipt
+ * is sent (art. 11(3)). The receipt is a legal duty, so without it the chain never ends here.
+ */
+export function selectChainEnd({
+  refunds,
+  receiptSent,
+}: {
+  refunds: WithdrawalRefundsStatus;
+  receiptSent: boolean;
+}): WithdrawalChainEnd | null {
+  if (!receiptSent) {
+    return null;
+  }
+  if (refunds === "done") {
+    return "completed";
+  }
+
+  return refunds === "needs_staff" ? "needsStaff" : null;
+}
+
+/** `selectChainEnd` for the stored record. A record without a mark still owes refunds. */
+export function selectStoredChainEnd(record: WithdrawalMetadata): WithdrawalChainEnd | null {
+  return selectChainEnd({
+    refunds: record.completedAt ? "done" : record.needsStaffAt ? "needs_staff" : "retry",
+    receiptSent: record.completedAt !== null || record.receiptSentAt !== null,
+  });
+}
+
+/**
+ * What the resume job does after its steps. Staff or done ends the chain only with a receipt.
+ * The chain also ends at the maximum age. `overdue` asks for the art. 13 log line.
+ */
+export function selectResumeNext({
+  status,
+  receiptSent,
+  withdrawnAt,
+  now,
+}: {
+  status: WithdrawalRefundsStatus;
+  receiptSent: boolean;
+  withdrawnAt: Date;
+  now: Date;
+}): { next: WithdrawalChainEnd | "gaveUp" | "reschedule"; overdue: boolean } {
+  const end = selectChainEnd({ refunds: status, receiptSent });
+  if (end) {
+    return { next: end, overdue: false };
+  }
+  const ageMs = now.getTime() - withdrawnAt.getTime();
+  if (ageMs >= RESUME_MAX_AGE_DAYS * DAY_IN_MS) {
+    return { next: "gaveUp", overdue: false };
+  }
+
+  return { next: "reschedule", overdue: status === "retry" && ageMs >= REFUND_DEADLINE_DAYS * DAY_IN_MS };
+}
+
+/**
+ * Whether the queue dropped the chain of this withdrawal: it is not complete, the chain still
+ * has work, its run time is long past, and it is younger than the maximum age.
+ */
+export function selectStalledWithdrawal({ record, now }: { record: WithdrawalMetadata; now: Date }): boolean {
+  const resumeAt = parseInstant(record.resumeAt);
+  if (!record.withdrawnAt || !resumeAt || selectStoredChainEnd(record)) {
+    return false;
+  }
+
+  return now.getTime() - resumeAt.getTime() >= RESUME_STALL_AFTER_MS
+    && now.getTime() - record.withdrawnAt.getTime() < RESUME_MAX_AGE_DAYS * DAY_IN_MS;
 }
 
 /** Stripe metadata for the checkout consent. An unticked box writes "" to delete a consent an earlier attempt stored. */
@@ -238,6 +377,7 @@ export function readWithdrawalMetadata(metadata: Record<string, string> | null |
     receiptSentAt: parseInstant(read(SUBSCRIPTION_WITHDRAWAL_METADATA.receiptSentAt)),
     resumeAt: read(SUBSCRIPTION_WITHDRAWAL_METADATA.resumeAt),
     needsStaffAt: parseInstant(read(SUBSCRIPTION_WITHDRAWAL_METADATA.needsStaffAt)),
+    completedAt: parseInstant(read(SUBSCRIPTION_WITHDRAWAL_METADATA.completedAt)),
   };
 }
 
@@ -261,7 +401,8 @@ export function isFirstActivation({
 }
 
 // The share of the paid period the consumer used, weighted by line amount. Use starts at the
-// contract start, never before it. Credit lines carry no period of service, so they do not weigh in.
+// contract start, never before it. A proration credit line weighs in with its negative amount, so
+// the share can be negative: the invoice gives back days that an earlier invoice charged.
 function usedShare({
   lines,
   startedAt,
@@ -271,13 +412,12 @@ function usedShare({
   startedAt: Date;
   withdrawnAt: Date;
 }): number {
-  const charged = lines.filter((line) => line.amount > 0);
-  const weight = charged.reduce((sum, line) => sum + line.amount, 0);
-  if (weight === 0) {
+  const weight = lines.reduce((sum, line) => sum + line.amount, 0);
+  if (weight <= 0) {
     return 0;
   }
 
-  return charged.reduce((sum, line) => {
+  return lines.reduce((sum, line) => {
     const periodDays = Math.max(1, Math.ceil((line.periodEnd.getTime() - line.periodStart.getTime()) / DAY_IN_MS));
     const usedFrom = Math.max(line.periodStart.getTime(), startedAt.getTime());
     const usedDays = Math.min(periodDays, Math.max(0, Math.ceil((withdrawnAt.getTime() - usedFrom) / DAY_IN_MS)));
@@ -292,6 +432,11 @@ function parseInstant(value: string | null): Date | null {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
+
+// What the refund step left: all issued, a failure to try again, or a case for staff.
+type WithdrawalRefundsStatus = "done" | "retry" | "needs_staff";
+
+type WithdrawalChainEnd = "completed" | "needsStaff";
 
 export type WithdrawalEligibility =
   | { eligible: true; windowEndsAt: Date; resuming: boolean }
@@ -328,4 +473,5 @@ export interface WithdrawalMetadata {
   // Kept as the stored string: the resume job compares it with its own run time.
   resumeAt: string | null;
   needsStaffAt: Date | null;
+  completedAt: Date | null;
 }

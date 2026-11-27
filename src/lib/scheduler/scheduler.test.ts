@@ -13,6 +13,7 @@ vi.mock("@/db", () => ({
 const {
   dispatchScheduledJobsToQueue,
   scheduleJob,
+  sendPersistedJob,
 } = await import("@/lib/scheduler/scheduler");
 
 function createDeleteChain() {
@@ -187,6 +188,33 @@ describe("scheduler persistence", () => {
     expect(db.delete).not.toHaveBeenCalled();
   });
 
+  test("sends a saved row without a second insert, and keeps it when the send fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queue = createQueue();
+    const db = {
+      insert: vi.fn(() => createInsertChain()),
+      delete: vi.fn(() => createDeleteChain()),
+    };
+    getDBMock.mockReturnValue(db);
+    const job = {
+      queue: queue as never,
+      type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+      dedupeKey: "cms-publish:entry-1",
+      payload: { entryId: "entry-1" },
+      runAt: new Date(),
+    };
+
+    await expect(sendPersistedJob(job)).resolves.toBe("queued");
+    expect(queue.send).toHaveBeenCalledWith(expect.objectContaining({ dedupeKey: job.dedupeKey }), expect.anything());
+    expect(db.delete).toHaveBeenCalledOnce();
+
+    queue.send.mockRejectedValueOnce(new Error("queue unavailable"));
+    await expect(sendPersistedJob(job)).resolves.toBe("persisted");
+    expect(db.delete).toHaveBeenCalledOnce();
+    expect(db.insert).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   test("still rejects when a non-durable send fails", async () => {
     const queue = createQueue();
     queue.send.mockRejectedValue(new Error("queue unavailable"));
@@ -246,12 +274,14 @@ describe("scheduler persistence", () => {
             {
               id: "job-1",
               type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+              dedupeKey: "cms-publish:entry-1",
               payload: { entryId: "entry-1" },
               runAt: firstRunAt,
             },
             {
               id: "job-2",
               type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
+              dedupeKey: "cms-publish:entry-2",
               payload: { entryId: "entry-2" },
               runAt: secondRunAt,
             },
@@ -275,6 +305,7 @@ describe("scheduler persistence", () => {
       type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
       payload: { entryId: "entry-1" },
       runAt: "2026-05-29T09:59:00.000Z",
+      dedupeKey: "cms-publish:entry-1",
     }, {
       delaySeconds: 0,
     });
@@ -282,6 +313,7 @@ describe("scheduler persistence", () => {
       type: SCHEDULED_JOB_TYPES.CMS_PUBLISH_ENTRY,
       payload: { entryId: "entry-2" },
       runAt: "2026-05-29T10:00:45.000Z",
+      dedupeKey: "cms-publish:entry-2",
     }, {
       delaySeconds: 45,
     });

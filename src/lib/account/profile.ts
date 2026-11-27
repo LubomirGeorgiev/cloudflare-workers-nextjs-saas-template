@@ -62,9 +62,10 @@ export async function updateUserProfile(input: UserSettingsSchema) {
 
   // D1 has no transactions, so the row above is already durable, and no post-commit effect may fail
   // it. The next request reads the session, so the save waits for it but not for the author purge.
-  runInBackground(
-    invalidateCmsAuthorAfterUserWrite({ userId: session.user.id, before: previousUser, after: updatedUser }),
-  );
+  runInBackground({
+    operation: "cms.invalidate_author_after_profile_update",
+    promise: invalidateCmsAuthorAfterUserWrite({ userId: session.user.id, before: previousUser, after: updatedUser }),
+  });
   await updateAllSessionsOfUser(session.user.id).catch((error: unknown) => {
     console.error("Profile update follow-up failed: session refresh", error);
   });

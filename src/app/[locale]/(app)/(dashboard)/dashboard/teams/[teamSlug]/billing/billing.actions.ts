@@ -14,8 +14,9 @@ import { callStripe, STRIPE_OPERATIONS } from "@/lib/billing/stripe-call";
 import { isBillingEnabled } from "@/flags";
 import { getPlan } from "@/constants/plans";
 import { getAddonPriceId, getPlanPriceId } from "@/utils/plan-prices";
-import { classifySubscriptionItems, resolvePlanItem } from "@/utils/subscription-items";
+import { addonQuantitiesFromItems, classifySubscriptionItems, resolvePlanItem } from "@/utils/subscription-items";
 import { getAddon, getAddonMaxQuantity } from "@/constants/addons";
+import { getTeamRowEntitlements, isAddonIncreaseBlocked } from "@/utils/entitlements";
 import {
   ensureStripeCustomer,
   claimTeamSubscription,
@@ -84,7 +85,7 @@ async function requireExistingSubscription(teamId: string) {
     throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorStartCheckout" });
   }
 
-  return { stripe, subscriptionId: team.stripeSubscriptionId };
+  return { stripe, subscriptionId: team.stripeSubscriptionId, team };
 }
 
 // The fresh Stripe state of a subscription: the team row can be stale after a lost webhook.
@@ -416,7 +417,7 @@ export const updateAddonQuantityAction = actionClient
   .inputSchema(updateAddonQuantitySchema)
   .action(async ({ parsedInput: { teamId, addonId, quantity } }) => {
     return withRateLimit(async () => {
-      const { stripe, subscriptionId } = await requireExistingSubscription(teamId);
+      const { stripe, subscriptionId, team } = await requireExistingSubscription(teamId);
 
       const addon = getAddon(addonId);
       if (!addon) {
@@ -442,6 +443,14 @@ export const updateAddonQuantityAction = actionClient
 
         if (!primary && quantity === 0) {
           return { success: true };
+        }
+        // A decrease stays allowed, so the team can stop paying for units that add nothing. Compare
+        // with the sum over all items: the update below also deletes the duplicates.
+        if (quantity > (addonQuantitiesFromItems(classified)[addonId] ?? 0) && isAddonIncreaseBlocked({
+          addonId,
+          appliedLimitOverrides: getTeamRowEntitlements(team).appliedLimitOverrides,
+        })) {
+          throw new ActionError("PRECONDITION_FAILED", { key: "Client.Dashboard.Billing.errorAddonIncreaseUnavailable" });
         }
 
         const items: Stripe.SubscriptionUpdateParams.Item[] = primary
