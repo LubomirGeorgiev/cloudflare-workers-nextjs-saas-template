@@ -6,6 +6,7 @@ import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { WITHDRAWAL_STALE_MESSAGE_KEY } from "@/constants/eu-withdrawal";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -20,6 +21,8 @@ import { withdrawFromContractAction } from "../withdrawal.actions";
 
 interface WithdrawalCardProps {
   teamId: string;
+  // The subscription this dialog shows. The action refuses it when another one replaced it.
+  subscriptionId: string;
   // `withdrawalSignerName`, so the dialog shows the name the receipt states.
   name: string;
   email: string;
@@ -37,6 +40,7 @@ interface WithdrawalCardProps {
  */
 export function WithdrawalCard({
   teamId,
+  subscriptionId,
   name,
   email,
   planName,
@@ -54,7 +58,13 @@ export function WithdrawalCard({
       toast.success(t(data?.completed ? "withdrawalDone" : "withdrawalPending"));
       router.refresh();
     },
-    onError: ({ error }) => toast.error(error.serverError?.message ?? t("errorPaymentProvider")),
+    onError: ({ error }) => {
+      toast.error(error.serverError?.message ?? t("errorPaymentProvider"));
+      if (error.serverError?.reason === WITHDRAWAL_STALE_MESSAGE_KEY) {
+        setOpen(false);
+        router.refresh();
+      }
+    },
   });
 
   return (
@@ -94,7 +104,7 @@ export function WithdrawalCard({
             </div>
           </dl>
           <DialogFooter>
-            <Button variant="destructive" onClick={() => execute({ teamId })} disabled={isExecuting}>
+            <Button variant="destructive" onClick={() => execute({ teamId, subscriptionId })} disabled={isExecuting}>
               {t("confirmWithdrawal")}
             </Button>
           </DialogFooter>

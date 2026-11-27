@@ -213,7 +213,7 @@ describe("googleSSOCallbackAction", () => {
       before: existingUser,
       after: { id: "existing-user" },
     });
-    expect(runInBackgroundMock).toHaveBeenCalledWith(pendingPurge);
+    expect(runInBackgroundMock).toHaveBeenCalledWith({ operation: expect.any(String), promise: pendingPurge });
   });
 
   test("stores the Google email claim in canonical form", async () => {

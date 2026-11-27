@@ -89,6 +89,7 @@ function toPrincipal(cached: CachedApiKey): ApiPrincipal {
 }
 
 const apiKeyUsageTouch = createBackgroundTouch({
+  operation: "api_key.touch_last_used_at",
   intervalMs: LAST_USED_UPDATE_INTERVAL_MS,
   write: ({ id, now }) =>
     getDB().update(apiKeyTable).set({ lastUsedAt: now }).where(eq(apiKeyTable.id, id)),

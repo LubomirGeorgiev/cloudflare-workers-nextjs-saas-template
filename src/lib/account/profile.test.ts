@@ -85,7 +85,7 @@ describe("updateUserProfile", () => {
     invalidateCmsAuthorMock.mockReturnValue(pendingPurge);
 
     await expect(updateUserProfile(input)).resolves.toEqual({ success: true, user: updatedRow });
-    expect(runInBackgroundMock).toHaveBeenCalledWith(pendingPurge);
+    expect(runInBackgroundMock).toHaveBeenCalledWith({ operation: expect.any(String), promise: pendingPurge });
   });
 
   test("still succeeds when the post-commit session refresh throws", async () => {

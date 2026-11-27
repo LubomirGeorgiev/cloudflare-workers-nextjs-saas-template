@@ -180,5 +180,8 @@ export function warmCmsEntryPages({ entries }: { entries: CmsEntryRef[] }): void
     return;
   }
 
-  runInBackground(withSpan({ name: WARM_SPAN_NAME, run: (span) => warmUrls({ entries, span }) }));
+  runInBackground({
+    operation: "cms.warm_entry_pages",
+    promise: withSpan({ name: WARM_SPAN_NAME, run: (span) => warmUrls({ entries, span }) }),
+  });
 }

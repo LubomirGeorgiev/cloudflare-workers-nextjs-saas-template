@@ -95,8 +95,9 @@ const EXPIRY_COPY_CASES = [
   },
 ] as const;
 
-const { getCloudflareContextMock } = vi.hoisted(() => ({
+const { getCloudflareContextMock, spanAttributes } = vi.hoisted(() => ({
   getCloudflareContextMock: vi.fn(),
+  spanAttributes: new Map<string, unknown>(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -105,10 +106,23 @@ vi.mock("@/utils/cloudflare-context", () => ({
   getCloudflareContext: getCloudflareContextMock,
 }));
 
-const {
-  renderTransactionalEmail,
-  sendTransactionalEmailNow,
-} = await import("@/utils/email");
+// A pass-through span that keeps the attributes, so a test can read the email outcome.
+vi.mock("@/utils/trace", () => {
+  const span = {
+    isTraced: true,
+    recordException: () => undefined,
+    setAttribute: (key: string, value: unknown) => {
+      spanAttributes.set(key, value);
+    },
+  };
+
+  return { withSpan: ({ run }: { run: (traced: typeof span) => Promise<unknown> }) => run(span) };
+});
+
+const { renderTransactionalEmail, sendEmailJob, sendTransactionalEmailNow } = await import("@/utils/email");
+const { EMAIL_SEND_OUTCOMES, EMAIL_SENT_MARKER, selectEmailSendOutcome } = await import("@/utils/email-sent-marker");
+
+const EMAIL_OUTCOME_ATTRIBUTE = "app.email.outcome";
 
 describe("transactional email", () => {
   beforeEach(() => {
@@ -465,6 +479,119 @@ describe("transactional email", () => {
       text: "Welcome",
       type: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
     })).rejects.toThrow("Cloudflare Email Service binding EMAIL is not configured.");
+  });
+});
+
+describe("email job idempotency", () => {
+  const orderPayload = LOGO_HEADER_PAYLOADS.find((payload) => payload.template === EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION);
+  if (!orderPayload) {
+    throw new Error("The fixture list has no order confirmation");
+  }
+  const dedupeKey = "order-confirmation:sub_1:hash";
+
+  function mockEnv({
+    marker,
+    readFails = false,
+    sendFails = false,
+  }: {
+    marker: string | null;
+    readFails?: boolean;
+    sendFails?: boolean;
+  }) {
+    const env = {
+      EMAIL: {
+        send: vi.fn(async () => {
+          if (sendFails) {
+            throw Object.assign(new Error("send failed for owner@example.com"), { code: "E_RATE_LIMIT_EXCEEDED" });
+          }
+        }),
+      },
+      EMAIL_FROM: "noreply@example.com",
+      KV_STORE: {
+        get: vi.fn(async () => {
+          if (readFails) {
+            throw new Error("KV GET failed: 500");
+          }
+          return marker;
+        }),
+        put: vi.fn(async () => undefined),
+      },
+    };
+    getCloudflareContextMock.mockResolvedValue({ env });
+
+    return env;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    spanAttributes.clear();
+  });
+
+  test("a found marker skips, and a failed read still sends", () => {
+    expect(selectEmailSendOutcome(EMAIL_SENT_MARKER.FOUND)).toBe(EMAIL_SEND_OUTCOMES.SKIPPED_ALREADY_SENT);
+    expect(selectEmailSendOutcome(EMAIL_SENT_MARKER.READ_FAILED)).toBe(EMAIL_SEND_OUTCOMES.SENT_MARKER_READ_FAILED);
+    expect(selectEmailSendOutcome(EMAIL_SENT_MARKER.MISSING)).toBe(EMAIL_SEND_OUTCOMES.SENT);
+    expect(selectEmailSendOutcome(EMAIL_SENT_MARKER.NONE)).toBe(EMAIL_SEND_OUTCOMES.SENT);
+  });
+
+  test("sends a keyed email once, then writes the marker with a TTL", async () => {
+    const env = mockEnv({ marker: null });
+
+    await sendEmailJob({ payload: orderPayload, dedupeKey });
+
+    expect(env.EMAIL.send).toHaveBeenCalledOnce();
+    expect(env.KV_STORE.put).toHaveBeenCalledWith(
+      expect.stringContaining(dedupeKey),
+      expect.any(String),
+      { expirationTtl: expect.any(Number) },
+    );
+    expect(spanAttributes.get(EMAIL_OUTCOME_ATTRIBUTE)).toBe(EMAIL_SEND_OUTCOMES.SENT);
+  });
+
+  test("skips a keyed email whose marker exists", async () => {
+    const env = mockEnv({ marker: "1" });
+
+    await sendEmailJob({ payload: orderPayload, dedupeKey });
+
+    expect(env.EMAIL.send).not.toHaveBeenCalled();
+    expect(env.KV_STORE.put).not.toHaveBeenCalled();
+    expect(spanAttributes.get(EMAIL_OUTCOME_ATTRIBUTE)).toBe(EMAIL_SEND_OUTCOMES.SKIPPED_ALREADY_SENT);
+  });
+
+  test("sends and logs when the marker read fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = mockEnv({ marker: null, readFails: true });
+
+    await sendEmailJob({ payload: orderPayload, dedupeKey });
+
+    expect(env.EMAIL.send).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("email_sent_marker_read_failed"));
+    expect(spanAttributes.get(EMAIL_OUTCOME_ATTRIBUTE)).toBe(EMAIL_SEND_OUTCOMES.SENT_MARKER_READ_FAILED);
+  });
+
+  // The queue retries the throw, so the missing marker lets the retry send.
+  test("a failed send sets upstream_error, logs no address, rethrows, and writes no marker", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const env = mockEnv({ marker: null, sendFails: true });
+
+    await expect(sendEmailJob({ payload: orderPayload, dedupeKey })).rejects.toThrow();
+
+    expect(env.KV_STORE.put).not.toHaveBeenCalled();
+    expect(spanAttributes.get(EMAIL_OUTCOME_ATTRIBUTE)).toBe(EMAIL_SEND_OUTCOMES.UPSTREAM_ERROR);
+    const line = String(log.mock.calls.at(-1)?.[0]);
+    expect(JSON.parse(line)).toMatchObject({ provider: "cloudflare_email", operation: "send", providerCode: "E_RATE_LIMIT_EXCEEDED" });
+    expect(line).not.toContain(orderPayload.to);
+  });
+
+  test("sends a job from no D1 row and touches no marker", async () => {
+    const env = mockEnv({ marker: "1" });
+
+    await sendEmailJob({ payload: orderPayload });
+
+    expect(env.EMAIL.send).toHaveBeenCalledOnce();
+    expect(env.KV_STORE.get).not.toHaveBeenCalled();
+    expect(env.KV_STORE.put).not.toHaveBeenCalled();
   });
 });
 

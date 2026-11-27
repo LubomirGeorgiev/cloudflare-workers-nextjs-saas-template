@@ -28,6 +28,8 @@ interface AddonCardsProps {
   teamId: string;
   // Add-on units currently on the subscription (the reconciled team-row snapshot).
   addons: TeamAddonQuantities;
+  // Add-ons whose every limit a staff override sets (`isAddonIncreaseBlocked`): only a decrease adds value.
+  increaseBlockedAddonIds: TeamAddonId[];
   // Billing interval of the current subscription; add-on prices must match it.
   currentInterval: BillingInterval | null;
   status: string | null;
@@ -38,6 +40,7 @@ interface AddonCardsProps {
 export function AddonCards({
   teamId,
   addons,
+  increaseBlockedAddonIds,
   currentInterval,
   status,
   cancelAtPeriodEnd,
@@ -87,6 +90,7 @@ export function AddonCards({
             key={addonId}
             addonId={addonId}
             active={addons[addonId] ?? 0}
+            increaseBlocked={increaseBlockedAddonIds.includes(addonId)}
             interval={currentInterval ?? "month"}
             canEdit={canEdit}
             isExecuting={isExecuting}
@@ -102,13 +106,14 @@ interface AddonCardProps {
   addonId: TeamAddonId;
   // Units currently on the subscription.
   active: number;
+  increaseBlocked: boolean;
   interval: BillingInterval;
   canEdit: boolean;
   isExecuting: boolean;
   onUpdate: (quantity: number) => void;
 }
 
-function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }: AddonCardProps) {
+function AddonCard({ addonId, active, increaseBlocked, interval, canEdit, isExecuting, onUpdate }: AddonCardProps) {
   const t = useTranslations("Client.Dashboard.Billing");
   const locale = useLocale();
   const [quantity, setQuantity] = useState(active);
@@ -169,12 +174,17 @@ function AddonCard({ addonId, active, interval, canEdit, isExecuting, onUpdate }
             variant="outline"
             size="icon"
             aria-label={t("addonIncrease")}
-            disabled={!canEdit || isExecuting || quantity >= maxQuantity}
+            disabled={!canEdit || isExecuting || quantity >= maxQuantity || (increaseBlocked && quantity >= active)}
             onClick={() => setQuantity(quantity + 1)}
           >
             <Plus className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* The same copy as the refusal of updateAddonQuantityAction, which names no staff override. */}
+        {canEdit && increaseBlocked && (
+          <p className="text-sm text-muted-foreground">{t("errorAddonIncreaseUnavailable")}</p>
+        )}
 
         {quantity > 0 && <p className="text-sm text-muted-foreground">{summary}</p>}
 

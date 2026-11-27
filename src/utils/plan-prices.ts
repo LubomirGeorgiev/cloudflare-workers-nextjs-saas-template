@@ -15,6 +15,13 @@ const PRICE_ENV_BY_PLAN: Partial<Record<TeamPlanId, Record<BillingInterval, stri
 
 const BILLING_INTERVALS: BillingInterval[] = ["month", "year"];
 
+// The price metadata that `scripts/stripe-setup.mjs` writes on every price of a plan or add-on
+// product. A price that the script replaced keeps it, but its id is no longer in the env.
+export const PRICE_METADATA_KEYS = {
+  plan: "template_plan_id",
+  addon: "template_addon_id",
+} as const;
+
 export function getPlanPriceId({
   planId,
   interval = "month",
@@ -104,18 +111,26 @@ type ResolvedSubscriptionPrice =
   | { kind: "plan"; planId: TeamPlanId }
   | { kind: "addon"; addonId: TeamAddonId };
 
-// Classifies a subscription item's price as a plan or an add-on price. Null means the
-// price is unknown to this deployment (rotated envs, or created outside the app).
-export function resolveSubscriptionPriceId(priceId: string | null | undefined): ResolvedSubscriptionPrice | null {
-  const planId = planIdFromPriceId(priceId);
+// Classifies a subscription item's price as a plan or an add-on price: by the env price ids, then
+// by the price metadata. Null means the price is unknown to this deployment (created outside the
+// app, or replaced before stripe-setup wrote metadata).
+export function resolveSubscriptionPrice(
+  price: { id?: string | null; metadata?: Record<string, string> | null } | null | undefined,
+): ResolvedSubscriptionPrice | null {
+  const planId = planIdFromPriceId(price?.id) ?? findListed(PAID_PLAN_IDS, price?.metadata?.[PRICE_METADATA_KEYS.plan]);
   if (planId) {
     return { kind: "plan", planId };
   }
 
-  const addonId = addonIdFromPriceId(priceId);
+  const addonId = addonIdFromPriceId(price?.id) ?? findListed(TEAM_ADDON_IDS, price?.metadata?.[PRICE_METADATA_KEYS.addon]);
   if (addonId) {
     return { kind: "addon", addonId };
   }
 
   return null;
+}
+
+// Metadata comes from Stripe, so only an id that the catalog still lists counts.
+function findListed<T extends string>(ids: readonly T[], value: string | undefined): T | null {
+  return ids.find((id) => id === value) ?? null;
 }

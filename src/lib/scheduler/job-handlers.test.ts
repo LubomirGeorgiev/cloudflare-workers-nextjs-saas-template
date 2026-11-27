@@ -16,8 +16,7 @@ import {
 const {
   publishScheduledCmsEntryIfDueMock,
   repurgeCmsCachesMock,
-  renderTransactionalEmailMock,
-  sendTransactionalEmailNowMock,
+  sendEmailJobMock,
   refreshTeamMemberSessionsMock,
   cancelTeamSubscriptionAsAdminMock,
   resumeWithdrawalMock,
@@ -25,8 +24,7 @@ const {
   publishScheduledCmsEntryIfDueMock: vi.fn(),
   // Both purges went through, unless a test says otherwise.
   repurgeCmsCachesMock: vi.fn(async (): Promise<CmsCachePurgeOutcome> => ({ zone: "ok", workersCache: "ok" })),
-  renderTransactionalEmailMock: vi.fn(),
-  sendTransactionalEmailNowMock: vi.fn(),
+  sendEmailJobMock: vi.fn(),
   refreshTeamMemberSessionsMock: vi.fn(),
   cancelTeamSubscriptionAsAdminMock: vi.fn(),
   resumeWithdrawalMock: vi.fn(),
@@ -44,8 +42,7 @@ vi.mock("@/lib/cms/cms-cache-invalidation", () => ({
 }));
 
 vi.mock("@/utils/email", () => ({
-  renderTransactionalEmail: renderTransactionalEmailMock,
-  sendTransactionalEmailNow: sendTransactionalEmailNowMock,
+  sendEmailJob: sendEmailJobMock,
 }));
 
 vi.mock("@/utils/kv-session", () => ({
@@ -211,31 +208,8 @@ describe("scheduled job handlers", () => {
     expect(repurgeCmsCachesMock).not.toHaveBeenCalled();
   });
 
-  test("renders and sends transactional email jobs", async () => {
-    const renderedEmail = {
-      to: "user@example.com",
-      subject: "Verify",
-      html: "<p>Verify</p>",
-      text: "Verify",
-      type: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
-    };
-    renderTransactionalEmailMock.mockResolvedValue(renderedEmail);
-
-    await runScheduledJob({
-      type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
-      payload: {
-        to: "user@example.com",
-        template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
-        locale: DEFAULT_LOCALE,
-        data: {
-          verificationToken: "token-1",
-          username: "Ada",
-        },
-      },
-      runAt: "2026-05-29T10:00:00.000Z",
-    });
-
-    expect(renderTransactionalEmailMock).toHaveBeenCalledWith({
+  test("routes transactional email jobs to the idempotent email send", async () => {
+    const payload = {
       to: "user@example.com",
       template: EMAIL_TEMPLATE_TYPES.EMAIL_VERIFICATION,
       locale: DEFAULT_LOCALE,
@@ -243,8 +217,16 @@ describe("scheduled job handlers", () => {
         verificationToken: "token-1",
         username: "Ada",
       },
+    };
+
+    await runScheduledJob({
+      type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
+      payload,
+      runAt: "2026-05-29T10:00:00.000Z",
+      dedupeKey: "email-row-1",
     });
-    expect(sendTransactionalEmailNowMock).toHaveBeenCalledWith(renderedEmail);
+
+    expect(sendEmailJobMock).toHaveBeenCalledWith({ payload, dedupeKey: "email-row-1" });
   });
 
   test("routes team sessions-refresh jobs to the session refresher", async () => {

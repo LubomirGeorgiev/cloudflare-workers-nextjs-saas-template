@@ -10,6 +10,7 @@ import { createBackgroundTouch } from "@/utils/throttled-background-touch";
 export const USER_ACTIVITY_UPDATE_INTERVAL_MS = ms("5m");
 
 const userActivityTouch = createBackgroundTouch({
+  operation: "user.touch_last_active_at",
   intervalMs: USER_ACTIVITY_UPDATE_INTERVAL_MS,
   write: ({ id, now }) =>
     getDB().update(userTable).set({ lastActiveAt: now }).where(eq(userTable.id, id)),

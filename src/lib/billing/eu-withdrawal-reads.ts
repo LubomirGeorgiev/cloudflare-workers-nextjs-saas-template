@@ -103,7 +103,7 @@ async function findFirstInvoice({
 }
 
 // The subset of the Stripe client this read drives. Narrowed so tests can pass a fake.
-interface WithdrawalReadStripe {
+export interface WithdrawalReadStripe {
   subscriptions: {
     retrieve: (id: string, params?: Stripe.SubscriptionRetrieveParams) => Promise<Stripe.Subscription>;
   };

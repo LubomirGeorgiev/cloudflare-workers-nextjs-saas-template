@@ -1,3 +1,4 @@
+import { EU_WITHDRAWAL_ENABLED } from "@/constants";
 import { OAUTH_MAINTENANCE_INTERVAL_MINUTES } from "@/constants/oauth";
 import {
   R2_ORPHAN_SWEEP_ENABLED,
@@ -16,6 +17,9 @@ import { recordSpanException, withSpan } from "@/utils/trace";
 // KV keys that pace the sweeps. Renaming one restarts that cadence once.
 const OAUTH_MAINTENANCE_TASK = "oauth";
 const RETENTION_TASK = "retention";
+const EU_WITHDRAWAL_RECOVERY_TASK = "eu_withdrawal_recovery";
+// A dropped resume chain waits at most one day plus its stall time, far inside the art. 13 deadline.
+const EU_WITHDRAWAL_RECOVERY_INTERVAL_MINUTES = 24 * 60;
 
 const JOB_SPAN_NAME = "app.scheduler.job";
 const MAINTENANCE_SPAN_NAME = "app.scheduler.maintenance";
@@ -51,6 +55,8 @@ const MAINTENANCE_TASK_LABELS = {
   oauth_expired_data_purge: "OAuth expired data purge",
   oauth_maintenance: "OAuth maintenance",
   oauth_verified_client_renewal: "OAuth verified client renewal",
+  eu_withdrawal_maintenance: "EU withdrawal maintenance",
+  eu_withdrawal_resume_recovery: "EU withdrawal resume recovery",
   orphaned_r2_object_purge: "orphaned R2 object purge",
   retention_maintenance: "retention maintenance",
   trial_reservation_recovery: "trial reservation recovery sweep",
@@ -136,6 +142,38 @@ async function runBillingMaintenance(now: Date): Promise<void> {
     run: async () => {
       const { settleStaleTrialReservations } = await import("@/lib/teams/trial-subscription");
       await settleStaleTrialReservations({ now });
+    },
+  });
+}
+
+// The queue drops a resume job after its last retry, so a daily scan enqueues each stopped chain again.
+async function runEuWithdrawalMaintenance({ env, now }: { env: Env; now: Date }): Promise<void> {
+  if (!EU_WITHDRAWAL_ENABLED || !isBillingConfigured()) {
+    return;
+  }
+
+  await runMaintenanceSpan({
+    task: "eu_withdrawal_maintenance",
+    run: async () => {
+      const claimed = await claimPacedRun({
+        kv: env.KV_STORE,
+        task: EU_WITHDRAWAL_RECOVERY_TASK,
+        now,
+        intervalMinutes: EU_WITHDRAWAL_RECOVERY_INTERVAL_MINUTES,
+      });
+      if (!claimed) {
+        return MAINTENANCE_OUTCOME.SKIPPED_NOT_CLAIMED;
+      }
+
+      await runMaintenanceTask({
+        task: "eu_withdrawal_resume_recovery",
+        run: async () => {
+          const { recoverStalledWithdrawals } = await import("@/lib/billing/eu-withdrawal-recovery");
+          await recoverStalledWithdrawals({ now });
+        },
+      });
+
+      return MAINTENANCE_OUTCOME.DISPATCHED;
     },
   });
 }
@@ -260,6 +298,7 @@ export async function handleSchedulerCron({
   // the queue dispatch above — down with it.
   await Promise.all([
     runBillingMaintenance(now),
+    runEuWithdrawalMaintenance({ env, now }),
     runOAuthMaintenance({ env, now }),
     runRetentionMaintenance({ env, now }),
   ]);

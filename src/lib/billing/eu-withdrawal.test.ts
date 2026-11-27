@@ -46,7 +46,13 @@ vi.mock("@/utils/team-subscription", () => ({
   reconcileTeamFromSubscription: reconcileMock,
 }));
 
-const { getWithdrawalOffer, resumeWithdrawal, withdrawalSignerName, withdrawFromContract } = await import("./eu-withdrawal");
+const {
+  getWithdrawalOffer,
+  resumeWithdrawal,
+  withdrawalSignerName,
+  withdrawFromContract,
+} = await import("./eu-withdrawal");
+const { flagFailedWithdrawalRefund } = await import("./eu-withdrawal-recovery");
 
 const STARTED_AT = new Date("2026-03-01T09:30:00.000Z");
 const NOW = new Date(STARTED_AT.getTime() + 3 * DAY_IN_MS + 123);
@@ -63,6 +69,7 @@ let invoices: Stripe.Invoice[];
 let pendingItems: Stripe.InvoiceItem[];
 let creditNotes: Stripe.CreditNote[];
 let failures: Map<string, Error>;
+let invoicePayments: Stripe.InvoicePayment[];
 // A lost response: Stripe applies the write, and the caller sees a failure.
 let lostResponse: string | null;
 
@@ -96,23 +103,35 @@ const fakeStripe = {
       result: () => ({ data: [line({ id: "il_2", amount: 500 })], has_more: false }),
     })),
     voidInvoice: vi.fn(async (...args: unknown[]) => record({ method: "invoices.voidInvoice", args, result: () => ({}) as Stripe.Invoice })),
-    del: vi.fn(async (...args: unknown[]) => record({ method: "invoices.del", args, result: () => ({}) as Stripe.DeletedInvoice })),
+    // A draft with a zero total is paid at once when Stripe finalizes it.
+    finalizeInvoice: vi.fn(async (...args: unknown[]) => record({
+      method: "invoices.finalizeInvoice",
+      args,
+      result: () => {
+        const draft = invoices.find(({ id }) => id === args[0]);
+        return { ...draft, status: draft?.total === 0 ? "paid" : "open" } as Stripe.Invoice;
+      },
+    })),
+  },
+  invoicePayments: {
+    list: vi.fn(async (...args: unknown[]) => record({ method: "invoicePayments.list", args, result: () => ({ data: invoicePayments }) })),
+  },
+  paymentIntents: {
+    retrieve: vi.fn(async (...args: unknown[]) => record({
+      method: "paymentIntents.retrieve",
+      args,
+      result: () => ({ latest_charge: { amount_refunded: 0 } }) as unknown as Stripe.PaymentIntent,
+    })),
+  },
+  charges: {
+    retrieve: vi.fn(async (...args: unknown[]) => record({ method: "charges.retrieve", args, result: () => ({ amount_refunded: 0 }) as Stripe.Charge })),
   },
   invoiceItems: {
     list: vi.fn(async (...args: unknown[]) => record({ method: "invoiceItems.list", args, result: () => ({ data: pendingItems }) })),
     del: vi.fn(async (...args: unknown[]) => record({ method: "invoiceItems.del", args, result: () => ({}) as Stripe.DeletedInvoiceItem })),
   },
   creditNotes: {
-    create: vi.fn(async (...args: unknown[]) => record({
-      method: "creditNotes.create",
-      args,
-      result: () => {
-        const params = args[0] as Stripe.CreditNoteCreateParams;
-        const note = { invoice: params.invoice, amount: params.amount, status: "issued", metadata: params.metadata } as unknown as Stripe.CreditNote;
-        creditNotes.push(note);
-        return note;
-      },
-    })),
+    create: vi.fn(issueCreditNote),
     list: vi.fn(async (...args: unknown[]) => record({
       method: "creditNotes.list",
       args,
@@ -124,6 +143,7 @@ const fakeStripe = {
 beforeEach(() => {
   calls = [];
   failures = new Map();
+  invoicePayments = [];
   lostResponse = null;
   subscription = makeSubscription({});
   invoices = [makeInvoice({ id: "in_1", amountPaid: 3000 })];
@@ -164,22 +184,27 @@ describe("withdrawFromContract", () => {
       "invoices.list",
       "enqueue",
       "subscriptions.update",
-      "receipt",
-      "subscriptions.update",
       "subscriptions.cancel",
       "invoices.list",
       "invoices.voidInvoice",
-      "invoices.del",
+      "invoices.finalizeInvoice",
+      "invoices.voidInvoice",
       "invoiceItems.list",
       "invoiceItems.del",
       "creditNotes.list",
+      "receipt",
+      "subscriptions.update",
+      "paymentIntents.retrieve",
       "creditNotes.create",
+      "subscriptions.update",
     ]);
     expect(argsOf("subscriptions.retrieve")).toEqual([SUBSCRIPTION_ID, {
       expand: ["customer.tax_ids", "customer.invoice_settings.default_payment_method", "default_payment_method", "latest_invoice"],
     }]);
     expect(argsOf("invoices.voidInvoice")).toEqual(["in_open", {}, { idempotencyKey: "eu-withdrawal-void:in_open" }]);
-    expect(argsOf("invoices.del")).toEqual(["in_draft"]);
+    // Stripe refuses to delete a subscription draft. It must be finalized without collection, then voided.
+    expect(argsOf("invoices.finalizeInvoice")).toEqual(["in_draft", { auto_advance: false }, { idempotencyKey: "eu-withdrawal-finalize:in_draft" }]);
+    expect(calls.filter(({ method }) => method === "invoices.voidInvoice").map(({ args }) => args[0])).toEqual(["in_open", "in_draft"]);
     expect(argsOf("invoiceItems.list")).toEqual([expect.objectContaining({ customer: CUSTOMER_ID, pending: true })]);
     expect(argsOf("invoiceItems.del")).toEqual(["ii_ours"]);
     expect(argsOf("subscriptions.cancel")).toEqual([
@@ -207,10 +232,12 @@ describe("withdrawFromContract", () => {
       locale: ACTING_USER.locale,
     }));
     expect(subscription.metadata[M.receiptSentAt]).toEqual(expect.any(String));
+    expect(subscription.metadata[M.completedAt]).toEqual(expect.any(String));
     expect(reconcileMock).toHaveBeenCalledWith({ subscription: expect.objectContaining({ status: "canceled" }) });
   });
 
-  test("the claim names the saved job's run time, in whole seconds", async () => {
+  // Reconcile can match a team by its customer alone, so the recovery scan needs the team here.
+  test("the claim names the team and the saved job's run time, in whole seconds", async () => {
     await withdraw();
 
     const [{ runAt }] = argsOf("enqueue") as [{ runAt: Date }];
@@ -218,7 +245,14 @@ describe("withdrawFromContract", () => {
     expect(runAt.getTime()).toBeGreaterThan(NOW.getTime());
     expect(calls.find(({ method }) => method === "subscriptions.update")?.args).toEqual([
       SUBSCRIPTION_ID,
-      { metadata: { [M.withdrawnAt]: NOW.toISOString(), [M.withdrawnByUserId]: ACTING_USER.id, [M.resumeAt]: runAt.toISOString() } },
+      {
+        metadata: {
+          teamId: TEAM.id,
+          [M.withdrawnAt]: NOW.toISOString(),
+          [M.withdrawnByUserId]: ACTING_USER.id,
+          [M.resumeAt]: runAt.toISOString(),
+        },
+      },
       { idempotencyKey: `eu-withdrawal-record:${SUBSCRIPTION_ID}` },
     ]);
   });
@@ -240,26 +274,6 @@ describe("withdrawFromContract", () => {
     expect(sendReceiptMock).toHaveBeenCalledWith(expect.objectContaining({
       refund: { kind: "prorated", amount: expected.totalRefund, currency: "eur" },
     }));
-  });
-
-  test("reads every line of a paid invoice before the refund", async () => {
-    invoices = [makeInvoice({ id: "in_1", amountPaid: 3000, linesHasMore: true })];
-
-    await withdraw();
-
-    expect(argsOf("invoices.listLineItems")).toEqual(["in_1", expect.objectContaining({ limit: expect.any(Number) })]);
-  });
-
-  // A goodwill credit note from staff is not part of the withdrawal refund.
-  test("a credit note that is not ours does not lower the refund; ours does", async () => {
-    creditNotes = [
-      creditNote({ invoice: "in_1", amount: 1000, metadata: {} }),
-      creditNote({ invoice: "in_1", amount: 400, metadata: { [CREDIT_NOTE_WITHDRAWAL_METADATA.subscriptionId]: SUBSCRIPTION_ID } }),
-    ];
-
-    await withdraw();
-
-    expect(argsOf("creditNotes.create")[0]).toMatchObject({ amount: 2600, refund_amount: 2600 });
   });
 
   test("refuses a business customer and writes nothing", async () => {
@@ -298,7 +312,9 @@ describe("withdrawFromContract", () => {
     await expect(withdraw()).resolves.toEqual({ completed: true });
 
     expect(enqueueResumeMock).not.toHaveBeenCalled();
-    expect(fakeStripe.subscriptions.update).not.toHaveBeenCalled();
+    // Only the completion mark: no second claim.
+    expect(fakeStripe.subscriptions.update).toHaveBeenCalledTimes(1);
+    expect(subscription.metadata[M.completedAt]).toEqual(expect.any(String));
     expect(sendReceiptMock).not.toHaveBeenCalled();
     expect(fakeStripe.subscriptions.cancel).toHaveBeenCalledTimes(1);
   });
@@ -391,6 +407,22 @@ describe("withdrawFromContract", () => {
 
     await expect(withdraw()).resolves.toEqual({ completed: true });
   });
+
+  // An open invoice paid between the two reads changes the refund; the receipt must state that one.
+  test("the receipt states the refund that the credit notes issue", async () => {
+    const paidLater = makeInvoice({ id: "in_late", amountPaid: 500 });
+    fakeStripe.invoices.list.mockImplementationOnce(async (...args: unknown[]) => {
+      calls.push({ method: "invoices.list", args });
+      return { data: [makeInvoice({ id: "in_1", amountPaid: 3000 })] };
+    });
+    invoices = [makeInvoice({ id: "in_1", amountPaid: 3000 }), paidLater];
+
+    await expect(withdraw()).resolves.toEqual({ completed: true });
+
+    const issued = creditNotes.reduce((sum, { amount }) => sum + amount, 0);
+    expect(issued).toBe(3500);
+    expect(sendReceiptMock).toHaveBeenCalledWith(expect.objectContaining({ refund: expect.objectContaining({ amount: issued }) }));
+  });
 });
 
 // Stripe sets `start_date` when the checkout dialog opens and keeps an incomplete subscription up
@@ -446,14 +478,15 @@ describe("resumeWithdrawal", () => {
 
     expect(methods()).toEqual([
       "subscriptions.retrieve",
-      "invoices.list",
-      "receipt",
-      "subscriptions.update",
       "subscriptions.cancel",
       "invoices.list",
       "invoiceItems.list",
       "creditNotes.list",
+      "receipt",
+      "subscriptions.update",
+      "paymentIntents.retrieve",
       "creditNotes.create",
+      "subscriptions.update",
     ]);
     expect(findUserMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: ACTING_USER.id } }));
     expect(sendReceiptMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -468,7 +501,7 @@ describe("resumeWithdrawal", () => {
 
   test.each([
     ["another job owns the chain", { [M.resumeAt]: "2026-03-04T11:00:00.000Z" }],
-    ["staff already took over", { [M.needsStaffAt]: NOW.toISOString() }],
+    ["staff already took over and the receipt is sent", { [M.needsStaffAt]: NOW.toISOString(), [M.receiptSentAt]: NOW.toISOString() }],
   ])("stops at once when %s", async (__case, metadata) => {
     subscription = makeSubscription({ metadata: { ...subscription.metadata, ...metadata } });
 
@@ -476,6 +509,15 @@ describe("resumeWithdrawal", () => {
 
     expect(methods()).toEqual(["subscriptions.retrieve"]);
     expect(enqueueResumeMock).not.toHaveBeenCalled();
+  });
+
+  // The action completes in the request, and the job that it saved before the claim runs later.
+  test("stops at once when the withdrawal is complete", async () => {
+    subscription = makeSubscription({ metadata: { ...subscription.metadata, [M.completedAt]: NOW.toISOString() } });
+
+    await expect(resume()).resolves.toEqual({ completed: true });
+
+    expect(methods()).toEqual(["subscriptions.retrieve"]);
   });
 
   // The action saves the job before its claim; a claim that failed leaves nothing to resume.
@@ -545,6 +587,63 @@ describe("resumeWithdrawal", () => {
     expect(enqueueResumeMock).not.toHaveBeenCalled();
   });
 
+  // The receipt is a legal duty: staff own the refund, but the chain keeps going until it is sent.
+  test("a staff case without a receipt keeps the chain going for the receipt only", async () => {
+    sendReceiptMock.mockRejectedValueOnce(new Error("Queue is unavailable"));
+    invoices = [makeInvoice({ id: "in_1", amountPaid: 3000, charged: false })];
+
+    await expect(resume()).resolves.toEqual({ completed: false });
+
+    expect(subscription.metadata[M.needsStaffAt]).toBe(NOW.toISOString());
+    expect(staffLines()).toHaveLength(1);
+    const [{ runAt }] = argsOf("enqueue") as [{ runAt: Date }];
+    calls = [];
+
+    await expect(resumeWithdrawal({
+      teamId: TEAM.id,
+      subscriptionId: SUBSCRIPTION_ID,
+      scheduledFor: runAt.toISOString(),
+      now: runAt,
+      stripe: fakeStripe,
+    })).resolves.toEqual({ completed: false });
+
+    expect(methods()).toEqual(["subscriptions.retrieve", "invoices.list", "receipt", "subscriptions.update"]);
+    expect(subscription.metadata[M.receiptSentAt]).toEqual(expect.any(String));
+    expect(staffLines()).toHaveLength(1);
+    expect(enqueueResumeMock).toHaveBeenCalledTimes(1);
+  });
+
+  // A failed card refund is for staff, but it must not stop the refund that a retry still owes.
+  test("a refund that fails between a partial run and its retry does not stop the other refunds", async () => {
+    invoices = [makeInvoice({ id: "in_a", amountPaid: 1000 }), makeInvoice({ id: "in_b", amountPaid: 2000 })];
+    invoicePayments = [{ invoice: "in_a" } as Stripe.InvoicePayment];
+    fakeStripe.creditNotes.create
+      .mockImplementationOnce(issueCreditNote)
+      .mockImplementationOnce(async (...args: unknown[]) => {
+        calls.push({ method: "creditNotes.create", args });
+        throw stripeError({ type: "StripeAPIError", statusCode: 500 });
+      });
+
+    await expect(resume()).resolves.toEqual({ completed: false });
+    const [{ runAt }] = argsOf("enqueue") as [{ runAt: Date }];
+    const failedRefund = { id: "re_in_a", object: "refund", payment_intent: "pi_in_a" } as Stripe.Refund;
+    await expect(flagFailedWithdrawalRefund({ refund: failedRefund, stripe: fakeStripe })).resolves.toBe(true);
+
+    expect(subscription.metadata[M.refundFailedAt]).toEqual(expect.any(String));
+    expect(subscription.metadata[M.needsStaffAt]).toBeUndefined();
+    await expect(resumeWithdrawal({
+      teamId: TEAM.id,
+      subscriptionId: SUBSCRIPTION_ID,
+      scheduledFor: runAt.toISOString(),
+      now: runAt,
+      stripe: fakeStripe,
+    })).resolves.toEqual({ completed: true });
+
+    expect(creditNotes.map(({ invoice }) => invoice)).toEqual(["in_a", "in_b"]);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("eu_withdrawal_refund_failed"));
+    expect(staffLines()).toHaveLength(0);
+  });
+
   test("logs the overdue refund after the deadline and keeps going", async () => {
     failures.set("creditNotes.create", stripeError({ type: "StripeAPIError", statusCode: 500 }));
 
@@ -591,6 +690,7 @@ describe("getWithdrawalOffer", () => {
       startedAt: STARTED_AT,
       windowEndsAt: selectWithdrawalWindowEnd(STARTED_AT),
       pending: false,
+      subscriptionId: SUBSCRIPTION_ID,
     });
     vi.useRealTimers();
   });
@@ -654,6 +754,25 @@ function record<T>({ method, args, result }: { method: string; args: unknown[]; 
   return value;
 }
 
+async function issueCreditNote(...args: unknown[]): Promise<Stripe.CreditNote> {
+  return record({
+    method: "creditNotes.create",
+    args,
+    result: () => {
+      const params = args[0] as Stripe.CreditNoteCreateParams;
+      const note = {
+        invoice: params.invoice,
+        amount: params.amount,
+        status: "issued",
+        metadata: params.metadata,
+        refunds: [{ amount_refunded: params.refund_amount, refund: `re_${params.invoice}` }],
+      } as unknown as Stripe.CreditNote;
+      creditNotes.push(note);
+      return note;
+    },
+  });
+}
+
 function stripeError(fields: { type: string; statusCode: number | undefined; code?: string }): Error {
   return Object.assign(new Error("Stripe failed"), fields);
 }
@@ -712,15 +831,16 @@ function makeInvoice({
   id,
   status = "paid",
   amountPaid,
+  total = 1000,
   charged = true,
-  linesHasMore = false,
   periodStart = STARTED_AT,
 }: {
   id: string;
   status?: string;
   amountPaid: number;
+  // Read only for a draft: a zero total is paid when it is finalized.
+  total?: number;
   charged?: boolean;
-  linesHasMore?: boolean;
   periodStart?: Date;
 }): Stripe.Invoice {
   return {
@@ -729,10 +849,15 @@ function makeInvoice({
     status,
     currency: "eur",
     amount_paid: amountPaid,
+    total,
+    post_payment_credit_notes_amount: 0,
     status_transitions: { paid_at: status === "paid" ? Math.floor(STARTED_AT.getTime() / 1000) : null },
-    lines: { object: "list", data: [line({ id: "il_1", amount: amountPaid, periodStart })], has_more: linesHasMore },
+    lines: { object: "list", data: [line({ id: "il_1", amount: amountPaid, periodStart })], has_more: false },
     payments: {
-      data: [{ status: "paid", payment: { type: charged ? "payment_intent" : "payment_record" } }],
+      data: [{
+        status: "paid",
+        payment: charged ? { type: "payment_intent", payment_intent: `pi_${id}` } : { type: "payment_record" },
+      }],
     },
   } as unknown as Stripe.Invoice;
 }
@@ -747,10 +872,6 @@ function line({ id, amount, periodStart = STARTED_AT }: { id: string; amount: nu
 
 function pendingItem({ id, subscriptionId }: { id: string; subscriptionId: string }): Stripe.InvoiceItem {
   return { id, parent: { type: "subscription_details", subscription_details: { subscription: subscriptionId } } } as unknown as Stripe.InvoiceItem;
-}
-
-function creditNote(fields: Record<string, unknown>): Stripe.CreditNote {
-  return { object: "credit_note", status: "issued", ...fields } as unknown as Stripe.CreditNote;
 }
 
 function customerIn(country: string) {

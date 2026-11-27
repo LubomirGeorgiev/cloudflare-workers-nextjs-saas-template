@@ -15,9 +15,12 @@ interface BackgroundTouch {
 // isolate, so a cold isolate may add one extra write, and nothing here may fail or delay the
 // request that triggered it — the write is scheduled in the background and errors are swallowed.
 export function createBackgroundTouch({
+  operation,
   intervalMs,
   write,
 }: {
+  /** A fixed name for the failure log line, never user data. */
+  operation: string;
   intervalMs: number;
   write: (args: { id: string; now: Date }) => Promise<unknown>;
 }): BackgroundTouch {
@@ -40,9 +43,13 @@ export function createBackgroundTouch({
       lastTouchById.set(id, now);
 
       try {
-        runInBackground(write({ id, now: new Date(now) }));
+        runInBackground({ operation, promise: write({ id, now: new Date(now) }) });
       } catch (error) {
-        console.error("Failed to schedule background touch:", error);
+        console.error(JSON.stringify({
+          message: "Background touch was not scheduled",
+          operation,
+          errorName: error instanceof Error ? error.name : "unknown",
+        }));
       }
     },
 

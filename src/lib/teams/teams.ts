@@ -6,7 +6,7 @@ import { teamMembershipTable, teamTable } from "@/db/schema";
 import { requireVerifiedEmail } from "@/utils/auth";
 import { requireTeamPermission } from "@/utils/team-auth";
 import { generateSlug } from "@/utils/slugify";
-import { syncStripeCustomerName } from "@/utils/team-subscription";
+import { syncStripeCustomerTeamName } from "@/utils/team-subscription";
 import { enqueueTeamSessionsRefresh } from "@/lib/scheduler/enqueue";
 import { ActionError } from "@/lib/action-error";
 import { isTeamInAudience } from "@/lib/api/principal";
@@ -265,9 +265,9 @@ export async function applyTeamRename(
   }
 
   // D1 has no transactions, so the rename above is already durable: no follow-up may fail it.
-  // Every member's cached name and Stripe's copy catch up out of band.
+  // Every member's cached name and the Stripe customer metadata catch up out of band.
   const followUps: Promise<unknown>[] = [
-    syncStripeCustomerName({ stripeCustomerId: renamedTeam.stripeCustomerId, name })
+    syncStripeCustomerTeamName({ stripeCustomerId: renamedTeam.stripeCustomerId, name })
       .catch(logRenameFollowUpFailure("Stripe customer sync")),
     enqueueTeamSessionsRefresh(teamId).catch(logRenameFollowUpFailure("team sessions refresh enqueue")),
   ];

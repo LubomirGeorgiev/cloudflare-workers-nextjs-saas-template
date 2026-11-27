@@ -9,7 +9,8 @@ import { TEAM_INVITATION_EXPIRY_DAYS } from "@/constants";
 import { sendTeamInvitationEmail } from "@/utils/email";
 import { getTranslator } from "@/i18n/translator";
 import { getUserLocale } from "@/i18n/locale";
-import { getTeamRowEntitlements, selectLimitSource } from "@/utils/entitlements";
+import { getTeamRowEntitlements } from "@/utils/entitlements";
+import { fromStoredAddonQuantities } from "@/constants/addons";
 import { selectSeatLimitCopy } from "@/lib/teams/team-seats";
 import { isEnabledLocale, type Locale } from "@/i18n/config";
 import {
@@ -193,7 +194,10 @@ export async function inviteUserToTeam({
   if (!didInsert(insertResult)) {
     // A seat limit, not a permission: a 403 sends an agent after a scope or a role.
     throw new ActionError("PRECONDITION_FAILED", {
-      key: selectSeatLimitCopy(selectLimitSource({ entitlements, key: "seats" })).refusalKey,
+      key: selectSeatLimitCopy({
+        entitlements,
+        addons: fromStoredAddonQuantities(team.subscriptionAddonIds),
+      }).refusalKey,
       params: { seats: limits.seats },
     });
   }

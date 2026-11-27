@@ -190,13 +190,19 @@ test("renaming one team to another team's exact name keeps both slugs distinct",
   expect(storedA?.slug).not.toBe(storedB?.slug);
 });
 
-test("renaming a team with a Stripe customer syncs the customer name", async () => {
-  const team = await seedTeam({ stripeCustomerId: uid("cus") });
+// The customer edits `customer.name` in the portal, and invoices print it, so a rename
+// writes only metadata.
+test("renaming a team with a Stripe customer syncs metadata and keeps the customer name", async () => {
+  const stripeCustomerId = uid("cus");
+  const team = await seedTeam({ stripeCustomerId });
   authState.current = team.ownerSession;
 
-  await renameTeam({ teamId: team.teamId, name: "Billing Name" });
+  await renameTeam({ teamId: team.teamId, name: "Workspace Name" });
 
-  expect(stripeCustomerUpdateMock).toHaveBeenCalledWith(expect.any(String), { name: "Billing Name" });
+  expect(stripeCustomerUpdateMock).toHaveBeenCalledTimes(1);
+  expect(stripeCustomerUpdateMock).toHaveBeenCalledWith(stripeCustomerId, {
+    metadata: { teamName: "Workspace Name" },
+  });
 });
 
 test("a Stripe failure does not fail or roll back the rename", async () => {

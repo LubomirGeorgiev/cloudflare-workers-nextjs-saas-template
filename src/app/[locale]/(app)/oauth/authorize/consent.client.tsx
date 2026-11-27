@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { OAUTH_AUTHORIZE_PATH } from "@/constants";
 import { API_SCOPES, isApiScope } from "@/lib/api/scopes";
+import type { DroppedScopeGroups } from "@/lib/oauth/consent";
 import { cn } from "@/lib/utils";
 import { AdminVerifyPrompt } from "./admin-verify-prompt.client";
 import { decideConsentAction } from "./authorize.actions";
@@ -27,6 +28,7 @@ interface ConsentClientProps {
   isVerified: boolean;
   grantedScopes: string[];
   droppedScopes: string[];
+  droppedScopeGroups: DroppedScopeGroups;
   /** Copy for internal scopes; the internal catalog is `server-only` and cannot be imported here. */
   adminScopeDescriptions: Record<string, string>;
   /** Scopes an admin would unlock by verifying this client; null when there is nothing to offer. */
@@ -73,6 +75,7 @@ export function ConsentClient({
   isVerified,
   grantedScopes,
   droppedScopes,
+  droppedScopeGroups,
   adminScopeDescriptions,
   adminScopesToVerify,
   redirectHost,
@@ -150,6 +153,7 @@ export function ConsentClient({
         <ConsentPermissions
           grantedScopes={grantedScopes}
           droppedScopes={droppedScopes}
+          droppedScopeGroups={droppedScopeGroups}
           describe={describeScope}
         />
 
@@ -284,15 +288,25 @@ function ScopeGroup({
 function ConsentPermissions({
   grantedScopes,
   droppedScopes,
+  droppedScopeGroups,
   describe,
 }: {
   grantedScopes: string[];
   droppedScopes: string[];
+  droppedScopeGroups: DroppedScopeGroups;
   describe: (scope: string) => string;
 }) {
   const t = useTranslations("Client.OAuth");
   const readScopes = grantedScopes.filter((scope) => !isWriteScope(scope));
   const writeScopes = grantedScopes.filter(isWriteScope);
+  const { unverifiedPublic, unverifiedAdmin, adminOnly, unknown } = droppedScopeGroups;
+  // Only the first line advises an API key, because `createApiKey` refuses internal scopes.
+  const droppedScopeLines = [
+    unverifiedPublic.length > 0 ? t("clampedScopes", { scopes: unverifiedPublic.join(", ") }) : null,
+    unverifiedAdmin.length > 0 ? t("clampedAdminScopesUnverified", { scopes: unverifiedAdmin.join(", ") }) : null,
+    adminOnly.length > 0 ? t("clampedAdminScopes", { scopes: adminOnly.join(", ") }) : null,
+    unknown.length > 0 ? t("clampedUnknownScopes", { scopes: unknown.join(", ") }) : null,
+  ].filter((line) => line !== null);
 
   return (
     <>
@@ -319,7 +333,11 @@ function ConsentPermissions({
       {droppedScopes.length > 0 ? (
         <Alert variant="warning">
           <AlertTriangle className="size-4" />
-          <AlertDescription>{t("clampedScopes", { scopes: droppedScopes.join(", ") })}</AlertDescription>
+          <AlertDescription className="space-y-1">
+            {droppedScopeLines.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </AlertDescription>
         </Alert>
       ) : null}
     </>

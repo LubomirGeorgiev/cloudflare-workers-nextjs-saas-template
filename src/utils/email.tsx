@@ -24,8 +24,19 @@ import {
   type EmailSendJobPayload,
   type PaymentStatusEmailTemplate,
 } from "@/lib/scheduler/jobs";
-import { scheduleJob } from "@/lib/scheduler/scheduler";
+import { persistScheduledJob, sendPersistedJob } from "@/lib/scheduler/scheduler";
+import {
+  EMAIL_SEND_OUTCOMES,
+  EMAIL_SENT_MARKER,
+  readEmailSentMarker,
+  selectEmailSendOutcome,
+  writeEmailSentMarker,
+} from "@/utils/email-sent-marker";
+import { withSpan } from "@/utils/trace";
 import { isLocalMode } from "./is-local";
+
+const EMAIL_SEND_SPAN_NAME = "app.email.send";
+const EMAIL_OUTCOME_ATTRIBUTE = "app.email.outcome";
 
 // The ban and unban notices are deliberately English only, and are the one documented exception
 // to "customer-facing email goes through the catalogs, with a row in every locale".
@@ -174,22 +185,74 @@ function logTransactionalEmail({ to, subject, text, html, type }: TransactionalE
   ].join("\n"));
 }
 
+/**
+ * Sends one email job from the queue. A message from a D1 job row carries the row's `dedupeKey`,
+ * and a KV marker skips a second dispatch of that row. The marker is best-effort dedupe, no claim.
+ */
+export async function sendEmailJob({
+  payload,
+  dedupeKey,
+}: {
+  payload: EmailSendJobPayload;
+  dedupeKey?: string;
+}): Promise<void> {
+  await withSpan({
+    name: EMAIL_SEND_SPAN_NAME,
+    run: async (span) => {
+      const outcome = selectEmailSendOutcome(dedupeKey ? await readEmailSentMarker(dedupeKey) : EMAIL_SENT_MARKER.NONE);
+      if (outcome === EMAIL_SEND_OUTCOMES.SKIPPED_ALREADY_SENT) {
+        span.setAttribute(EMAIL_OUTCOME_ATTRIBUTE, outcome);
+        return;
+      }
+
+      const email = await renderTransactionalEmail(payload);
+      try {
+        await sendTransactionalEmailNow(email);
+      } catch (error) {
+        span.setAttribute(EMAIL_OUTCOME_ATTRIBUTE, EMAIL_SEND_OUTCOMES.UPSTREAM_ERROR);
+        // No provider text: it can name the recipient address.
+        console.error(JSON.stringify({
+          event: "email_send_failed",
+          provider: "cloudflare_email",
+          operation: "send",
+          template: payload.template,
+          providerCode: readErrorCode(error),
+          errorName: error instanceof Error ? error.name : "unknown",
+        }));
+        throw error;
+      }
+
+      span.setAttribute(EMAIL_OUTCOME_ATTRIBUTE, outcome);
+      if (dedupeKey) {
+        await writeEmailSentMarker(dedupeKey);
+      }
+    },
+  });
+}
+
+function readErrorCode(error: unknown): string | null {
+  const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
+
+  return typeof code === "string" ? code : null;
+}
+
 function queueTransactionalEmail(payload: EmailSendJobPayload): Promise<void> {
-  return enqueueTransactionalEmail({ payload, durable: false });
+  return enqueueTransactionalEmail({ payload });
 }
 
 /**
- * `durable` saves a D1 job row before the send, so a queue outage cannot lose an email that
- * nothing asks for again; the cron sends the row (`scheduleJob`). The normal path sends once.
+ * `saved` sends a job row that a `save...Email` function wrote before: the row stays for the cron
+ * when the send fails (`sendPersistedJob`). The normal path sends once.
  */
 async function enqueueTransactionalEmail({
   payload,
-  durable,
+  saved,
 }: {
   payload: EmailSendJobPayload;
-  durable: boolean;
+  saved?: Pick<SavedEmail, "dedupeKey" | "runAt">;
 }): Promise<void> {
-  // The one gate every sender below passes through, so no template can miss it.
+  // Every send below passes this gate, so no template can miss it. A save without a send
+  // (`saveOrderConfirmationEmail`) checks local mode on its own.
   if (isLocalMode) {
     logTransactionalEmail(await renderTransactionalEmail(payload));
 
@@ -197,13 +260,13 @@ async function enqueueTransactionalEmail({
   }
 
   const { env } = await getCloudflareContext();
-  if (durable) {
-    await scheduleJob({
+  if (saved) {
+    await sendPersistedJob({
       queue: env.SCHEDULER_QUEUE,
       type: SCHEDULED_JOB_TYPES.EMAIL_SEND,
+      dedupeKey: saved.dedupeKey,
       payload,
-      runAt: new Date(),
-      durable: true,
+      runAt: saved.runAt,
     });
 
     return;
@@ -214,6 +277,11 @@ async function enqueueTransactionalEmail({
     payload,
     runAt: new Date(),
   }));
+}
+
+/** Sends an email that a `save...Email` function saved. Never rejects on a queue or D1 failure. */
+export async function sendSavedEmail({ dedupeKey, payload, runAt }: SavedEmail): Promise<void> {
+  await enqueueTransactionalEmail({ payload, saved: { dedupeKey, runAt } });
 }
 
 /** The call to action, grouped so a notice with nothing to click can omit all three at once. */
@@ -763,8 +831,12 @@ export async function sendPaymentStatusEmail({
   });
 }
 
-/** The EU order confirmation to the user who ordered, in that user's language. */
-export async function sendOrderConfirmationEmail({
+/**
+ * Saves the EU order confirmation to the user who ordered as a D1 job row, keyed by
+ * `dedupeKey`, and does not send it. Rejects when the insert fails. `sendSavedEmail` sends it.
+ */
+export async function saveOrderConfirmationEmail({
+  dedupeKey,
   email,
   username,
   teamName,
@@ -774,6 +846,7 @@ export async function sendOrderConfirmationEmail({
   withdrawal,
   locale = DEFAULT_LOCALE,
 }: {
+  dedupeKey: string;
   email: string;
   username: string;
   teamName: string;
@@ -783,10 +856,10 @@ export async function sendOrderConfirmationEmail({
   /** Null for a business or a customer outside the EU/EEA. `consent` is null without an immediate start. */
   withdrawal: { windowEndsAt: Date; consent: { at: Date; text: string } | null } | null;
   locale?: Locale;
-}): Promise<void> {
-  // The first activation is the only trigger, so a lost send is never retried: send durably.
-  await enqueueTransactionalEmail({
-    durable: true,
+}): Promise<SavedEmail> {
+  const saved: SavedEmail = {
+    dedupeKey,
+    runAt: new Date(),
     payload: {
       to: email,
       template: EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION,
@@ -805,7 +878,13 @@ export async function sendOrderConfirmationEmail({
           : null,
       },
     },
-  });
+  };
+  // Local mode has no cron to send a row, so `sendSavedEmail` only logs the email there.
+  if (!isLocalMode) {
+    await persistScheduledJob({ type: SCHEDULED_JOB_TYPES.EMAIL_SEND, ...saved });
+  }
+
+  return saved;
 }
 
 /** The EU withdrawal receipt to the user who withdrew. `refund.amount` is in minor units. */
@@ -844,5 +923,12 @@ export async function sendWithdrawalReceiptEmail({
 }
 
 type EmailTranslator = Awaited<ReturnType<typeof getEmailTranslator>>["t"];
+
+/** An email job row in D1 that no queue message has sent yet. */
+export interface SavedEmail {
+  dedupeKey: string;
+  payload: EmailSendJobPayload;
+  runAt: Date;
+}
 
 type OrderConfirmationPayload = Extract<EmailSendJobPayload, { template: typeof EMAIL_TEMPLATE_TYPES.ORDER_CONFIRMATION }>;

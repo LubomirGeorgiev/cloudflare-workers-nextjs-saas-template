@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { SYSTEM_ROLES_ENUM, TEAM_PERMISSIONS } from "@/constants/team-roles";
-import { LIMIT_SOURCES } from "@/constants/limit-overrides";
 
 const {
   requireTeamPermissionMock,
@@ -144,7 +143,10 @@ describe("getTeamMemberManagementData invitation gating", () => {
       used: 2,
       limit: getTeamRowEntitlements(sampleTeamRow).limits.seats,
       isFull: 2 >= getTeamRowEntitlements(sampleTeamRow).limits.seats,
-      ...pickNotice(selectSeatLimitCopy(LIMIT_SOURCES.PLAN)),
+      ...pickNotice(selectSeatLimitCopy({
+        entitlements: getTeamRowEntitlements(sampleTeamRow),
+        addons: {},
+      })),
     });
   });
 });

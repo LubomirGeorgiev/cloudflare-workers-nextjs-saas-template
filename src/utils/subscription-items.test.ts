@@ -105,6 +105,22 @@ describe("classifySubscriptionItems", () => {
     expect(resolvePlanItem(addonOnly)).toBeNull();
   });
 
+  // stripe-setup replaced the add-on price: the item keeps the old id, and its metadata still names the add-on.
+  test("an add-on item on a replaced price still counts as the add-on", async () => {
+    const { addonQuantitiesFromItems, classifySubscriptionItems } = await import("./subscription-items");
+    const oldPriceItem = {
+      id: "si_old",
+      price: { id: "price_addon_old", metadata: { template_addon_id: "extra-seats" } },
+      quantity: 3,
+    } as unknown as Stripe.SubscriptionItem;
+
+    const classified = classifySubscriptionItems(fakeSubscription([fakeItem("si_plan", PLAN_PRICE_ID), oldPriceItem]));
+
+    expect(classified.addonItems.map(({ item }) => item.id)).toEqual(["si_old"]);
+    expect(classified.unknownItems).toEqual([]);
+    expect(addonQuantitiesFromItems(classified)).toEqual({ "extra-seats": 3 });
+  });
+
   test("addonQuantitiesFromItems mirrors item quantities, defaulting a missing one to 1", async () => {
     const { classifySubscriptionItems, addonQuantitiesFromItems } = await import("./subscription-items");
 

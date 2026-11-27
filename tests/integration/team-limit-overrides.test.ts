@@ -42,6 +42,8 @@ import { loadTeamLimitOverrides, setTeamLimitOverridesAsStaff } from "@/lib/admi
 import { inviteUserToTeam } from "@/lib/teams/team-invite";
 import { getTeamMemberManagementData } from "@/lib/teams/team-members";
 import { selectSeatLimitCopy } from "@/lib/teams/team-seats";
+import { toStoredLimitOverrides } from "@/schemas/limit-overrides.schema";
+import { getTeamEntitlements, selectLimitSource } from "@/utils/entitlements";
 import { normalizeEmail } from "@/lib/validation";
 
 const db = getDB();
@@ -203,7 +205,14 @@ describe("the seat limit copy", () => {
   ])("the $name refusal and notice use the $source copy", async ({ overrides, hideFromCustomer, source }) => {
     const teamId = await seedTeam({ extraMembers: (overrides.seats ?? FREE_LIMITS.seats) - 1 });
     await setOverrides({ teamId, overrides, hideFromCustomer });
-    const copy = selectSeatLimitCopy(source);
+    // The seeded team is on the Free plan, which is always active, and holds no add-ons.
+    const entitlements = getTeamEntitlements({
+      planId: DEFAULT_PLAN_ID,
+      subscriptionStatus: null,
+      limitOverrides: toStoredLimitOverrides({ limits: overrides, hideFromCustomer }),
+    });
+    expect(selectLimitSource({ entitlements, key: "seats" })).toBe(source);
+    const copy = selectSeatLimitCopy({ entitlements, addons: {} });
 
     const refused = await refusal(invite(teamId));
     expect(refused.messageKey).toBe(copy.refusalKey);

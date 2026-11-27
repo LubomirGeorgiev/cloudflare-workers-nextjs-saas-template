@@ -23,6 +23,8 @@ export const APP_KV_PREFIXES = {
   // dies. See `src/utils/password-reset-token.ts`.
   passwordResetGeneration: "password-reset-gen:",
   emailVerification: "email-verification:",
+  // Marks an email job row that was sent, keyed by its dedupe key. See `src/utils/email-sent-marker.ts`.
+  emailSent: "email-sent:",
   apiKey: "apikey:",
   oauthGrant: "oauthgrant:",
   // Per-user invalidation stamp for `oauthgrant:` snapshots. API-key snapshots cannot use one:

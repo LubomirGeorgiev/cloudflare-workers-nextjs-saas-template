@@ -168,7 +168,8 @@ function getErrorHintKey(error: { code: string; reason?: string }) {
     return "errorExpiredOrRevoked";
   }
 
-  // verify-email.client.tsx has no return path to this page, so the user must open the link again.
+  // The verification email can come from a flow without a `returnTo` (see `sendUserVerificationEmail`),
+  // so the hint also tells the user to open the invitation link again.
   if (error.reason === EMAIL_VERIFICATION_REQUIRED_ERROR_KEY) {
     return "errorVerifyEmailFirst";
   }

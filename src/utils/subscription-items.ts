@@ -2,7 +2,7 @@ import "server-only";
 
 import type Stripe from "stripe";
 
-import { resolveSubscriptionPriceId } from "@/utils/plan-prices";
+import { resolveSubscriptionPrice } from "@/utils/plan-prices";
 import type { TeamPlanId } from "@/constants/plans";
 import type { TeamAddonId, TeamAddonQuantities } from "@/constants/addons";
 
@@ -18,8 +18,8 @@ export interface ClassifiedSubscriptionItems {
   planItem: Stripe.SubscriptionItem | null;
   planId: TeamPlanId | null;
   addonItems: ClassifiedAddonItem[];
-  // Items whose price resolves to neither a plan nor an add-on: rotated price envs, or
-  // items added outside the app. Callers should log these — never silently drop them.
+  // Items whose price resolves to neither a plan nor an add-on (`resolveSubscriptionPrice`): items
+  // added outside the app, or old prices without metadata. Callers log these, never drop them.
   unknownItems: Stripe.SubscriptionItem[];
 }
 
@@ -35,7 +35,7 @@ export function classifySubscriptionItems(subscription: Stripe.Subscription): Cl
   };
 
   for (const item of subscription.items?.data ?? []) {
-    const resolved = resolveSubscriptionPriceId(item.price?.id);
+    const resolved = resolveSubscriptionPrice(item.price);
 
     if (resolved?.kind === "plan" && !classified.planItem) {
       classified.planItem = item;

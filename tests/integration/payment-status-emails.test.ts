@@ -74,11 +74,13 @@ async function seedMember({
   userId,
   roleId,
   isActive = 1,
+  expiresAt = null,
   preferredLocale = null,
 }: {
   userId: string;
   roleId: string;
   isActive?: number;
+  expiresAt?: Date | null;
   preferredLocale?: Locale | null;
 }): Promise<void> {
   await db.insert(userTable).values({ id: userId, email: `${userId}@example.com`, firstName: userId, preferredLocale });
@@ -89,10 +91,11 @@ async function seedMember({
     roleId,
     isSystemRole: 1,
     isActive,
+    expiresAt,
   });
 }
 
-// Two active owners get the notice. A plain member and a removed owner do not.
+// Two active owners get the notice. A plain member, a removed owner, and an expired owner do not.
 async function seedTeam(): Promise<void> {
   await db.insert(teamTable).values({ id: TEAM_ID, name: "Acme", slug: TEAM_ID, subscriptionPlanId: PAID_PLAN_ID });
   await claimTeamSubscription({ teamId: TEAM_ID, subscriptionId: SUBSCRIPTION_ID });
@@ -100,6 +103,7 @@ async function seedTeam(): Promise<void> {
   await seedMember({ userId: "owner_b", roleId: SYSTEM_ROLES_ENUM.OWNER, preferredLocale: OWNER_LOCALE });
   await seedMember({ userId: "member_c", roleId: SYSTEM_ROLES_ENUM.MEMBER });
   await seedMember({ userId: "owner_d", roleId: SYSTEM_ROLES_ENUM.OWNER, isActive: 0 });
+  await seedMember({ userId: "owner_e", roleId: SYSTEM_ROLES_ENUM.OWNER, expiresAt: new Date(Date.now() - 60_000) });
 }
 
 function makeSubscription({

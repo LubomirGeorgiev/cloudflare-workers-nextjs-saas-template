@@ -15,7 +15,8 @@ import { AddonCards } from "./_components/addon-cards";
 import { CustomerPortalButton } from "./_components/customer-portal-button";
 import { CustomLimitsCard } from "./_components/custom-limits-card";
 import { WithdrawalCard } from "./_components/withdrawal-card";
-import { getTeamEntitlements } from "@/utils/entitlements";
+import { getTeamEntitlements, isAddonIncreaseBlocked } from "@/utils/entitlements";
+import { TEAM_ADDON_IDS } from "@/constants/addons";
 
 interface BillingPageProps {
   params: Promise<{ teamSlug: string }>;
@@ -75,6 +76,13 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
     EU_WITHDRAWAL_ENABLED && canManage ? getWithdrawalOffer(team.id) : null,
     getLocale(),
   ]);
+  const entitlements = getTeamEntitlements({
+    planId: subscription.planId,
+    subscriptionStatus: subscription.status,
+    planExpiresAt: subscription.planExpiresAt,
+    addons: subscription.addons,
+    limitOverrides: subscription.limitOverrides,
+  });
 
   return (
     <>
@@ -94,6 +102,7 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
         {withdrawalOffer && session.user.email && (
           <WithdrawalCard
             teamId={team.id}
+            subscriptionId={withdrawalOffer.subscriptionId}
             name={withdrawalSignerName({
               firstName: session.user.firstName,
               lastName: session.user.lastName,
@@ -124,19 +133,15 @@ export default async function TeamBillingPage({ params }: BillingPageProps) {
         </NuqsAdapter>
 
         {/* Only the overrides in effect now, and none when staff hide them from the customer. */}
-        <CustomLimitsCard
-          overrides={getTeamEntitlements({
-            planId: subscription.planId,
-            subscriptionStatus: subscription.status,
-            planExpiresAt: subscription.planExpiresAt,
-            addons: subscription.addons,
-            limitOverrides: subscription.limitOverrides,
-          }).customerLimitOverrides}
-        />
+        <CustomLimitsCard overrides={entitlements.customerLimitOverrides} />
 
         <AddonCards
           teamId={team.id}
           addons={subscription.addons}
+          increaseBlockedAddonIds={TEAM_ADDON_IDS.filter((addonId) => isAddonIncreaseBlocked({
+            addonId,
+            appliedLimitOverrides: entitlements.appliedLimitOverrides,
+          }))}
           currentInterval={subscription.interval}
           status={subscription.status}
           cancelAtPeriodEnd={subscription.cancelAtPeriodEnd}
